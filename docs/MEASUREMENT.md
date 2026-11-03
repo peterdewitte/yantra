@@ -48,9 +48,18 @@ thread count.
 
 ## Measurements
 
-- **Level** (RAD-111): mean power of the channel after a Kaiser lowpass
-  (14 kHz cutoff, 5 kHz transition, 60 dB) on the 72 kHz channel, over the
-  record interval, in dBFS (0 dBFS = a full-scale complex tone, power 1).
+- **Level** (RAD-111, RAD-112): the carrier's power over the record
+  interval, in dBFS (0 dBFS = a full-scale complex tone, power 1): the
+  72 kHz channel is moved to the carrier by the demodulator's frequency
+  estimate (while it is locked) and filtered by a root-raised-cosine
+  filter matched to the TETRA pulse (roll-off 0.35, 24 symbols, unit gain
+  at the centre); the mean power is divided by the share of a TETRA
+  carrier the filter passes (0.914). So the whole carrier is measured,
+  also 3 kHz off its channel, and a carrier 25 kHz away is rejected by
+  about 70 dB (RAD-124: a neighbour 40 dB stronger changes the level by
+  less than 0.1 dB). Noise alone reads as the power in the filter's
+  19.7 kHz noise bandwidth. Linearity: +/-0.5 dB from -5 to -100 dBFS
+  (RAD-125, [ROBUSTNESS.md](ROBUSTNESS.md)).
   With a calibration the offset is added and the unit is dBm. The step
   response is one interval plus the channel filters' delay (a few ms).
 - **Quality** (RAD-113): the decoder's last quality window (its length is

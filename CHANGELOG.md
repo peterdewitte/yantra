@@ -189,3 +189,13 @@ The first version (tag v0.1.0 when released).
   tests/fixtures/real/<radio>/NAME.{sigmf-data,sigmf-meta,expected.json},
   checked by the ctest real_fixtures (yantra-check-fixtures through
   decode-iq); real_fixtures_selftest checks it on a yantra-gen recording.
+- Real-world robustness checklist (RAD-124, docs/ROBUSTNESS.md) with the
+  end-to-end tests of tests/robustness (radio, air, transmitter and
+  program impairments through the measurement engine) and the level
+  linearity tests (RAD-125: +/-0.5 dB from -5 to -100 dBFS, 1 Hz records
+  without gaps over long runs).
+- Level meter (RAD-112): RRC filter matched to the TETRA pulse on the
+  carrier centred by the demodulator's estimate, instead of a 14 kHz
+  Kaiser low-pass that let a carrier 25 kHz away through at -28 dB (a
+  neighbour 40 dB stronger read 11.6 dB high). Noise alone now reads in
+  a 19.7 kHz noise bandwidth.

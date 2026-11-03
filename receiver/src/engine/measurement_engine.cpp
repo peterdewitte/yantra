@@ -4,11 +4,13 @@
 #include "yantra/receiver/measurement_engine.hpp"
 
 #include "yantra/receiver/fir.hpp"
+#include "yantra/receiver/nco.hpp"
 #include "yantra/receiver/tetra_params.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <complex>
 #include <condition_variable>
 #include <map>
 #include <mutex>
@@ -25,11 +27,51 @@ using radios::value_uint;
 
 namespace {
 
-/// Level meter filter on the 72 kHz channel: the 25 kHz channel
-/// (+/-12.5 kHz) with the neighbours' edges suppressed.
-constexpr double kLevelCutoffHz = 14000.0;
-constexpr double kLevelTransitionHz = 5000.0;
-constexpr double kLevelAttenDb = 60.0;
+/// Level meter filter on the 72 kHz channel (RAD-112, RAD-124, RAD-125):
+/// an RRC filter matched to the TETRA pulse (roll-off 0.35, 24 symbols),
+/// unit gain at its centre, applied after moving the carrier to the
+/// channel centre by the demodulator's frequency estimate. It passes the
+/// whole carrier (the measured power is divided by the carrier's known
+/// share, rrc_level_gain()) and rejects a carrier 25 kHz away by about
+/// 70 dB; the Kaiser low-pass used before let 28 dB through, so a
+/// neighbour 40 dB stronger read 11.6 dB too high. Noise alone is
+/// measured in the filter's noise bandwidth (about 19.7 kHz).
+constexpr int kLevelSpanSymbols = 24;
+
+std::vector<float> level_taps()
+{
+    std::vector<float> h = rrc_taps(kRollOff, kSamplesPerSymbol, kLevelSpanSymbols);
+    double sum = 0.0;
+    for (float v : h)
+        sum += v;
+    for (float& v : h)
+        v = static_cast<float>(v / sum);
+    return h;
+}
+
+/// Share of a TETRA carrier's power (raised-cosine spectrum) that the
+/// level filter passes when centred: integral of P(f) |H(f)|^2 over the
+/// integral of P(f) (about 0.914).
+double rrc_level_gain(const std::vector<float>& h)
+{
+    const double lo = (1.0 - kRollOff) * kSymbolRateHz / 2.0;
+    const double hi = (1.0 + kRollOff) * kSymbolRateHz / 2.0;
+    const double pi = 3.14159265358979323846;
+    double num = 0.0;
+    double den = 0.0;
+    constexpr int kSteps = 4000;
+    for (int i = 0; i <= kSteps; ++i) {
+        const double f = -hi + 2.0 * hi * i / kSteps;
+        const double a = std::fabs(f);
+        const double p = a <= lo ? 1.0 : 0.5 * (1.0 + std::cos(pi / (kRollOff * kSymbolRateHz) * (a - lo)));
+        std::complex<double> resp{0.0, 0.0};
+        for (std::size_t k = 0; k < h.size(); ++k)
+            resp += static_cast<double>(h[k]) * std::polar(1.0, -2.0 * pi * f * static_cast<double>(k) / kChannelRateHz);
+        num += p * std::norm(resp);
+        den += p;
+    }
+    return num / den;
+}
 
 /// A carrier's frequency matches a neighbour's downlink within this.
 constexpr double kMatchHz = 3000.0;
@@ -68,7 +110,9 @@ class MeasurementEngine::Handler final : public CarrierHandler {
 public:
     Handler(const CarrierDecoderConfig& config, Isa isa, std::shared_ptr<Gsmtap> gsmtap)
         : dec_(config),
-          level_(kaiser_lowpass(kLevelCutoffHz, kLevelTransitionHz, kLevelAttenDb, kChannelRateHz), 1, isa),
+          level_(level_taps(), 1, isa),
+          level_gain_(rrc_level_gain(level_taps())),
+          nco_(0.0, kChannelRateHz, isa),
           warm_(level_.taps()),
           gsmtap_(std::move(gsmtap))
     {
@@ -104,8 +148,14 @@ public:
         }
         if (!out_.quality.empty())
             quality_ = out_.quality.back();
+        // The carrier to the channel centre by the demodulator's estimate
+        // (no shift while it is not locked).
+        const DemodStatus& st = dec_.demod_status();
+        nco_.set_frequency(st.locked ? -st.frequency_offset_hz : 0.0);
+        centred_.resize(n);
+        nco_.mix(x, centred_.data(), n);
         filtered_.clear();
-        level_.process(x, n, filtered_);
+        level_.process(centred_.data(), n, filtered_);
         for (const cf& v : filtered_) {
             if (warm_ > 0) {
                 --warm_;
@@ -122,7 +172,7 @@ public:
     {
         if (count_ == 0)
             return std::nullopt;
-        const double v = db(power_ / static_cast<double>(count_));
+        const double v = db(power_ / static_cast<double>(count_) / level_gain_);
         power_ = 0.0;
         count_ = 0;
         return v;
@@ -171,6 +221,9 @@ private:
     Observation obs_;
     std::optional<QualityReport> quality_;
     FirFilter level_;
+    double level_gain_;
+    Nco nco_;
+    std::vector<cf> centred_;
     std::vector<cf> filtered_;
     std::size_t warm_;
     double power_ = 0.0;
