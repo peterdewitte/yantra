@@ -35,7 +35,7 @@ version, source and checksum are filled in when they are added.
 
 | Component | Licence | Used for | How it is obtained |
 |-----------|---------|----------|--------------------|
-| doctest | MIT | unit tests | *planned* |
+| doctest 2.4.12 | MIT | unit tests (Yantra TST-01) | vendored single header in `third_party/doctest/` from the v2.4.12 release archive (SHA-256 73381c7aa4dee704bd935609668cf41880ea7f19fa0504a200e13b74999c2d70), unchanged |
 
 ## Build and test tools (never linked)
 
