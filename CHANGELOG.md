@@ -205,3 +205,24 @@ The first version (tag v0.1.0 when released).
   quick tier per scenario under the ctest label `sens` (sens-quick
   workflow), full tier `sens_full` (labels slow, release), baselines in
   tests/sens/baseline.
+- Simulator radio plugin `simulator` (RAD-61), shown as "Demo (simulated
+  network)", with SIMULATED and SCENE: the generator's scenario engine
+  makes IQ inside the plugin and the same measurement engine decodes it.
+  The scenario comes from the example id of the plan shown (RAD-18) or a
+  setting; levels follow the multi-wall model (RAD-73) at the cursor,
+  walk or a fixed position, records carry `sim_position`; scene changes
+  reload; without plan or position the scenario levels are used. Device
+  settings, presets, sensors, self-test, practice calibration (a
+  generator at a known level, true offset as a sensor), MS maximum power
+  for C1 (default 30 dBm), real-time pacing with playback speed, and
+  OVERFLOW/DROPPED when the sink is slow (RAD-24, RAD-25). The bundled
+  scenarios are embedded in the plugin. Tests through the test host's
+  emulated context callbacks (RAD-94).
+- Shared TETRA plugin glue `yantra::tetra_plugin` (plugins/tetra_common):
+  schema table, plan checks, record delivery counters, C1 with a known
+  calibration, setting helpers and the GSMTAP settings, for the
+  simulator and the SoapySDR plugins.
+- `EngineConfig::playback_speed`: record times run this many times faster
+  than the signal (the simulator's playback speed).
+- `gen::parse_scenario(text, reader)`: scene files from a reader (the
+  simulator's embedded scenarios).

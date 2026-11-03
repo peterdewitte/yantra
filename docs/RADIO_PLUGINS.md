@@ -824,6 +824,81 @@ floor id and the plan position the record was simulated at.
 The radio test host emulates these callbacks (`yantra-radio-host stream
 --scene FILE --cursor X,Y;... --walk X,Y;... --path-step N`).
 
+## The simulator plugin (RAD-61)
+
+`plugins/simulator` builds `simulator.so`, shown as "Demo (simulated
+network)" with `YR_CAP_SIMULATED` and `YR_CAP_SCENE`. It needs no radio:
+inside the plugin the generator's scenario engine (`yantra::gen`, RAD-74)
+makes the IQ samples of a simulated TETRA network and the same
+`MeasurementEngine` as the SoapySDR plugins decodes them (docs/MEASUREMENT.md).
+Like every plugin it gives Yantra records only. It is also the second
+worked example after the beacon: a SCENE plugin with a stream thread,
+live settings and context events.
+
+Which scenario runs. The setting `scenario` is "auto" by default: the
+plugin asks `get_floor_plan` and picks the scenario whose `example_ids`
+match the example id of the plan shown (data/scenarios,
+docs/SCENARIO_FORMAT.md); with an own plan it uses the default scenario
+plus the cells of the plan's scene; without a plan (`YR_ERR_NO_PLAN`) the
+default scenario. Any bundled scenario can also be chosen by name. The
+scenario files are embedded in the plugin, so it needs no data folder.
+
+Where the receiver is. Each record interval the plugin reads the position
+(setting `position_source`: auto takes the walk position when a walk
+runs, else the mouse cursor; or mouse, walk or a fixed point). With a
+position, the levels come from the multi-wall model (RAD-73,
+docs/CHANNEL_MODEL.md) on the scene of the floor (`get_scene`), and each
+record has the `sim_position` group with the floor id and the point.
+Without one (`YR_ERR_NO_POSITION`) the scenario's own levels are used and
+records carry no `sim_position`. `SCENE_CHANGED` reloads the scene,
+`CURSOR_MOVED` and `WALK_POSITION` move the receiver from the next
+interval (within 1 s), `PLAN_CHANGED` rebuilds the scenario. The context
+events only set a flag; the stream thread asks the host again.
+
+Levels and calibration. The plugin is not SELF_CALIBRATED: levels are
+dBFS, as from a real radio, and dBm = dBFS + offset. The true offset is
+the scenario receiver's reference level minus the setting `gain_db`
+(-20 dB with the bundled scenarios and gain 0); the sensor
+`true_offset_db` shows it. For practice, `calibration_generator` replaces
+the network by one carrier at `calibration_level_dbm`, so Yantra's
+calibration (RF-02) can be tried: generator level minus the measured
+level gives the true offset.
+
+C1 (EN 300 392-2 clause 23.3) uses the decoded level with the true
+offset, the broadcast `rxlev_access_min` and `ms_txpwr_max_cell`, and the
+MS maximum power, the device setting `ms_max_power_dbm` (default 30 dBm:
+a power class 4 hand-held, 1 W; a class 2 vehicle radio is 10 W, 40 dBm).
+
+Other settings: network (the scenario's, the test network 001-01 or the
+fictitious 901-99), playback speed (record times run as fast), records
+per second, seed (0: the scenario's; the same seed gives the same
+output), sample rate, signal offset, receiver noise (the scenario's, off
+or a custom noise floor), oscillator error, fading, gain, clipping,
+receiver threads and the device buffer, and the GSMTAP settings
+(RAD-115). Presets: default, weak signal, noisy receiver, overload, fast
+playback. Sensors show the scenario, what is simulated, floor, position,
+true and estimated levels, noise floor, clipped samples, generator state,
+signal time, receiver load and the true offset. The action
+`inject_fault` simulates a noisy receiver (20 dB more noise) until
+`clear_fault`. The self-test checks the scenarios, a loopback (the
+generator at -70 dBm decoded) and the context callbacks.
+
+Real time. The stream thread paces itself to the signal time divided by
+the playback speed. When the host takes records more slowly than that
+and the backlog exceeds `device_buffer_s`, the plugin drops the samples
+as a real device would: it sends `YR_EVENT_OVERFLOW` and
+`YR_EVENT_DROPPED` (the samples lost), the receiver is told of the
+discontinuity, and the stream goes on. `stop` and `start` pause and
+resume it.
+
+The tests (`tests/simulator`, RAD-94) run the plugin through the test
+host's emulated context callbacks: levels within 0.5 dB of the multi-wall
+formula at each record's `sim_position`, a cursor move followed within
+1 s, a scene change reloaded, the fallbacks without plan or position,
+ground truth (identity, neighbours, C1), each example id's scenario,
+seeds, real-time pacing within 1 % (label timing), the practice
+calibration, the slow sink and pause/resume.
+
 ## The conformance kit
 
 `yantra-radio-host conformance --plugin FILE` (RAD-91) runs every check of

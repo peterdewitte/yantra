@@ -94,7 +94,8 @@ outputs. `cmake --install build` installs it with the scenarios.
 
 - [docs/RADIO_PLUGINS.md](docs/RADIO_PLUGINS.md): writing a radio plugin,
   a tutorial with the example plugin `plugins/beacon` (RAD-64), settings
-  as data, the record schemas and the conformance kit.
+  as data, the record schemas, the conformance kit and the simulator
+  plugin (RAD-61).
 - The radio API reference: `ninja -C build docs-radio-api` (Doxygen) into
   `build/docs/radio-api/html`.
 - [docs/YANTRA_GEN.md](docs/YANTRA_GEN.md) the yantra-gen command and its
