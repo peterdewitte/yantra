@@ -53,3 +53,19 @@ path = ["third_party/pocketfft/pocketfft_hdronly.h", "third_party/pocketfft/LICE
 precedence = "override"
 SPDX-FileCopyrightText = ["2010-2024 Max-Planck-Society", "The pocketfft authors (see the header of pocketfft_hdronly.h)"]
 SPDX-License-Identifier = "BSD-3-Clause"
+
+# talloc 2.4.3 (LGPL-3.0-or-later), vendored subset, unchanged (RAD-136).
+[[annotations]]
+path = ["third_party/talloc/talloc.c", "third_party/talloc/talloc.h", "third_party/talloc/LICENSE", "third_party/talloc/lib/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "The talloc authors (see the file headers of the talloc 2.4.3 release)"
+SPDX-License-Identifier = "LGPL-3.0-or-later"
+
+# libosmocore 1.11.0 (GPL-2.0-or-later), vendored subset, unchanged
+# (RAD-136).
+[[annotations]]
+path = ["third_party/libosmocore/COPYING", "third_party/libosmocore/src/**", "third_party/libosmocore/include/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "The libosmocore authors (see the file headers and debian/copyright of the libosmocore 1.11.0 release)"
+SPDX-License-Identifier = "GPL-2.0-or-later"
+

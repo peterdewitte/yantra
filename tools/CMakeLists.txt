@@ -3,11 +3,13 @@
 #
 # tools/: yantra-gen (RAD-71), yantra-radio-host (RAD-91) and yantra-hackrf
 # (RAD-66), one folder each; tools/deps/ holds the static dependency
-# builds (RAD-136) and tools/ci/ the CI scripts (RAD-134), neither is a
-# CMake target.
+# builds (RAD-136; its own CMake project, included by the top level as
+# tools/deps/deps.cmake) and tools/ci/ the CI scripts (RAD-134).
 file(GLOB _children RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*)
 foreach(_child ${_children})
-  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${_child}/CMakeLists.txt)
+  # deps/ is its own project (build_deps.sh); the main build includes
+  # tools/deps/deps.cmake instead.
+  if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${_child}/CMakeLists.txt AND NOT _child STREQUAL "deps")
     add_subdirectory(${_child})
   endif()
 endforeach()

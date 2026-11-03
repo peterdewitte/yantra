@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Bundled libraries (RAD-132, RAD-136): one line per library compiled
+# into the plugins, tab-separated: name, version, licence (SPDX), pinned
+# folder, upstream release archive and its SHA-256 ("-" for a git
+# submodule or a vendored git commit, whose README or .gitmodules has the
+# pin). deps.cmake builds talloc and libosmocore; the others are compiled
+# from their folders by the project. tools/deps/verify_sources.sh checks
+# that every vendored file of an archive row is byte-identical to the file
+# in that archive. The name, version and licence columns are the
+# dependency manifest the artefacts embed.
+# name	version	licence	folder	archive	sha256
+talloc	2.4.3	LGPL-3.0-or-later	third_party/talloc	https://www.samba.org/ftp/talloc/talloc-2.4.3.tar.gz	dc46c40b9f46bb34dd97fe41f548b0e8b247b77a918576733c528e83abd854dd
+libosmocore	1.11.0	GPL-2.0-or-later	third_party/libosmocore	https://downloads.osmocom.org/releases/libosmocore/libosmocore-1.11.0.tar.bz2	8e8dbf5e7d6d705aa34461a4ab3a0bd57f6961582cef95a1aafef3c74604c6dc
+osmo-tetra	59fb603	AGPL-3.0-or-later	third_party/osmo-tetra	-	-
+pocketfft	4d865cb	BSD-3-Clause	third_party/pocketfft	-	-
+nlohmann-json	3.12.0	MIT	third_party/nlohmann_json	-	-

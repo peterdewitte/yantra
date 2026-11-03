@@ -31,6 +31,9 @@ set(YANTRA_RADIOS_SOURCE_URL "https://github.com/peterdewitte/yantra-radio-plugi
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(YantraWarnings)
 include(YantraSanitizers)
+# Bundled C libraries built statically from third_party/ (RAD-136), then
+# the osmo-tetra lower layers on them (RAD-101).
+include(${CMAKE_CURRENT_SOURCE_DIR}/tools/deps/deps.cmake)
 include(OsmoTetra)
 include(YantraRadioPlugin)
 

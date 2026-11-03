@@ -14,7 +14,7 @@ shift || true
 # All cores (owner, 2026-11-03: the build machine is the build's).
 jobs=$(nproc)
 tools/deps/build_deps.sh "$build/deps"
-cmake -S . -B "$build" -G Ninja -DYANTRA_WERROR=ON "$@"
+cmake -S . -B "$build" -G Ninja -DYANTRA_WERROR=ON -DYANTRA_DEPS_PREFIX="$(cd "$build/deps" && pwd)" "$@"
 cmake --build "$build" -j "$jobs"
 ctest --test-dir "$build" -LE "slow|timing" --timeout 600 --output-on-failure -j "$jobs"
 ctest --test-dir "$build" -L timing -LE slow --timeout 600 --repeat until-pass:2 --output-on-failure

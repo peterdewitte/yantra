@@ -17,7 +17,21 @@
 # Copied from yantra 68ea20a: core/dsp, plugins/tetra/rx and
 # plugins/tetra/decoder burst_sync (namespace yantra::receiver).
 
+# The dependency manifest (RAD-136) as compiled-in data.
+yantra_deps_manifest(_deps)
+set(YANTRA_DEPS_ENTRIES "")
+foreach(_entry IN LISTS _deps)
+  string(REPLACE "|" ";" _f "${_entry}")
+  list(GET _f 0 _name)
+  list(GET _f 1 _version)
+  list(GET _f 2 _licence)
+  string(APPEND YANTRA_DEPS_ENTRIES "    {\"${_name}\", \"${_version}\", \"${_licence}\"},\n")
+endforeach()
+configure_file(src/dependencies.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/dependencies.cpp @ONLY)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${YANTRA_DEPS_DIR}/manifest.tsv)
+
 add_library(yantra_receiver STATIC
+  ${CMAKE_CURRENT_BINARY_DIR}/dependencies.cpp
   src/burst_sync.cpp
   src/channelizer.cpp
   src/fft.cpp
