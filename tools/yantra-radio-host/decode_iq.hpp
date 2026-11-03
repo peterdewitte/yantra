@@ -34,6 +34,10 @@ struct DecodeIqOptions {
     /// extension (yantra-gen), none for raw files.
     std::optional<double> full_scale_dbm;
     bool uncalibrated = false;  ///< ignore the SigMF calibration
+    /// GSMTAP copy of the decoded broadcast blocks to this numeric address
+    /// (RAD-115; empty = off) and UDP port.
+    std::string gsmtap_host;
+    uint16_t gsmtap_port = 4729;
 };
 
 struct DecodeIqResult {
@@ -44,6 +48,7 @@ struct DecodeIqResult {
     std::size_t segments = 0;     ///< capture segments (drops = segments - 1)
     uint64_t clipped_blocks = 0;  ///< blocks with an integer sample at full scale
     double load = 0.0;            ///< processing time / signal time
+    uint64_t gsmtap_sent = 0;     ///< GSMTAP datagrams sent (RAD-115)
     std::size_t carriers = 0;     ///< carriers at the end
     std::size_t synced = 0;       ///< of those, synchronised
     bool calibrated = false;

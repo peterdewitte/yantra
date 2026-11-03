@@ -19,6 +19,11 @@
 
 #include <yantra/radios/record_file.hpp>
 
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
@@ -309,6 +314,54 @@ TEST_CASE("decode-iq: impairments: LO and clock error, IQ imbalance, DC, sample 
     CHECK(c.frequencies.size() == 2);
     // Each drop restarts the carriers: two more SYNC_FOUND per carrier.
     CHECK(dec.events(YR_EVENT_SYNC_FOUND).size() >= 4);
+}
+
+TEST_CASE("decode-iq: --gsmtap sends the broadcast blocks to a UDP port (RAD-115)")
+{
+    // A receiver on an ephemeral loopback port, closed at the end.
+    const int rx = ::socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+    REQUIRE(rx >= 0);
+    sockaddr_in a{};
+    a.sin_family = AF_INET;
+    a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    REQUIRE(::bind(rx, reinterpret_cast<sockaddr*>(&a), sizeof a) == 0);
+    socklen_t alen = sizeof a;
+    REQUIRE(::getsockname(rx, reinterpret_cast<sockaddr*>(&a), &alen) == 0);
+
+    TempDir d("gsmtap");
+    const std::string data = d.file("x.sigmf-data");
+    generate({"--cell", "id=A,carrier=3600,la=10,cc=5,number=1,level=-60", "--mcc", "901", "--mnc", "77", "--seed",
+              "3", "--duration", "1.5", "--format", "cs16", "--out", data});
+    DecodeIqOptions o;
+    o.iq = data;
+    o.format = "sigmf";
+    o.out = "";
+    o.gsmtap_host = "127.0.0.1";
+    o.gsmtap_port = ntohs(a.sin_port);
+    DecodeIqResult r;
+    std::string error;
+    const bool ok = decode_iq(o, r, error);
+    // The whole run is queued at the socket (up to its buffer): read it.
+    std::size_t got = 0;
+    bool headers_ok = true;
+    for (;;) {
+        uint8_t buf[512];
+        const ssize_t n = ::recv(rx, buf, sizeof buf, MSG_DONTWAIT);
+        if (n < 0)
+            break;
+        ++got;
+        headers_ok = headers_ok && n > 16 && buf[0] == 2 && buf[2] == 0x05;
+    }
+    ::close(rx);
+    REQUIRE_MESSAGE(ok, error);
+    CHECK(r.gsmtap_sent > 0);
+    CHECK(got > 0);
+    CHECK(got <= r.gsmtap_sent);
+    CHECK(headers_ok);
+
+    o.gsmtap_host = "localhost";  // names are never looked up
+    CHECK_FALSE(decode_iq(o, r, error));
+    CHECK(error.find("numeric") != std::string::npos);
 }
 
 TEST_CASE("decode-iq: file and option errors")

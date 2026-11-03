@@ -54,14 +54,28 @@ int neighbour_tx_dbm(uint8_t code) { return code == 0 ? 0 : 15 + 5 * (code - 1);
 
 }  // namespace
 
-/// One carrier: its CarrierDecoder plus the level meter.
+/// The GSMTAP output shared by the carriers (RAD-115): one socket, totals.
+struct MeasurementEngine::Gsmtap {
+    explicit Gsmtap(const GsmtapOptions& o) : socket(o.host, o.port) {}
+    GsmtapSocket socket;
+    std::mutex m;
+    GsmtapCounters totals;
+};
+
+/// One carrier: its CarrierDecoder plus the level meter (and the GSMTAP
+/// filter when that output is on).
 class MeasurementEngine::Handler final : public CarrierHandler {
 public:
-    Handler(const CarrierDecoderConfig& config, Isa isa)
+    Handler(const CarrierDecoderConfig& config, Isa isa, std::shared_ptr<Gsmtap> gsmtap)
         : dec_(config),
           level_(kaiser_lowpass(kLevelCutoffHz, kLevelTransitionHz, kLevelAttenDb, kChannelRateHz), 1, isa),
-          warm_(level_.taps())
+          warm_(level_.taps()),
+          gsmtap_(std::move(gsmtap))
     {
+        if (gsmtap_) {
+            Gsmtap* g = gsmtap_.get();
+            filter_ = std::make_unique<GsmtapFilter>([g](const std::vector<uint8_t>& d) { g->socket.send(d); });
+        }
     }
 
     void process(const cf* x, std::size_t n) override
@@ -72,6 +86,8 @@ public:
             ++obs_.slots;
             obs_.slots_found += s.found ? 1 : 0;
         }
+        if (filter_)
+            to_gsmtap();
         if (!out_.cells.empty()) {
             const CellInfo& c = out_.cells.back().cell;
             CellIdentity id;
@@ -125,6 +141,31 @@ public:
     const CarrierDecoder& decoder() const { return dec_; }
 
 private:
+    void to_gsmtap()
+    {
+        const auto& cell = dec_.cell();
+        const uint16_t arfcn = cell ? cell->sysinfo.main_carrier : 0;
+        if (dec_.restarts() != restarts_) {
+            restarts_ = dec_.restarts();
+            filter_->reset();
+        }
+        for (const DecodedSlot& s : out_.slots) {
+            if (s.found)
+                filter_->slot(s.result, arfcn);
+            if (s.lost)
+                filter_->reset();  // a missed slot alone is caught by the reassembly
+        }
+        const GsmtapCounters now = filter_->counters();
+        GsmtapCounters d;
+        d.sent = now.sent - reported_.sent;
+        d.filtered = now.filtered - reported_.filtered;
+        d.encrypted = now.encrypted - reported_.encrypted;
+        d.dropped = now.dropped - reported_.dropped;
+        reported_ = now;
+        std::lock_guard<std::mutex> lk(gsmtap_->m);
+        gsmtap_->totals += d;
+    }
+
     CarrierDecoder dec_;
     DecoderOutput out_;
     Observation obs_;
@@ -135,6 +176,10 @@ private:
     double power_ = 0.0;
     uint64_t count_ = 0;
     uint64_t assignments_ = 0;
+    std::shared_ptr<Gsmtap> gsmtap_;
+    std::unique_ptr<GsmtapFilter> filter_;
+    GsmtapCounters reported_;
+    uint64_t restarts_ = 0;
 };
 
 /// A fixed set of worker threads for CarrierSearch::set_executor; the
@@ -239,11 +284,14 @@ MeasurementEngine::MeasurementEngine(EngineConfig config) : cfg_(std::move(confi
     dc.keep_slots = true;  // the search counts slots from them
     dc.quality_samples = static_cast<uint64_t>(std::llround(cfg_.record_interval_s * kChannelRateHz));
     const Isa isa = cfg_.isa;
+    if (cfg_.gsmtap.enabled)
+        gsmtap_ = std::make_shared<Gsmtap>(cfg_.gsmtap);
+    std::shared_ptr<Gsmtap> g = gsmtap_;
     SearchConfig sc = cfg_.search_config;
     sc.isa = cfg_.isa;
     sc.search_spectrum = cfg_.search;
     search_ = std::make_unique<CarrierSearch>(
-        sc, [dc, isa](double, uint64_t, double) { return std::make_unique<Handler>(dc, isa); });
+        sc, [dc, isa, g](double, uint64_t, double) { return std::make_unique<Handler>(dc, isa, g); });
     if (cfg_.threads > 1) {
         pool_ = std::make_unique<Pool>(cfg_.threads);
         Pool* p = pool_.get();
@@ -256,6 +304,16 @@ MeasurementEngine::MeasurementEngine(EngineConfig config) : cfg_(std::move(confi
 }
 
 MeasurementEngine::~MeasurementEngine() = default;
+
+GsmtapCounters MeasurementEngine::gsmtap_counters() const
+{
+    if (!gsmtap_)
+        return {};
+    std::lock_guard<std::mutex> lk(gsmtap_->m);
+    return gsmtap_->totals;
+}
+
+uint64_t MeasurementEngine::gsmtap_send_failures() const { return gsmtap_ ? gsmtap_->socket.failed() : 0; }
 
 radios::TetraSchemaOptions MeasurementEngine::schema_options() const
 {

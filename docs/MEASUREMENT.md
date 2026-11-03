@@ -96,3 +96,26 @@ drops blocks and reports DROPPED itself.
 The `perf_engine` ctest (labels slow, perf, timing) runs four carriers of
 a 1 MS/s capture through the engine on one thread and fails above half
 of real time (about 0.05 on the build machine).
+
+## GSMTAP for Wireshark (RAD-115, DEC-12)
+
+For debugging only, and off by default: with `EngineConfig::gsmtap`
+(`enabled`, a numeric IPv4/IPv6 `host`, `port`, default 127.0.0.1:4729;
+the plugins' settings `gsmtap.enabled`, `gsmtap.host`, `gsmtap.port`
+through `gsmtap_options()`) every carrier sends its decoded broadcast
+blocks as GSMTAP version 2 datagrams over UDP, as osmo-tetra does (type
+TETRA, sub-type per logical channel, timeslot 0..3, frame number
+`((hyperframe x 60) + multiframe) x 18 + frame`, carrier number from
+SYSINFO, type-1 bits packed MSB first), so Wireshark's GSMTAP dissector
+shows them. Nothing of it reaches the records or Yantra (RAD-26).
+
+Only broadcast and system information leaves the receiver (RAD-17,
+`gsmtap.hpp`): BSCH (MAC-SYNC), BNCH (MAC-SYSINFO), the AACH and
+signalling blocks made of Null PDUs and broadcast-addressed MAC-RESOURCE
+PDUs carrying MLE D-NWRK-BROADCAST (or its extension). Blocks with an
+addressed PDU, MM, CMCE or SNDCP content, an FCS error or an unparsed
+PDU are filtered; encrypted blocks are only counted; a fragmented TM-SDU
+is held until its MAC-END and sent only when the reassembled whole is in
+scope. `gsmtap_counters()` gives sent/filtered/encrypted/dropped. Host
+names are never looked up. `yantra-radio-host decode-iq --gsmtap ADDR
+[--gsmtap-port PORT]` does the same for IQ files.

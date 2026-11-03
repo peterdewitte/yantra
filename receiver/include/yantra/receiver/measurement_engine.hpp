@@ -38,6 +38,7 @@
 
 #include "yantra/receiver/carrier_decoder.hpp"
 #include "yantra/receiver/carrier_search.hpp"
+#include "yantra/receiver/gsmtap.hpp"
 
 #include <yantra/radios/record_file.hpp>
 #include <yantra/radios/tetra_schemas.hpp>
@@ -79,6 +80,9 @@ struct EngineConfig {
     unsigned threads = 1;
     Isa isa = Isa::Simd;
     SearchConfig search_config;
+    /// GSMTAP copy of the decoded broadcast blocks for Wireshark (RAD-115,
+    /// DEC-12; debugging only, off by default, never part of the records).
+    GsmtapOptions gsmtap;
 };
 
 /// What the caller knows about a block of samples.
@@ -128,6 +132,8 @@ inline constexpr uint32_t kEngineScanSchema = 2;
 
 class MeasurementEngine {
 public:
+    /// std::invalid_argument for a bad interval; std::runtime_error when
+    /// GSMTAP is enabled with an address that is not numeric.
     explicit MeasurementEngine(EngineConfig config = {});
     ~MeasurementEngine();
     MeasurementEngine(const MeasurementEngine&) = delete;
@@ -151,10 +157,15 @@ public:
     const CarrierSearch& search() const { return *search_; }
     const EngineConfig& config() const { return cfg_; }
     EngineStats stats() const { return stats_; }
+    /// GSMTAP totals of all carriers so far (all zero when it is off).
+    GsmtapCounters gsmtap_counters() const;
+    /// Datagrams the GSMTAP socket could not send (buffer full, no route).
+    uint64_t gsmtap_send_failures() const;
 
 private:
     class Handler;
     class Pool;
+    struct Gsmtap;
     void run(const cf* x, std::size_t n, double centre_hz, double rate_hz, bool discontinuity, EngineOutput& out);
     void emit(EngineOutput& out, bool partial);
     void take_events(EngineOutput& out);
@@ -167,6 +178,7 @@ private:
     std::unique_ptr<radios::RecordFiller> cell_;
     std::unique_ptr<radios::RecordFiller> neighbour_;
     std::unique_ptr<radios::RecordFiller> scan_;
+    std::shared_ptr<Gsmtap> gsmtap_;
     std::unique_ptr<Pool> pool_;
     std::unique_ptr<CarrierSearch> search_;
     std::vector<CarrierEvent> carrier_events_;

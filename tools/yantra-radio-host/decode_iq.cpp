@@ -75,6 +75,15 @@ bool decode_iq(const DecodeIqOptions& o, DecodeIqResult& result, std::string& er
         cfg.level_offset_db = *fs;
     }
     result.calibrated = cfg.calibrated;
+    if (!o.gsmtap_host.empty()) {
+        if (!tetra::is_numeric_address(o.gsmtap_host)) {
+            error = "--gsmtap: not a numeric IPv4 or IPv6 address: " + o.gsmtap_host;
+            return false;
+        }
+        cfg.gsmtap.enabled = true;
+        cfg.gsmtap.host = o.gsmtap_host;
+        cfg.gsmtap.port = o.gsmtap_port;
+    }
     tetra::MeasurementEngine engine(cfg);
 
     IqReader reader;
@@ -183,6 +192,7 @@ bool decode_iq(const DecodeIqOptions& o, DecodeIqResult& result, std::string& er
     result.samples = st.samples;
     result.seconds = st.signal_s;
     result.load = st.load();
+    result.gsmtap_sent = engine.gsmtap_counters().sent;
     result.truncated = reader.truncated();
     result.carriers = engine.search().carriers().size();
     for (const tetra::Carrier& c : engine.search().carriers())

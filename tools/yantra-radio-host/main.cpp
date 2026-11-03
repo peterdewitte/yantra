@@ -67,7 +67,8 @@ Commands:
   decode-iq --iq FILE --format cs8|cu8|cs16|cf32|sigmf [--rate HZ]
             [--center HZ] [--serving [HZ] | --carriers HZ[,HZ...]]
             [--scan-records] [--threads N] [--full-scale-dbm DBM]
-            [--uncalibrated] [--usable-fraction F] [--out FILE] [--quiet]
+            [--uncalibrated] [--usable-fraction F] [--gsmtap ADDR]
+            [--gsmtap-port PORT] [--out FILE] [--quiet]
       Decodes an IQ file (RAD-63) with the TETRA receiver (the measurement
       engine of the TETRA plugins) into a record file and prints a summary.
       Raw files need --rate and --center; SigMF gives them (core:datatype,
@@ -75,6 +76,8 @@ Commands:
       (yantra:full_scale_dbm, yantra:reference_level_dbm): levels in dBm,
       else dBFS. --full-scale-dbm sets the dBm of full scale;
       --usable-fraction the share of the capture searched (default 0.9).
+      --gsmtap sends the decoded broadcast blocks as GSMTAP over UDP to a
+      numeric address (port 4729 or --gsmtap-port) for Wireshark (RAD-115).
   capture-iq --plugin FILE [--device KEY] --out FILE.sigmf-data [--duration S]
       IQ capture to SigMF (RAD-63): a hook only; it needs the plugins'
       device layer (phase 5).
@@ -135,6 +138,8 @@ struct Options {
     std::optional<double> iq_rate, iq_centre, full_scale_dbm;
     unsigned threads = 1;
     double usable_fraction = 0.9;
+    std::string gsmtap_host;
+    uint16_t gsmtap_port = 4729;
     bool uncalibrated = false;
     bool scan_records = false;
     std::string report;           // conformance
@@ -712,6 +717,8 @@ int cmd_iq(const Options& o)
     d.usable_fraction = o.usable_fraction;
     d.full_scale_dbm = o.full_scale_dbm;
     d.uncalibrated = o.uncalibrated;
+    d.gsmtap_host = o.gsmtap_host;
+    d.gsmtap_port = o.gsmtap_port;
     yantra::radio_host::DecodeIqResult r;
     std::string error;
     if (!yantra::radio_host::decode_iq(d, r, error)) {
@@ -722,7 +729,10 @@ int cmd_iq(const Options& o)
     msg << "decode-iq: samples " << r.samples << ", seconds " << r.seconds << ", records " << r.records
         << ", events " << r.events << ", carriers " << r.carriers << ", synchronised " << r.synced
         << ", segments " << r.segments << ", clipped blocks " << r.clipped_blocks << ", level "
-        << (r.calibrated ? "dBm" : "dBFS") << ", load " << r.load << "\n";
+        << (r.calibrated ? "dBm" : "dBFS") << ", load " << r.load;
+    if (!d.gsmtap_host.empty())
+        msg << ", gsmtap datagrams " << r.gsmtap_sent;
+    msg << "\n";
     if (r.truncated)
         msg << "warning: the file ends with a partial sample\n";
     return kExitPass;
@@ -915,6 +925,13 @@ int main(int argc, char** argv)
             if (!parse_double(v, x) || x <= 0.0 || x > 1.0)
                 return usage_error("--usable-fraction needs a number in (0, 1]");
             o.usable_fraction = x;
+        } else if (a == "--gsmtap") {
+            o.gsmtap_host = v;
+        } else if (a == "--gsmtap-port") {
+            uint64_t port = 0;
+            if (!parse_u64(v, port) || port == 0 || port > 65535)
+                return usage_error("--gsmtap-port needs 1..65535");
+            o.gsmtap_port = static_cast<uint16_t>(port);
         } else if (a == "--threads") {
             uint64_t t = 0;
             if (!parse_u64(v, t) || t == 0 || t > 64)

@@ -171,3 +171,7 @@ The first version (tag v0.1.0 when released).
 - `perf_engine` ctest (RAD-114, labels slow/perf/timing): four carriers
   in a 1 MS/s capture through the whole engine must take less than half
   of real time on one thread.
+- GSMTAP output (RAD-115, DEC-12): `EngineConfig::gsmtap` and
+  `decode-iq --gsmtap ADDR [--gsmtap-port PORT]` send the decoded
+  broadcast blocks (BSCH, BNCH, AACH, broadcast D-NWRK-BROADCAST, scope
+  RAD-17) as GSMTAP over UDP for Wireshark; off by default.

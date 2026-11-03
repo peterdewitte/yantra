@@ -102,12 +102,16 @@ if(YANTRA_OSMO_TETRA_FOUND)
   # quality, records (receiver/src/engine).
   add_library(yantra_tetra_engine STATIC
     src/engine/carrier_search.cpp
+    src/engine/gsmtap.cpp
     src/engine/measurement_engine.cpp)
   add_library(yantra::tetra_engine ALIAS yantra_tetra_engine)
   find_package(Threads REQUIRED)
   target_link_libraries(yantra_tetra_engine
     PUBLIC yantra::tetra_decoder yantra::radios_common Threads::Threads
     PRIVATE yantra_warnings)
+  if(WIN32)
+    target_link_libraries(yantra_tetra_engine PRIVATE ws2_32)  # GSMTAP socket (RAD-115)
+  endif()
   target_compile_features(yantra_tetra_engine PUBLIC cxx_std_20)
   set_target_properties(yantra_tetra_engine PROPERTIES
     POSITION_INDEPENDENT_CODE ON
