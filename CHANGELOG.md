@@ -94,3 +94,13 @@ The first version (tag v0.1.0 when released).
   scenarios and one per bundled example plan, and the scenario engine
   with ground truth per time step (RAD-74); statistics, formula and
   seeded golden-digest tests (RAD-93).
+- `yantra-gen` (RAD-71): scenario file, example id or command-line cells
+  to cf32/cs16/cs8/cu8 samples with SigMF metadata (`yantra:simulated`,
+  capture segments at sample drops, annotations per cell and event), a
+  ground-truth CSV, a cell CSV and a ground-truth record file (RAD-65,
+  schemas `tetra.cell` and `tetra.neighbour`); impairment options of
+  RAD-72; streaming to stdout; deterministic for a seed
+  (docs/YANTRA_GEN.md). Install rules for yantra-gen and data/scenarios.
+  Tests: CLI and outputs against the scenario engine, SigMF validity,
+  seeded golden digests, and a round trip of its IQ files through
+  osmo-tetra's receive side (RAD-93).

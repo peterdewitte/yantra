@@ -11,7 +11,8 @@ A record file holds what one radio plugin delivered through the radio API
 PDUs or context data apart from a simulated record's `sim_position`,
 RAD-19, RAD-26). It is written by the radio test host
 (`yantra-radio-host stream --out FILE`, RAD-91) and by yantra-gen with
-ground-truth records (RAD-71). Yantra's tests feed these files into its
+ground-truth records (RAD-71; schemas `tetra.cell` and `tetra.neighbour`,
+see [YANTRA_GEN.md](YANTRA_GEN.md)). Yantra's tests feed these files into its
 record sink (Yantra TST-10); it is not a Yantra recording format.
 
 Code: `common/include/yantra/radios/record_file.hpp` (writer, reader and

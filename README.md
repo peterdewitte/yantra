@@ -71,6 +71,16 @@ floor plan and scene it emulates Yantra's context callbacks (`--scene`,
 every check of the radio API rules it can, with a JSON report
 (`--report`). Every plugin built here has a `conformance_<name>` ctest.
 
+## TETRA test-signal generator
+
+`build/bin/yantra-gen` (RAD-71) writes simulated TETRA downlink I/Q
+(cf32, cs16, cs8, cu8) with SigMF metadata, a ground-truth CSV and a
+ground-truth record file from a scenario in `data/scenarios` or from
+cells on the command line, e.g.
+`yantra-gen --scenario failed_site --format cs8 --out failed_site.cs8`.
+`yantra-gen --help` lists every option; docs/YANTRA_GEN.md describes the
+outputs. `cmake --install build` installs it with the scenarios.
+
 ## Documentation
 
 - [docs/RADIO_PLUGINS.md](docs/RADIO_PLUGINS.md): writing a radio plugin,
@@ -78,6 +88,8 @@ every check of the radio API rules it can, with a JSON report
   as data, the record schemas and the conformance kit.
 - The radio API reference: `ninja -C build docs-radio-api` (Doxygen) into
   `build/docs/radio-api/html`.
+- [docs/YANTRA_GEN.md](docs/YANTRA_GEN.md) the yantra-gen command and its
+  output files.
 - [docs/RECORD_FILES.md](docs/RECORD_FILES.md) record files,
   [docs/SCENE_FORMAT.md](docs/SCENE_FORMAT.md) scene JSON,
   [docs/SCENARIO_FORMAT.md](docs/SCENARIO_FORMAT.md) scenario files,
