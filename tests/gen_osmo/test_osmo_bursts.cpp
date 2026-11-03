@@ -3,11 +3,14 @@
 //
 // osmo-tetra cross-checks of the generator's bursts and modulated samples
 // (RAD-70, RAD-93, RAD-101):
-// - the generator's continuous downlink bursts equal osmo-tetra's burst
-//   builders (phy/tetra_burst.c) bit for bit, except the phase adjustment
-//   bits (osmo-tetra 59fb603 maps the adjustment phase to the wrong dibits,
-//   see HANDOFF; the generator's bits are checked against clause 9.4.4.3.6
-//   in tests/gen/test_burst.cpp);
+// - the generator's continuous downlink bursts have osmo-tetra's layout:
+//   its training-sequence search (phy/tetra_burst.c) finds the sync or
+//   normal training sequence at osmo-tetra's offset, and its burst
+//   splitter (tetra_burst_rx_cb) returns the generator's SB1/BB/SB2 or
+//   BKN1+BKN2/BB fields. (osmo-tetra's burst builders are not used: at
+//   59fb603 put_phase_adj_bits() indexes its phase2bits table without the
+//   PHASE() offset, out of bounds; the generator's phase adjustment bits
+//   are checked against clause 9.4.4.3.6 in tests/gen/test_burst.cpp.)
 // - demodulation round trip: a cell transmitter's samples (level,
 //   frequency and timing offset, noise) are demodulated by the test-only
 //   demodulator of tests/gen (ref_demod.*, symbol timing and frequency
@@ -43,6 +46,9 @@ extern "C" {
 #include <phy/tetra_burst_sync.h>
 #include <tetra_common.h>
 #include <tetra_mac_pdu.h>
+
+// Defined in phy/tetra_burst.c, declared only inside tetra_burst_sync.c.
+void tetra_burst_rx_cb(const uint8_t* burst, unsigned int len, enum tetra_train_seq type, void* priv);
 }
 
 using namespace yantra::gen;
@@ -101,17 +107,25 @@ Bits osmo_decode(Bits type5, const BlockSpec& spec, uint32_t scrambling, bool& c
     return Bits(type2.begin(), type2.begin() + spec.type1);
 }
 
-// Burst bits without the phase adjustment dibits (symbols 7 and 250).
-Bits without_phase_adjustment(Bits b)
+// osmo-tetra's training-sequence search over one burst (padded: the
+// search looks 21 bits ahead), restricted to `mask`.
+int find_train_seq(const Bits& burst, uint32_t mask, unsigned& offset)
 {
-    b.erase(b.begin() + 498, b.begin() + 500);
-    b.erase(b.begin() + 12, b.begin() + 14);
-    return b;
+    Bits padded = burst;
+    padded.resize(burst.size() + 64, 0);
+    return tetra_find_train_seq(padded.data(), static_cast<unsigned>(burst.size()), mask, &offset);
+}
+
+Bits concat(const Bits& a, const Bits& b)
+{
+    Bits c = a;
+    c.insert(c.end(), b.begin(), b.end());
+    return c;
 }
 
 }  // namespace
 
-TEST_CASE("Bursts equal osmo-tetra's burst builders (phase adjustment bits aside)")
+TEST_CASE("Bursts have osmo-tetra's layout: its training-sequence search and burst splitter")
 {
     std::mt19937 rng(31);
     for (int round = 0; round < 20; ++round) {
@@ -119,16 +133,45 @@ TEST_CASE("Bursts equal osmo-tetra's burst builders (phase adjustment bits aside
         const Bits sb1 = random_bits(rng, 120);
         const Bits bb = random_bits(rng, 30);
         const Bits sb2 = random_bits(rng, 216);
-        std::vector<uint8_t> osmo(kSlotBits);
-        build_sync_c_d_burst(osmo.data(), sb1.data(), bb.data(), sb2.data());
-        CHECK(without_phase_adjustment(sync_downlink_burst(sb1, bb, sb2)) == without_phase_adjustment(osmo));
+        const Bits sync = sync_downlink_burst(sb1, bb, sb2);
+        unsigned offset = 0;
+        CHECK(find_train_seq(sync, 1u << TETRA_TRAIN_SYNC, offset) == TETRA_TRAIN_SYNC);
+        CHECK(offset == 214);  // y after q, HC, f and SB1
+        captured_blocks().clear();
+        tetra_burst_rx_cb(sync.data(), kSlotBits, TETRA_TRAIN_SYNC, nullptr);
+        REQUIRE(captured_blocks().size() == 3);
+        CHECK(captured_blocks()[0].type == TPSAP_T_SB1);
+        CHECK(captured_blocks()[0].bits == sb1);
+        CHECK(captured_blocks()[1].type == TPSAP_T_BBK);
+        CHECK(captured_blocks()[1].bits == bb);
+        CHECK(captured_blocks()[2].type == TPSAP_T_SB2);
+        CHECK(captured_blocks()[2].bits == sb2);
 
         const Bits bkn1 = random_bits(rng, 216);
         const Bits bkn2 = random_bits(rng, 216);
-        for (int two : {0, 1}) {
-            build_norm_c_d_burst(osmo.data(), bkn1.data(), bb.data(), bkn2.data(), two);
-            CHECK(without_phase_adjustment(normal_downlink_burst(bkn1, bb, bkn2, two != 0)) ==
-                  without_phase_adjustment(osmo));
+        const uint32_t normal = (1u << TETRA_TRAIN_NORM_1) | (1u << TETRA_TRAIN_NORM_2);
+        for (bool two : {false, true}) {
+            CAPTURE(two);
+            const Bits b = normal_downlink_burst(bkn1, bb, bkn2, two);
+            const int type = find_train_seq(b, normal, offset);
+            CHECK(type == (two ? TETRA_TRAIN_NORM_2 : TETRA_TRAIN_NORM_1));
+            CHECK(offset == 244);  // n or p after q, HA, BKN1 and BB 1..14
+            captured_blocks().clear();
+            tetra_burst_rx_cb(b.data(), kSlotBits, static_cast<tetra_train_seq>(type), nullptr);
+            if (two) {
+                REQUIRE(captured_blocks().size() == 3);
+                CHECK(captured_blocks()[0].bits == bb);
+                CHECK(captured_blocks()[1].type == TPSAP_T_NDB);
+                CHECK(captured_blocks()[1].bits == bkn1);
+                CHECK(captured_blocks()[2].type == TPSAP_T_NDB);
+                CHECK(captured_blocks()[2].bits == bkn2);
+            } else {
+                REQUIRE(captured_blocks().size() == 2);
+                CHECK(captured_blocks()[0].type == TPSAP_T_BBK);
+                CHECK(captured_blocks()[0].bits == bb);
+                CHECK(captured_blocks()[1].type == TPSAP_T_SCH_F);
+                CHECK(captured_blocks()[1].bits == concat(bkn1, bkn2));
+            }
         }
     }
 }
