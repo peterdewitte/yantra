@@ -73,3 +73,8 @@ add_subdirectory(docs)
 if(YANTRA_RADIOS_BUILD_TESTS)
   add_subdirectory(tests)
 endif()
+
+# Install (RAD-71, RAD-74): yantra-gen (tools/yantra-gen) and the scenario
+# files with their scenes. The plugins' own packaging is RAD-132/137.
+include(GNUInstallDirs)
+install(DIRECTORY data/scenarios DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra-radios)

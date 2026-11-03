@@ -28,7 +28,7 @@ SPDX-License-Identifier = "GPL-3.0-or-later"
 # Scenario files and their scenes (RAD-74), JSON without comment syntax,
 # and the golden files of the generator tests.
 [[annotations]]
-path = ["data/scenarios/**/*.json", "tests/gen_sim/golden/*.txt"]
+path = ["data/scenarios/**/*.json", "tests/gen_sim/golden/*.txt", "tests/yantra_gen/golden/*.txt"]
 SPDX-FileCopyrightText = "2026 The Yantra contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
