@@ -96,4 +96,19 @@ if(YANTRA_OSMO_TETRA_FOUND)
     POSITION_INDEPENDENT_CODE ON
     CXX_VISIBILITY_PRESET hidden
     VISIBILITY_INLINES_HIDDEN ON)
+
+  # The measurement engine shared by the TETRA plugins (RAD-102,
+  # RAD-110..114): carrier search, one decoder per carrier, level meter,
+  # quality, records (receiver/src/engine).
+  add_library(yantra_tetra_engine STATIC
+    src/engine/carrier_search.cpp)
+  add_library(yantra::tetra_engine ALIAS yantra_tetra_engine)
+  target_link_libraries(yantra_tetra_engine
+    PUBLIC yantra::tetra_decoder yantra::radios_common
+    PRIVATE yantra_warnings)
+  target_compile_features(yantra_tetra_engine PUBLIC cxx_std_20)
+  set_target_properties(yantra_tetra_engine PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON)
 endif()
