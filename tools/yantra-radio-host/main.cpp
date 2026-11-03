@@ -360,7 +360,9 @@ bool print_settings(Host& host, yr_device* device, bool sensors)
             if (!d.unit.empty())
                 std::cout << " " << d.unit;
         }
-        if (d.type == YR_TYPE_INT || d.type == YR_TYPE_UINT || d.type == YR_TYPE_DOUBLE) {
+        // A range only where one is declared (sensors often have none).
+        if ((d.type == YR_TYPE_INT || d.type == YR_TYPE_UINT || d.type == YR_TYPE_DOUBLE) &&
+            (std::isfinite(d.minimum) || std::isfinite(d.maximum))) {
             std::ostringstream r;
             r << " [" << d.minimum << ".." << d.maximum;
             if (d.step > 0)
