@@ -421,3 +421,23 @@ TEST_CASE("engine: the same records with a worker pool")
     for (std::size_t i = 0; i < result[0].size(); ++i)
         CHECK(result[0][i] == result[1][i]);
 }
+
+TEST_CASE("engine: playback speed scales the record times (RAD-61 simulator)")
+{
+    SpanCell c;
+    c.level_dbfs = -30.0;
+    Span span(kRate, {c}, -90.0, 3);
+    EngineConfig cfg;
+    cfg.playback_speed = 4.0;
+    MeasurementEngine e(cfg);
+    Run run;
+    feed(e, span, 4.0, run);
+    const auto recs = of(e, run.records, kCentre);
+    REQUIRE(recs.size() == 4);
+    // One second of signal is a quarter second of host time.
+    for (std::size_t i = 0; i < recs.size(); ++i)
+        CHECK(recs[i]->time.monotonic_ns == 1'000'000'000 + 125'000'000 + static_cast<int64_t>(i) * 250'000'000);
+    EngineConfig bad;
+    bad.playback_speed = 0.0;
+    CHECK_THROWS_AS(MeasurementEngine{bad}, std::invalid_argument);
+}

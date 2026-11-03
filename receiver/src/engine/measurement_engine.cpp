@@ -324,6 +324,8 @@ MeasurementEngine::MeasurementEngine(EngineConfig config) : cfg_(std::move(confi
 {
     if (!(cfg_.record_interval_s > 0.0))
         throw std::invalid_argument("record_interval_s must be positive");
+    if (!(cfg_.playback_speed > 0.0) || !std::isfinite(cfg_.playback_speed))
+        throw std::invalid_argument("playback_speed must be positive");
     const radios::TetraSchemaOptions o = schema_options();
     schemas_ = radios::tetra_schemas(o);
     cell_ = std::make_unique<radios::RecordFiller>(schemas_[kEngineCellSchema], kEngineCellSchema);
@@ -386,7 +388,8 @@ std::optional<double> MeasurementEngine::serving_hz() const
 
 int64_t MeasurementEngine::monotonic_at(double sample) const
 {
-    const double rate = rate_hz_ > 0.0 ? rate_hz_ : 1.0;
+    // Samples per host second: the sample rate times the playback speed.
+    const double rate = (rate_hz_ > 0.0 ? rate_hz_ : 1.0) * cfg_.playback_speed;
     return static_cast<int64_t>(std::llround(mono_base_ns_ + (sample - static_cast<double>(base_sample_)) / rate * 1e9));
 }
 
@@ -395,7 +398,7 @@ yr_time MeasurementEngine::time_at(double sample) const
     yr_time t{};
     t.monotonic_ns = std::max<int64_t>(1, monotonic_at(sample));
     if (utc_base_ns_ && utc_source_ != YR_TIME_SOURCE_NONE) {
-        const double rate = rate_hz_ > 0.0 ? rate_hz_ : 1.0;
+        const double rate = (rate_hz_ > 0.0 ? rate_hz_ : 1.0) * cfg_.playback_speed;
         t.utc_ns = static_cast<int64_t>(
             std::llround(*utc_base_ns_ + (sample - static_cast<double>(base_sample_)) / rate * 1e9));
         t.utc_source = utc_source_;

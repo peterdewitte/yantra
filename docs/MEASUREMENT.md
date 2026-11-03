@@ -43,6 +43,7 @@ thread count.
 | `level_offset_db`, `calibrated` | 0, false | calibration hook: level = dBFS + offset; calibrated: unit dBm and C1 |
 | `ms_max_power_dbm` | 30 | MS maximum power for C1 |
 | `simulated` | false | SIMULATED flag and the simulation fields in the schemas |
+| `playback_speed` | 1 | record times advance this many times faster than the signal (simulator playback, RAD-61); must be positive |
 | `threads` | 1 | worker threads for the carriers |
 | `search_config` | | the carrier search (thresholds, lock and loss times) |
 

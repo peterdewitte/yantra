@@ -76,6 +76,10 @@ struct EngineConfig {
     double ms_max_power_dbm = radios::kTetraC1MsMaxPowerDbm;
     /// Records of a SIMULATED producer (flag and schemas with sim fields).
     bool simulated = false;
+    /// Signal seconds per host second: the records' monotonic and UTC
+    /// times advance by 1 / playback_speed per second of signal (the
+    /// simulator's faster-than-real-time playback, RAD-61). 1 for a radio.
+    double playback_speed = 1.0;
     /// Worker threads for the carriers (1: none, all on the caller).
     unsigned threads = 1;
     Isa isa = Isa::Simd;
@@ -132,7 +136,8 @@ inline constexpr uint32_t kEngineScanSchema = 2;
 
 class MeasurementEngine {
 public:
-    /// std::invalid_argument for a bad interval; std::runtime_error when
+    /// std::invalid_argument for a bad interval or playback speed;
+    /// std::runtime_error when
     /// GSMTAP is enabled with an address that is not numeric.
     explicit MeasurementEngine(EngineConfig config = {});
     ~MeasurementEngine();
