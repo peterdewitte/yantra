@@ -76,6 +76,26 @@ request. Build steps follow in BUILD.md once the CMake project exists.
   `CARGO_BUILD_JOBS="$(nproc)"`), as the CI runners do.
 - Tests run under `ctest` with the labels `fast`, `slow` and `timing`
   (RAD-03). They wait on observable conditions, never on a fixed sleep.
+- The long doctest binaries (robustness, simulator, conformance kit,
+  engine, decoder, decode-iq, generator) are one ctest per test case,
+  named `<binary or group>/<case>` (cmake/YantraTests.cmake,
+  `yantra_doctest_tests()`), so `ctest -j` runs their cases in parallel;
+  the cases are listed after every link. `tests/ctest_costs.txt` gives
+  them a COST so the longest start first in a fresh tree; refresh it
+  with `tools/ci/test_costs.py build` after a full run.
+- Default run, the check before every commit (opt-in suites left out):
+
+      ctest --test-dir build -j"$(nproc)"
+
+- Opt-in suites, label `opt_in`: the long robustness suite
+  (`test_robustness_slow/*`) and the full sensitivity tier (`sens_full`).
+  They exist only when `YANTRA_TESTS_OPT_IN` is set when ctest runs; the
+  ci-full and sens workflows set it. Run them after a receiver, decoder or
+  engine change and before a release:
+
+      YANTRA_TESTS_OPT_IN=1 ctest --test-dir build -L opt_in -j"$(nproc)"
+      YANTRA_TESTS_OPT_IN=1 ctest --test-dir build -j"$(nproc)"   # everything
+
 - Never delete, skip or weaken a test, or loosen a tolerance, to make it
   pass. If a test is wrong, fix it and say why in the commit message.
   Golden files change only on purpose, with the reason in the commit.

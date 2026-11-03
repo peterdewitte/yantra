@@ -16,8 +16,9 @@ Most items are tested end to end in `tests/robustness/test_robustness.cpp`
 `gen/channel.hpp` (RAD-72) applied to the IQ, fed to the measurement
 engine as a plugin feeds it (spectrum search, channelizer, demodulator,
 decoder, level meter, records checked by the radio API's validator). The
-cases in the doctest suite `slow` run as the ctest `test_robustness_slow`
-(label slow). Other files are under `tests/` (doctest) and
+cases in the doctest suite `slow` run as the ctests
+`test_robustness_slow/<case>` (labels slow and opt_in: not in the default
+run, `YANTRA_TESTS_OPT_IN=1 ctest -L opt_in` runs them; CONTRIBUTING.md). Other files are under `tests/` (doctest) and
 `receiver/rust/tests`.
 
 ## Radio

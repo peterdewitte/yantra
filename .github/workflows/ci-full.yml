@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Full CI, nightly and before a release (RAD-134, RAD-90, Yantra
-# TST-03/05): every test including slow, the scalar build without SIMD
+# TST-03/05): every test including slow and opt-in, the scalar build without SIMD
 # (same results), the ASan+UBSan and TSan builds, and Linux arm64 (S).
 # Copied from yantra-v1 c24e8f5: .github/workflows/nightly.yml, adapted.
 
@@ -53,8 +53,11 @@ jobs:
         run: cmake --preset ${{ matrix.preset }} -B build-full
       - name: Build
         run: cmake --build build-full -j "$(nproc)"
-      - name: All tests including slow
+      # YANTRA_TESTS_OPT_IN: the opt-in suites too (label opt_in: the long
+      # robustness and sensitivity suites, CONTRIBUTING.md).
+      - name: All tests including slow and opt-in
         env:
+          YANTRA_TESTS_OPT_IN: 1
           ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
           TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1

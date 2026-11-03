@@ -102,8 +102,10 @@ to 2.5 times the measured value, lock time 200 ms (measured 128 ms).
   `quick.csv`, one ctest per scenario; the verdicts go to
   `build/sens/quick_<scenario>.csv`. The `sens-quick` workflow runs
   `ctest --test-dir build -L sens` on demand.
-- `sens_full` (labels slow, release): the full tier against `full.csv`
-  before a release; verdicts in `build/sens/full.csv`.
+- `sens_full` (labels slow, release, opt_in): the full tier against
+  `full.csv` before a release; verdicts in `build/sens/full.csv`. Opt-in:
+  not in the default run; `YANTRA_TESTS_OPT_IN=1 ctest --test-dir build
+  -R sens_full` runs it (CONTRIBUTING.md).
 
 A receiver change that moves a curve: run the full tier, explain the
 change in the commit message and update the limits and this page on

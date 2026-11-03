@@ -7,8 +7,14 @@
 # line: fast, slow or timing); without it the test is labelled "fast". A
 # folder with its own CMakeLists.txt is added as a subdirectory instead and
 # may call yantra_add_test_dir() itself. fixtures/ holds test data.
+# The long binaries (YANTRA_PER_CASE_TESTS) get one ctest per doctest test
+# case (cmake/YantraTests.cmake), so ctest -j runs their cases in parallel.
 # Copied from yantra-v1 c24e8f5: tests/CMakeLists.txt, adapted (vendored
 # doctest, C sources, no core library).
+
+include(YantraTests)
+
+set(YANTRA_PER_CASE_TESTS decode_iq gen_sim receiver_tetra tetra_decoder tetra_engine yantra_gen)
 
 add_library(yantra_doctest INTERFACE)
 target_include_directories(yantra_doctest SYSTEM INTERFACE ${CMAKE_SOURCE_DIR}/third_party/doctest)
@@ -42,9 +48,14 @@ function(yantra_add_test_dir module)
   if(EXISTS ${_dir}/LABELS)
     file(STRINGS ${_dir}/LABELS _labels)
   endif()
-  add_test(NAME ${_target} COMMAND ${_target})
-  set_tests_properties(${_target} PROPERTIES LABELS "${_labels}" TIMEOUT 600
-    WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+  if(module IN_LIST YANTRA_PER_CASE_TESTS)
+    yantra_doctest_tests(${_target} GROUP ${_target} LABELS ${_labels} TIMEOUT 600
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+  else()
+    add_test(NAME ${_target} COMMAND ${_target})
+    set_tests_properties(${_target} PROPERTIES LABELS "${_labels}" TIMEOUT 600
+      WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+  endif()
 endfunction()
 
 file(GLOB _children RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*)

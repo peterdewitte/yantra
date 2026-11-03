@@ -226,3 +226,8 @@ The first version (tag v0.1.0 when released).
   than the signal (the simulator's playback speed).
 - `gen::parse_scenario(text, reader)`: scene files from a reader (the
   simulator's embedded scenarios).
+- Tests (RAD-90, Yantra TST-01): the long doctest binaries run one ctest
+  per test case (`yantra_doctest_tests()`, cmake/YantraTests.cmake; COST
+  from tests/ctest_costs.txt), so `ctest -j` finishes in about a minute
+  instead of three and a half. The long robustness suite and the full
+  sensitivity tier are opt-in (label opt_in, `YANTRA_TESTS_OPT_IN=1`).

@@ -32,16 +32,16 @@ target_compile_definitions(test_conformance PRIVATE
   FAKE_PLUGIN_V2="$<TARGET_FILE:fake_radio_v2>"
   BEACON_PLUGIN="$<TARGET_FILE:beacon>")
 add_dependencies(test_conformance fake_radio fake_radio_v2 beacon)
-# Three ctests so they run in parallel: good plugins, injected faults
-# (each fault run streams for the kit's 1.5 s minimum), and the slow_stop
-# fault (every stop takes over 1 s, ~16 s in all; label slow).
-add_test(NAME test_conformance COMMAND test_conformance
-         --test-case-exclude=*injected* --test-suite-exclude=slow)
-add_test(NAME test_conformance_faults COMMAND test_conformance
-         --test-case=*injected* --test-suite-exclude=slow)
-add_test(NAME test_conformance_slow COMMAND test_conformance --test-suite=slow)
-set_tests_properties(test_conformance test_conformance_faults PROPERTIES LABELS fast TIMEOUT 300)
-set_tests_properties(test_conformance_slow PROPERTIES LABELS slow TIMEOUT 300)
+# Three groups, one ctest per test case each (cmake/YantraTests.cmake):
+# good plugins, injected faults (each fault run streams for the kit's
+# 1.5 s minimum), and the slow_stop fault (every stop takes over 1 s,
+# ~16 s in all; label slow).
+yantra_doctest_tests(test_conformance GROUP test_conformance
+  FILTERS --test-case-exclude=*injected* --test-suite-exclude=slow LABELS fast TIMEOUT 300)
+yantra_doctest_tests(test_conformance GROUP test_conformance_faults
+  FILTERS --test-case=*injected* --test-suite-exclude=slow LABELS fast TIMEOUT 300)
+yantra_doctest_tests(test_conformance GROUP test_conformance_slow
+  FILTERS --test-suite=slow LABELS slow TIMEOUT 300)
 
 add_test(NAME test_radio_host COMMAND test_radio_host)
 set_tests_properties(test_radio_host PROPERTIES LABELS fast TIMEOUT 120

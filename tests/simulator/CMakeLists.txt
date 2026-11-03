@@ -13,9 +13,9 @@ target_link_libraries(test_simulator PRIVATE yantra_test_main yantra_warnings
   yantra::radio_host yantra::gen)
 target_compile_definitions(test_simulator PRIVATE SIMULATOR_PLUGIN="$<TARGET_FILE:simulator>")
 add_dependencies(test_simulator simulator)
-add_test(NAME test_simulator COMMAND test_simulator --test-suite-exclude=timing)
-set_tests_properties(test_simulator PROPERTIES LABELS fast TIMEOUT 600
-  WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-add_test(NAME test_simulator_timing COMMAND test_simulator --test-suite=timing)
-set_tests_properties(test_simulator_timing PROPERTIES LABELS timing TIMEOUT 300 RUN_SERIAL TRUE
-  WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+# One ctest per test case (cmake/YantraTests.cmake); the timing cases
+# run one at a time (RUN_SERIAL), so other tests do not take their CPU.
+yantra_doctest_tests(test_simulator GROUP test_simulator FILTERS --test-suite-exclude=timing
+  LABELS fast TIMEOUT 600 WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+yantra_doctest_tests(test_simulator GROUP test_simulator_timing FILTERS --test-suite=timing
+  LABELS timing TIMEOUT 300 RUN_SERIAL WORKING_DIRECTORY ${CMAKE_BINARY_DIR})

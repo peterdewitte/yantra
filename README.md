@@ -54,6 +54,14 @@ Needs CMake >= 3.20, Ninja, gcc or clang with C++20 and Python 3.
     ninja -C build
     ctest --test-dir build -j"$(nproc)"
 
+The default `ctest` is the per-change check (about a minute on 12 cores:
+the long doctest binaries run one ctest per test case). The long
+robustness and sensitivity suites are opt-in (label `opt_in`):
+
+    YANTRA_TESTS_OPT_IN=1 ctest --test-dir build -L opt_in -j"$(nproc)"
+
+CONTRIBUTING.md "Building and testing" lists the labels.
+
 Presets (CMakePresets.json): `ci` (warnings as errors), `scalar` (no SIMD,
 same results), `asan-ubsan`, `tsan`. `tools/ci/run_linux.sh` runs the same
 steps as the CI on Linux, including the completeness check of the plugins

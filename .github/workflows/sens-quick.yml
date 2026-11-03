@@ -45,6 +45,7 @@ jobs:
       - name: Sensitivity sweep (label sens)
         env:
           SCENARIOS: ${{ inputs.scenarios }}
+          YANTRA_TESTS_OPT_IN: 1
         run: |
           ctest --test-dir build -L sens --no-tests=error --timeout 3600 \
             --output-on-failure ${SCENARIOS:+-R "$SCENARIOS"}
