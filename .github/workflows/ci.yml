@@ -60,7 +60,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build g++ python3 python3-yaml binutils pipx
+            cmake ninja-build g++ python3 python3-yaml binutils pipx \
+            pkg-config libosmocore-dev
           pipx install reuse
       - name: Cache the dependency builds (RAD-136)
         uses: actions/cache@v4

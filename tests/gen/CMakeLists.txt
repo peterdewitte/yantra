@@ -5,7 +5,8 @@
 # separate test-only reference decoder (ref_decoder.*), known answers, PDU
 # field layouts and round trips (ref_pdu.*), the downlink schedule and the
 # golden vectors under golden/ (rewrite on purpose only: test_gen --update
-# or the build target update-golden-gen).
+# or the build target update-golden-gen). The osmo-tetra cross-checks are
+# in tests/gen_osmo/.
 yantra_add_test_dir(gen LIBS yantra::gen)
 target_compile_definitions(test_gen PRIVATE
   YANTRA_GEN_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden")

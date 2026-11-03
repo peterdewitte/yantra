@@ -7,7 +7,8 @@
 # (EN 300 392-2 clause 8), broadcast PDUs, TDMA time, the downlink
 # logical-channel schedule and SHA-256 for golden digests (RAD-93).
 # Static library yantra::gen, headers under include/yantra/gen/; position
-# independent so it can go into plugin modules. Tests: tests/gen/.
+# independent so it can go into plugin modules. Tests: tests/gen/ and the
+# osmo-tetra cross-check tests/gen_osmo/.
 add_library(yantra_gen STATIC
   src/bits.cpp
   src/coding.cpp
