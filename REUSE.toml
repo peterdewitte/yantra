@@ -19,6 +19,12 @@ path = [".gitmodules", "CMakePresets.json"]
 SPDX-FileCopyrightText = "2026 The Yantra contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+# Test fixtures in formats without comment syntax (JSON, JSON lines).
+[[annotations]]
+path = ["tests/fixtures/**/*.json", "tests/fixtures/**/*.jsonl"]
+SPDX-FileCopyrightText = "2026 The Yantra contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
 # doctest 2.4.12 (MIT), vendored unchanged; tests only.
 [[annotations]]
 path = ["third_party/doctest/doctest/**", "third_party/doctest/LICENSE.txt"]
