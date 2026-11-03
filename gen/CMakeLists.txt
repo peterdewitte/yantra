@@ -9,7 +9,8 @@
 # pi/4-DQPSK modulator with RRC shaping (clause 5), the cell transmitter
 # and multi-carrier span, SHA-256 for golden digests (RAD-93), the channel
 # model (RAD-72), the indoor multi-wall model (RAD-73) and the scenario
-# files and engine (RAD-74).
+# files and engine (RAD-74) and the ground truth as radio records
+# (RAD-65, RAD-71).
 # Static library yantra::gen, headers under include/yantra/gen/; position
 # independent so it can go into plugin modules. Tests: tests/gen/ and the
 # osmo-tetra cross-check tests/gen_osmo/.
@@ -26,7 +27,8 @@ add_library(yantra_gen STATIC
   src/pdu.cpp
   src/scenario.cpp
   src/scenario_engine.cpp
-  src/timing.cpp)
+  src/timing.cpp
+  src/truth_records.cpp)
 target_include_directories(yantra_gen PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 # The multi-wall model and the scenario engine work on the scene JSON of
