@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Limits of bench_limits (RAD-127, docs/BENCHMARKS.md): calibrated units
+# per second of signal, SIMD and scalar kernels. Set 2026-11-03 at twice
+# the units measured on the build machine (x86-64, GCC, Release):
+# channelizer 0.38 / 1.28, decoder 0.12 / 0.26, demodulator 0.10 / 0.24,
+# engine 0.33 / 0.87.
+# name,simd,scalar
+channelizer_3ch_1msps,0.76,2.56
+demodulator,0.20,0.48
+decoder,0.24,0.52
+engine_level_meter,0.67,1.75

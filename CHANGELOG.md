@@ -182,3 +182,6 @@ The first version (tag v0.1.0 when released).
   generator), libFuzzer builds with the `fuzz` preset and
   `tools/ci/fuzz.sh`; cargo-fuzz targets `tetra_pdu` and `tm_sdu` for the
   Rust crate (receiver/rust/fuzz).
+- Benchmarks with CPU-calibrated limits (RAD-127, docs/BENCHMARKS.md):
+  channelizer, demodulator, decoder and level meter; ctest bench_limits
+  (labels slow, perf) fails on a regression beyond tests/bench/limits.csv.

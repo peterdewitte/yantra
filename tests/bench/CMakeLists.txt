@@ -21,3 +21,13 @@ if(TARGET yantra::tetra_engine)
   add_test(NAME perf_engine COMMAND perf_engine)
   set_tests_properties(perf_engine PROPERTIES LABELS "slow;perf;timing" TIMEOUT 600)
 endif()
+
+# Benchmarks with CPU-calibrated limits (RAD-127, docs/BENCHMARKS.md):
+# channelizer, demodulator, decoder, level meter (engine); a regression
+# beyond tests/bench/limits.csv fails the slow label.
+if(TARGET yantra::tetra_engine)
+  add_executable(bench_limits bench_limits.cpp)
+  target_link_libraries(bench_limits PRIVATE yantra::tetra_engine yantra::gen yantra_warnings)
+  add_test(NAME bench_limits COMMAND bench_limits ${CMAKE_CURRENT_SOURCE_DIR}/limits.csv)
+  set_tests_properties(bench_limits PROPERTIES LABELS "slow;perf" TIMEOUT 900 RUN_SERIAL TRUE)
+endif()
