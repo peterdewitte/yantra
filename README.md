@@ -35,7 +35,7 @@ speech, short data or subscriber identities, and never decrypt anything.
 | `common/` | shared code: record files (RAD-65), scene JSON (RAD-36), later the SoapySDR layer |
 | `receiver/` | DSP, carrier search, TETRA decoder, level and quality meters; `receiver/rust/` the protocol crate |
 | `gen/` | TETRA test-signal generator library |
-| `plugins/` | one folder per plugin: hackrf, simulator, soapy, pei, example |
+| `plugins/` | one folder per plugin: hackrf, simulator, soapy, pei, and `beacon`, the example |
 | `tools/` | `yantra-gen`, `yantra-radio-host`, `yantra-hackrf`; `tools/deps/` static dependency builds |
 | `third_party/` | pinned sources of every bundled library, incl. osmo-tetra |
 | `tests/`, `docs/` | tests and documentation |
@@ -66,6 +66,22 @@ steps as the CI on Linux, including the completeness check of the plugins
 a record file, docs/RECORD_FILES.md) and `read`. For plugins that use the
 floor plan and scene it emulates Yantra's context callbacks (`--scene`,
 `--cursor`, `--walk`). `yantra-radio-host --help` lists every option.
+
+`yantra-radio-host conformance --plugin FILE` runs the conformance kit:
+every check of the radio API rules it can, with a JSON report
+(`--report`). Every plugin built here has a `conformance_<name>` ctest.
+
+## Documentation
+
+- [docs/RADIO_PLUGINS.md](docs/RADIO_PLUGINS.md): writing a radio plugin,
+  a tutorial with the example plugin `plugins/beacon` (RAD-64), settings
+  as data, the record schemas and the conformance kit.
+- The radio API reference: `ninja -C build docs-radio-api` (Doxygen) into
+  `build/docs/radio-api/html`.
+- [docs/RECORD_FILES.md](docs/RECORD_FILES.md) record files,
+  [docs/SCENE_FORMAT.md](docs/SCENE_FORMAT.md) scene JSON.
+- [CHANGELOG.md](CHANGELOG.md): releases and the radio API changelog
+  (RAD-11).
 
 ## Licence
 

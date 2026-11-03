@@ -1,0 +1,36 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Doxygen configuration of the radio API reference (RAD-97), generated
+# from the comments in include/yantra/radio.h only. Configured by
+# docs/CMakeLists.txt; warnings (undocumented members, broken references)
+# fail the build target and the radio_api_doxygen test.
+
+PROJECT_NAME           = "Yantra radio API"
+PROJECT_NUMBER         = "@YANTRA_RADIO_API_VERSION@"
+PROJECT_BRIEF          = "Stable C ABI between Yantra and its radio plugins"
+OUTPUT_DIRECTORY       = @DOXYGEN_OUTPUT@
+INPUT                  = @PROJECT_SOURCE_DIR@/include/yantra/radio.h
+STRIP_FROM_PATH        = @PROJECT_SOURCE_DIR@/include
+FULL_PATH_NAMES        = YES
+OPTIMIZE_OUTPUT_FOR_C  = YES
+EXTRACT_ALL            = NO
+EXTRACT_STATIC         = YES
+TYPEDEF_HIDES_STRUCT   = NO
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = NO
+QUIET                  = YES
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+WARN_IF_INCOMPLETE_DOC = NO
+WARN_NO_PARAMDOC       = NO
+WARN_AS_ERROR          = FAIL_ON_WARNINGS
+WARN_FORMAT            = "$file:$line: $text"
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+GENERATE_LATEX         = NO
+GENERATE_TREEVIEW      = YES
+SOURCE_BROWSER         = YES
+HAVE_DOT               = NO
+SEARCHENGINE           = YES
