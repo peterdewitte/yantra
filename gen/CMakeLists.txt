@@ -5,15 +5,19 @@
 # code independent of osmo-tetra (so decoding its output with osmo-tetra
 # is a real cross-check): bit helpers, channel coding
 # (EN 300 392-2 clause 8), broadcast PDUs, TDMA time, the downlink
-# logical-channel schedule and SHA-256 for golden digests (RAD-93).
+# logical-channel schedule, continuous downlink bursts (clause 9), the
+# pi/4-DQPSK modulator with RRC shaping (clause 5) and SHA-256 for
+# golden digests (RAD-93).
 # Static library yantra::gen, headers under include/yantra/gen/; position
 # independent so it can go into plugin modules. Tests: tests/gen/ and the
 # osmo-tetra cross-check tests/gen_osmo/.
 add_library(yantra_gen STATIC
   src/bits.cpp
+  src/burst.cpp
   src/coding.cpp
   src/digest.cpp
   src/downlink.cpp
+  src/modulator.cpp
   src/pdu.cpp
   src/timing.cpp)
 target_include_directories(yantra_gen PUBLIC
