@@ -2,9 +2,13 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Repository lint under ctest (RAD-134 lint job, Yantra TST-02, NFR-01):
-# shell, Python and YAML syntax (tools/ci/lint.sh) and REUSE compliance.
+# shell, Python and YAML syntax, the Rust crate's cargo-deny check and the
+# FFI width/layout check of RAD-90 (tools/ci/lint.sh), and REUSE
+# compliance. The lint shares the cargo build folder of rust_cargo_test
+# (cargo locks it, so both may run at the same time).
 add_test(NAME repo_lint COMMAND sh ${PROJECT_SOURCE_DIR}/tools/ci/lint.sh ${PROJECT_SOURCE_DIR})
-set_tests_properties(repo_lint PROPERTIES LABELS "fast;lint" TIMEOUT 300)
+set_tests_properties(repo_lint PROPERTIES LABELS "fast;lint" TIMEOUT 300
+  ENVIRONMENT "YANTRA_LINT_CARGO_TARGET_DIR=${PROJECT_BINARY_DIR}/cargo;CC=${CMAKE_C_COMPILER}")
 
 find_program(YANTRA_REUSE_EXECUTABLE reuse)
 if(YANTRA_REUSE_EXECUTABLE)

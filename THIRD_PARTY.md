@@ -29,8 +29,8 @@ version, source and checksum are filled in when they are added.
 | libusb | LGPL-2.1-or-later | USB access of the vendor libraries | *planned*: pinned in `third_party/`, static build (source offered with every release, RAD-137) |
 | pocketfft (C++ header-only), branch `cpp` at 4d865cb | BSD-3-Clause | FFT, spectrum and channelizer of the receiver (RAD-100); later the generator channel model | vendored unchanged in `third_party/pocketfft/` from https://github.com/mreineck/pocketfft (commit 4d865cba24359b05b37da4e75aee24498c3b78e7, 2026-10-18; `pocketfft_hdronly.h` SHA-256 518a95c552aeaee352aa30122137cd9e135d23c91e2863d9272aaa758744c86d, `LICENSE.md`); header-only, compiled into the receiver library with `POCKETFFT_NO_MULTITHREADING` |
 | nlohmann/json 3.12.0 | MIT | record files (RAD-65), scene JSON (RAD-36), later SigMF metadata and scenario files | vendored single header in `third_party/nlohmann_json/` from the v3.12.0 release (`json.hpp`, SHA-256 aaf127c04cb31c406e5b04a63f1ae89369fccde6d8fa7cdda1ed4f32dfc5de63), unchanged; header-only, compiled into what includes it |
-| serde, serde_json (Rust crates) | MIT OR Apache-2.0 | JSON in the Rust protocol crate (RAD-101) | *planned*: vendored crates, built offline |
-| Rust standard library | MIT OR Apache-2.0 | linked statically through the Rust protocol crate | Rust toolchain |
+| serde, serde_json (Rust crates) | MIT OR Apache-2.0 | allowed by RAD-04 for JSON in the Rust protocol crate | not used: the protocol crate (`receiver/rust`, crate `yantra-proto`) has no external crates (`Cargo.lock` lists only itself; `cargo-deny` checks it) |
+| Rust standard library | MIT OR Apache-2.0 | linked statically through the Rust protocol crate `yantra-proto` (`receiver/rust`, static library in the TETRA decoder, RAD-101, RAD-132) | Rust toolchain |
 
 ## Test libraries (never shipped)
 

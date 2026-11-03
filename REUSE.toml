@@ -32,6 +32,13 @@ path = ["data/scenarios/**/*.json", "tests/gen_sim/golden/*.txt", "tests/yantra_
 SPDX-FileCopyrightText = "2026 The Yantra contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+# Cargo's generated lock file of the Rust protocol crate (no comment
+# syntax that cargo keeps).
+[[annotations]]
+path = ["receiver/rust/Cargo.lock"]
+SPDX-FileCopyrightText = "2026 The Yantra contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
 # doctest 2.4.12 (MIT), vendored unchanged; tests only.
 [[annotations]]
 path = ["third_party/doctest/doctest/**", "third_party/doctest/LICENSE.txt"]

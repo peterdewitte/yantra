@@ -35,6 +35,7 @@ include(YantraSanitizers)
 # the osmo-tetra lower layers on them (RAD-101).
 include(${CMAKE_CURRENT_SOURCE_DIR}/tools/deps/deps.cmake)
 include(OsmoTetra)
+include(RustProto)
 include(YantraRadioPlugin)
 
 # SIMD kernels or the plain C++ fallback; both give the same results.
