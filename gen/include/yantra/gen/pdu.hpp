@@ -222,7 +222,9 @@ Bits mac_resource_block(const Bits& tm_sdu, int block_bits, const ResourceOption
 /// "start of fragmentation" filling the first block, MAC-FRAG blocks and
 /// a MAC-END (with `end_allocation` when given, then a Null PDU when 16
 /// bits are left). One block of `block_bits` each, in sending order.
-/// std::invalid_argument when the SDU fits one block.
+/// std::invalid_argument when the SDU fits one block; std::length_error
+/// when it neither fits one block nor fills the first fragment plus 8
+/// bits (e.g. 222..232 bits in a SCH/F block).
 std::vector<Bits> fragment_blocks(const Bits& tm_sdu, int block_bits, const ResourceOptions& o = {},
                                   const std::optional<ChannelAllocation>& end_allocation = std::nullopt);
 

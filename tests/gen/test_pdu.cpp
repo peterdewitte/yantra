@@ -372,3 +372,17 @@ TEST_CASE("Full chain: PDUs survive coding and the reference decoder")
     REQUIRE(d.crc_ok);
     CHECK(ref::parse_mac_block(d.type1).at(0).address_type == 0);
 }
+
+TEST_CASE("fragment_blocks: refuses a TM-SDU that fits one block or does not fill the first fragment")
+{
+    const int max = max_tm_sdu_bits(268);  // 221
+    CHECK_THROWS_AS(fragment_blocks(Bits(static_cast<std::size_t>(max), 1), 268), std::invalid_argument);
+    // 222..232 bits: longer than one block, but the first fragment takes
+    // 225 bits and the MAC-END needs at least 8 (read past the end before).
+    for (int n = max + 1; n < 268 - 43 + 8; ++n)
+        CHECK_THROWS_AS(fragment_blocks(Bits(static_cast<std::size_t>(n), 1), 268), std::length_error);
+    const auto blocks = fragment_blocks(Bits(268 - 43 + 8, 1), 268);
+    CHECK(blocks.size() == 2);
+    for (const Bits& b : blocks)
+        CHECK(b.size() == 268u);
+}

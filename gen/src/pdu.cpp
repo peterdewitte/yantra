@@ -233,6 +233,12 @@ std::vector<Bits> fragment_blocks(const Bits& tm_sdu, int block_bits, const Reso
     const int sdu = static_cast<int>(tm_sdu.size());
     if (sdu <= max_tm_sdu_bits(block_bits))
         throw std::invalid_argument("fragment_blocks: the TM-SDU fits one block");
+    // The first fragment fills its block (length indication 63, no fill
+    // bits); a TM-SDU that does not reach past it plus the 8 bits left
+    // for the MAC-END cannot be fragmented this way.
+    if (sdu < block_bits - kMacResourceHeaderBits + 8)
+        throw std::length_error("fragment_blocks: TM-SDU of " + std::to_string(sdu) +
+                                " bits neither fits one block nor fills the first fragment");
     std::vector<Bits> out;
     // MAC-RESOURCE, length indication 63: start of fragmentation; the
     // TM-SDU fills the rest of the block.
