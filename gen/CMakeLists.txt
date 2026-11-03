@@ -25,6 +25,7 @@ add_library(yantra_gen STATIC
   src/multiwall.cpp
   src/pdu.cpp
   src/scenario.cpp
+  src/scenario_engine.cpp
   src/timing.cpp)
 target_include_directories(yantra_gen PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)

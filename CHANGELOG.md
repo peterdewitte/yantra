@@ -64,6 +64,8 @@ The first version (tag v0.1.0 when released).
   Compatible optional members for the multi-wall model (RAD-73): floor
   `slab_attenuation_db` and `storey_height_m`, wall class
   `reflection_loss_db`, antenna `floor_offset`.
+- Scenario files `yantra-radios-scenario` version 1 (RAD-74,
+  docs/SCENARIO_FORMAT.md), in data/scenarios.
 
 ### Added
 
@@ -84,3 +86,11 @@ The first version (tag v0.1.0 when released).
   carrier with level, frequency offset and timing offset) and
   `MultiCarrierTransmitter` (several carriers in one span), with burst and
   IQ golden vectors and an osmo-tetra burst-sync round trip (RAD-93).
+- Generator third part: the channel model (RAD-72: path loss, correlated
+  shadowing, Rayleigh/Rician fading, TU50/HT200, Doppler, CFO and clock
+  errors, AWGN from a noise figure, IQ imbalance, DC, clipping,
+  quantisation, sample drops), the indoor multi-wall model on the scene
+  (RAD-73, docs/CHANNEL_MODEL.md), scenario files with the DEMO-09
+  scenarios and one per bundled example plan, and the scenario engine
+  with ground truth per time step (RAD-74); statistics, formula and
+  seeded golden-digest tests (RAD-93).
