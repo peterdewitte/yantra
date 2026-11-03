@@ -32,7 +32,7 @@ speech, short data or subscriber identities, and never decrypt anything.
 | Folder | Contents |
 |--------|----------|
 | `include/yantra/radio.h` | the radio API, the only interface between Yantra and a radio plugin |
-| `common/` | shared SoapySDR code |
+| `common/` | shared code: record files (RAD-65), scene JSON (RAD-36), later the SoapySDR layer |
 | `receiver/` | DSP, carrier search, TETRA decoder, level and quality meters; `receiver/rust/` the protocol crate |
 | `gen/` | TETRA test-signal generator library |
 | `plugins/` | one folder per plugin: hackrf, simulator, soapy, pei, example |
@@ -58,6 +58,14 @@ Presets (CMakePresets.json): `ci` (warnings as errors), `scalar` (no SIMD,
 same results), `asan-ubsan`, `tsan`. `tools/ci/run_linux.sh` runs the same
 steps as the CI on Linux, including the completeness check of the plugins
 (`tools/ci/check_completeness.py`).
+
+## Radio test host
+
+`build/bin/yantra-radio-host` loads a radio plugin without Yantra
+(RAD-91): `info`, `devices`, `settings`, `selftest`, `stream` (records into
+a record file, docs/RECORD_FILES.md) and `read`. For plugins that use the
+floor plan and scene it emulates Yantra's context callbacks (`--scene`,
+`--cursor`, `--walk`). `yantra-radio-host --help` lists every option.
 
 ## Licence
 
