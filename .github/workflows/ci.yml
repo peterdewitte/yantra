@@ -26,7 +26,7 @@ permissions:
 
 env:
   # Static dependency builds (RAD-136), cached per script version.
-  DEPS_KEY: deps-${{ hashFiles('tools/deps/**', '.gitmodules') }}
+  DEPS_KEY: deps-${{ hashFiles('tools/deps/**', 'third_party/talloc/**', 'third_party/libosmocore/**') }}
 
 jobs:
   lint:
@@ -49,6 +49,8 @@ jobs:
         run: YANTRA_LINT_REQUIRE_TOOLS=1 sh tools/ci/lint.sh
       - name: REUSE compliance
         run: reuse lint
+      - name: Vendored sources match their release archives (RAD-136)
+        run: python3 tools/deps/verify_sources.py build/deps-cache
 
   linux-x86-64:
     runs-on: ubuntu-24.04
@@ -60,8 +62,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build g++ python3 python3-yaml binutils pipx \
-            pkg-config libosmocore-dev
+            cmake ninja-build g++ python3 python3-yaml binutils pipx
           pipx install reuse
       - name: Cache the dependency builds (RAD-136)
         uses: actions/cache@v4
@@ -71,7 +72,7 @@ jobs:
       - name: Static dependency builds (RAD-136)
         run: tools/deps/build_deps.sh build/deps
       - name: Configure (warnings are errors)
-        run: cmake --preset ci
+        run: cmake --preset ci -DYANTRA_DEPS_PREFIX="$PWD/build/deps"
       - name: Build
         run: cmake --build --preset ci -j "$(nproc)"
       - name: Fast tests
@@ -166,7 +167,7 @@ jobs:
       - name: Static dependency builds (RAD-136)
         run: tools/deps/build_deps.sh build/deps
       - name: Configure (warnings are errors)
-        run: cmake --preset ci
+        run: cmake --preset ci -DYANTRA_DEPS_PREFIX="$PWD/build/deps"
       - name: Build
         run: cmake --build --preset ci
       - name: Fast tests

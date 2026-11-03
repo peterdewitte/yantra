@@ -113,3 +113,12 @@ The first version (tag v0.1.0 when released).
   training sequences and a bit-error-tolerant burst synchroniser
   (DEC-01). Tests on generator IQ (exact bits, BER, offset and clock
   ranges) and a benchmark (docs/RECEIVER_DSP.md).
+- Static dependency builds (RAD-132, RAD-136): talloc 2.4.3 and the
+  libosmocore 1.11.0 subset osmo-tetra needs, vendored unchanged from
+  their release archives (`tools/deps/manifest.tsv` with versions and
+  SHA-256, `tools/deps/verify_sources.py`) and built with CMake
+  (`tools/deps/deps.cmake`, or `tools/deps/build_deps.sh <prefix>` and
+  `-DYANTRA_DEPS_PREFIX`); osmo-tetra's lower layers as the static
+  `yantra::osmo_tetra` (`cmake/OsmoTetra.cmake`, never `crypto/`); the
+  dependency manifest compiled in (`yantra::receiver::bundled_libraries()`).
+  The osmo-tetra cross-check tests no longer need the system libosmocore.

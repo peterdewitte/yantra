@@ -41,12 +41,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build/deps
-          key: deps-${{ hashFiles('tools/deps/**', '.gitmodules') }}-windows-ucrt64
+          key: deps-${{ hashFiles('tools/deps/**', 'third_party/talloc/**', 'third_party/libosmocore/**') }}-windows-ucrt64
       - name: Static dependency builds (RAD-136)
         run: tools/deps/build_deps.sh build/deps
       - name: Configure and build (warnings are errors)
         run: |
-          cmake --preset ci
+          cmake --preset ci -DYANTRA_DEPS_PREFIX="$PWD/build/deps"
           cmake --build --preset ci
       - name: All tests including slow
         run: ctest --test-dir build --timeout 1800 --output-on-failure --repeat until-pass:2

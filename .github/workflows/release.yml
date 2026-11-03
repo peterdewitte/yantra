@@ -36,7 +36,7 @@ jobs:
         run: tools/deps/build_deps.sh build/deps
       - name: Build (warnings are errors) and fast tests
         run: |
-          cmake --preset ci -DCMAKE_BUILD_TYPE=Release
+          cmake --preset ci -DCMAKE_BUILD_TYPE=Release -DYANTRA_DEPS_PREFIX="$PWD/build/deps"
           cmake --build --preset ci -j "$(nproc)"
           ctest --test-dir build -LE slow --timeout 600 --output-on-failure -j "$(nproc)"
       - name: Completeness checks (RAD-133)
@@ -76,7 +76,7 @@ jobs:
         run: tools/deps/build_deps.sh build/deps
       - name: Build and fast tests
         run: |
-          cmake --preset ci -DCMAKE_BUILD_TYPE=Release
+          cmake --preset ci -DCMAKE_BUILD_TYPE=Release -DYANTRA_DEPS_PREFIX="$PWD/build/deps"
           cmake --build --preset ci
           ctest --test-dir build -LE slow --timeout 600 --output-on-failure
       - name: Completeness checks (RAD-133)

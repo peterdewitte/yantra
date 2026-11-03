@@ -35,12 +35,12 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build/deps
-          key: deps-${{ hashFiles('tools/deps/**', '.gitmodules') }}-${{ runner.os }}-${{ runner.arch }}
+          key: deps-${{ hashFiles('tools/deps/**', 'third_party/talloc/**', 'third_party/libosmocore/**') }}-${{ runner.os }}-${{ runner.arch }}
       - name: Static dependency builds (RAD-136)
         run: tools/deps/build_deps.sh build/deps
       - name: Configure and build
         run: |
-          cmake --preset default
+          cmake --preset default -DYANTRA_DEPS_PREFIX="$PWD/build/deps"
           cmake --build --preset default -j "$(nproc)"
       - name: Sensitivity sweep (label sens)
         env:
