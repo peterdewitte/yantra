@@ -7,7 +7,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 The TETRA test-signal generator (`yantra::gen`, RAD-70) makes each cell's
 downlink as complex baseband samples (`cell_tx.hpp`). This page describes
 what happens to those samples on their way to the receiver: the channel
-model (RAD-72, `gen/include/yantra/gen/channel.hpp`). The scenario
+model (RAD-72, `gen/include/yantra/gen/channel.hpp`) and the indoor
+multi-wall model that gives the level of every cell at a position on a
+floor (RAD-73, `gen/include/yantra/gen/multiwall.hpp`). The scenario
 engine (RAD-74, docs/SCENARIO_FORMAT.md) puts them together; the
 simulator plugin (RAD-61) and `yantra-gen` (RAD-71) use the engine.
 
@@ -82,3 +84,60 @@ frequencies in Hz.
 - **Sample drops** (`SampleDropper`): from a first sample, `length` samples
   are lost every `interval` samples (USB overflows). The output is shorter
   than the signal time line; the ground truth counts the dropped samples.
+
+## Indoor multi-wall model (RAD-73)
+
+The model works on the scene of one floor (RAD-36, docs/SCENE_FORMAT.md):
+walls with their attenuation, antennas with position, height, EIRP and
+pattern, and cells with their carrier. For a receiver at plan position
+(x, y) and height h_rx (default 1.5 m) above the floor, antenna a of a
+cell gives
+
+```
+L_a = 10 log10( sum over paths p of 10^(L_p / 10) ) - |o_a| S - X_a(x, y)
+
+L_p = EIRP_a + G_a(theta_p) - FSPL(d_p, f) - sum W(walls crossed by p)
+      - sum R(walls p reflects off)
+```
+
+and the cell's level is the power sum over its antennas:
+`L = 10 log10( sum_a 10^(L_a / 10) )` (-inf for a cell without antennas).
+
+- `f` is the cell's `carrier_hz`.
+- `d_p` is the 3D length of the path: its length in the plan combined with
+  the height difference `o_a H + h_a - h_rx`, with `o_a` the antenna's
+  `floor_offset` (storeys above or below) and H the floor's
+  `storey_height_m` (default 3 m).
+- `G_a(theta)` is the pattern gain towards the path's first point
+  (bearing clockwise from the plan's -y axis): omni 0 dB; sector
+  `-min(12 (off / beamwidth)^2, front_to_back)` (3 dB down at half the
+  beamwidth); table: linear interpolation between the entries, clockwise
+  from the azimuth, from the last entry back to the first at 360 degrees.
+- `W` is a wall's `attenuation_db`. Walls are counted on this floor only
+  (also for antennas on other floors). Rules: a path that starts or ends
+  on a wall does not cross it; a path along a wall does not cross it; a
+  path through the joint of two collinear walls (one wall drawn in pieces)
+  crosses once; through the corner of two walls at an angle it crosses
+  both.
+- `S` is the floor's `slab_attenuation_db` per storey (default 15 dB).
+- `X_a` is an optional spatially correlated shadowing per antenna (see
+  above; sigma 0 by default), seeded from the model seed and the antenna id.
+- **Reflections** (optional, `reflections` 0, 1 or 2; default 0) use the
+  image method: for one bounce off wall i the antenna is mirrored in the
+  wall's line and the path to the receiver must hit wall i between its
+  ends; for two bounces (i then j, i != j) the image is mirrored again in j.
+  `R` is the wall class's `reflection_loss_db` (default 6 dB). Each leg
+  counts the walls it crosses, except the walls it reflects off. The
+  direct path is always there.
+
+The model is independent of Yantra's ray tracer (Yantra IND-40), which is
+tested against it (Yantra TST-36); with reflections off and the same
+crossing rules, the two should give the same levels for the same scene. The simulator (RAD-61) evaluates it at the
+cursor or walk position; RAD-94 checks its records against this formula
+within 0.5 dB.
+
+Example: an omni antenna of 20 dBm EIRP at 390 MHz, 10 m away through one
+10 dB wall, at the receiver height: `20 - 44.27 - 10 = -34.27 dBm`; a
+second equal antenna 20 m away through a 2 dB wall adds
+`20 - 50.29 - 2 = -32.29 dBm`, together `-30.16 dBm`
+(tests/gen_sim/test_multiwall.cpp).

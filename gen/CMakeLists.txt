@@ -22,6 +22,7 @@ add_library(yantra_gen STATIC
   src/digest.cpp
   src/downlink.cpp
   src/modulator.cpp
+  src/multiwall.cpp
   src/pdu.cpp
   src/timing.cpp)
 target_include_directories(yantra_gen PUBLIC
