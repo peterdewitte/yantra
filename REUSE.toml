@@ -10,3 +10,10 @@ version = 1
 path = ["LICENSE"]
 SPDX-FileCopyrightText = "2007 Free Software Foundation, Inc."
 SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# Git submodule list (no comment syntax). The submodules themselves keep
+# their own licences (THIRD_PARTY.md); reuse lint skips them.
+[[annotations]]
+path = [".gitmodules"]
+SPDX-FileCopyrightText = "2026 The Yantra contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"

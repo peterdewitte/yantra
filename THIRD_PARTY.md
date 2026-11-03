@@ -21,7 +21,7 @@ version, source and checksum are filled in when they are added.
 
 | Component | Licence | Used for | How it is obtained |
 |-----------|---------|----------|--------------------|
-| osmo-tetra @ 59fb603 | AGPL-3.0-or-later | TETRA lower layers (RAD-101): burst split, coding primitives, MAC PDU parsing. Its `crypto/` directory is never built or used, nor are its upper MAC, SDS or voice parts. GPL-3.0 section 13 allows the combination; the plugin descriptor states the AGPL parts (RAD-12) | git submodule `third_party/osmo-tetra` from https://gitea.osmocom.org/tetra/osmo-tetra, pinned to 59fb603 (*planned*, step 1.2) |
+| osmo-tetra @ 59fb603 | AGPL-3.0-or-later | TETRA lower layers (RAD-101): burst split, coding primitives, MAC PDU parsing. Its `crypto/` directory is never built or used, nor are its upper MAC, SDS or voice parts. GPL-3.0 section 13 allows the combination; the plugin descriptor states the AGPL parts (RAD-12) | git submodule `third_party/osmo-tetra` from https://gitea.osmocom.org/tetra/osmo-tetra.git, pinned to 59fb603 (59fb603999ca, `git submodule update --init`); licence text in its `COPYING`. Not built yet: the sources used are linked from phase 4 |
 | libosmocore | GPL-2.0-or-later | bits, convolutional code, CRC and GSMTAP helpers used by osmo-tetra | *planned*: pinned in `third_party/`, static build |
 | SoapySDR | BSL-1.0 | the only SDR front layer (RAD-50) | *planned*: pinned in `third_party/`, static build |
 | SoapySDR modules and their vendor libraries (e.g. HackRF, RTL-SDR) | per module (GPL-2.0-or-later, MIT, ...) | device access below SoapySDR (RAD-50) | *planned*: pinned in `third_party/`, static build; each listed here with its own licence |
