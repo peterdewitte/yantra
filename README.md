@@ -59,3 +59,9 @@ those parts keep their AGPL terms. Third-party components are listed in
 Yantra and yantra-radios are made by [curtat.be](https://curtat.be) as a
 reference on building new programs with Claude, Anthropic's AI assistant.
 Homepage: https://curtat.be.
+
+## Source
+
+Source code: https://github.com/peterdewitte/yantra-radio-plugins
+(clone URL `git@github.com:peterdewitte/yantra-radio-plugins.git`). Every
+release publishes the complete corresponding source there (RAD-137).
