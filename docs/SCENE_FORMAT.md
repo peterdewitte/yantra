@@ -63,10 +63,13 @@ are ignored at every level.
 | `floor.name` | string, optional | Floor name as shown (context text, never copied into records, RAD-19) |
 | `floor.scale_set` | bool | The plan has a scale; without it there are no positions |
 | `floor.width_m`, `floor.height_m` | number >= 0 | Plan size in metres (0 without a scale) |
+| `floor.slab_attenuation_db` | number >= 0, optional | Attenuation of one floor slab, for antennas on other floors (`antennas[].floor_offset`); the multi-wall model uses 15 dB when absent |
+| `floor.storey_height_m` | number > 0, optional | Floor-to-floor height for the distance to antennas on other floors; 3 m when absent |
 | `wall_classes[]` | array | Wall classes with their default attenuation |
 | `wall_classes[].id` | string, unique | Class id |
 | `wall_classes[].label` | string, optional | Class name as shown |
 | `wall_classes[].attenuation_db` | number >= 0 | Default attenuation of a wall of this class |
+| `wall_classes[].reflection_loss_db` | number >= 0, optional | Loss of a specular reflection off a wall of this class (multi-wall model with reflections); the model's default when absent |
 | `walls[]` | array | Wall segments |
 | `walls[].x1_m` .. `y2_m` | number | End points |
 | `walls[].class` | string, optional | `wall_classes[].id`; absent or `""` for a wall without a class |
@@ -83,6 +86,7 @@ are ignored at every level.
 | `antennas[].height_m` | number | Height above the floor |
 | `antennas[].eirp_dbm` | number | EIRP of this antenna in its main direction |
 | `antennas[].pattern` | object | See below |
+| `antennas[].floor_offset` | integer -200..200, optional | The antenna is on the floor this many storeys above (> 0) or below (< 0) this floor, at `x_m`/`y_m` of this floor's plan frame; 0 (this floor) when absent |
 
 Patterns:
 
@@ -92,6 +96,13 @@ Patterns:
 - `{"type": "table", "azimuth_deg": A, "step_deg": S, "gain_db": [g0, g1, ...]}`:
   gains in dB relative to the main direction A, one per S degrees
   clockwise from A (S > 0, a non-empty array).
+
+The optional members (`slab_attenuation_db`, `storey_height_m`,
+`reflection_loss_db`, `floor_offset`) were added compatibly within version
+1 for the generator's indoor multi-wall model (RAD-73,
+docs/CHANNEL_MODEL.md): a reader that does not know them ignores them, and
+the writer leaves them out when they are not set. A host that knows only
+the floor's own antennas leaves `floor_offset` out.
 
 ## Checks
 
@@ -111,5 +122,5 @@ versions are listed in CHANGELOG.md.
 
 The scene holds no plan image, plan name, file path or example id: those
 stay in Yantra, and a plugin that needs a floor reference uses the floor id
-(RAD-19). The scenario files of the generator (RAD-71) are a different
-format, documented with the generator.
+(RAD-19). The scenario files of the generator (RAD-74) are a different
+format that refers to scenes (docs/SCENARIO_FORMAT.md).

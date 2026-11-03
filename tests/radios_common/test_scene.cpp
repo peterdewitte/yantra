@@ -149,3 +149,52 @@ TEST_CASE("scene: invalid content names where the problem is")
           "scene: member \"floor\" missing");
     CHECK(error_of(variant("\"id\": \"f1\"", "\"id\": \"\"")) == "floor.id: must not be empty");
 }
+
+TEST_CASE("scene: optional members for the multi-wall model (RAD-73)")
+{
+    // Absent: the reader's defaults apply, and the writer leaves them out.
+    Scene plain;
+    std::string error;
+    REQUIRE(parse_scene(fixture_text(), plain, error));
+    CHECK_FALSE(plain.floor.slab_attenuation_db.has_value());
+    CHECK_FALSE(plain.floor.storey_height_m.has_value());
+    CHECK_FALSE(plain.wall_classes[0].reflection_loss_db.has_value());
+    CHECK(plain.antennas[0].floor_offset == 0);
+    const std::string plain_text = scene_to_json(plain);
+    CHECK(plain_text.find("floor_offset") == std::string::npos);
+    CHECK(plain_text.find("reflection_loss_db") == std::string::npos);
+    CHECK(plain_text.find("slab_attenuation_db") == std::string::npos);
+
+    std::string text = variant("\"width_m\": 20.0,",
+                               "\"width_m\": 20.0, \"slab_attenuation_db\": 18.5, \"storey_height_m\": 3.2,");
+    auto replace = [&](const std::string& from, const std::string& to) {
+        const auto pos = text.find(from);
+        REQUIRE(pos != std::string::npos);
+        text.replace(pos, from.size(), to);
+    };
+    replace("\"attenuation_db\": 12.0 },", "\"attenuation_db\": 12.0, \"reflection_loss_db\": 5.5 },");
+    replace("\"eirp_dbm\": 13.0,", "\"eirp_dbm\": 13.0, \"floor_offset\": -1,");
+    Scene s;
+    REQUIRE_MESSAGE(parse_scene(text, s, error), error);
+    CHECK(s.version == 1);
+    CHECK(s.floor.slab_attenuation_db == 18.5);
+    CHECK(s.floor.storey_height_m == 3.2);
+    REQUIRE(s.find_wall_class("concrete") != nullptr);
+    CHECK(s.find_wall_class("concrete")->reflection_loss_db == 5.5);
+    CHECK_FALSE(s.find_wall_class("drywall")->reflection_loss_db.has_value());
+    CHECK(s.find_wall_class("glass") == nullptr);
+    CHECK(s.antennas[1].floor_offset == -1);
+    Scene again;
+    REQUIRE_MESSAGE(parse_scene(scene_to_json(s), again, error), error);
+    CHECK(again == s);
+
+    CHECK(error_of(variant("\"width_m\": 20.0,", "\"width_m\": 20.0, \"slab_attenuation_db\": -1,")) ==
+          "floor.slab_attenuation_db: must not be negative");
+    CHECK(error_of(variant("\"width_m\": 20.0,", "\"width_m\": 20.0, \"storey_height_m\": 0,")) ==
+          "floor.storey_height_m: must be above 0");
+    CHECK(error_of(variant("\"attenuation_db\": 12.0 },",
+                           "\"attenuation_db\": 12.0, \"reflection_loss_db\": \"x\" },")) ==
+          "wall_classes[0].reflection_loss_db: must be a number");
+    CHECK(error_of(variant("\"eirp_dbm\": 13.0,", "\"eirp_dbm\": 13.0, \"floor_offset\": 0.5,")) ==
+          "antennas[1].floor_offset: must be an integer from -200 to 200");
+}

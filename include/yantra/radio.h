@@ -618,6 +618,10 @@ typedef struct yr_plan_position {
  *   (gains relative to the main direction, clockwise from azimuth_deg).
  * - An antenna's "cell" refers to cells[].id; one cell may have several
  *   antennas (DAS). "eirp_dbm" is per antenna in its main direction.
+ * - Optional members (added compatibly in version 1, docs/SCENE_FORMAT.md):
+ *   floor "slab_attenuation_db" and "storey_height_m", wall class
+ *   "reflection_loss_db", antenna "floor_offset" (storeys above or below
+ *   this floor) for the multi-wall model (RAD-73).
  * - Unknown members are ignored: version 1 may gain members compatibly; a
  *   breaking change raises the version.
  */

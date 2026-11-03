@@ -61,6 +61,9 @@ The first version (tag v0.1.0 when released).
   docs/RECORD_FILES.md).
 - Scene JSON `yantra-radio-scene` version 1 (RAD-36,
   docs/SCENE_FORMAT.md).
+  Compatible optional members for the multi-wall model (RAD-73): floor
+  `slab_attenuation_db` and `storey_height_m`, wall class
+  `reflection_loss_db`, antenna `floor_offset`.
 
 ### Added
 

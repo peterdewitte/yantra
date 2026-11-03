@@ -16,6 +16,7 @@
 #include <yantra/radio.h>
 
 #include <cstdint>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -29,6 +30,12 @@ struct SceneFloor {
     bool scale_set = false;
     double width_m = 0.0;
     double height_m = 0.0;
+    /** Optional: attenuation of one floor slab (antennas on other floors,
+     *  SceneAntenna::floor_offset); readers use their default when absent. */
+    std::optional<double> slab_attenuation_db;
+    /** Optional: floor-to-floor height in metres (> 0) for the distance to
+     *  antennas on other floors; readers use their default when absent. */
+    std::optional<double> storey_height_m;
     bool operator==(const SceneFloor&) const = default;
 };
 
@@ -37,6 +44,9 @@ struct SceneWallClass {
     std::string id;
     std::string label;
     double attenuation_db = 0.0;
+    /** Optional: loss of a specular reflection off a wall of this class
+     *  (multi-wall model with reflections, RAD-73). */
+    std::optional<double> reflection_loss_db;
     bool operator==(const SceneWallClass&) const = default;
 };
 
@@ -84,6 +94,10 @@ struct SceneAntenna {
     double height_m = 0.0;
     double eirp_dbm = 0.0;
     ScenePattern pattern;
+    /** Optional ("floor_offset", default 0): the antenna is on the floor
+     *  this many storeys above (> 0) or below (< 0) the scene's floor;
+     *  x_m/y_m are in this floor's plan frame. */
+    int32_t floor_offset = 0;
     bool operator==(const SceneAntenna&) const = default;
 };
 
@@ -97,6 +111,8 @@ struct Scene {
     std::vector<SceneAntenna> antennas;
     /** The cell `id`, nullptr when absent. */
     const SceneCell* find_cell(std::string_view id) const;
+    /** The wall class `id`, nullptr when absent. */
+    const SceneWallClass* find_wall_class(std::string_view id) const;
     bool operator==(const Scene&) const = default;
 };
 

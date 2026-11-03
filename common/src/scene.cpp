@@ -77,6 +77,13 @@ uint64_t unsigned_num(const json& j, const char* key, const std::string& where, 
     return u;
 }
 
+std::optional<double> opt_num(const json& j, const char* key, const std::string& where)
+{
+    if (j.find(key) == j.end())
+        return std::nullopt;
+    return num(j, key, where);
+}
+
 const json& array_of(const json& j, const char* key)
 {
     static const json empty = json::array();
@@ -166,6 +173,12 @@ Scene parse(const json& root)
         fail("floor", "width_m and height_m must not be negative");
     if (s.floor.scale_set && (s.floor.width_m <= 0.0 || s.floor.height_m <= 0.0))
         fail("floor", "a floor with a scale needs width_m and height_m above 0");
+    s.floor.slab_attenuation_db = opt_num(fl, "slab_attenuation_db", "floor");
+    if (s.floor.slab_attenuation_db && *s.floor.slab_attenuation_db < 0.0)
+        fail("floor.slab_attenuation_db", "must not be negative");
+    s.floor.storey_height_m = opt_num(fl, "storey_height_m", "floor");
+    if (s.floor.storey_height_m && !(*s.floor.storey_height_m > 0.0))
+        fail("floor.storey_height_m", "must be above 0");
 
     std::set<std::string> ids;
     const json& classes = array_of(root, "wall_classes");
@@ -180,6 +193,9 @@ Scene parse(const json& root)
         c.attenuation_db = num(classes[i], "attenuation_db", w);
         if (c.attenuation_db < 0.0)
             fail(w + ".attenuation_db", "must not be negative");
+        c.reflection_loss_db = opt_num(classes[i], "reflection_loss_db", w);
+        if (c.reflection_loss_db && *c.reflection_loss_db < 0.0)
+            fail(w + ".reflection_loss_db", "must not be negative");
         s.wall_classes.push_back(std::move(c));
     }
 
@@ -238,6 +254,12 @@ Scene parse(const json& root)
         a.height_m = num(antennas[i], "height_m", w);
         a.eirp_dbm = num(antennas[i], "eirp_dbm", w);
         a.pattern = pattern_from(need(antennas[i], "pattern", w), w + ".pattern");
+        if (antennas[i].find("floor_offset") != antennas[i].end()) {
+            const json& o = antennas[i]["floor_offset"];
+            if (!o.is_number_integer() || o.get<int64_t>() < -200 || o.get<int64_t>() > 200)
+                fail(w + ".floor_offset", "must be an integer from -200 to 200");
+            a.floor_offset = static_cast<int32_t>(o.get<int64_t>());
+        }
         s.antennas.push_back(std::move(a));
     }
     return s;
@@ -248,6 +270,14 @@ Scene parse(const json& root)
 const SceneCell* Scene::find_cell(std::string_view id) const
 {
     for (const SceneCell& c : cells)
+        if (c.id == id)
+            return &c;
+    return nullptr;
+}
+
+const SceneWallClass* Scene::find_wall_class(std::string_view id) const
+{
+    for (const SceneWallClass& c : wall_classes)
         if (c.id == id)
             return &c;
     return nullptr;
@@ -279,9 +309,17 @@ std::string scene_to_json(const Scene& s)
                    {"scale_set", s.floor.scale_set},
                    {"width_m", s.floor.width_m},
                    {"height_m", s.floor.height_m}}}};
+    if (s.floor.slab_attenuation_db)
+        root["floor"]["slab_attenuation_db"] = *s.floor.slab_attenuation_db;
+    if (s.floor.storey_height_m)
+        root["floor"]["storey_height_m"] = *s.floor.storey_height_m;
     json classes = json::array();
-    for (const SceneWallClass& c : s.wall_classes)
-        classes.push_back({{"id", c.id}, {"label", c.label}, {"attenuation_db", c.attenuation_db}});
+    for (const SceneWallClass& c : s.wall_classes) {
+        json jc = {{"id", c.id}, {"label", c.label}, {"attenuation_db", c.attenuation_db}};
+        if (c.reflection_loss_db)
+            jc["reflection_loss_db"] = *c.reflection_loss_db;
+        classes.push_back(std::move(jc));
+    }
     root["wall_classes"] = std::move(classes);
     json walls = json::array();
     for (const SceneWall& w : s.walls)
@@ -322,13 +360,16 @@ std::string scene_to_json(const Scene& s)
                  {"gain_db", a.pattern.gain_db}};
             break;
         }
-        antennas.push_back({{"id", a.id},
-                            {"cell", a.cell},
-                            {"x_m", a.x_m},
-                            {"y_m", a.y_m},
-                            {"height_m", a.height_m},
-                            {"eirp_dbm", a.eirp_dbm},
-                            {"pattern", std::move(p)}});
+        json ja = {{"id", a.id},
+                   {"cell", a.cell},
+                   {"x_m", a.x_m},
+                   {"y_m", a.y_m},
+                   {"height_m", a.height_m},
+                   {"eirp_dbm", a.eirp_dbm},
+                   {"pattern", std::move(p)}};
+        if (a.floor_offset != 0)
+            ja["floor_offset"] = a.floor_offset;
+        antennas.push_back(std::move(ja));
     }
     root["antennas"] = std::move(antennas);
     return root.dump();
