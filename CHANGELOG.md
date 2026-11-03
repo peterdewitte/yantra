@@ -185,3 +185,7 @@ The first version (tag v0.1.0 when released).
 - Benchmarks with CPU-calibrated limits (RAD-127, docs/BENCHMARKS.md):
   channelizer, demodulator, decoder and level meter; ctest bench_limits
   (labels slow, perf) fails on a regression beyond tests/bench/limits.csv.
+- Real-signal fixture framework (RAD-121, BLOCKED: no recordings yet):
+  tests/fixtures/real/<radio>/NAME.{sigmf-data,sigmf-meta,expected.json},
+  checked by the ctest real_fixtures (yantra-check-fixtures through
+  decode-iq); real_fixtures_selftest checks it on a yantra-gen recording.
