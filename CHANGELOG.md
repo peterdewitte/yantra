@@ -153,3 +153,12 @@ The first version (tag v0.1.0 when released).
   truth uses them; its schema ids changed from `tetra.cell` and
   `tetra.neighbour` (not valid plugin schema ids) and it adds
   `freq_error_ppm`, `c1_db` and the dBm values of the SYSINFO codes.
+- TETRA measurement engine `MeasurementEngine` (yantra::tetra_engine,
+  RAD-102, RAD-110..114): wideband IQ of a capture to `tetra_cell`,
+  `tetra_neighbour` and `tetra_scan` records and SYNC_FOUND/SYNC_LOST,
+  SERVING_CHANGED and SCAN_DONE events; per carrier the 25 kHz channel
+  level (dBFS, or dBm with a calibration offset), the quality window, C1
+  and its inputs, broadcast parameters, frame number and allocation
+  counts; serving choice, neighbour roles from the serving cell's list,
+  record time from the caller's time base, overload and non-finite
+  samples, an optional worker pool (docs/MEASUREMENT.md).
