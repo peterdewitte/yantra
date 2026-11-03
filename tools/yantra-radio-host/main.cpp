@@ -6,6 +6,7 @@
 // self-test, streams records to a record file (RAD-65) with emulated host
 // callbacks for SCENE plugins (RAD-18), and checks record files. See kUsage.
 // The command layout follows yantra 68ea20a tools/yantra-plugin-test/main.cpp.
+#include "conformance.hpp"
 #include "host.hpp"
 
 #include <yantra/radio.hpp>
@@ -51,6 +52,13 @@ Commands:
             [--set KEY=VALUE]... [--preset ID]
       Streams records and events into a record file (RAD-65). Every record
       is checked against its schema (RAD-21); pushes after stop are counted.
+  conformance --plugin FILE [--device KEY] [--scene FILE]... [--report FILE]
+            [--duration S] [--unplug CMD --replug CMD]
+      Runs the conformance kit (RAD-91): every check of the radio API rules
+      (RAD-10..49) it can, each reported as pass, fail or skip. --report
+      writes the JSON report ("-" = standard output); --duration sets the
+      records check's stream length (default 2.5 s); --unplug and --replug
+      are shell commands that unplug and replug the device (HOTPLUG).
   read      FILE
       Checks a record file (RAD-65) and prints a summary.
   decode-iq --plugin FILE --iq FILE --format cs8|cu8|cs16|cf32|sigmf
@@ -111,6 +119,9 @@ struct Options {
     uint32_t log_level = YR_LOG_WARNING;
     std::string file; // read
     std::string iq, iq_format;
+    std::string report;           // conformance
+    std::string unplug, replug;   // conformance
+    std::vector<std::string> kit_scenes;
 };
 
 int usage_error(const std::string& message)
@@ -668,6 +679,47 @@ int cmd_iq(const Options& o)
 
 } // namespace
 
+int cmd_conformance(const Options& o)
+{
+    if ((o.unplug.empty()) != (o.replug.empty()))
+        return usage_error("--unplug and --replug go together");
+    ConformanceOptions k;
+    k.device = o.device;
+    k.scene_json = o.kit_scenes;
+    if (o.duration > 0.0)
+        k.stream_seconds = std::max(1.5, o.duration);
+    auto shell = [](const std::string& cmd) {
+        return [cmd](std::string& error) {
+            const int rc = std::system(cmd.c_str());
+            if (rc != 0)
+                error = "\"" + cmd + "\" exited with " + std::to_string(rc);
+            return rc == 0;
+        };
+    };
+    if (!o.unplug.empty()) {
+        k.unplug = shell(o.unplug);
+        k.replug = shell(o.replug);
+    }
+    const bool json_to_stdout = o.report == "-";
+    k.progress = json_to_stdout ? &std::cerr : nullptr;
+    const ConformanceReport report = run_conformance(o.plugin, k);
+    print_conformance(report, json_to_stdout ? std::cerr : std::cout);
+    if (!o.report.empty()) {
+        const std::string json = conformance_json(report);
+        if (json_to_stdout) {
+            std::cout << json;
+        } else {
+            std::ofstream f(o.report, std::ios::binary);
+            f << json;
+            if (!f) {
+                std::cerr << "error: cannot write " << o.report << "\n";
+                return kExitUsage;
+            }
+        }
+    }
+    return report.passed() ? kExitPass : kExitFail;
+}
+
 int main(int argc, char** argv)
 {
     std::vector<std::string> args(argv + 1, argv + argc);
@@ -750,6 +802,7 @@ int main(int argc, char** argv)
                 std::cerr << "error: cannot read " << v << "\n";
                 return kExitUsage;
             }
+            o.kit_scenes.push_back(json);
             o.context.scene_json.push_back(std::move(json));
             context_plan = true;
         } else if (a == "--floor") {
@@ -778,6 +831,12 @@ int main(int argc, char** argv)
             if (levels.count(v) == 0)
                 return usage_error("--log-level needs debug, info, warning or error");
             o.log_level = levels.at(v);
+        } else if (a == "--report") {
+            o.report = v;
+        } else if (a == "--unplug") {
+            o.unplug = v;
+        } else if (a == "--replug") {
+            o.replug = v;
         } else if (a == "--iq") {
             o.iq = v;
         } else if (a == "--format") {
@@ -811,5 +870,7 @@ int main(int argc, char** argv)
         return cmd_stream(o);
     if (o.command == "decode-iq" || o.command == "capture-iq")
         return cmd_iq(o);
+    if (o.command == "conformance")
+        return cmd_conformance(o);
     return usage_error("unknown command: " + o.command);
 }

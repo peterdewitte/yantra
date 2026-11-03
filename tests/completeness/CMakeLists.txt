@@ -20,7 +20,8 @@ if(NOT YANTRA_SANITIZER STREQUAL "")
              --allow "libgcc_s\\.so\\.1")
 endif()
 
-yantra_add_radio_plugin(completeness_good SOURCES fixture_plugin.cpp OUTPUT_DIR ${_fixture_dir}/good)
+yantra_add_radio_plugin(completeness_good SOURCES fixture_plugin.cpp OUTPUT_DIR ${_fixture_dir}/good
+                        NO_TESTS) # a fixture: completeness_fixture checks it
 
 add_library(completeness_bad MODULE fixture_plugin.cpp)
 target_link_libraries(completeness_bad PRIVATE yantra::radio_api)

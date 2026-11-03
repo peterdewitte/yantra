@@ -7,7 +7,7 @@
  *        non-blocking record sink (RAD-14, RAD-20, RAD-24) and emulated
  *        context callbacks (RAD-18), and wraps device control (RAD-30..46)
  *        in C++ calls. The yantra-radio-host CLI (main.cpp) and the
- *        conformance kit (RAD-91, step 2.2b) build on it.
+ *        conformance kit (conformance.hpp) build on it.
  *
  * Threading follows RAD-15: load/unload on the calling ("main") thread,
  * control calls from one thread at a time, sink and context callbacks from
@@ -23,6 +23,7 @@
 #include <yantra/radios/scene.hpp>
 
 #include <atomic>
+#include <chrono>
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
@@ -302,10 +303,84 @@ struct StreamResult {
  *  (END_OF_STREAM, DEVICE_LOST, ERROR), then stops the stream. Pushes are
  *  validated against the schema (radio.hpp validate_record) and refused
  *  with INVALID_ARGUMENT; the sink never waits for the callbacks. */
+/** How the host's record sink behaves (the conformance kit varies it). */
+struct SinkOptions {
+    /** Queued items; when the queue is full a push is dropped and counted
+     *  and still returns YR_OK (RAD-24). */
+    std::size_t capacity = std::size_t{1} << 16;
+    /** Test only: every push_record holds the calling plugin thread this
+     *  long before it returns, so a stop_stream can be issued while a push
+     *  is in progress (RAD-33). Zero in normal use: the sink never waits. */
+    std::chrono::microseconds push_hold{0};
+};
+
+/** The host's record sink of one stream (RAD-20, RAD-24, RAD-33): checks
+ *  every pushed record against its schema (validate_record), queues
+ *  records and events for the consumer without ever waiting for it, and
+ *  counts drops, refusals and pushes after the stream was stopped. */
+class StreamSink {
+public:
+    struct Item {
+        bool is_record = true;
+        radios::Record record;
+        radios::Event event;
+    };
+
+    StreamSink(Host& host, const SinkOptions& options = {});
+    ~StreamSink();
+    StreamSink(const StreamSink&) = delete;
+    StreamSink& operator=(const StreamSink&) = delete;
+
+    /** The handle to pass to start_stream (valid as long as this sink). */
+    yr_stream* handle() const { return handle_; }
+
+    /** yr_host_api::push_record and stream_event of this stream. */
+    yr_status push(const yr_record* record);
+    void event(uint32_t event, int64_t value);
+
+    /** Before start_stream: active; right after stop_stream returned:
+     *  inactive. Pushes while inactive return BUSY; after a stop they are
+     *  counted as late (RAD-33). */
+    void set_active(bool active);
+    bool active() const;
+
+    /** Waits until items are queued or `deadline` passes, then takes them. */
+    std::deque<Item> take(std::chrono::steady_clock::time_point deadline);
+    /** Copies invalid, dropped, late and the first problems into `r`. */
+    void counters(StreamResult& r) const;
+
+    /** push_record calls so far, whatever their result. */
+    uint64_t pushes() const { return pushes_.load(); }
+    /** push_record calls that have not returned yet. */
+    uint32_t pushes_in_progress() const { return in_push_.load(); }
+    /** Waits until pushes() >= count; false when `deadline` passed first. */
+    bool wait_pushes(uint64_t count, std::chrono::steady_clock::time_point deadline);
+    /** Waits until a push is in progress; false when `deadline` passed first. */
+    bool wait_push_in_progress(std::chrono::steady_clock::time_point deadline);
+
+private:
+    Host& host_;
+    SinkOptions options_;
+    yr_stream* handle_ = nullptr;
+    mutable std::mutex mutex_;
+    std::condition_variable cv_;      ///< Items queued (consumer).
+    std::condition_variable push_cv_; ///< A push started (kit).
+    std::deque<Item> queue_;
+    bool active_ = false;
+    bool stopped_ = false;
+    uint64_t invalid_ = 0;
+    uint64_t dropped_ = 0;
+    uint64_t late_ = 0;
+    std::vector<std::string> problems_;
+    std::atomic<uint64_t> pushes_{0};
+    std::atomic<uint32_t> in_push_{0};
+};
+
 StreamResult run_stream(Host& host, yr_device* device, const yr_plan& plan,
                         const StreamLimits& limits,
                         const std::function<void(const radios::Record&)>& on_record,
-                        const std::function<void(const radios::Event&)>& on_event);
+                        const std::function<void(const radios::Event&)>& on_event,
+                        const SinkOptions& sink_options = {});
 /** @} */
 
 } // namespace yantra::radio_host

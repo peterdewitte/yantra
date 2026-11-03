@@ -417,119 +417,133 @@ std::vector<std::string> EmulatedContext::context_texts() const
 
 // --- the record sink ----------------------------------------------------------
 
-class StreamSink {
-public:
-    struct Item {
-        bool is_record = true;
-        Record record;
-        Event event;
-    };
+StreamSink::StreamSink(Host& host, const SinkOptions& options)
+    : host_(host), options_(options), handle_(new yr_stream{this})
+{
+}
 
-    StreamSink(Host& host, std::size_t capacity) : host_(host), capacity_(capacity) {}
+StreamSink::~StreamSink()
+{
+    delete handle_;
+}
 
-    yr_status push(const yr_record* record)
+yr_status StreamSink::push(const yr_record* record)
+{
     {
-        if (record == nullptr)
-            return YR_ERR_INVALID_ARGUMENT;
-        if (!is_active())
+        // Under the mutex, so a waiter in wait_pushes cannot miss it.
+        std::lock_guard lock(mutex_);
+        ++pushes_;
+        ++in_push_;
+    }
+    push_cv_.notify_all();
+    struct Leave {
+        std::atomic<uint32_t>& n;
+        ~Leave() { --n; }
+    } leave{in_push_};
+    if (options_.push_hold.count() > 0)
+        std::this_thread::sleep_for(options_.push_hold);
+    if (record == nullptr)
+        return YR_ERR_INVALID_ARGUMENT;
+    {
+        std::lock_guard lock(mutex_);
+        if (!active_) {
+            if (stopped_)
+                ++late_;
             return YR_ERR_BUSY;
-        std::vector<std::string> problems = radio::validate_record(host_.descriptor(), *record);
-        if (!problems.empty()) {
-            std::lock_guard lock(mutex_);
-            ++invalid_;
-            for (std::string& p : problems)
-                if (problems_.size() < 10)
-                    problems_.push_back(std::move(p));
-            return YR_ERR_INVALID_ARGUMENT;
         }
-        Item item;
-        item.record = radios::record_from_c(*record, host_.header().schemas[record->schema_index]);
-        std::vector<uint32_t> context_events;
-        {
-            std::lock_guard lock(mutex_);
-            if (!active_) {
-                if (stopped_)
-                    ++late_;
-                return YR_ERR_BUSY;
-            }
-            if (queue_.size() >= capacity_) {
-                ++dropped_;
-                return YR_OK;
-            }
-            queue_.push_back(std::move(item));
-            context_events = host_.context().on_record();
-        }
-        cv_.notify_one();
-        if (!context_events.empty())
-            host_.notify(context_events);
-        return YR_OK;
     }
-
-    void event(uint32_t event, int64_t value)
-    {
-        Item item;
-        item.is_record = false;
-        item.event = {event, value, monotonic_now()};
-        {
-            std::lock_guard lock(mutex_);
-            if (!active_) {
-                if (stopped_)
-                    ++late_;
-                return;
-            }
-            queue_.push_back(std::move(item));
-        }
-        cv_.notify_one();
+    std::vector<std::string> problems = radio::validate_record(host_.descriptor(), *record);
+    if (!problems.empty()) {
+        std::lock_guard lock(mutex_);
+        ++invalid_;
+        for (std::string& p : problems)
+            if (problems_.size() < 10)
+                problems_.push_back(std::move(p));
+        return YR_ERR_INVALID_ARGUMENT;
     }
-
-    bool is_active()
+    Item item;
+    item.record = radios::record_from_c(*record, host_.header().schemas[record->schema_index]);
+    std::vector<uint32_t> context_events;
     {
         std::lock_guard lock(mutex_);
-        if (!active_ && stopped_)
-            ++late_;
-        return active_;
+        if (!active_) {
+            if (stopped_)
+                ++late_;
+            return YR_ERR_BUSY;
+        }
+        if (queue_.size() >= options_.capacity) {
+            ++dropped_;
+            return YR_OK;
+        }
+        queue_.push_back(std::move(item));
+        context_events = host_.context().on_record();
     }
+    cv_.notify_one();
+    if (!context_events.empty())
+        host_.notify(context_events);
+    return YR_OK;
+}
 
-    void set_active(bool active)
+void StreamSink::event(uint32_t event, int64_t value)
+{
+    Item item;
+    item.is_record = false;
+    item.event = {event, value, monotonic_now()};
     {
         std::lock_guard lock(mutex_);
-        active_ = active;
-        if (!active)
-            stopped_ = true;
+        if (!active_) {
+            if (stopped_)
+                ++late_;
+            return;
+        }
+        queue_.push_back(std::move(item));
     }
+    cv_.notify_one();
+}
 
-    // Waits until items are queued or `deadline` passes, then takes them.
-    std::deque<Item> take(std::chrono::steady_clock::time_point deadline)
-    {
-        std::unique_lock lock(mutex_);
-        cv_.wait_until(lock, deadline, [&] { return !queue_.empty(); });
-        std::deque<Item> out;
-        out.swap(queue_);
-        return out;
-    }
+bool StreamSink::active() const
+{
+    std::lock_guard lock(mutex_);
+    return active_;
+}
 
-    void counters(StreamResult& r)
-    {
-        std::lock_guard lock(mutex_);
-        r.invalid = invalid_;
-        r.dropped = dropped_;
-        r.late = late_;
-        r.problems = problems_;
-    }
+void StreamSink::set_active(bool active)
+{
+    std::lock_guard lock(mutex_);
+    active_ = active;
+    if (!active)
+        stopped_ = true;
+}
 
-private:
-    Host& host_;
-    std::size_t capacity_;
-    std::mutex mutex_;
-    std::condition_variable cv_;
-    std::deque<Item> queue_;
-    bool active_ = false;
-    bool stopped_ = false;
-    uint64_t invalid_ = 0;
-    uint64_t dropped_ = 0;
-    uint64_t late_ = 0;
-    std::vector<std::string> problems_;
-};
+std::deque<StreamSink::Item> StreamSink::take(std::chrono::steady_clock::time_point deadline)
+{
+    std::unique_lock lock(mutex_);
+    cv_.wait_until(lock, deadline, [&] { return !queue_.empty(); });
+    std::deque<Item> out;
+    out.swap(queue_);
+    return out;
+}
+
+void StreamSink::counters(StreamResult& r) const
+{
+    std::lock_guard lock(mutex_);
+    r.invalid = invalid_;
+    r.dropped = dropped_;
+    r.late = late_;
+    r.problems = problems_;
+}
+
+bool StreamSink::wait_pushes(uint64_t count, std::chrono::steady_clock::time_point deadline)
+{
+    std::unique_lock lock(mutex_);
+    return push_cv_.wait_until(lock, deadline, [&] { return pushes_.load() >= count; });
+}
+
+bool StreamSink::wait_push_in_progress(std::chrono::steady_clock::time_point deadline)
+{
+    std::unique_lock lock(mutex_);
+    return push_cv_.wait_until(lock, deadline, [&] { return in_push_.load() > 0; });
+}
 
 namespace {
 
@@ -961,16 +975,16 @@ std::string format_value(const Value& v, const std::vector<radios::EnumItem>& it
 StreamResult run_stream(Host& host, yr_device* device, const yr_plan& plan,
                         const StreamLimits& limits,
                         const std::function<void(const radios::Record&)>& on_record,
-                        const std::function<void(const radios::Event&)>& on_event)
+                        const std::function<void(const radios::Event&)>& on_event,
+                        const SinkOptions& sink_options)
 {
     using clock = std::chrono::steady_clock;
     StreamResult result;
     const yr_stream_control& sc = *host.descriptor().stream;
-    StreamSink sink(host, 1u << 16);
-    yr_stream handle{&sink};
+    StreamSink sink(host, sink_options);
 
     sink.set_active(true);
-    result.start_status = sc.start_stream(device, &plan, &handle);
+    result.start_status = sc.start_stream(device, &plan, sink.handle());
     if (result.start_status != YR_OK) {
         sink.set_active(false);
         result.start_error = host.last_error(device);

@@ -7,13 +7,14 @@
 #                   completeness check applies to it too)
 #   fake_radio_v2   the same built for radio API 2.0: the host refuses it
 #   test_radio_host doctest of the host library (in process)
+#   test_conformance doctest of the conformance kit (RAD-91)
 #   host_cli_*      the yantra-radio-host command line
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 set(_plugins ${CMAKE_CURRENT_BINARY_DIR}/plugins)
 yantra_add_radio_plugin(fake_radio SOURCES fake_plugin.cpp LIBS yantra::radios_common
                         OUTPUT_DIR ${_plugins})
 yantra_add_radio_plugin(fake_radio_v2 SOURCES fake_plugin.cpp LIBS yantra::radios_common
-                        OUTPUT_DIR ${_plugins}/v2)
+                        OUTPUT_DIR ${_plugins}/v2 NO_TESTS)
 target_compile_definitions(fake_radio_v2 PRIVATE FAKE_API_MAJOR=2u)
 
 add_executable(test_radio_host test_host.cpp)
@@ -22,19 +23,24 @@ target_compile_definitions(test_radio_host PRIVATE
   FAKE_PLUGIN="$<TARGET_FILE:fake_radio>"
   FAKE_PLUGIN_V2="$<TARGET_FILE:fake_radio_v2>")
 add_dependencies(test_radio_host fake_radio fake_radio_v2)
+# The conformance kit itself (RAD-91): passes good plugins, finds faults.
+add_executable(test_conformance test_conformance.cpp)
+target_link_libraries(test_conformance PRIVATE yantra_test_main yantra::radio_host yantra::json
+                      yantra_warnings)
+target_compile_definitions(test_conformance PRIVATE
+  FAKE_PLUGIN="$<TARGET_FILE:fake_radio>"
+  FAKE_PLUGIN_V2="$<TARGET_FILE:fake_radio_v2>"
+  BEACON_PLUGIN="$<TARGET_FILE:beacon>")
+add_dependencies(test_conformance fake_radio fake_radio_v2 beacon)
+add_test(NAME test_conformance COMMAND test_conformance)
+set_tests_properties(test_conformance PROPERTIES LABELS fast TIMEOUT 300)
+
 add_test(NAME test_radio_host COMMAND test_radio_host)
 set_tests_properties(test_radio_host PROPERTIES LABELS fast TIMEOUT 120
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
-# Completeness (RAD-133) of the fake plugin, as for every plugin.
-set(_allow "")
-if(NOT YANTRA_SANITIZER STREQUAL "")
-  set(_allow --allow "lib(asan|ubsan|tsan|lsan)\\.so\\.[0-9]+" --allow "libstdc\\+\\+\\.so\\.6"
-             --allow "libgcc_s\\.so\\.1")
-endif()
-add_test(NAME completeness_fake_radio
-         COMMAND Python3::Interpreter ${PROJECT_SOURCE_DIR}/tools/ci/check_completeness.py
-                 ${_allow} $<TARGET_FILE:fake_radio>)
+# completeness_fake_radio and conformance_fake_radio come from
+# yantra_add_radio_plugin(), as for every plugin.
 
 # The command line. PASS_REGULAR_EXPRESSION checks the output; FAIL_ wins.
 set(_host $<TARGET_FILE:yantra-radio-host>)
@@ -87,7 +93,11 @@ add_test(NAME host_cli_decode_iq COMMAND ${_host} decode-iq --plugin ${_fake}
          --iq x.cf32 --format cf32)
 set_tests_properties(host_cli_decode_iq PROPERTIES
   PASS_REGULAR_EXPRESSION "decode-iq is not available yet: it needs the receiver \\(RAD-63, phase 4\\)")
-set_tests_properties(completeness_fake_radio host_cli_usage host_cli_info host_cli_refuse
+add_test(NAME host_cli_conformance_usage COMMAND ${_host} conformance --plugin ${_fake}
+         --unplug true)
+set_tests_properties(host_cli_conformance_usage PROPERTIES
+  PASS_REGULAR_EXPRESSION "--unplug and --replug go together")
+set_tests_properties(completeness_fake_radio host_cli_usage host_cli_conformance_usage host_cli_info host_cli_refuse
   host_cli_refuse_text host_cli_devices host_cli_no_device host_cli_settings
   host_cli_settings_refused host_cli_selftest host_cli_stream host_cli_read host_cli_stream_end
   host_cli_read_bad host_cli_decode_iq

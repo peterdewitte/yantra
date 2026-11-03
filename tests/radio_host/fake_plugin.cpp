@@ -17,6 +17,7 @@
 #include <yantra/radios/scene.hpp>
 
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <condition_variable>
 #include <cstdlib>
@@ -114,6 +115,14 @@ struct Plugin {
     Device* open = nullptr;
     std::atomic<uint64_t> context_events{0};
     std::atomic<bool> scene_dirty{true};
+    /** Faults for the conformance kit's own tests (YANTRA_FAKE_FAULT, a
+     *  comma list read at init): no_settings_changed, off_raster, no_busy,
+     *  slow_stop, any_plan. */
+    std::string faults;
+    bool fault(const char* name) const
+    {
+        return ("," + faults + ",").find(std::string(",") + name + ",") != std::string::npos;
+    }
 };
 
 struct Device {
@@ -352,6 +361,8 @@ yr_status fake_init(const yr_host_api* host, yr_plugin** out)
             return YR_ERR_INVALID_ARGUMENT;
         auto* p = new Plugin();
         p->host = host;
+        if (const char* f = std::getenv("YANTRA_FAKE_FAULT"))
+            p->faults = f;
         *out = reinterpret_cast<yr_plugin*>(p);
         host->log(host->host, nullptr, YR_LOG_INFO, "fake radio ready");
         return YR_OK;
@@ -414,6 +425,8 @@ yr_status fake_stop(yr_device* device)
     d->cv.notify_all();
     if (d->thread.joinable())
         d->thread.join();
+    if (d->plugin->fault("slow_stop"))
+        std::this_thread::sleep_for(std::chrono::milliseconds(1500));
     std::lock_guard lock(d->mutex);
     if (d->state == YR_DEVICE_STREAMING)
         d->state = YR_DEVICE_OPEN;
@@ -455,7 +468,8 @@ yr_status fake_set_plan(yr_device* device, const yr_plan* plan)
     std::lock_guard lock(d->mutex);
     if (d->state == YR_DEVICE_STREAMING)
         return YR_ERR_BUSY;
-    if (plan == nullptr || plan->type == YR_PLAN_SCAN)
+    if (plan == nullptr || (plan->type != YR_PLAN_SERVING && plan->type != YR_PLAN_CARRIERS &&
+                            !d->plugin->fault("any_plan")))
         return YR_ERR_UNSUPPORTED;
     d->plan = *plan;
     d->carriers.assign(plan->carriers_hz, plan->carriers_hz + plan->carrier_count);
@@ -471,6 +485,11 @@ yr_status fake_start(yr_device* device, const yr_plan* plan, yr_stream* sink)
             return YR_ERR_INVALID_ARGUMENT;
         if (plan->type == YR_PLAN_SCAN) {
             set_error(nullptr, d, "the fake radio cannot scan");
+            return YR_ERR_UNSUPPORTED;
+        }
+        if (plan->type != YR_PLAN_SERVING && plan->type != YR_PLAN_CARRIERS &&
+            !d->plugin->fault("any_plan")) {
+            set_error(nullptr, d, "unknown plan type");
             return YR_ERR_UNSUPPORTED;
         }
         if (plan->type == YR_PLAN_CARRIERS && (plan->carrier_count == 0 || plan->carriers_hz == nullptr)) {
@@ -588,10 +607,13 @@ yr_status fake_set(yr_device* device, const char* key, const yr_value* value)
         bool changed_others = false;
         {
             std::lock_guard lock(d->mutex);
-            if ((def->flags & YR_SETTING_RESTART) != 0 && d->state == YR_DEVICE_STREAMING)
+            if ((def->flags & YR_SETTING_RESTART) != 0 && d->state == YR_DEVICE_STREAMING &&
+                !d->plugin->fault("no_busy"))
                 return YR_ERR_BUSY;
             if (k == "gain_db") {
-                d->gain_db = std::round(value->u.f64 / 0.5) * 0.5; // the device's 0.5 dB step
+                d->gain_db = d->plugin->fault("off_raster")
+                                 ? value->u.f64
+                                 : std::round(value->u.f64 / 0.5) * 0.5; // the device's 0.5 dB step
             } else if (k == "agc") {
                 changed_others = d->agc != (value->u.i64 != 0);
                 d->agc = value->u.i64 != 0;
@@ -604,7 +626,7 @@ yr_status fake_set(yr_device* device, const char* key, const yr_value* value)
                 d->stop_after = value->u.u64;
             }
         }
-        if (changed_others)
+        if (changed_others && !d->plugin->fault("no_settings_changed"))
             d->plugin->host->settings_changed(d->plugin->host->host, device);
         return YR_OK;
     })
@@ -641,7 +663,8 @@ yr_status fake_apply_preset(yr_device* device, const char* id)
         d->mode = 0;
         d->agc = false;
     }
-    d->plugin->host->settings_changed(d->plugin->host->host, device);
+    if (!d->plugin->fault("no_settings_changed"))
+        d->plugin->host->settings_changed(d->plugin->host->host, device);
     return YR_OK;
 }
 
