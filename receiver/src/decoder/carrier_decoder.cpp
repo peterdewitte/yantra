@@ -4,8 +4,8 @@
 // Copied from yantra 68ea20a: plugins/tetra/decoder/src/carrier_decoder.cpp,
 // adapted for RAD-101, DEC-02..06, DEC-10, DEC-11 (DEC-03 parameter set,
 // AACH usage per timeslot, wall-clock stamps, fragment reassembly,
-// D-NWRK-BROADCAST, channel allocation counts; the quality windows come
-// in step 4.4).
+// D-NWRK-BROADCAST, channel allocation counts) and RAD-113 (the quality
+// windows of quality.hpp).
 
 #include "yantra/receiver/carrier_decoder.hpp"
 
@@ -90,7 +90,8 @@ bool signalling(LogicalChannel c)
 }  // namespace
 
 CarrierDecoder::CarrierDecoder(const CarrierDecoderConfig& config)
-    : cfg_(config), demod_(demod_config(config.isa)), sync_(config.sync), reassembler_(config.reassembly)
+    : cfg_(config), demod_(demod_config(config.isa)), sync_(config.sync), reassembler_(config.reassembly),
+      quality_(config.quality)
 {
 }
 
@@ -112,6 +113,8 @@ void CarrierDecoder::reset()
     periods_since_report_ = 0;
     samples_in_ = 0;
     period_ = {};
+    quality_.reset();
+    quality_in_ = 0;
     totals_ = {};
     power_acc_ = 0.0;
     last_found_ = 0.0;
@@ -191,8 +194,11 @@ void CarrierDecoder::process(const cf* x, std::size_t n, DecoderOutput& out)
     }
     std::size_t done = 0;
     while (done < n) {
-        // Split at period boundaries so each period sees its own samples.
-        const uint64_t left = cfg_.period_samples - period_.samples;
+        // Split at period and quality window boundaries so each sees its
+        // own samples.
+        uint64_t left = cfg_.period_samples - period_.samples;
+        if (cfg_.quality_samples > 0)
+            left = std::min(left, cfg_.quality_samples - quality_in_);
         const std::size_t take = static_cast<std::size_t>(std::min<uint64_t>(left, n - done));
         const cf* p = x + done;
         for (std::size_t i = 0; i < take; ++i)
@@ -203,6 +209,9 @@ void CarrierDecoder::process(const cf* x, std::size_t n, DecoderOutput& out)
         if (demod_origin_ != 0)
             for (DemodSymbol& sym : symbols_)
                 sym.sample_pos += static_cast<double>(demod_origin_);  // since the decoder's start
+        quality_.add_symbols(symbols_.data(), symbols_.size(), demod_.status().locked, sync_.locked());
+        if (demod_.status().locked)
+            quality_.add_frequency(demod_.status().frequency_offset_hz, take);
         events_.clear();
         sync_.push(symbols_.data(), symbols_.size(), events_);
         for (const SlotEvent& ev : events_) {
@@ -225,11 +234,15 @@ void CarrierDecoder::process(const cf* x, std::size_t n, DecoderOutput& out)
             last_found_ = end;
             demod_origin_ = samples_in_ + take;
             ++restarts_;
+            quality_.restart_windows();
         }
         done += take;
         samples_in_ += take;
+        quality_in_ += take;
         if (period_.samples >= cfg_.period_samples)
             finish_period(static_cast<double>(samples_in_), out);
+        if (cfg_.quality_samples > 0 && quality_in_ >= cfg_.quality_samples)
+            finish_quality(static_cast<double>(samples_in_), out);
     }
 }
 
@@ -286,6 +299,9 @@ void CarrierDecoder::on_slot(const SlotEvent& ev, DecoderOutput& out)
     }
     period_.time_known = mac_.time_known();
     period_.time = mac_.time();
+    // Counted for the quality windows once the AACH can be descrambled
+    // (the cell's scrambling code known from a BSCH).
+    quality_.add_slot(s, mac_.scrambling_code().has_value());
     if (ev.lost) {
         mac_.lost_sync();
         reassembler_.reset();
@@ -424,6 +440,13 @@ void CarrierDecoder::finish_period(double sample_pos, DecoderOutput& out)
         }
         periods_since_report_ = 0;
     }
+}
+
+void CarrierDecoder::finish_quality(double sample_pos, DecoderOutput& out)
+{
+    out.quality.push_back(quality_.report(sample_pos, quality_in_, demod_.status(), sync_.locked()));
+    out.quality.back().slots_total = slot_count_;
+    quality_in_ = 0;
 }
 
 }  // namespace yantra::receiver::tetra

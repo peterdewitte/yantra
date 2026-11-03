@@ -85,6 +85,7 @@ if(YANTRA_OSMO_TETRA_FOUND)
     src/decoder/fragment.cpp
     src/decoder/lower_mac.cpp
     src/decoder/mle.cpp
+    src/decoder/quality.cpp
     src/decoder/tdma.cpp)
   add_library(yantra::tetra_decoder ALIAS yantra_tetra_decoder)
   target_link_libraries(yantra_tetra_decoder

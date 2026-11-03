@@ -17,7 +17,9 @@
 // gives the cell re-select parameters (ServingCellParams::reselect,
 // DEC-03) and the neighbour list (CellInfo::network, DEC-02); channel
 // allocations are counted per carrier and timeslot (DEC-06: counts only,
-// no call is followed).
+// no call is followed). Per quality window (quality.hpp, RAD-113) it
+// reports the message erasure rate, slot CRC error rates, BER estimate,
+// modulation error ratio/EVM, SNR and frequency error.
 //
 // One CarrierDecoder per carrier; instances share no state, so carriers
 // decode in parallel threads (one decoder per thread at a time). Its
@@ -32,6 +34,7 @@
 #include "yantra/receiver/lower_mac.hpp"
 #include "yantra/receiver/mle.hpp"
 #include "yantra/receiver/pi4dqpsk.hpp"
+#include "yantra/receiver/quality.hpp"
 
 #include <array>
 #include <cstdint>
@@ -173,11 +176,13 @@ struct DecoderOutput {
     std::vector<DecodedSlot> slots;
     std::vector<CellEvent> cells;
     std::vector<PeriodReport> periods;
+    std::vector<QualityReport> quality;  ///< one per quality window (RAD-113)
     void clear()
     {
         slots.clear();
         cells.clear();
         periods.clear();
+        quality.clear();
     }
 };
 
@@ -197,6 +202,11 @@ struct CarrierDecoderConfig {
     /// Keep every DecodedSlot in DecoderOutput::slots (false: only cell
     /// events and periods, for long runs).
     bool keep_slots = true;
+    /// Quality window (RAD-113) in channel samples: 1 s at 72 kHz, the
+    /// measurement engine's default record interval; 0 = no quality
+    /// reports.
+    uint64_t quality_samples = 72000;
+    QualityConfig quality;
     BurstSyncConfig sync;
     ReassemblyConfig reassembly;
 };
@@ -241,6 +251,7 @@ private:
     void reassemble(SlotResult& r);
     void count_assignment(const ChannelAllocationInfo& a);
     void finish_period(double sample_pos, DecoderOutput& out);
+    void finish_quality(double sample_pos, DecoderOutput& out);
     int64_t utc_at(double sample_pos) const;
 
     CarrierDecoderConfig cfg_;
@@ -262,6 +273,8 @@ private:
     int periods_since_report_ = 0;
     uint64_t samples_in_ = 0;
     PeriodReport period_;
+    QualityMeter quality_;
+    uint64_t quality_in_ = 0;  ///< samples in the current quality window
     std::array<ChannelCounters, kLogicalChannelCount> totals_{};  ///< of finished periods
     double power_acc_ = 0.0;
     double last_found_ = 0.0;  ///< sample of the last training sequence (or of the last time unlocked)
