@@ -99,8 +99,18 @@ set_tests_properties(host_cli_read_bad PROPERTIES
   PASS_REGULAR_EXPRESSION "two_rooms_v1.json:1: header is not valid JSON")
 add_test(NAME host_cli_decode_iq COMMAND ${_host} decode-iq --plugin ${_fake}
          --iq x.cf32 --format cf32)
-set_tests_properties(host_cli_decode_iq PROPERTIES
-  PASS_REGULAR_EXPRESSION "decode-iq is not available yet: it needs the receiver \\(RAD-63, phase 4\\)")
+if(TARGET yantra::tetra_engine)
+  # Raw files need the rate and centre (RAD-63).
+  set_tests_properties(host_cli_decode_iq PROPERTIES
+    PASS_REGULAR_EXPRESSION "the sample rate is unknown: give --rate HZ")
+else()
+  set_tests_properties(host_cli_decode_iq PROPERTIES
+    PASS_REGULAR_EXPRESSION "decode-iq is not available: this build has no TETRA receiver")
+endif()
+add_test(NAME host_cli_capture_iq COMMAND ${_host} capture-iq --plugin ${_fake}
+         --out x.sigmf-data)
+set_tests_properties(host_cli_capture_iq PROPERTIES
+  PASS_REGULAR_EXPRESSION "capture-iq is not available yet: it needs the plugins' device layer \\(RAD-63, phase 5\\)")
 add_test(NAME host_cli_conformance_usage COMMAND ${_host} conformance --plugin ${_fake}
          --unplug true)
 set_tests_properties(host_cli_conformance_usage PROPERTIES
@@ -108,5 +118,5 @@ set_tests_properties(host_cli_conformance_usage PROPERTIES
 set_tests_properties(completeness_fake_radio host_cli_usage host_cli_conformance_usage host_cli_info host_cli_refuse
   host_cli_refuse_text host_cli_devices host_cli_no_device host_cli_settings
   host_cli_settings_refused host_cli_selftest host_cli_stream host_cli_read host_cli_stream_end
-  host_cli_read_bad host_cli_decode_iq
+  host_cli_read_bad host_cli_decode_iq host_cli_capture_iq
   PROPERTIES LABELS fast TIMEOUT 120)

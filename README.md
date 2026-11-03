@@ -71,6 +71,15 @@ floor plan and scene it emulates Yantra's context callbacks (`--scene`,
 every check of the radio API rules it can, with a JSON report
 (`--report`). Every plugin built here has a `conformance_<name>` ctest.
 
+`yantra-radio-host decode-iq --iq FILE --format cs8|cu8|cs16|cf32|sigmf`
+decodes an IQ file with the TETRA receiver (the measurement engine of the
+TETRA plugins, docs/MEASUREMENT.md) into a record file (RAD-63), e.g.
+`yantra-radio-host decode-iq --iq failed_site.sigmf-meta --format sigmf
+--out decoded.jsonl`; raw files need `--rate` and `--center`. The records
+compare field by field with yantra-gen's ground truth
+(docs/TETRA_RECORDS.md). `capture-iq` is a hook until the plugins' device
+layer exists.
+
 ## TETRA test-signal generator
 
 `build/bin/yantra-gen` (RAD-71) writes simulated TETRA downlink I/Q

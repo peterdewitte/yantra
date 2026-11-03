@@ -162,3 +162,9 @@ The first version (tag v0.1.0 when released).
   counts; serving choice, neighbour roles from the serving cell's list,
   record time from the caller's time base, overload and non-finite
   samples, an optional worker pool (docs/MEASUREMENT.md).
+- `yantra-radio-host decode-iq` (RAD-63): cf32, cs16, cs8 and cu8 raw
+  files and SigMF recordings (capture segments as discontinuities,
+  yantra-gen's calibration, clipping as OVERLOAD) through the measurement
+  engine into a record file; `--plugin` is no longer needed for it.
+  `capture-iq` stays a hook (needs the plugins' device layer). Tests
+  compare decoded records of yantra-gen scenarios with the ground truth.

@@ -8,6 +8,9 @@
 // The command layout follows yantra 68ea20a tools/yantra-plugin-test/main.cpp.
 #include "conformance.hpp"
 #include "host.hpp"
+#ifdef YANTRA_HOST_DECODE_IQ
+#include "decode_iq.hpp"
+#endif
 
 #include <yantra/radio.hpp>
 
@@ -61,10 +64,20 @@ Commands:
       are shell commands that unplug and replug the device (HOTPLUG).
   read      FILE
       Checks a record file (RAD-65) and prints a summary.
-  decode-iq --plugin FILE --iq FILE --format cs8|cu8|cs16|cf32|sigmf
-            [--rate HZ] [--center HZ] [--out FILE]
+  decode-iq --iq FILE --format cs8|cu8|cs16|cf32|sigmf [--rate HZ]
+            [--center HZ] [--serving [HZ] | --carriers HZ[,HZ...]]
+            [--scan-records] [--threads N] [--full-scale-dbm DBM]
+            [--uncalibrated] [--usable-fraction F] [--out FILE] [--quiet]
+      Decodes an IQ file (RAD-63) with the TETRA receiver (the measurement
+      engine of the TETRA plugins) into a record file and prints a summary.
+      Raw files need --rate and --center; SigMF gives them (core:datatype,
+      core:sample_rate, captures) and yantra-gen's calibration
+      (yantra:full_scale_dbm, yantra:reference_level_dbm): levels in dBm,
+      else dBFS. --full-scale-dbm sets the dBm of full scale;
+      --usable-fraction the share of the capture searched (default 0.9).
   capture-iq --plugin FILE [--device KEY] --out FILE.sigmf-data [--duration S]
-      IQ files (RAD-63): hooks only; they need the receiver (phase 4).
+      IQ capture to SigMF (RAD-63): a hook only; it needs the plugins'
+      device layer (phase 5).
 
 Plan (stream, default --serving):
   --serving [HZ]            follow the strongest (or the given) carrier
@@ -119,6 +132,11 @@ struct Options {
     uint32_t log_level = YR_LOG_WARNING;
     std::string file; // read
     std::string iq, iq_format;
+    std::optional<double> iq_rate, iq_centre, full_scale_dbm;
+    unsigned threads = 1;
+    double usable_fraction = 0.9;
+    bool uncalibrated = false;
+    bool scan_records = false;
     std::string report;           // conformance
     std::string unplug, replug;   // conformance
     std::vector<std::string> kit_scenes;
@@ -660,23 +678,58 @@ int cmd_read(const Options& o)
     return kExitPass;
 }
 
-// RAD-63 hooks: the commands and their options exist; decoding and capture
-// need the receiver (phase 4).
+// RAD-63: decode-iq through the receiver; capture-iq is a hook until the
+// plugins' device layer exists (phase 5).
 int cmd_iq(const Options& o)
 {
-    if (o.command == "decode-iq") {
-        static const char* const formats[] = {"cs8", "cu8", "cs16", "cf32", "sigmf"};
-        bool known = false;
-        for (const char* f : formats)
-            known = known || o.iq_format == f;
-        if (o.iq.empty() || !known)
-            return usage_error("decode-iq needs --iq FILE and --format cs8|cu8|cs16|cf32|sigmf");
-    } else if (o.out == "-" || o.out.empty()) {
-        return usage_error("capture-iq needs --out FILE.sigmf-data");
+    if (o.command == "capture-iq") {
+        if (o.out == "-" || o.out.empty())
+            return usage_error("capture-iq needs --out FILE.sigmf-data");
+        std::cerr << "error: capture-iq is not available yet: it needs the plugins' device layer "
+                     "(RAD-63, phase 5)\n";
+        return kExitFail;
     }
-    std::cerr << "error: " << o.command
-              << " is not available yet: it needs the receiver (RAD-63, phase 4)\n";
+    static const char* const formats[] = {"cs8", "cu8", "cs16", "cf32", "sigmf"};
+    bool known = false;
+    for (const char* f : formats)
+        known = known || o.iq_format == f;
+    if (o.iq.empty() || !known)
+        return usage_error("decode-iq needs --iq FILE and --format cs8|cu8|cs16|cf32|sigmf");
+#ifdef YANTRA_HOST_DECODE_IQ
+    yantra::radio_host::DecodeIqOptions d;
+    d.iq = o.iq;
+    d.format = o.iq_format;
+    d.rate_hz = o.iq_rate;
+    d.centre_hz = o.iq_centre;
+    d.out = o.quiet ? std::string() : o.out;
+    if (o.plan.type == YR_PLAN_CARRIERS)
+        for (uint64_t c : o.carriers)
+            d.carriers.push_back(static_cast<double>(c));
+    else if (o.plan.serving_hz != 0)
+        d.serving_hz = static_cast<double>(o.plan.serving_hz);
+    d.scan_records = o.scan_records;
+    d.threads = o.threads;
+    d.usable_fraction = o.usable_fraction;
+    d.full_scale_dbm = o.full_scale_dbm;
+    d.uncalibrated = o.uncalibrated;
+    yantra::radio_host::DecodeIqResult r;
+    std::string error;
+    if (!yantra::radio_host::decode_iq(d, r, error)) {
+        std::cerr << "error: " << error << "\n";
+        return kExitUsage;
+    }
+    std::ostream& msg = d.out == "-" ? std::cerr : std::cout;
+    msg << "decode-iq: samples " << r.samples << ", seconds " << r.seconds << ", records " << r.records
+        << ", events " << r.events << ", carriers " << r.carriers << ", synchronised " << r.synced
+        << ", segments " << r.segments << ", clipped blocks " << r.clipped_blocks << ", level "
+        << (r.calibrated ? "dBm" : "dBFS") << ", load " << r.load << "\n";
+    if (r.truncated)
+        msg << "warning: the file ends with a partial sample\n";
+    return kExitPass;
+#else
+    std::cerr << "error: decode-iq is not available: this build has no TETRA receiver (osmo-tetra not found)\n";
     return kExitFail;
+#endif
 }
 
 } // namespace
@@ -747,6 +800,10 @@ int main(int argc, char** argv)
             o.quiet = true;
         } else if (a == "--sensors") {
             o.sensors = true;
+        } else if (a == "--scan-records") {
+            o.scan_records = true;
+        } else if (a == "--uncalibrated") {
+            o.uncalibrated = true;
         } else if (a == "--neighbours") {
             o.plan.flags |= YR_PLAN_MEASURE_NEIGHBOURS;
         } else if (a == "--no-plan") {
@@ -847,6 +904,22 @@ int main(int argc, char** argv)
             double x = 0;
             if (!parse_double(v, x) || x <= 0)
                 return usage_error(a + " needs a number above 0");
+            (a == "--rate" ? o.iq_rate : o.iq_centre) = x;
+        } else if (a == "--full-scale-dbm") {
+            double x = 0;
+            if (!parse_double(v, x))
+                return usage_error("--full-scale-dbm needs a number");
+            o.full_scale_dbm = x;
+        } else if (a == "--usable-fraction") {
+            double x = 0;
+            if (!parse_double(v, x) || x <= 0.0 || x > 1.0)
+                return usage_error("--usable-fraction needs a number in (0, 1]");
+            o.usable_fraction = x;
+        } else if (a == "--threads") {
+            uint64_t t = 0;
+            if (!parse_u64(v, t) || t == 0 || t > 64)
+                return usage_error("--threads needs 1..64");
+            o.threads = static_cast<unsigned>(t);
         } else {
             return usage_error("unknown option: " + a);
         }
@@ -858,6 +931,8 @@ int main(int argc, char** argv)
             return usage_error("read needs a FILE");
         return cmd_read(o);
     }
+    if (o.command == "decode-iq")
+        return cmd_iq(o);
     if (o.plugin.empty())
         return usage_error("--plugin is required");
     if (o.command == "info")
