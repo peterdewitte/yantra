@@ -104,3 +104,12 @@ The first version (tag v0.1.0 when released).
   Tests: CLI and outputs against the scenario engine, SigMF validity,
   seeded golden digests, and a round trip of its IQ files through
   osmo-tetra's receive side (RAD-93).
+- Receiver library `yantra::receiver` (receiver/, RAD-100): FFT on
+  pocketfft, window functions and spectrum, Kaiser and root-raised-cosine
+  filter design, NCO, polyphase resampler, channelizer (25 kHz channels
+  from a wideband capture), pi/4-DQPSK demodulator with carrier-offset and
+  symbol-timing recovery, soft bits, MER and lock; SIMD kernels with a
+  plain C++ fallback (`YANTRA_SIMD=OFF`); the TETRA parameter set, the
+  training sequences and a bit-error-tolerant burst synchroniser
+  (DEC-01). Tests on generator IQ (exact bits, BER, offset and clock
+  ranges) and a benchmark (docs/RECEIVER_DSP.md).
