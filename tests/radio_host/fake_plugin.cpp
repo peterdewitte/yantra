@@ -425,8 +425,8 @@ yr_status fake_stop(yr_device* device)
     d->cv.notify_all();
     if (d->thread.joinable())
         d->thread.join();
-    if (d->plugin->fault("slow_stop"))
-        std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+    if (d->plugin->fault("slow_stop")) // just over the 1 s limit of RAD-15
+        std::this_thread::sleep_for(std::chrono::milliseconds(1100));
     std::lock_guard lock(d->mutex);
     if (d->state == YR_DEVICE_STREAMING)
         d->state = YR_DEVICE_OPEN;

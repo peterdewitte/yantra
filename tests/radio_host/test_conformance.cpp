@@ -142,7 +142,13 @@ TEST_CASE("the kit finds injected faults")
             named = named || p.find(c.problem) != std::string::npos;
         CHECK(named);
     }
-    // slow_stop: every stop_stream is over the RAD-15 limit.
+}
+
+// slow_stop makes every stop_stream of the run take just over the RAD-15
+// limit; the kit stops a stream about 14 times, so this case takes ~16 s
+// and runs under the slow label (ctest test_conformance_slow).
+TEST_CASE("the kit finds a slow stop_stream" * doctest::test_suite("slow"))
+{
     ScopedEnv env("YANTRA_FAKE_FAULT", "slow_stop");
     const ConformanceReport r = run_conformance(FAKE_PLUGIN, quick());
     CHECK(result_of(r, "state_machine") == "fail");
