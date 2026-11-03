@@ -133,3 +133,10 @@ The first version (tag v0.1.0 when released).
   Instances share no state. Tests with osmo-tetra's test PDUs, generator
   signals with noise and offsets, parallel carriers and a bundled scenario
   (RAD-123, docs/TETRA_DECODER.md).
+- Rust protocol crate `yantra-proto` (receiver/rust, RAD-101, RAD-03):
+  MAC PDUs, LLC, D-MLE-SYSINFO, D-MLE-SYNC, D-NWRK-BROADCAST with every
+  neighbour element and MM broadcast PDUs, behind a fixed-width C ABI
+  (FFI width and layout lint, RAD-90; cargo-deny in the lint); golden
+  digests run by ctest (RAD-120). The decoder uses it for fragment
+  reassembly (DEC-04), neighbour lists and re-select parameters (DEC-02,
+  DEC-03) and channel assignment counts per carrier (DEC-06).

@@ -58,9 +58,52 @@ flag: its type-1 bits are zeroed (DEC-10). Traffic (TCH) blocks are counted,
 never decoded. MAC-SYNC + D-MLE-SYNC are parsed here (osmo-tetra
 decodes them inline in its lower MAC). The duplex spacing table of TS 100
 392-15 is our own: osmo-tetra's `int16_t` table cannot hold 36 and 45 MHz.
-The MLE layer of D-NWRK-BROADCAST, MAC-FRAG/END reassembly and the Rust
-protocol crate come with step 4.3 (`ServingCellParams::reselect` stays
-empty until then).
+
+## Upper layers: the protocol crate (RAD-101, DEC-02, DEC-04)
+
+Above the lower MAC the MAC PDUs, LLC and MLE/MM broadcast are parsed by
+the Rust crate `yantra-proto` (`receiver/rust`, no external crates). CMake
+runs cargo (`cmake/RustProto.cmake`: release, `--offline --locked`, into
+`<build>/cargo`) and links the static library into the decoder as
+`yantra::proto` (RAD-132); the Rust standard library goes in with it. Its C
+ABI (`receiver/rust/include/yantra/proto.h`) uses fixed-width types only:
+`tools/ci/check_ffi_widths.py` checks every field and signature on both
+sides and `tools/ci/proto_layout.c` compares sizes and offsets with the
+crate's `print_layout` example (RAD-90, run by `tools/ci/lint.sh` with
+cargo-deny's licence, ban and source checks). The C++ view is
+`yantra/receiver/mle.hpp`: `parse_block_pdus()` gives the PDUs of one
+block (`BlockPdu`: MAC kind, fragment role, LLC type and FCS, MLE/MM PDU,
+the D-NWRK-BROADCAST, a channel allocation, `encrypted`); `describe()`
+gives the field-by-field text. osmo-tetra's SYSINFO decode stays the
+primary one; the crate's (`parse_sysinfo_proto`) is a cross-check in the
+tests.
+
+Fragments (`yantra/receiver/fragment.hpp`): one `Reassembler` per decoder
+joins MAC-RESOURCE "start of fragmentation", MAC-FRAG and MAC-END of one
+timeslot into a TM-SDU (DEC-04); a gap of more than 144 slots or more than
+4096 bits drops it, a lost block or a new start drops the open one, and
+every case is counted (`ReassemblyCounters`, per period in
+`PeriodReport::fragments`, since the start in `reassembly_totals()`). The
+reassembled TM-SDU is parsed and appended to the MAC-END block's `pdus`
+(`BlockPdu::reassembled`).
+
+D-NWRK-BROADCAST PDUs merge into `NetworkInfo` (`CellInfo::network`,
+`CarrierDecoder::network()`): neighbours sorted by cell id, the newest PDU
+of an id winning; re-select parameters, cell load and network time.
+`ServingCellParams::reselect` (DEC-03) comes from the last PDU. A cell
+change starts a new list.
+
+Channel assignments (DEC-06) are counts only: every channel allocation
+(MAC-RESOURCE or MAC-END) adds one to its carrier
+(`ChannelAssignmentCount`: carrier, downlink frequency, allocations, per
+timeslot, MCCH-sharing allocations with an empty bitmap), per period in
+`PeriodReport::assignments` and since the start in `assignment_totals()`.
+
+Scope (RAD-17): MM PDUs are named, CMCE PDUs only typed ("CMCE (not
+decoded)"), SDS is never decoded or counted, addresses never kept. A block
+with an encrypted PDU is zeroed (`DecodedBlock::content_cleared`); the
+MAC-FRAG/END parts of an encrypted or orphan reassembly are zeroed too and
+the reassembler never copies encrypted bits, only their length.
 
 ## Time base (DEC-11)
 
@@ -112,4 +155,11 @@ noise, carrier offsets up to 2.9 kHz and timing offsets, CRC failure
 counting, frame numbering across a hyperframe, UTC stamps, the AACH plan
 and cell load, encrypted block counts, a cell change; four carriers through
 the channelizer decoded serially and in parallel threads; the bundled
-`failed_site` scenario decoded back to its ground truth.
+`failed_site` scenario decoded back to its ground truth, neighbour lists
+and re-select parameters included. Upper layers: the crate's golden
+digests and fuzz smoke test (`cargo test`, ctest `rust_cargo_test`,
+RAD-120), SYSINFO from the crate against osmo-tetra, neighbour lists over
+the air, reassembly cases (order, loss, timeout, interleaved timeslots,
+length limit, orphans, LLC FCS), 31 neighbours in five fragmented PDUs
+merged to the ground truth, DEC-06 counts, a fragmented encrypted TM-SDU
+and the frequency helpers against the crate's.
