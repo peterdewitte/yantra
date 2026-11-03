@@ -7,19 +7,24 @@
 //   type-5 bits sent on air (one file per channel);
 // - the SHA-256 digest of every coded block of one hyperframe's worth of
 //   multiframes (60 x 18 x 4 slots) for the fixed default cell and for a
-//   cell configuration drawn from a fixed seed (downlink.txt).
+//   cell configuration drawn from a fixed seed (downlink.txt);
+// - whole downlink bursts (burst_*.txt), a short run of modulated samples
+//   compared with a tolerance (iq_sync_burst_72k.txt), and the SHA-256 of
+//   the quantised samples of a seeded two-carrier span (iq_digest.txt).
 // Any change of the encoders' output fails here. Rewrite on purpose only,
 // with the reason in the commit message: test_gen --update (or the build
 // target update-golden-gen). The vectors are also decoded by osmo-tetra's
 // lower MAC in tests/gen_osmo/.
 // Copied from yantra 68ea20a (tests/tetra_gen/test_golden.cpp), adapted
-// (no bursts or samples here, digests added).
+// (digests added).
 
 #include "ref_decoder.hpp"
 #include "ref_pdu.hpp"
 
 #include "golden.hpp"
 
+#include "yantra/gen/burst.hpp"
+#include "yantra/gen/cell_tx.hpp"
 #include "yantra/gen/digest.hpp"
 #include "yantra/gen/downlink.hpp"
 #include "yantra/gen/coding.hpp"
@@ -27,6 +32,9 @@
 
 #include <doctest/doctest.h>
 
+#include <algorithm>
+#include <cmath>
+#include <complex>
 #include <cstdio>
 #include <cstdlib>
 #include <filesystem>
@@ -352,5 +360,216 @@ TEST_SUITE("golden")
         CHECK(downlink_digest(a, 7) == downlink_digest(b, 7));
         CHECK(downlink_digest(a, 7) != downlink_digest(a, 8));  // hyperframe number in SYSINFO
         CHECK(downlink_digest(a, 7) != downlink_digest(seeded_cell(kSeed + 1), 7));
+    }
+}
+
+// ---- bursts and modulated samples ------------------------------------------
+
+namespace {
+
+using cf_t = std::complex<float>;
+
+std::string read_or_update(const fs::path& file, const std::string& text)
+{
+    if (yantra::tests::update_golden()) {
+        std::ofstream(file, std::ios::binary) << text;
+        MESSAGE("rewrote " << file.string());
+        return text;
+    }
+    std::ifstream in(file, std::ios::binary);
+    REQUIRE_MESSAGE(in.good(), "missing golden file; create it with test_gen --update");
+    std::stringstream s;
+    s << in.rdbuf();
+    return s.str();
+}
+
+std::string header(const std::string& what, const std::string& more = {})
+{
+    std::ostringstream s;
+    s << "# SPDX" "-FileCopyrightText: 2026 The Yantra contributors\n"
+      << "# SPDX" "-License-Identifier: GPL-3.0-or-later\n"
+      << "#\n"
+      << "# TETRA generator golden vector (RAD-70, RAD-93): " << what << "\n"
+      << more
+      << "# Written by tests/gen/test_golden.cpp; rewrite only on purpose\n"
+      << "# (test_gen --update, target update-golden-gen).\n";
+    return s.str();
+}
+
+struct BurstVector {
+    std::string name;
+    std::string description;
+    TdmaTime time;
+    bool nwrk;
+};
+
+std::vector<BurstVector> burst_vectors()
+{
+    return {
+        {"burst_sync_fn18_tn2", "synchronization burst, TN 2 FN 18 MN 3 HN 7", {2, 18, 3, 7}, false},
+        {"burst_normal_mcch_nwrk", "normal burst, MCCH TN 1 FN 1 with D-NWRK-BROADCAST", {1, 1, 3, 7}, true},
+        {"burst_normal_null_tn3", "normal burst, TN 3 FN 9 with a Null PDU", {3, 9, 3, 7}, false},
+    };
+}
+
+CellConfig golden_cell(bool nwrk)
+{
+    CellConfig c = CellConfig::defaults();
+    if (nwrk) {
+        NwrkBroadcast nb;
+        nb.network_time = NetworkTime{};
+        NeighbourCell n1;
+        n1.cell_id = 1;
+        n1.main_carrier = kCarrier + 4;
+        n1.location_area = 2;
+        nb.neighbours = std::vector<NeighbourCell>{n1};
+        c.nwrk_broadcast = nb;
+    }
+    return c;
+}
+
+std::string render_burst(const BurstVector& v)
+{
+    std::ostringstream s;
+    s << header(v.description + ", default cell (MCC 901, MNC 1, CC 1, carrier 3600)")
+      << "time " << int(v.time.tn) << ' ' << int(v.time.fn) << ' ' << int(v.time.mn) << ' ' << v.time.hn << "\n"
+      << "bits " << to_string(downlink_burst(golden_cell(v.nwrk), v.time)) << "\n";
+    return s.str();
+}
+
+// Samples 120..183 at 4 samples per symbol of the default cell from TN 1
+// FN 18 (synchronization burst), 6 decimals.
+constexpr size_t kIqFirst = 120;
+constexpr size_t kIqCount = 64;
+
+std::vector<cf_t> golden_samples()
+{
+    CellConfig c = CellConfig::defaults();
+    c.start = {1, 18, 1, 0};
+    CellTransmitter tx(c, 72000.0);
+    std::vector<cf_t> iq(kIqFirst + kIqCount);
+    tx.read(iq.data(), iq.size());
+    return std::vector<cf_t>(iq.begin() + kIqFirst, iq.end());
+}
+
+std::string render_samples(const std::vector<cf_t>& iq)
+{
+    std::ostringstream s;
+    s << header("modulated samples " + std::to_string(kIqFirst) + ".." + std::to_string(kIqFirst + kIqCount - 1) +
+                " at 72 ksps of the default cell from TN 1 FN 18 MN 1")
+      << "sample_rate 72000\nfirst " << kIqFirst << "\n";
+    char buf[64];
+    for (const cf_t& v : iq) {
+        std::snprintf(buf, sizeof buf, "iq %.6f %.6f\n", static_cast<double>(v.real()),
+                      static_cast<double>(v.imag()));
+        s << buf;
+    }
+    return s.str();
+}
+
+// The seeded span: 500 ksps, the default cell (two neighbours) at -100 kHz
+// and 0 dB, the cell drawn from kSeed at +62.5 kHz, -6 dB, 0.4 ms late;
+// both from TN 1 FN 17 MN 1 HN 7, so frame 18 is inside. kIqSlots slots.
+constexpr double kSpanRate = 500000.0;
+constexpr int kIqSlots = 12;
+// Quantisation of the digest: round(x * 2^12) as a little-endian int16
+// per component (I then Q), so the last bits of libm do not matter.
+constexpr double kQuantScale = 4096.0;
+
+std::vector<cf_t> seeded_span_samples()
+{
+    CellConfig a = golden_cell(true);
+    a.nwrk_broadcast->neighbours->push_back(NeighbourCell{});
+    a.nwrk_broadcast->neighbours->back().cell_id = 2;
+    a.nwrk_broadcast->neighbours->back().main_carrier = kCarrier - 4;
+    a.start = {1, 17, 1, 7};
+    CellConfig b = seeded_cell(kSeed);
+    b.start = {1, 17, 1, 7};
+    MultiCarrierTransmitter span(kSpanRate);
+    span.add(a, {.offset_hz = -100000.0, .level_db = 0.0});
+    span.add(b, {.offset_hz = 62500.0, .level_db = -6.0, .timing_offset_s = 0.4e-3});
+    std::vector<cf_t> iq(static_cast<size_t>(std::llround(kIqSlots * kSlotSeconds * kSpanRate)));
+    span.read(iq.data(), iq.size());
+    return iq;
+}
+
+std::string iq_digest(const std::vector<cf_t>& iq)
+{
+    Sha256 h;
+    for (const cf_t& v : iq) {
+        for (const float x : {v.real(), v.imag()}) {
+            const long q = std::clamp(std::lround(static_cast<double>(x) * kQuantScale), -32768L, 32767L);
+            const auto u = static_cast<uint16_t>(static_cast<int16_t>(q));
+            const uint8_t le[2] = {static_cast<uint8_t>(u & 0xFF), static_cast<uint8_t>(u >> 8)};
+            h.update(le, 2);
+        }
+    }
+    return h.hex();
+}
+
+std::string render_iq_digest(const std::vector<cf_t>& iq)
+{
+    std::ostringstream s;
+    s << header("SHA-256 of the quantised samples (round(x * 4096) as int16 LE, I then Q)",
+                "# of a seeded span: 500 ksps; default cell + 2 neighbours at -100 kHz 0 dB; cell drawn from\n"
+                "# seed " + std::to_string(kSeed) + " at +62.5 kHz -6 dB 0.4 ms late; both from TN 1 FN 17 MN 1 HN 7.\n")
+      << "sample_rate 500000\n"
+      << "samples " << iq.size() << "\n"
+      << "digest " << iq_digest(iq) << "\n";
+    return s.str();
+}
+
+}  // namespace
+
+TEST_SUITE("golden")
+{
+    TEST_CASE("Golden vectors of downlink bursts")
+    {
+        for (const BurstVector& v : burst_vectors()) {
+            CAPTURE(v.name);
+            const std::string text = render_burst(v);
+            const std::string stored = read_or_update(fs::path(YANTRA_GEN_GOLDEN_DIR) / (v.name + ".txt"), text);
+            CHECK(parse(stored).at("bits") == parse(text).at("bits"));
+            CHECK(stored == text);
+        }
+    }
+
+    TEST_CASE("Golden vector of modulated samples")
+    {
+        const std::vector<cf_t> iq = golden_samples();
+        const std::string stored =
+            read_or_update(fs::path(YANTRA_GEN_GOLDEN_DIR) / "iq_sync_burst_72k.txt", render_samples(iq));
+        // Compared as numbers: libm may differ in the last bits between
+        // systems.
+        std::istringstream in(stored);
+        std::string line;
+        size_t i = 0;
+        while (std::getline(in, line)) {
+            if (line.rfind("iq ", 0) != 0)
+                continue;
+            REQUIRE(i < iq.size());
+            double re = 0, im = 0;
+            std::istringstream(line.substr(3)) >> re >> im;
+            CHECK(std::fabs(re - iq[i].real()) < 2e-6);
+            CHECK(std::fabs(im - iq[i].imag()) < 2e-6);
+            ++i;
+        }
+        CHECK(i == iq.size());
+    }
+
+    TEST_CASE("Golden digest of a seeded two-carrier span")
+    {
+        const std::vector<cf_t> iq = seeded_span_samples();
+        const std::string text = render_iq_digest(iq);
+        const std::string stored = read_or_update(fs::path(YANTRA_GEN_GOLDEN_DIR) / "iq_digest.txt", text);
+        CHECK(parse(stored).at("samples") == parse(text).at("samples"));
+        CHECK(parse(stored).at("digest") == parse(text).at("digest"));
+        // Same seed, same samples; the quantisation keeps the signal.
+        CHECK(iq_digest(seeded_span_samples()) == iq_digest(iq));
+        double peak = 0.0;
+        for (const cf_t& v : iq)
+            peak = std::max(peak, static_cast<double>(std::abs(v)));
+        CHECK(peak > 0.5);
+        CHECK(peak * kQuantScale < 32767.0);
     }
 }
