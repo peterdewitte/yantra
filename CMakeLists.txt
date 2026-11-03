@@ -21,6 +21,7 @@ endif()
 
 option(YANTRA_RADIOS_BUILD_TESTS "Build the test suite" ON)
 option(YANTRA_SIMD "Use SIMD kernels (OFF = plain C++ fallback with the same results, RAD-90, TST-03)" ON)
+option(YANTRA_FUZZ "libFuzzer fuzz targets (clang + asan-ubsan, preset fuzz, RAD-96)" OFF)
 option(YANTRA_WERROR "Treat compiler warnings as errors (ON in CI, RAD-03, RAD-90)" OFF)
 set(YANTRA_SANITIZER "" CACHE STRING
   "Developer sanitizer build: '' (none), 'asan-ubsan' or 'tsan' (RAD-90, Yantra TST-05)")
@@ -31,6 +32,7 @@ set(YANTRA_RADIOS_SOURCE_URL "https://github.com/peterdewitte/yantra-radio-plugi
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(YantraWarnings)
 include(YantraSanitizers)
+include(YantraFuzz)
 # Bundled C libraries built statically from third_party/ (RAD-136), then
 # the osmo-tetra lower layers on them (RAD-101).
 include(${CMAKE_CURRENT_SOURCE_DIR}/tools/deps/deps.cmake)

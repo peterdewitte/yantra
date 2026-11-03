@@ -175,3 +175,10 @@ The first version (tag v0.1.0 when released).
   `decode-iq --gsmtap ADDR [--gsmtap-port PORT]` send the decoded
   broadcast blocks (BSCH, BNCH, AACH, broadcast D-NWRK-BROADCAST, scope
   RAD-17) as GSMTAP over UDP for Wireshark; off by default.
+- Fuzz targets (RAD-96, docs/FUZZING.md) for TETRA PDUs, soft-bit bursts
+  through the lower MAC and GSMTAP filter, IQ file content through the
+  measurement engine, SigMF metadata, scenario, scene and record files:
+  replayed with seeded mutations under ctest (label fuzz, seeds from the
+  generator), libFuzzer builds with the `fuzz` preset and
+  `tools/ci/fuzz.sh`; cargo-fuzz targets `tetra_pdu` and `tm_sdu` for the
+  Rust crate (receiver/rust/fuzz).

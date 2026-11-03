@@ -74,3 +74,11 @@ fn parse_nwrk_only(bits: &[u8]) {
         assert!(b.neighbours.map_or(0, |v| v.len()) <= 7, "more than 7 neighbours in one D-NWRK-BROADCAST");
     }
 }
+
+/// A whole TM-SDU (LLC with FCS, then MLE/MM): the input's bits packed
+/// MSB first, no option byte (cargo-fuzz target `tm_sdu`).
+pub fn tm_sdu(data: &[u8]) {
+    let bits = unpack(&data[..data.len().min(MAX_INPUT_BYTES)]);
+    let sdu = block::parse_tm_sdu_bits(&bits);
+    let _ = format!("{sdu:?}");
+}

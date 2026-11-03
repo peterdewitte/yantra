@@ -14,6 +14,7 @@
 #include <fstream>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace yantra::radio_host {
@@ -49,6 +50,14 @@ struct IqMeta {
 /// Reads FILE.sigmf-meta (given as the meta or the data file). False with
 /// `error` on failure.
 bool read_sigmf_meta(const std::string& path, IqMeta& meta, std::string& error);
+/// The same for the text of a meta file at `meta_path` (names the data
+/// file and the errors).
+bool parse_sigmf_meta(std::string_view text, const std::string& meta_path, IqMeta& meta, std::string& error);
+
+/// `m` samples of `format` at `b` as complex floats (full scale 1);
+/// `clipped` when an integer sample is at its extreme code.
+void convert_samples(const unsigned char* b, std::size_t m, IqFormat format, std::vector<std::complex<float>>& out,
+                     bool& clipped);
 
 /// Reads samples of a raw or SigMF data file block by block.
 class IqReader {

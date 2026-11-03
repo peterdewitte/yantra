@@ -35,7 +35,7 @@ SPDX-License-Identifier = "GPL-3.0-or-later"
 # Cargo's generated lock file of the Rust protocol crate (no comment
 # syntax that cargo keeps).
 [[annotations]]
-path = ["receiver/rust/Cargo.lock"]
+path = ["receiver/rust/Cargo.lock", "receiver/rust/fuzz/Cargo.lock"]
 SPDX-FileCopyrightText = "2026 The Yantra contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 

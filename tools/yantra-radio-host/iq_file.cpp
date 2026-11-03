@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cstring>
 #include <filesystem>
+#include <iterator>
 
 namespace yantra::radio_host {
 
@@ -42,14 +43,21 @@ bool read_sigmf_meta(const std::string& path, IqMeta& meta, std::string& error)
     fs::path p(path);
     if (p.extension() == ".sigmf-data" || p.extension() == ".sigmf")
         p.replace_extension(".sigmf-meta");
-    std::ifstream in(p);
+    std::ifstream in(p, std::ios::binary);
     if (!in) {
         error = p.string() + ": cannot open";
         return false;
     }
+    const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    return parse_sigmf_meta(text, p.string(), meta, error);
+}
+
+bool parse_sigmf_meta(std::string_view text, const std::string& meta_path, IqMeta& meta, std::string& error)
+{
+    const fs::path p(meta_path);
     nlohmann::json j;
     try {
-        in >> j;
+        j = nlohmann::json::parse(text);
     } catch (const std::exception& e) {
         error = p.string() + ": not valid JSON: " + e.what();
         return false;
@@ -101,32 +109,12 @@ bool read_sigmf_meta(const std::string& path, IqMeta& meta, std::string& error)
     return true;
 }
 
-bool IqReader::open(const std::string& path, IqFormat format, std::string& error)
-{
-    in_.open(path, std::ios::binary);
-    if (!in_) {
-        error = path + ": cannot open";
-        return false;
-    }
-    format_ = format;
-    pos_ = 0;
-    truncated_ = false;
-    return true;
-}
-
-std::size_t IqReader::read(std::size_t n, std::vector<std::complex<float>>& out, bool& clipped)
+void convert_samples(const unsigned char* b, std::size_t m, IqFormat format, std::vector<std::complex<float>>& out,
+                     bool& clipped)
 {
     clipped = false;
-    const std::size_t bytes = iq_sample_bytes(format_);
-    buf_.resize(n * bytes);
-    in_.read(reinterpret_cast<char*>(buf_.data()), static_cast<std::streamsize>(buf_.size()));
-    const auto got = static_cast<std::size_t>(in_.gcount());
-    const std::size_t m = got / bytes;
-    if (got % bytes != 0)
-        truncated_ = true;
     out.resize(m);
-    const unsigned char* b = buf_.data();
-    switch (format_) {
+    switch (format) {
     case IqFormat::cf32:
         std::memcpy(out.data(), b, m * 8);
         break;
@@ -155,6 +143,32 @@ std::size_t IqReader::read(std::size_t n, std::vector<std::complex<float>>& out,
         }
         break;
     }
+}
+
+bool IqReader::open(const std::string& path, IqFormat format, std::string& error)
+{
+    in_.open(path, std::ios::binary);
+    if (!in_) {
+        error = path + ": cannot open";
+        return false;
+    }
+    format_ = format;
+    pos_ = 0;
+    truncated_ = false;
+    return true;
+}
+
+std::size_t IqReader::read(std::size_t n, std::vector<std::complex<float>>& out, bool& clipped)
+{
+    clipped = false;
+    const std::size_t bytes = iq_sample_bytes(format_);
+    buf_.resize(n * bytes);
+    in_.read(reinterpret_cast<char*>(buf_.data()), static_cast<std::streamsize>(buf_.size()));
+    const auto got = static_cast<std::size_t>(in_.gcount());
+    const std::size_t m = got / bytes;
+    if (got % bytes != 0)
+        truncated_ = true;
+    convert_samples(buf_.data(), m, format_, out, clipped);
     pos_ += m;
     return m;
 }

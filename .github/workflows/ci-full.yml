@@ -62,3 +62,27 @@ jobs:
       - name: Completeness checks (RAD-133)
         if: matrix.name == 'x86-64' || matrix.name == 'arm64' || matrix.name == 'scalar'
         run: python3 tools/ci/check_completeness.py build-full/bin/plugins
+
+  # Bounded libFuzzer run of every fuzz target (RAD-96): clang + ASan/UBSan
+  # (preset fuzz), plus the Rust crate's cargo-fuzz targets (stable rustc
+  # with RUSTC_BOOTSTRAP=1, see docs/FUZZING.md). Findings are uploaded.
+  fuzz:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build clang python3 cargo
+          cargo install --locked cargo-fuzz
+      - name: Fuzz every target for 5 minutes
+        run: tools/ci/fuzz.sh 300
+      - name: Findings
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fuzz-artifacts
+          path: build-fuzz/fuzz-artifacts/

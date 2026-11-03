@@ -43,6 +43,19 @@
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build-tsan",
       "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "YANTRA_SANITIZER": "tsan" }
+    },
+    {
+      "name": "fuzz",
+      "displayName": "libFuzzer targets, clang + ASan/UBSan (RAD-96; tools/ci/fuzz.sh)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-fuzz",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "YANTRA_SANITIZER": "asan-ubsan",
+        "YANTRA_FUZZ": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -51,7 +64,8 @@
     { "name": "ci", "configurePreset": "ci" },
     { "name": "ci-scalar", "configurePreset": "ci-scalar" },
     { "name": "asan-ubsan", "configurePreset": "asan-ubsan" },
-    { "name": "tsan", "configurePreset": "tsan" }
+    { "name": "tsan", "configurePreset": "tsan" },
+    { "name": "fuzz", "configurePreset": "fuzz" }
   ],
   "testPresets": [
     { "name": "default", "configurePreset": "default", "output": { "outputOnFailure": true } },

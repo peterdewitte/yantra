@@ -25,4 +25,4 @@ add_test(NAME rust_cargo_test
                  --manifest-path ${YANTRA_PROTO_DIR}/Cargo.toml
                  --target-dir ${YANTRA_CARGO_TARGET_DIR})
 set_tests_properties(rust_cargo_test PROPERTIES
-  LABELS "fast;rust" TIMEOUT 600 WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
+  LABELS "fast;rust" TIMEOUT 600 WORKING_DIRECTORY ${PROJECT_BINARY_DIR} RESOURCE_LOCK cargo_target)

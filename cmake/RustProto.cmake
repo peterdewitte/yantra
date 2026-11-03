@@ -38,7 +38,7 @@ endif()
 add_custom_command(
   OUTPUT ${_proto_stamp}
   BYPRODUCTS ${_proto_lib}
-  COMMAND ${CMAKE_COMMAND} -E env CARGO_BUILD_JOBS=${_cores}
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_BUILD_JOBS=${_cores} "RUSTFLAGS=${YANTRA_FUZZ_RUSTFLAGS}"
           ${YANTRA_CARGO_EXECUTABLE} build --release --offline --locked --quiet
           --manifest-path ${YANTRA_PROTO_DIR}/Cargo.toml --target-dir ${YANTRA_CARGO_TARGET_DIR} --lib
   COMMAND ${CMAKE_COMMAND} -E touch ${_proto_stamp}
