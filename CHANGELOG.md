@@ -98,7 +98,7 @@ The first version (tag v0.1.0 when released).
   to cf32/cs16/cs8/cu8 samples with SigMF metadata (`yantra:simulated`,
   capture segments at sample drops, annotations per cell and event), a
   ground-truth CSV, a cell CSV and a ground-truth record file (RAD-65,
-  schemas `tetra.cell` and `tetra.neighbour`); impairment options of
+  schemas `tetra_cell` and `tetra_neighbour`); impairment options of
   RAD-72; streaming to stdout; deterministic for a seed
   (docs/YANTRA_GEN.md). Install rules for yantra-gen and data/scenarios.
   Tests: CLI and outputs against the scenario engine, SigMF validity,
@@ -140,3 +140,16 @@ The first version (tag v0.1.0 when released).
   digests run by ctest (RAD-120). The decoder uses it for fragment
   reassembly (DEC-04), neighbour lists and re-select parameters (DEC-02,
   DEC-03) and channel assignment counts per carrier (DEC-06).
+- Decoder quality windows (RAD-113): message erasure rate from the AACH,
+  CRC error rates per logical channel, BER of CRC-good blocks, MER/EVM,
+  M2M4 SNR and frequency error per `CarrierDecoder` report.
+- TETRA carrier search `yantra::tetra_engine` (RAD-102, RAD-110, RAD-111):
+  25 kHz raster with the four carrier offsets in the TETRA bands, energy
+  candidates, one decoder per carrier, loss and re-acquisition, pinned
+  carriers, retune, and a parallel executor hook.
+- Shared TETRA record schemas `tetra_cell`, `tetra_neighbour` and
+  `tetra_scan` (`yantra/radios/tetra_schemas.hpp`, docs/TETRA_RECORDS.md)
+  with `SchemaView` (a SchemaDef as a `yr_schema`). yantra-gen's ground
+  truth uses them; its schema ids changed from `tetra.cell` and
+  `tetra.neighbour` (not valid plugin schema ids) and it adds
+  `freq_error_ppm`, `c1_db` and the dBm values of the SYSINFO codes.

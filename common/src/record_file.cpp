@@ -682,6 +682,39 @@ Record record_from_c(const yr_record& r, const SchemaDef& schema)
     return out;
 }
 
+SchemaView::SchemaView(const SchemaDef& s)
+{
+    items.resize(s.fields.size());
+    fields.resize(s.fields.size());
+    for (size_t i = 0; i < s.fields.size(); ++i) {
+        const FieldDef& f = s.fields[i];
+        for (const EnumItem& e : f.items)
+            items[i].push_back({e.value, e.name.c_str(), e.label.c_str()});
+        yr_field_def& c = fields[i];
+        c = {};
+        c.struct_size = sizeof(yr_field_def);
+        c.type = f.type;
+        c.group = f.group;
+        c.flags = f.flags;
+        c.name = f.name.c_str();
+        c.label = f.label.c_str();
+        c.unit = f.unit.c_str();
+        c.help = f.help.c_str();
+        c.enum_items = items[i].empty() ? nullptr : items[i].data();
+        c.enum_count = static_cast<uint32_t>(items[i].size());
+    }
+    for (const yr_field_def& f : fields)
+        field_ptrs.push_back(&f);
+    schema_c.struct_size = sizeof(yr_schema);
+    schema_c.kind = s.kind;
+    schema_c.id = s.id.c_str();
+    schema_c.label = s.label.c_str();
+    schema_c.version = s.version;
+    schema_c.field_count = static_cast<uint32_t>(fields.size());
+    schema_c.fields = field_ptrs.data();
+    schema_c.groups = s.groups;
+}
+
 RecordView::RecordView(const Record& r)
 {
     values.reserve(r.values.size());

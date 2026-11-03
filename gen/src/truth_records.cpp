@@ -11,141 +11,25 @@
 
 namespace yantra::gen {
 
-using radios::FieldDef;
 using radios::Record;
 using radios::SchemaDef;
-using radios::Value;
 
 namespace {
 
-FieldDef field(const char* name, uint32_t type, uint32_t group, const char* unit, const char* label,
-               uint32_t flags = 0)
-{
-    FieldDef f;
-    f.name = name;
-    f.type = type;
-    f.group = group;
-    f.unit = unit;
-    f.label = label;
-    f.flags = flags;
-    return f;
-}
-
-// Field indexes of the cell schema.
-enum CellField : size_t {
-    kFreq, kChannel, kRole, kLevel, kMcc, kMnc, kLa, kCc,
-    kSnr, kFreqError,
-    kEncryption, kTxpwr, kRxlev,
-    kSimFloor, kSimX, kSimY,
-    kCellId, kLevelInst, kSource, kBestAntenna, kWalls,
-    kCellFieldCount
-};
-
-// Field indexes of the neighbour schema.
-enum NeighbourField : size_t {
-    kNFreq, kNIndex, kNCount, kNCellNumber, kNCarrier, kNFrequency, kNLa, kNCellId, kNeighbourFieldCount
-};
-
-Value v_uint(uint64_t x)
-{
-    Value v;
-    v.type = YR_TYPE_UINT;
-    v.u64 = x;
-    return v;
-}
-
-Value v_double(double x)
-{
-    Value v;
-    if (std::isfinite(x)) {
-        v.type = YR_TYPE_DOUBLE;
-        v.f64 = x;
-    }
-    return v;
-}
-
-Value v_bool(bool x)
-{
-    Value v;
-    v.type = YR_TYPE_BOOL;
-    v.i64 = x ? 1 : 0;
-    return v;
-}
-
-Value v_enum(int64_t x)
-{
-    Value v;
-    v.type = YR_TYPE_ENUM;
-    v.i64 = x;
-    return v;
-}
-
-Value v_string(const std::string& s)
-{
-    Value v;
-    v.type = YR_TYPE_STRING;
-    v.str = s;
-    return v;
-}
+const radios::TetraSchemaOptions kTruthOptions{.level_dbm = true, .simulated = true, .scan = false};
 
 uint64_t hz(double f) { return static_cast<uint64_t>(std::llround(f)); }
+
+/// MS_TXPWR_MAX_CELL and RXLEV_ACCESS_MIN codes in dBm (EN 300 392-2
+/// 21.4.4.1).
+int txpwr_dbm(uint8_t code) { return code == 0 ? 0 : 15 + 5 * (code - 1); }
+int rxlev_dbm(uint8_t code) { return -125 + 5 * code; }
 
 }  // namespace
 
 std::vector<SchemaDef> truth_schemas()
 {
-    SchemaDef c;
-    c.id = kTruthCellSchema;
-    c.label = "TETRA cell (ground truth)";
-    c.kind = YR_SCHEMA_MEASUREMENT;
-    c.version = 1;
-    c.groups = YR_GROUP_QUALITY | YR_GROUP_BROADCAST | YR_GROUP_SIM_POSITION | YR_GROUP_OTHER;
-    const uint32_t key = YR_FIELD_KEY | YR_FIELD_DEFAULT;
-    c.fields = {
-        field(YR_FIELD_FREQUENCY_HZ, YR_TYPE_UINT, YR_GROUP_CORE, "Hz", "Frequency", key),
-        field(YR_FIELD_CHANNEL, YR_TYPE_UINT, YR_GROUP_CORE, "", "Main carrier", YR_FIELD_DEFAULT),
-        field(YR_FIELD_ROLE, YR_TYPE_ENUM, YR_GROUP_CORE, "", "Role", YR_FIELD_DEFAULT),
-        field(YR_FIELD_LEVEL, YR_TYPE_DOUBLE, YR_GROUP_CORE, "dBm", "Level", YR_FIELD_DEFAULT),
-        field(YR_FIELD_MCC, YR_TYPE_UINT, YR_GROUP_CORE, "", "MCC", key),
-        field(YR_FIELD_MNC, YR_TYPE_UINT, YR_GROUP_CORE, "", "MNC", key),
-        field(YR_FIELD_LA, YR_TYPE_UINT, YR_GROUP_CORE, "", "Location area", key),
-        field(YR_FIELD_COLOUR_CODE, YR_TYPE_UINT, YR_GROUP_CORE, "", "Colour code", key),
-        field(YR_FIELD_SNR_DB, YR_TYPE_DOUBLE, YR_GROUP_QUALITY, "dB", "SNR"),
-        field(YR_FIELD_FREQ_ERROR_HZ, YR_TYPE_DOUBLE, YR_GROUP_QUALITY, "Hz", "Frequency error"),
-        field("encryption", YR_TYPE_BOOL, YR_GROUP_BROADCAST, "", "Air-interface encryption"),
-        field("ms_txpwr_max_cell", YR_TYPE_UINT, YR_GROUP_BROADCAST, "", "MS_TXPWR_MAX_CELL (code)"),
-        field("rxlev_access_min", YR_TYPE_UINT, YR_GROUP_BROADCAST, "", "RXLEV_ACCESS_MIN (code)"),
-        field(YR_FIELD_SIM_FLOOR_ID, YR_TYPE_STRING, YR_GROUP_SIM_POSITION, "", "Floor"),
-        field(YR_FIELD_SIM_X_M, YR_TYPE_DOUBLE, YR_GROUP_SIM_POSITION, "m", "x"),
-        field(YR_FIELD_SIM_Y_M, YR_TYPE_DOUBLE, YR_GROUP_SIM_POSITION, "m", "y"),
-        field("cell_id", YR_TYPE_STRING, YR_GROUP_OTHER, "", "Scenario cell"),
-        field("level_inst_dbm", YR_TYPE_DOUBLE, YR_GROUP_OTHER, "dBm", "Instantaneous level"),
-        field("level_source", YR_TYPE_STRING, YR_GROUP_OTHER, "", "Level source"),
-        field("best_antenna", YR_TYPE_STRING, YR_GROUP_OTHER, "", "Strongest antenna"),
-        field("walls", YR_TYPE_UINT, YR_GROUP_OTHER, "", "Walls crossed"),
-    };
-    c.fields[kRole].items = {{YR_ROLE_SERVING, "serving", "Serving"},
-                             {YR_ROLE_NEIGHBOUR, "neighbour", "Neighbour"},
-                             {YR_ROLE_OTHER, "other", "Other"}};
-
-    SchemaDef n;
-    n.id = kTruthNeighbourSchema;
-    n.label = "TETRA neighbour list entry (ground truth)";
-    n.kind = YR_SCHEMA_NEIGHBOUR;
-    n.version = 1;
-    n.groups = YR_GROUP_NEIGHBOURS;
-    n.fields = {
-        field(YR_FIELD_FREQUENCY_HZ, YR_TYPE_UINT, YR_GROUP_CORE, "Hz", "Broadcasting carrier", key),
-        field(YR_FIELD_ENTRY_INDEX, YR_TYPE_UINT, YR_GROUP_CORE, "", "Entry", key),
-        field(YR_FIELD_ENTRY_COUNT, YR_TYPE_UINT, YR_GROUP_CORE, "", "Entries"),
-        field("cell_number", YR_TYPE_UINT, YR_GROUP_NEIGHBOURS, "", "Neighbour cell identifier", YR_FIELD_DEFAULT),
-        field("main_carrier", YR_TYPE_UINT, YR_GROUP_NEIGHBOURS, "", "Main carrier", YR_FIELD_DEFAULT),
-        field("neighbour_frequency_hz", YR_TYPE_UINT, YR_GROUP_NEIGHBOURS, "Hz", "Neighbour frequency",
-              YR_FIELD_DEFAULT),
-        field("neighbour_la", YR_TYPE_UINT, YR_GROUP_NEIGHBOURS, "", "Location area (when broadcast)"),
-        field("neighbour_cell_id", YR_TYPE_STRING, YR_GROUP_NEIGHBOURS, "", "Scenario cell"),
-    };
-    return {c, n};
+    return radios::tetra_schemas(kTruthOptions);
 }
 
 radios::RecordFileHeader truth_record_header(const Scenario& s, const std::string& version)
@@ -169,7 +53,11 @@ radios::RecordFileHeader truth_record_header(const Scenario& s, const std::strin
     return h;
 }
 
-TruthRecorder::TruthRecorder(const Scenario& s) : s_(s) {}
+TruthRecorder::TruthRecorder(const Scenario& s)
+    : s_(s), cell_(radios::tetra_cell_schema(kTruthOptions), 0),
+      neighbour_(radios::tetra_neighbour_schema(kTruthOptions), 1)
+{
+}
 
 int64_t TruthRecorder::monotonic_ns(const TruthRow& row)
 {
@@ -178,6 +66,7 @@ int64_t TruthRecorder::monotonic_ns(const TruthRow& row)
 
 TruthRecords TruthRecorder::convert(const TruthRow& row)
 {
+    using namespace radios;
     TruthRecords out;
     // Serving: the strongest on-air cell (first one on a tie).
     std::optional<size_t> serving;
@@ -217,39 +106,42 @@ TruthRecords TruthRecorder::convert(const TruthRow& row)
                 if (n.cell == c.cell)
                     role = YR_ROLE_NEIGHBOUR;
         }
-        Record r;
-        r.schema_index = 0;
-        r.time = time;
-        r.flags = YR_RECORD_SIMULATED;
-        r.present = YR_GROUP_QUALITY | YR_GROUP_BROADCAST | YR_GROUP_OTHER;
-        r.values.resize(kCellFieldCount);
-        r.values[kFreq] = v_uint(hz(c.frequency_hz));
-        r.values[kChannel] = v_uint(sc ? sc->main_carrier : 0);
-        r.values[kRole] = v_enum(role);
-        r.values[kLevel] = v_double(c.level_dbm);
-        r.values[kMcc] = v_uint(c.mcc);
-        r.values[kMnc] = v_uint(c.mnc);
-        r.values[kLa] = v_uint(c.location_area);
-        r.values[kCc] = v_uint(c.colour_code);
-        r.values[kSnr] = v_double(c.snr_db);
-        r.values[kFreqError] = v_double(c.cfo_hz);
+        Record r = cell_.start(time, YR_RECORD_SIMULATED);
+        cell_.set(r, YR_FIELD_FREQUENCY_HZ, value_uint(hz(c.frequency_hz)));
+        cell_.set(r, YR_FIELD_CHANNEL, value_uint(sc ? sc->main_carrier : 0));
+        cell_.set(r, YR_FIELD_ROLE, value_enum(role));
+        cell_.set(r, YR_FIELD_LEVEL, value_double(c.level_dbm));
+        cell_.set(r, YR_FIELD_MCC, value_uint(c.mcc));
+        cell_.set(r, YR_FIELD_MNC, value_uint(c.mnc));
+        cell_.set(r, YR_FIELD_LA, value_uint(c.location_area));
+        cell_.set(r, YR_FIELD_COLOUR_CODE, value_uint(c.colour_code));
+        cell_.set(r, YR_FIELD_SNR_DB, value_double(c.snr_db));
+        cell_.set(r, YR_FIELD_FREQ_ERROR_HZ, value_double(c.cfo_hz));
+        if (c.frequency_hz > 0.0)
+            cell_.set(r, YR_FIELD_FREQ_ERROR_PPM, value_double(c.cfo_hz / c.frequency_hz * 1e6));
         if (sc) {
-            r.values[kEncryption] = v_bool(sc->encryption);
-            r.values[kTxpwr] = v_uint(sc->ms_txpwr_max_cell);
-            r.values[kRxlev] = v_uint(sc->rxlev_access_min);
+            cell_.set(r, "encryption", value_bool(sc->encryption));
+            cell_.set(r, "ms_txpwr_max_cell", value_uint(sc->ms_txpwr_max_cell));
+            cell_.set(r, "ms_txpwr_max_cell_dbm", value_int(txpwr_dbm(sc->ms_txpwr_max_cell)));
+            cell_.set(r, "rxlev_access_min", value_uint(sc->rxlev_access_min));
+            cell_.set(r, "rxlev_access_min_dbm", value_int(rxlev_dbm(sc->rxlev_access_min)));
+            cell_.set(r, "main_carrier", value_uint(sc->main_carrier));
+            cell_.set(r, "frequency_band", value_uint(sc->frequency_band));
+            cell_.set(r, YR_FIELD_C1_DB,
+                      value_double(tetra_c1_db(c.level_dbm, rxlev_dbm(sc->rxlev_access_min),
+                                               txpwr_dbm(sc->ms_txpwr_max_cell))));
         }
         if (row.position) {
-            r.present |= YR_GROUP_SIM_POSITION;
-            r.values[kSimFloor] = v_string(row.position->floor);
-            r.values[kSimX] = v_double(row.position->x_m);
-            r.values[kSimY] = v_double(row.position->y_m);
+            cell_.set(r, YR_FIELD_SIM_FLOOR_ID, value_string(row.position->floor));
+            cell_.set(r, YR_FIELD_SIM_X_M, value_double(row.position->x_m));
+            cell_.set(r, YR_FIELD_SIM_Y_M, value_double(row.position->y_m));
         }
-        r.values[kCellId] = v_string(c.cell);
-        r.values[kLevelInst] = v_double(c.level_inst_dbm);
-        r.values[kSource] = v_string(to_string(c.source));
+        cell_.set(r, "cell_id", value_string(c.cell));
+        cell_.set(r, "level_inst_dbm", value_double(c.level_inst_dbm));
+        cell_.set(r, "level_source", value_string(to_string(c.source)));
         if (!c.best_antenna.empty())
-            r.values[kBestAntenna] = v_string(c.best_antenna);
-        r.values[kWalls] = v_uint(static_cast<uint64_t>(std::max(0, c.walls)));
+            cell_.set(r, "best_antenna", value_string(c.best_antenna));
+        cell_.set(r, "walls", value_uint(static_cast<uint64_t>(std::max(0, c.walls))));
         out.records.push_back(std::move(r));
     }
 
@@ -262,21 +154,17 @@ TruthRecords TruthRecorder::convert(const TruthRow& row)
             if (!n)
                 continue;
             const uint16_t carrier = list[k].main_carrier.value_or(n->main_carrier);
-            Record r;
-            r.schema_index = 1;
-            r.time = time;
-            r.flags = YR_RECORD_SIMULATED;
-            r.present = YR_GROUP_NEIGHBOURS;
-            r.values.resize(kNeighbourFieldCount);
-            r.values[kNFreq] = v_uint(f);
-            r.values[kNIndex] = v_uint(k);
-            r.values[kNCount] = v_uint(list.size());
-            r.values[kNCellNumber] = v_uint(n->cell_number);
-            r.values[kNCarrier] = v_uint(carrier);
-            r.values[kNFrequency] = v_uint(hz(downlink_frequency_hz(n->frequency_band, carrier, n->offset)));
+            Record r = neighbour_.start(time, YR_RECORD_SIMULATED);
+            neighbour_.set(r, YR_FIELD_FREQUENCY_HZ, value_uint(f));
+            neighbour_.set(r, YR_FIELD_ENTRY_INDEX, value_uint(k));
+            neighbour_.set(r, YR_FIELD_ENTRY_COUNT, value_uint(list.size()));
+            neighbour_.set(r, "cell_number", value_uint(n->cell_number));
+            neighbour_.set(r, "main_carrier", value_uint(carrier));
+            neighbour_.set(r, "neighbour_frequency_hz",
+                           value_uint(hz(downlink_frequency_hz(n->frequency_band, carrier, n->offset))));
             if (list[k].location_area)
-                r.values[kNLa] = v_uint(*list[k].location_area);
-            r.values[kNCellId] = v_string(n->id);
+                neighbour_.set(r, "neighbour_la", value_uint(*list[k].location_area));
+            neighbour_.set(r, "neighbour_cell_id", value_string(n->id));
             out.records.push_back(std::move(r));
         }
     }

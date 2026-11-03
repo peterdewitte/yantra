@@ -95,6 +95,8 @@ outputs. `cmake --install build` installs it with the scenarios.
   [docs/SCENARIO_FORMAT.md](docs/SCENARIO_FORMAT.md) scenario files,
   [docs/CHANNEL_MODEL.md](docs/CHANNEL_MODEL.md) channel and multi-wall
   model.
+- [docs/TETRA_RECORDS.md](docs/TETRA_RECORDS.md) the TETRA record schemas
+  shared by the measurement engine, the plugins and yantra-gen.
 - [CHANGELOG.md](CHANGELOG.md): releases and the radio API changelog
   (RAD-11).
 

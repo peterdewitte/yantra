@@ -7,16 +7,19 @@
 // next to its IQ file; Yantra's tests feed such files into its record sink
 // (Yantra TST-10). The simulator plugin (RAD-61) can use the same schemas.
 //
-// Two schemas (documented in docs/YANTRA_GEN.md):
-// - "tetra.cell" (MEASUREMENT): the 8 core fields (level in dBm: the local
-//   mean level at the antenna connector), quality (snr_db, freq_error_hz),
-//   broadcast (encryption, ms_txpwr_max_cell, rxlev_access_min),
-//   sim_position (receiver floor and position) and other (scenario cell
-//   id, instantaneous level, level source, strongest antenna, walls).
-//   One record per on-air cell per truth row; role SERVING for the
-//   strongest on-air cell, NEIGHBOUR for the cells in its broadcast list,
-//   OTHER for the rest.
-// - "tetra.neighbour" (NEIGHBOUR): the serving cell's broadcast neighbour
+// The schemas are the shared TETRA schemas of yantra-radios
+// (yantra/radios/tetra_schemas.hpp; level in dBm, simulated), so ground
+// truth and the measurement engine's records compare field by field:
+// - "tetra_cell" (MEASUREMENT): the 8 core fields (level in dBm: the local
+//   mean level at the antenna connector), quality (snr_db, freq_error_hz,
+//   freq_error_ppm), C1 (with kTetraC1MsMaxPowerDbm), broadcast
+//   (encryption, MS_TXPWR_MAX_CELL and RXLEV_ACCESS_MIN as codes and dBm,
+//   main carrier, band), sim_position (receiver floor and position) and
+//   other (scenario cell id, instantaneous level, level source, strongest
+//   antenna, walls). One record per on-air cell per truth row; role
+//   SERVING for the strongest on-air cell, NEIGHBOUR for the cells in its
+//   broadcast list, OTHER for the rest.
+// - "tetra_neighbour" (NEIGHBOUR): the serving cell's broadcast neighbour
 //   list, one record per entry, as broadcast (planted values included):
 //   at the first row, whenever the serving cell changes and every second.
 #pragma once
@@ -25,6 +28,7 @@
 #include "scenario_engine.hpp"
 
 #include <yantra/radios/record_file.hpp>
+#include <yantra/radios/tetra_schemas.hpp>
 
 #include <optional>
 #include <string>
@@ -32,8 +36,8 @@
 
 namespace yantra::gen {
 
-inline constexpr const char* kTruthCellSchema = "tetra.cell";
-inline constexpr const char* kTruthNeighbourSchema = "tetra.neighbour";
+inline constexpr const char* kTruthCellSchema = radios::kTetraCellSchema;
+inline constexpr const char* kTruthNeighbourSchema = radios::kTetraNeighbourSchema;
 /// Interval of the neighbour-list records while the serving cell stays.
 inline constexpr double kTruthNeighbourIntervalS = 1.0;
 
@@ -64,6 +68,8 @@ public:
 
 private:
     const Scenario& s_;
+    radios::RecordFiller cell_;
+    radios::RecordFiller neighbour_;
     std::optional<size_t> serving_;  ///< index in s_.cells
     double last_list_t_ = -1e300;
 };

@@ -212,6 +212,20 @@ struct RecordView {
     explicit RecordView(const Record& record);
 };
 
+/** A stored schema as a ::yr_schema, e.g. for a plugin descriptor
+ *  (RAD-12) built from a SchemaDef. Points into `schema`, which must
+ *  outlive the view; the view itself must not be copied or moved after
+ *  `schema_c` was taken (it points into its own vectors). */
+struct SchemaView {
+    std::vector<std::vector<yr_enum_item>> items;
+    std::vector<yr_field_def> fields;
+    std::vector<const yr_field_def*> field_ptrs;
+    yr_schema schema_c{};
+    explicit SchemaView(const SchemaDef& schema);
+    SchemaView(const SchemaView&) = delete;
+    SchemaView& operator=(const SchemaView&) = delete;
+};
+
 /** Writes a record file line by line. Throws std::invalid_argument when a
  *  record does not fit its schema (wrong type, unknown schema, non-finite
  *  double) and std::logic_error when the header is missing or repeated. */

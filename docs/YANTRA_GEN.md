@@ -214,30 +214,31 @@ truth row:
 
 - a `serving_changed` event when the serving cell (the strongest on-air
   cell) changes;
-- one `tetra.cell` record per on-air cell (flag `simulated`;
+- one `tetra_cell` record per on-air cell (flag `simulated`;
   `time.monotonic_ns` = signal time; `utc_source` none);
-- the serving cell's neighbour list as `tetra.neighbour` records at the
+- the serving cell's neighbour list as `tetra_neighbour` records at the
   first row, on a serving change and every second;
 
 and at the end an `end_of_stream` event and the end line.
 
-Schema `tetra.cell` (MEASUREMENT, version 1):
+The schemas are the shared TETRA schemas of yantra-radios
+([TETRA_RECORDS.md](TETRA_RECORDS.md); level in dBm, simulated), the same
+ones the measurement engine and the TETRA plugins use, so truth and
+decoded records compare field by field. yantra-gen fills:
 
-| Field | Group | Type, unit | Meaning |
-|---|---|---|---|
-| `frequency_hz`, `channel`, `role`, `level`, `mcc`, `mnc`, `la`, `colour_code` | core | RAD-21 core fields; `level` in dBm = the truth `level_dbm`; `channel` the main carrier; `role` serving / neighbour (in the serving cell's list) / other |
-| `snr_db`, `freq_error_hz` | quality | double dB, Hz | truth SNR and `cfo_hz` |
-| `encryption`, `ms_txpwr_max_cell`, `rxlev_access_min` | broadcast | bool, uint codes | SYSINFO values |
-| `sim_floor_id`, `sim_x_m`, `sim_y_m` | sim_position | string, double m | receiver position (only when there is one) |
-| `cell_id`, `level_inst_dbm`, `level_source`, `best_antenna`, `walls` | other | | scenario cell id and the truth columns |
+| Field | Group | Meaning |
+|---|---|---|
+| `frequency_hz`, `channel`, `role`, `level`, `mcc`, `mnc`, `la`, `colour_code` | core | `level` in dBm = the truth `level_dbm`; `channel` the main carrier; `role` serving (strongest on-air cell) / neighbour (in the serving cell's list) / other |
+| `snr_db`, `freq_error_hz`, `freq_error_ppm` | quality | truth SNR and `cfo_hz` |
+| `c1_db` | c1 | C1 from the truth level and the SYSINFO values (MS maximum 30 dBm) |
+| `encryption`, `ms_txpwr_max_cell`, `ms_txpwr_max_cell_dbm`, `rxlev_access_min`, `rxlev_access_min_dbm`, `main_carrier`, `frequency_band` | broadcast | SYSINFO values, codes and dBm |
+| `sim_floor_id`, `sim_x_m`, `sim_y_m` | sim_position | receiver position (only when there is one) |
+| `cell_id`, `level_inst_dbm`, `level_source`, `best_antenna`, `walls` | other | scenario cell id and the truth columns |
 
-Schema `tetra.neighbour` (NEIGHBOUR, version 1): `frequency_hz` (the
-serving carrier), `entry_index`, `entry_count`, and in group neighbours
-`cell_number`, `main_carrier` (as broadcast), `neighbour_frequency_hz`,
-`neighbour_la` (only when broadcast), `neighbour_cell_id`.
-
-The TETRA radio plugin's own schemas (phase 4/5) are expected to use the
-same field names where they overlap.
+`tetra_neighbour`: `frequency_hz` (the serving carrier), `entry_index`,
+`entry_count`, `cell_number`, `main_carrier` (as broadcast),
+`neighbour_frequency_hz`, `neighbour_la` (only when broadcast),
+`neighbour_cell_id`.
 
 ## Tests
 

@@ -7,6 +7,7 @@
 # nlohmann/json is private: the public headers do not expose it.
 add_library(yantra_radios_common STATIC
   src/record_file.cpp
+  src/tetra_schemas.cpp
   src/scene.cpp)
 target_include_directories(yantra_radios_common PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
