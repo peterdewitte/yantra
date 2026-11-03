@@ -1,0 +1,83 @@
+{
+  "version": 2,
+  "cmakeMinimumRequired": { "major": 3, "minor": 20, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "default",
+      "displayName": "Default (SIMD, tests)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo" }
+    },
+    {
+      "name": "scalar",
+      "displayName": "Scalar fallback without SIMD (RAD-90, TST-03)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-scalar",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "YANTRA_SIMD": "OFF" }
+    },
+    {
+      "name": "ci",
+      "displayName": "CI build: warnings are errors (RAD-90)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "YANTRA_WERROR": "ON" }
+    },
+    {
+      "name": "ci-scalar",
+      "displayName": "CI scalar build: no SIMD, warnings are errors (RAD-90)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-scalar",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "YANTRA_SIMD": "OFF", "YANTRA_WERROR": "ON" }
+    },
+    {
+      "name": "asan-ubsan",
+      "displayName": "AddressSanitizer + UBSan developer build (RAD-90, TST-05)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-asan",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "YANTRA_SANITIZER": "asan-ubsan" }
+    },
+    {
+      "name": "tsan",
+      "displayName": "ThreadSanitizer developer build (RAD-90, TST-05)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-tsan",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "YANTRA_SANITIZER": "tsan" }
+    }
+  ],
+  "buildPresets": [
+    { "name": "default", "configurePreset": "default" },
+    { "name": "scalar", "configurePreset": "scalar" },
+    { "name": "ci", "configurePreset": "ci" },
+    { "name": "ci-scalar", "configurePreset": "ci-scalar" },
+    { "name": "asan-ubsan", "configurePreset": "asan-ubsan" },
+    { "name": "tsan", "configurePreset": "tsan" }
+  ],
+  "testPresets": [
+    { "name": "default", "configurePreset": "default", "output": { "outputOnFailure": true } },
+    { "name": "scalar", "configurePreset": "scalar", "output": { "outputOnFailure": true } },
+    {
+      "name": "fast",
+      "displayName": "Fast tests only (every change, RAD-90)",
+      "configurePreset": "ci",
+      "output": { "outputOnFailure": true },
+      "filter": { "exclude": { "label": "slow" } },
+      "execution": { "timeout": 600 }
+    },
+    {
+      "name": "asan-ubsan",
+      "configurePreset": "asan-ubsan",
+      "output": { "outputOnFailure": true },
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=1:abort_on_error=1",
+        "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1"
+      }
+    },
+    {
+      "name": "tsan",
+      "configurePreset": "tsan",
+      "output": { "outputOnFailure": true },
+      "environment": { "TSAN_OPTIONS": "halt_on_error=1:second_deadlock_stack=1" }
+    }
+  ]
+}
