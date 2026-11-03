@@ -10,7 +10,14 @@
 // when first complete or changed (DEC-02, DEC-03), and per period (one
 // multiframe by default) the level, MER, frequency offset, block and CRC
 // error counts per logical channel, encrypted block counts (DEC-10) and
-// the AACH downlink usage per timeslot (DEC-05).
+// the AACH downlink usage per timeslot (DEC-05). Above the lower MAC the
+// protocol crate parses the MAC PDUs of every signalling block
+// (MAC-RESOURCE/FRAG/END -> LLC -> MLE, mle.hpp); fragmented TM-SDUs are
+// put together per timeslot (fragment.hpp, DEC-04); D-NWRK-BROADCAST
+// gives the cell re-select parameters (ServingCellParams::reselect,
+// DEC-03) and the neighbour list (CellInfo::network, DEC-02); channel
+// allocations are counted per carrier and timeslot (DEC-06: counts only,
+// no call is followed).
 //
 // One CarrierDecoder per carrier; instances share no state, so carriers
 // decode in parallel threads (one decoder per thread at a time). Its
@@ -20,8 +27,10 @@
 
 #include "yantra/receiver/broadcast.hpp"
 #include "yantra/receiver/burst_sync.hpp"
+#include "yantra/receiver/fragment.hpp"
 #include "yantra/receiver/kernels.hpp"
 #include "yantra/receiver/lower_mac.hpp"
+#include "yantra/receiver/mle.hpp"
 #include "yantra/receiver/pi4dqpsk.hpp"
 
 #include <array>
@@ -42,15 +51,38 @@ struct DecodedSlot {
     SlotResult result;        ///< when found
 };
 
+/// What the cell broadcasts in D-NWRK-BROADCAST (DEC-02): the latest cell
+/// re-select parameters, cell load and network time, and the neighbour
+/// cells of all D-NWRK-BROADCAST PDUs so far, merged by cell identifier
+/// (one PDU holds at most 7; a cell may spread a longer list, up to 31
+/// entries, over several PDUs). Neighbours are never dropped while the
+/// cell stays the same; a new cell identity starts an empty list.
+struct NetworkInfo {
+    ReselectParams reselect;
+    uint8_t cell_load = 0;  ///< 0 unknown, 1 low, 2 medium, 3 high
+    std::optional<NetworkTimeInfo> network_time;
+    std::vector<NeighbourInfo> neighbours;  ///< sorted by cell identifier
+    uint64_t broadcasts = 0;                ///< D-NWRK-BROADCAST PDUs received
+
+    /// Same parameters and neighbours (network time and count aside).
+    bool same_content(const NetworkInfo& o) const
+    {
+        return reselect == o.reselect && cell_load == o.cell_load && neighbours == o.neighbours;
+    }
+    /// Merges one D-NWRK-BROADCAST.
+    void merge(const NwrkBroadcastInfo& b);
+};
+
 /// Broadcast identity and system information of the cell on the carrier.
 struct CellInfo {
     SyncInfo sync;        ///< time fields (timeslot, frame, multiframe) zero
     SysinfoInfo sysinfo;  ///< hyperframe as last received
     /// The DEC-03 set; its counts (encrypted blocks, cell load) as of the
-    /// report.
+    /// report; `reselect` once a D-NWRK-BROADCAST was received.
     ServingCellParams params;
-    /// Same cell and broadcast content; hyperframe, counts and load move
-    /// on by themselves and are ignored.
+    std::optional<NetworkInfo> network;  ///< once a D-NWRK-BROADCAST was received
+    /// Same cell and broadcast content; hyperframe, counts, load, network
+    /// time and broadcast count move on by themselves and are ignored.
     bool same_content(const CellInfo& o) const;
 };
 
@@ -66,12 +98,35 @@ struct ChannelCounters {
     uint64_t blocks = 0;
     uint64_t crc_errors = 0;  ///< blocks whose CRC failed (AACH: RM(30,14) not decodable)
     uint64_t encrypted = 0;   ///< MAC PDUs sent encrypted (DEC-10), only counted
+    uint64_t fcs_errors = 0;  ///< TM-SDUs whose LLC frame check sequence failed
     void add(const ChannelCounters& o)
     {
         blocks += o.blocks;
         crc_errors += o.crc_errors;
         encrypted += o.encrypted;
+        fcs_errors += o.fcs_errors;
     }
+};
+
+/// Channel allocations (MAC-RESOURCE / MAC-END, 21.5.2) to one carrier
+/// (DEC-06): how often the cell sent a channel there, per timeslot. A
+/// cell load figure only: no address, call or voice is followed.
+struct ChannelAssignmentCount {
+    uint16_t carrier = 0;  ///< carrier number
+    /// Band, offset and duplex of the allocation's extension, if sent
+    /// (otherwise the serving cell's band and offset apply).
+    std::optional<CarrierExtensionInfo> extension;
+    uint64_t downlink_hz = 0;  ///< 0 while the serving cell's band is unknown
+    uint64_t allocations = 0;
+    /// Per timeslot 1..4 (index 0..3); an allocation of several timeslots
+    /// counts in each.
+    std::array<uint64_t, 4> timeslots{};
+    uint64_t mcch_timeslots = 0;  ///< allocations to "the MCCH sharing timeslots" (bitmap 0)
+    bool same_carrier(const ChannelAssignmentCount& o) const
+    {
+        return carrier == o.carrier && extension == o.extension;
+    }
+    void add(const ChannelAssignmentCount& o);
 };
 
 /// AACH of one timeslot number in one period (DEC-05).
@@ -105,6 +160,10 @@ struct PeriodReport {
     TdmaTime time;                 ///< time of the last slot in the period
     std::array<ChannelCounters, kLogicalChannelCount> channels{};
     std::array<AachCounters, 4> aach{};  ///< per timeslot number 1..4 (index 0..3)
+    ReassemblyCounters fragments;        ///< reassembly of fragmented TM-SDUs (DEC-04)
+    uint64_t nwrk_broadcasts = 0;        ///< D-NWRK-BROADCAST PDUs decoded
+    /// Channel allocations per carrier (DEC-06), sorted by carrier.
+    std::vector<ChannelAssignmentCount> assignments;
     /// Cell load from the AACH: (assigned control + traffic) / marked
     /// slots, in percent; empty without marked slots.
     std::optional<double> cell_load_percent() const;
@@ -139,6 +198,7 @@ struct CarrierDecoderConfig {
     /// events and periods, for long runs).
     bool keep_slots = true;
     BurstSyncConfig sync;
+    ReassemblyConfig reassembly;
 };
 
 class CarrierDecoder {
@@ -161,6 +221,15 @@ public:
     /// Counters since the start (or reset), per logical channel, the
     /// current period included.
     std::array<ChannelCounters, kLogicalChannelCount> totals() const;
+    /// The current cell's D-NWRK-BROADCAST content (neighbours, re-select
+    /// parameters), once one was received.
+    const std::optional<NetworkInfo>& network() const { return network_; }
+    /// Reassembly counters since the start (or reset), the current period
+    /// included.
+    ReassemblyCounters reassembly_totals() const;
+    /// Channel allocations per carrier since the start (or reset), the
+    /// current period included (DEC-06).
+    std::vector<ChannelAssignmentCount> assignment_totals() const;
     /// Channel samples processed so far.
     uint64_t samples() const { return samples_in_; }
     /// Acquisition restarts by the no-training-sequence watchdog.
@@ -169,6 +238,8 @@ public:
 private:
     void on_slot(const SlotEvent& ev, DecoderOutput& out);
     void count(const SlotResult& r);
+    void reassemble(SlotResult& r);
+    void count_assignment(const ChannelAllocationInfo& a);
     void finish_period(double sample_pos, DecoderOutput& out);
     int64_t utc_at(double sample_pos) const;
 
@@ -180,6 +251,11 @@ private:
     std::vector<SlotEvent> events_;
     std::optional<SyncInfo> sync_info_;
     std::optional<SysinfoInfo> sysinfo_;
+    std::optional<NetworkInfo> network_;
+    Reassembler reassembler_;
+    uint64_t slot_count_ = 0;  ///< slots seen (found and missed): the reassembly's clock
+    ReassemblyCounters fragment_totals_;  ///< of finished periods
+    std::vector<ChannelAssignmentCount> assignment_totals_;  ///< of finished periods
     std::optional<CellInfo> reported_;
     uint64_t encrypted_blocks_ = 0;           ///< since the current cell was found
     std::optional<double> last_load_;         ///< cell load of the last period with markers

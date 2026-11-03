@@ -11,6 +11,7 @@
 
 #include "osmo.hpp"
 
+#include <algorithm>
 #include <cstring>
 
 namespace yantra::receiver::tetra {
@@ -99,8 +100,11 @@ std::optional<SysinfoInfo> parse_sysinfo(const uint8_t* bits)
 
 uint64_t carrier_downlink_hz(uint8_t band, uint16_t carrier, uint8_t offset)
 {
-    return static_cast<uint64_t>(band) * 100000000u + static_cast<uint64_t>(carrier) * 25000u +
-           static_cast<uint64_t>(static_cast<int64_t>(kCarrierOffsetHz[offset & 3]));
+    // Band 0, carrier 0 with a negative offset (no real carrier) gives 0,
+    // never a wrapped value (as the protocol crate's downlink_hz).
+    const int64_t f = static_cast<int64_t>(band & 15) * 100000000 + static_cast<int64_t>(carrier & 0xFFF) * 25000 +
+                      kCarrierOffsetHz[offset & 3];
+    return static_cast<uint64_t>(std::max<int64_t>(f, 0));
 }
 
 std::optional<uint64_t> duplex_spacing_hz(uint8_t band, uint8_t duplex_spacing)

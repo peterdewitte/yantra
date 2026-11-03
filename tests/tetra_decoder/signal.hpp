@@ -22,6 +22,7 @@ namespace dectest {
 
 namespace gen = yantra::gen;
 namespace rx = yantra::receiver::tetra;
+namespace dec = yantra::receiver::tetra;  // the name the 4.3 tests copied from yantra use
 using cf = std::complex<float>;
 
 struct CellSignal {

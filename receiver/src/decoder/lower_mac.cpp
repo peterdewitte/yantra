@@ -10,6 +10,7 @@
 
 #include "osmo.hpp"
 
+#include <algorithm>
 #include <bit>
 #include <cstring>
 #include <mutex>
@@ -307,8 +308,16 @@ void LowerMac::on_block(int type, int block, const SoftBit* bits, unsigned len)
                 b.bits.fill(0);
                 b.mac = {};
             }
-        } else if (b.mac.encrypted) {
+        } else {
+            // The protocol crate parses the MAC PDUs (MAC-RESOURCE, -FRAG,
+            // -END -> LLC -> MLE); it only flags encrypted TM-SDUs.
+            b.pdus = parse_block_pdus(b.bits.data(), spec->type1);
+        }
+        const bool encrypted = b.mac.encrypted ||
+                               std::any_of(b.pdus.begin(), b.pdus.end(), [](const BlockPdu& p) { return p.encrypted; });
+        if (encrypted && b.channel != LogicalChannel::Bsch) {
             b.bits.fill(0);  // encrypted content is never kept (DEC-10, RAD-17)
+            b.content_cleared = true;
         } else if (b.mac.kind == MacPduKind::MacSysinfo) {
             b.sysinfo = parse_sysinfo(b.bits.data());
             if (b.sysinfo && b.sysinfo->hyperframe_present && time_known_) {
@@ -319,7 +328,7 @@ void LowerMac::on_block(int type, int block, const SoftBit* bits, unsigned len)
             }
         }
     }
-    current_->blocks.push_back(b);
+    current_->blocks.push_back(std::move(b));
 }
 
 }  // namespace yantra::receiver::tetra

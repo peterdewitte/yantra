@@ -32,6 +32,7 @@
 
 #include "yantra/receiver/broadcast.hpp"
 #include "yantra/receiver/burst.hpp"
+#include "yantra/receiver/mle.hpp"
 #include "yantra/receiver/tdma.hpp"
 
 #include <array>
@@ -50,9 +51,9 @@ struct DecodedBlock {
     int64_t utc_ns = 0;  ///< wall-clock UTC of the slot (set by CarrierDecoder; 0 without a reference)
     bool crc_ok = false;
     int type1_bits = 0;
-    /// Type-1 bits, one per byte, when crc_ok (for the MLE layer of step
-    /// 4.3). Zero for a block whose MAC PDU is encrypted: its content is
-    /// only flagged and counted, never kept (DEC-10, RAD-17).
+    /// Type-1 bits, one per byte, when crc_ok. Zero for a block with an
+    /// encrypted MAC PDU (`content_cleared`): its content is only flagged
+    /// and counted, never kept (DEC-10, RAD-17).
     std::array<uint8_t, 268> bits{};
     /// Channel bit errors of a block whose CRC passed: its type-1 bits
     /// encoded again (CRC, tail, convolutional code, puncturing,
@@ -63,6 +64,13 @@ struct DecodedBlock {
     MacPduInfo mac;                      ///< when crc_ok
     std::optional<SyncInfo> sync;        ///< BSCH with crc_ok
     std::optional<SysinfoInfo> sysinfo;  ///< MAC-SYSINFO with crc_ok
+    /// The MAC PDUs of a signalling block with crc_ok (SCH/F, SCH/HD,
+    /// BNCH, STCH), parsed by the protocol crate before any clearing
+    /// (mle.hpp; DEC-02, DEC-04). Fragments are put together by the
+    /// CarrierDecoder, which appends the reassembled TM-SDU here.
+    std::vector<BlockPdu> pdus;
+    /// `bits` were cleared because a MAC PDU of the block is encrypted.
+    bool content_cleared = false;
 };
 
 /// The AACH of a burst (DEC-05).

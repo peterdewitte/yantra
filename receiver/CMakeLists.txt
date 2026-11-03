@@ -65,24 +65,31 @@ set_target_properties(yantra_receiver PROPERTIES
   CXX_VISIBILITY_PRESET hidden
   VISIBILITY_INLINES_HIDDEN ON)
 
-# The TETRA decoder on osmo-tetra (RAD-101, DEC-01..03, DEC-05, DEC-10,
-# DEC-11): lower MAC glue (it defines osmo-tetra's TP-SAP entry point
-# tp_sap_udata_ind), broadcast PDU parsers, TDMA time base and the
-# per-carrier decoder (IQ -> demodulator -> burst sync -> lower MAC).
-# Static library yantra::tetra_decoder; headers lower_mac.hpp,
-# broadcast.hpp, tdma.hpp, carrier_decoder.hpp. osmo-tetra stays private:
-# its headers never reach the public ones. docs/TETRA_DECODER.md.
+# The TETRA decoder on osmo-tetra (RAD-101, DEC-01..06, DEC-10, DEC-11):
+# lower MAC glue (it defines osmo-tetra's TP-SAP entry point
+# tp_sap_udata_ind), broadcast PDU parsers, TDMA time base, the upper
+# layers through the Rust protocol crate (yantra::proto, cmake/
+# RustProto.cmake: MAC-RESOURCE/FRAG/END, LLC, MLE, D-NWRK-BROADCAST),
+# fragment reassembly and the per-carrier decoder (IQ -> demodulator ->
+# burst sync -> lower MAC -> upper layers). Static library
+# yantra::tetra_decoder; headers lower_mac.hpp, broadcast.hpp, tdma.hpp,
+# mle.hpp, fragment.hpp, carrier_decoder.hpp. osmo-tetra and the crate's
+# C header stay private: they never reach the public headers. The crate
+# (with the Rust standard library) goes into every plugin that links the
+# decoder (RAD-132). docs/TETRA_DECODER.md.
 # Copied from yantra 68ea20a: plugins/tetra/decoder.
 if(YANTRA_OSMO_TETRA_FOUND)
   add_library(yantra_tetra_decoder STATIC
     src/decoder/broadcast.cpp
     src/decoder/carrier_decoder.cpp
+    src/decoder/fragment.cpp
     src/decoder/lower_mac.cpp
+    src/decoder/mle.cpp
     src/decoder/tdma.cpp)
   add_library(yantra::tetra_decoder ALIAS yantra_tetra_decoder)
   target_link_libraries(yantra_tetra_decoder
     PUBLIC yantra::receiver
-    PRIVATE yantra::osmo_tetra yantra_warnings)
+    PRIVATE yantra::osmo_tetra yantra::proto yantra_warnings)
   target_compile_features(yantra_tetra_decoder PUBLIC cxx_std_20)
   set_target_properties(yantra_tetra_decoder PROPERTIES
     POSITION_INDEPENDENT_CODE ON

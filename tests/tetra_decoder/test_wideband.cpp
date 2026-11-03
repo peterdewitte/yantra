@@ -7,8 +7,10 @@
 // (the same results; the tsan tree runs this under ThreadSanitizer), and
 // a bundled scenario of the scenario engine (failed_site: two cells on
 // the air with level, frequency and timing differences, one announced
-// but off the air) decoded back to its ground truth.
+// but off the air) decoded back to its ground truth, neighbour lists and
+// re-select parameters included (DEC-03).
 
+#include "network_check.hpp"
 #include "signal.hpp"
 
 #include "yantra/gen/scenario.hpp"
@@ -82,7 +84,7 @@ Result run(const std::vector<cf>& x)
     for (std::size_t i = 0; i < x.size(); i += 1500)
         d.process(x.data() + i, std::min<std::size_t>(1500, x.size() - i), out);
     Result r;
-    r.cells = out.cells;
+    r.cells = std::move(out.cells);
     for (const rx::DecodedSlot& s : out.slots)
         if (s.result.time_known)
             r.times.push_back(s.result.time);
@@ -194,5 +196,16 @@ TEST_CASE("A bundled scenario decodes back to its ground truth (failed_site)")
         const auto& bsch = totals[static_cast<std::size_t>(rx::LogicalChannel::Bsch)];
         CHECK(bsch.blocks > 0);
         CHECK(bsch.crc_errors == 0);
+        // The scenario's neighbour list and re-select parameters (DEC-02,
+        // DEC-03): every D-NWRK-BROADCAST of the cell merged, as sent.
+        REQUIRE(cfg.nwrk_broadcast.has_value());
+        REQUIRE(cell->network.has_value());
+        check_network(*cell->network, sent_by(cfg));
+        CHECK(cell->network->neighbours.size() == sc_cell.neighbours.size());
+        REQUIRE(cell->params.reselect.has_value());
+        CHECK(*cell->params.reselect == dec::ReselectParams{sc_cell.reselect.slow_threshold,
+                                                            sc_cell.reselect.slow_hysteresis,
+                                                            sc_cell.reselect.fast_threshold,
+                                                            sc_cell.reselect.fast_hysteresis});
     }
 }

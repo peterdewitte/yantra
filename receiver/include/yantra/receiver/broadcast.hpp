@@ -116,7 +116,8 @@ struct SysinfoInfo {
 std::optional<SysinfoInfo> parse_sysinfo(const uint8_t* bits);
 
 /// Downlink carrier frequency (band x 100 MHz + carrier x 25 kHz +
-/// offset), as osmo-tetra's tetra_dl_carrier_hz.
+/// offset), as osmo-tetra's tetra_dl_carrier_hz; 0 instead of a
+/// negative value (band 0, carrier 0, offset -6.25 kHz).
 uint64_t carrier_downlink_hz(uint8_t band, uint16_t carrier, uint8_t offset);
 /// Duplex spacing of TS 100 392-15 table 2; empty when reserved.
 std::optional<uint64_t> duplex_spacing_hz(uint8_t band, uint8_t duplex_spacing);
@@ -175,13 +176,15 @@ enum class TrunkingMode : uint8_t {
 };
 
 /// Cell re-selection parameters of D-NWRK-BROADCAST (18.5.4), 4-bit codes
-/// (2 dB steps). Filled by the MLE layer (step 4.3); empty until then.
+/// (2 dB steps), as parsed by the MLE layer (mle.hpp).
 struct ReselectParams {
     uint8_t slow_threshold = 0;   ///< SRT
     uint8_t slow_hysteresis = 0;  ///< SRH
     uint8_t fast_threshold = 0;   ///< FRT
     uint8_t fast_hysteresis = 0;  ///< FRH
     bool operator==(const ReselectParams&) const = default;
+    /// A 4-bit code in dB (2 dB steps).
+    static int db(uint8_t code) { return 2 * code; }
 };
 
 /// The serving-cell parameter set of DEC-03 (with the encryption state of
@@ -230,7 +233,8 @@ struct ServingCellParams {
     // (DEC-05): share of slots with a usage marker that are traffic or
     // assigned control, in percent; empty before a period with markers.
     std::optional<double> cell_load_percent;
-    /// FRT/FRH/SRT/SRH from D-NWRK-BROADCAST (step 4.3).
+    /// FRT/FRH/SRT/SRH from the cell's latest D-NWRK-BROADCAST; empty
+    /// until one was received (filled by CarrierDecoder).
     std::optional<ReselectParams> reselect;
     std::optional<uint16_t> hyperframe;  ///< last broadcast hyperframe
 

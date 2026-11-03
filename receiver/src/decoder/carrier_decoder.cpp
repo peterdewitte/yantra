@@ -2,9 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Copied from yantra 68ea20a: plugins/tetra/decoder/src/carrier_decoder.cpp,
-// adapted for RAD-101, DEC-03, DEC-05, DEC-10, DEC-11 (DEC-03 parameter
-// set, AACH usage per timeslot, wall-clock stamps; quality windows,
-// fragment reassembly and D-NWRK-BROADCAST come in steps 4.3/4.4).
+// adapted for RAD-101, DEC-02..06, DEC-10, DEC-11 (DEC-03 parameter set,
+// AACH usage per timeslot, wall-clock stamps, fragment reassembly,
+// D-NWRK-BROADCAST, channel allocation counts; the quality windows come
+// in step 4.4).
 
 #include "yantra/receiver/carrier_decoder.hpp"
 
@@ -33,11 +34,63 @@ bool CellInfo::same_content(const CellInfo& o) const
 {
     SysinfoInfo a = sysinfo;
     a.hyperframe = o.sysinfo.hyperframe;  // moves on by itself
-    return sync == o.sync && a == o.sysinfo;
+    if (!(sync == o.sync) || !(a == o.sysinfo) || network.has_value() != o.network.has_value())
+        return false;
+    return !network || network->same_content(*o.network);
 }
 
+void NetworkInfo::merge(const NwrkBroadcastInfo& b)
+{
+    reselect = b.reselect;
+    cell_load = b.cell_load;
+    if (b.network_time)
+        network_time = b.network_time;
+    ++broadcasts;
+    for (const NeighbourInfo& n : b.neighbours) {
+        auto it = std::lower_bound(neighbours.begin(), neighbours.end(), n.cell_id,
+                                   [](const NeighbourInfo& a, uint8_t id) { return a.cell_id < id; });
+        if (it != neighbours.end() && it->cell_id == n.cell_id)
+            *it = n;
+        else
+            neighbours.insert(it, n);
+    }
+}
+
+void ChannelAssignmentCount::add(const ChannelAssignmentCount& o)
+{
+    allocations += o.allocations;
+    for (std::size_t i = 0; i < timeslots.size(); ++i)
+        timeslots[i] += o.timeslots[i];
+    mcch_timeslots += o.mcch_timeslots;
+    if (downlink_hz == 0)
+        downlink_hz = o.downlink_hz;
+}
+
+namespace {
+
+/// Adds `c` to the per-carrier list `to` (sorted by carrier).
+void add_assignment(std::vector<ChannelAssignmentCount>& to, const ChannelAssignmentCount& c)
+{
+    auto it = std::find_if(to.begin(), to.end(), [&](const ChannelAssignmentCount& x) { return x.same_carrier(c); });
+    if (it != to.end()) {
+        it->add(c);
+        return;
+    }
+    it = std::lower_bound(to.begin(), to.end(), c, [](const ChannelAssignmentCount& a, const ChannelAssignmentCount& b) {
+        return a.carrier != b.carrier ? a.carrier < b.carrier : !a.extension && b.extension;
+    });
+    to.insert(it, c);
+}
+
+bool signalling(LogicalChannel c)
+{
+    return c == LogicalChannel::SchF || c == LogicalChannel::SchHd || c == LogicalChannel::Stch;
+}
+
+}  // namespace
+
 CarrierDecoder::CarrierDecoder(const CarrierDecoderConfig& config)
-    : cfg_(config), demod_(demod_config(config.isa)), sync_(config.sync)
+    : cfg_(config), demod_(demod_config(config.isa)), sync_(config.sync), reassembler_(config.reassembly)
 {
 }
 
@@ -48,6 +101,11 @@ void CarrierDecoder::reset()
     mac_.reset();
     sync_info_.reset();
     sysinfo_.reset();
+    network_.reset();
+    reassembler_ = Reassembler(cfg_.reassembly);
+    slot_count_ = 0;
+    fragment_totals_ = {};
+    assignment_totals_.clear();
     reported_.reset();
     encrypted_blocks_ = 0;
     last_load_.reset();
@@ -82,10 +140,14 @@ std::optional<CellInfo> CarrierDecoder::cell() const
 {
     if (!sync_info_ || !sysinfo_)
         return std::nullopt;
-    CellInfo c{*sync_info_, *sysinfo_, serving_cell_params(*sync_info_, *sysinfo_)};
+    CellInfo c{*sync_info_, *sysinfo_, serving_cell_params(*sync_info_, *sysinfo_), std::nullopt};
     c.sync.timeslot = c.sync.frame = c.sync.multiframe = 0;
     c.params.encrypted_blocks = encrypted_blocks_;
     c.params.cell_load_percent = last_load_;
+    if (network_) {
+        c.network = network_;
+        c.params.reselect = network_->reselect;
+    }
     return c;
 }
 
@@ -101,6 +163,21 @@ std::array<ChannelCounters, kLogicalChannelCount> CarrierDecoder::totals() const
     auto t = totals_;
     for (std::size_t i = 0; i < t.size(); ++i)
         t[i].add(period_.channels[i]);
+    return t;
+}
+
+ReassemblyCounters CarrierDecoder::reassembly_totals() const
+{
+    ReassemblyCounters t = fragment_totals_;
+    t += reassembler_.counters();  // the current period's, not yet taken
+    return t;
+}
+
+std::vector<ChannelAssignmentCount> CarrierDecoder::assignment_totals() const
+{
+    std::vector<ChannelAssignmentCount> t = assignment_totals_;
+    for (const ChannelAssignmentCount& c : period_.assignments)
+        add_assignment(t, c);
     return t;
 }
 
@@ -165,6 +242,8 @@ void CarrierDecoder::on_slot(const SlotEvent& ev, DecoderOutput& out)
     s.lost = ev.lost;
     s.coasting = ev.coasting;
     ++period_.slots;
+    ++slot_count_;
+    reassembler_.tick(slot_count_);
     if (ev.found) {
         ++period_.slots_found;
         s.training_errors = ev.burst.training_errors;
@@ -175,6 +254,7 @@ void CarrierDecoder::on_slot(const SlotEvent& ev, DecoderOutput& out)
             if (b.sync) {
                 if (sync_info_ && !sync_info_->same_cell(*b.sync)) {
                     sysinfo_.reset();  // another cell: forget its system information
+                    network_.reset();  // and its neighbour list
                     encrypted_blocks_ = 0;
                     last_load_.reset();
                 }
@@ -183,6 +263,16 @@ void CarrierDecoder::on_slot(const SlotEvent& ev, DecoderOutput& out)
             if (b.sysinfo && sync_info_)
                 sysinfo_ = b.sysinfo;
         }
+        reassemble(s.result);
+        for (const DecodedBlock& b : s.result.blocks)
+            for (const BlockPdu& p : b.pdus) {
+                if (!p.nwrk || !sync_info_)
+                    continue;
+                if (!network_)
+                    network_.emplace();
+                network_->merge(*p.nwrk);
+                ++period_.nwrk_broadcasts;
+            }
         count(s.result);
         if (const auto c = cell()) {
             if (!reported_ || !reported_->same_content(*c)) {
@@ -196,8 +286,10 @@ void CarrierDecoder::on_slot(const SlotEvent& ev, DecoderOutput& out)
     }
     period_.time_known = mac_.time_known();
     period_.time = mac_.time();
-    if (ev.lost)
+    if (ev.lost) {
         mac_.lost_sync();
+        reassembler_.reset();
+    }
     if (cfg_.keep_slots)
         out.slots.push_back(std::move(s));
 }
@@ -232,6 +324,71 @@ void CarrierDecoder::count(const SlotResult& r)
             ++c.encrypted;
             ++encrypted_blocks_;
         }
+        for (const BlockPdu& p : b.pdus) {
+            c.fcs_errors += p.fcs == Fcs::Error ? 1 : 0;
+            // A reassembled TM-SDU carries the allocation of its first or
+            // last fragment, which was counted already.
+            if (p.channel_allocation && !p.reassembled)
+                count_assignment(*p.channel_allocation);
+        }
+    }
+}
+
+void CarrierDecoder::count_assignment(const ChannelAllocationInfo& a)
+{
+    ChannelAssignmentCount c;
+    c.carrier = a.carrier;
+    c.extension = a.extension;
+    if (a.extension)
+        c.downlink_hz = carrier_downlink_hz(a.extension->frequency_band, a.carrier, a.extension->offset);
+    else if (sysinfo_)
+        c.downlink_hz = carrier_downlink_hz(sysinfo_->frequency_band, a.carrier, sysinfo_->offset);
+    c.allocations = 1;
+    if (a.timeslots == 0)
+        c.mcch_timeslots = 1;
+    for (int t = 0; t < 4; ++t)
+        if (a.timeslots & (8 >> t))
+            c.timeslots[static_cast<std::size_t>(t)] = 1;
+    add_assignment(period_.assignments, c);
+}
+
+void CarrierDecoder::reassemble(SlotResult& r)
+{
+    if (!r.time_known)
+        return;
+    const int ts = r.time.timeslot;
+    for (DecodedBlock& b : r.blocks) {
+        if (!signalling(b.channel))
+            continue;
+        if (!b.crc_ok) {
+            reassembler_.block_lost(ts);  // a fragment may be lost
+            continue;
+        }
+        const std::size_t n = b.pdus.size();
+        for (std::size_t i = 0; i < n; ++i) {
+            const BlockPdu& p = b.pdus[i];
+            if (p.fragment == Fragment::None)
+                continue;
+            const bool start = p.fragment == Fragment::Start;
+            // The part of an encrypted TM-SDU (its start, or MAC-FRAG and
+            // MAC-END after an encrypted start) is encrypted content.
+            const bool encrypted = start ? p.encrypted : reassembler_.encrypted(ts);
+            if (b.content_cleared && !encrypted) {
+                // The block's bits were cleared for another, encrypted PDU:
+                // this clear part is gone with them.
+                reassembler_.block_lost(ts);
+                continue;
+            }
+            // A MAC-FRAG or MAC-END without a start (an orphan) may be
+            // encrypted too: unknown, so it is not kept either.
+            const bool orphan = !start && !reassembler_.active(ts);
+            std::optional<BlockPdu> whole = reassembler_.push(ts, slot_count_, b.bits.data(), p);
+            if ((encrypted || orphan) && !start && p.sdu_end > p.sdu_start &&
+                p.sdu_end <= static_cast<int>(b.bits.size()))
+                std::fill(b.bits.begin() + p.sdu_start, b.bits.begin() + p.sdu_end, uint8_t{0});  // DEC-10, RAD-17
+            if (whole)
+                b.pdus.push_back(std::move(*whole));
+        }
     }
 }
 
@@ -250,8 +407,12 @@ void CarrierDecoder::finish_period(double sample_pos, DecoderOutput& out)
         p.cell->timeslot = p.cell->frame = p.cell->multiframe = 0;
     if (const auto load = p.cell_load_percent())
         last_load_ = load;
+    p.fragments = reassembler_.take_counters();
     for (std::size_t i = 0; i < totals_.size(); ++i)
         totals_[i].add(p.channels[i]);
+    fragment_totals_ += p.fragments;
+    for (const ChannelAssignmentCount& c : p.assignments)
+        add_assignment(assignment_totals_, c);
     out.periods.push_back(p);
     period_ = {};
     power_acc_ = 0.0;
