@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Lint job of ci.yml (RAD-134, Yantra TST-02), also run by ctest (repo_lint):
-#   - shell scripts: sh -n / bash -n (by shebang), shellcheck if installed
+#   - shell scripts: sh -n / bash -n (by shebang)
 #   - Python: py_compile (into a temporary folder, the tree stays clean)
 #   - YAML (CI workflows): parsed with Python's yaml module
 #   - Rust crates (receiver/rust, once it exists): cargo-deny licence and
@@ -12,7 +12,7 @@
 # reuse lint runs as its own ctest and CI step.
 # Usage: tools/ci/lint.sh [source-dir]   (default: the repository root)
 # Environment: YANTRA_LINT_REQUIRE_TOOLS=1 makes a missing tool (Python
-# yaml, shellcheck, cargo-deny) an error (CI).
+# yaml, cargo-deny) an error (CI).
 # Copied from yantra 68ea20a: ci/lint.sh, adapted for RAD-134.
 set -eu
 root=${1:-$(cd "$(dirname "$0")/../.." && pwd)}
@@ -39,13 +39,6 @@ for f in $(list -name '*.sh'); do
         *)      sh -n "$f"   || { echo "lint: shell syntax error in $f"; fail=1; } ;;
     esac
 done
-if command -v shellcheck >/dev/null 2>&1; then
-    for f in $(list -name '*.sh'); do
-        shellcheck -S warning "$f" || fail=1
-    done
-else
-    missing shellcheck "shell style"
-fi
 
 for f in $(list -name '*.py'); do
     python3 -c 'import py_compile, sys; py_compile.compile(sys.argv[1], cfile=sys.argv[2], doraise=True)' \

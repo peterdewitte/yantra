@@ -47,6 +47,8 @@ version, source and checksum are filled in when they are added.
 | cargo-deny, cargo-fuzz (optional) | MIT OR Apache-2.0 | licence check and fuzzing of the Rust crate |
 | reuse | GPL-3.0-or-later | `reuse lint` licence compliance check |
 | Python 3 (standard library) | PSF-2.0 | test and check scripts |
+| PyYAML (CI lint only) | MIT | YAML syntax check of the workflows in `tools/ci/lint.sh` (RAD-134) |
+| binutils (readelf, objdump) | GPL-3.0-or-later | completeness checks of the plugins (RAD-133) |
 
 ## Excluded
 

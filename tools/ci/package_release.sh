@@ -58,7 +58,6 @@ case $platform in
         srcstage=$stage/src
         mkdir -p "$srcstage"
         git -C "$root" archive --prefix="$src/" HEAD | tar -C "$srcstage" -xf -
-        # shellcheck disable=SC2016
         git -C "$root" submodule foreach --quiet --recursive \
             'git archive --prefix="'"$src"'/$displaypath/" HEAD | tar -C "'"$srcstage"'" -xf -'
         # osmo-tetra's crypto/ is never built or used (scope 16.5), so it

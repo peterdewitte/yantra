@@ -92,5 +92,6 @@ request. Build steps follow in BUILD.md once the CMake project exists.
   exceptions or panics across the boundary (RAD-10).
 - Keep the code portable to Windows (MSYS2 UCRT64): no POSIX-only calls
   outside platform files.
-- Python tools use the standard library; shell scripts use
-  `set -euo pipefail` and pass shellcheck.
+- Python tools use the standard library (the CI lint also uses PyYAML);
+  bash scripts use `set -euo pipefail`, POSIX sh scripts `set -eu`, and
+  all pass `tools/ci/lint.sh`.

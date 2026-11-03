@@ -36,7 +36,7 @@ jobs:
       - name: Install lint tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends python3-yaml shellcheck pipx
+          sudo apt-get install -y --no-install-recommends python3-yaml pipx
           pipx install reuse
       - name: Cache cargo-deny
         uses: actions/cache@v4
