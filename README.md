@@ -42,9 +42,22 @@ speech, short data or subscriber identities, and never decrypt anything.
 
 ## Status
 
-Work in progress. The project started on 2026-11-03; build instructions
-follow with the CMake project. Linux is built and tested first; the
-Windows build (MSYS2 UCRT64) is planned.
+Work in progress. The project started on 2026-11-03. Linux is built and
+tested first; the Windows build (MSYS2 UCRT64) is planned.
+
+## Build (Linux)
+
+Needs CMake >= 3.20, Ninja, gcc or clang with C++20 and Python 3.
+
+    git submodule update --init
+    cmake -S . -B build -G Ninja
+    ninja -C build
+    ctest --test-dir build -j"$(nproc)"
+
+Presets (CMakePresets.json): `ci` (warnings as errors), `scalar` (no SIMD,
+same results), `asan-ubsan`, `tsan`. `tools/ci/run_linux.sh` runs the same
+steps as the CI on Linux, including the completeness check of the plugins
+(`tools/ci/check_completeness.py`).
 
 ## Licence
 
