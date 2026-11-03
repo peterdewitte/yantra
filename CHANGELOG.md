@@ -199,3 +199,9 @@ The first version (tag v0.1.0 when released).
   Kaiser low-pass that let a carrier 25 kHz away through at -28 dB (a
   neighbour 40 dB stronger read 11.6 dB high). Noise alone now reads in
   a 19.7 kHz noise bandwidth.
+- Sensitivity sweep `yantra-sens` (RAD-126, docs/SENSITIVITY.md): decode
+  rates, CRC error rate, BER, lock time and MER against SNR for awgn,
+  cfo2/20/50, offcentre, clock50, tu50, ht200, phasenoise and combined;
+  quick tier per scenario under the ctest label `sens` (sens-quick
+  workflow), full tier `sens_full` (labels slow, release), baselines in
+  tests/sens/baseline.
