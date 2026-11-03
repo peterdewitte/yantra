@@ -25,6 +25,12 @@ yantra_add_radio_plugin(simulator
 target_include_directories(simulator PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(simulator PRIVATE
   YANTRA_RADIOS_SOURCE_URL="${YANTRA_RADIOS_SOURCE_URL}")
+# The kit's records check holds the simulator to one record per carrier per
+# second of wall time (RAD-21): a real-time check, label timing (left out of
+# the sanitizer trees, where the simulation runs 4-13x slower).
+if(TEST conformance_simulator)
+  set_tests_properties(conformance_simulator PROPERTIES LABELS "fast;timing")
+endif()
 
 # Self-contained: the module alone, no data folder (RAD-99, RAD-132).
 include(GNUInstallDirs)

@@ -230,4 +230,7 @@ The first version (tag v0.1.0 when released).
   per test case (`yantra_doctest_tests()`, cmake/YantraTests.cmake; COST
   from tests/ctest_costs.txt), so `ctest -j` finishes in about a minute
   instead of three and a half. The long robustness suite and the full
-  sensitivity tier are opt-in (label opt_in, `YANTRA_TESTS_OPT_IN=1`).
+  sensitivity tier are opt-in (label opt_in, `YANTRA_TESTS_OPT_IN=1`);
+  the real-time checks carry the label timing, which the sanitizer
+  presets and the ci-full sanitizer jobs leave out; their hang guards
+  scale with YANTRA_TEST_TIME_SCALE (5).

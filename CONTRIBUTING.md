@@ -96,6 +96,17 @@ request. Build steps follow in BUILD.md once the CMake project exists.
       YANTRA_TESTS_OPT_IN=1 ctest --test-dir build -L opt_in -j"$(nproc)"
       YANTRA_TESTS_OPT_IN=1 ctest --test-dir build -j"$(nproc)"   # everything
 
+- Label `timing`: real-time and pacing checks (`test_simulator_timing/*`,
+  `conformance_simulator` with the kit's one-record-per-second rule,
+  `perf_engine`, `bench_limits`). The sanitizer trees run 4-13x slower
+  than real time, so their test presets and the ci-full sanitizer jobs
+  leave the label out; the default and scalar trees run it. The hang
+  guards (ctest TIMEOUT of the per-case tests, the simulator tests' stream
+  limits) are multiplied by `YANTRA_TEST_TIME_SCALE` (CMake cache, 5 in
+  the sanitizer trees, 1 otherwise); the checks stay the same:
+
+      ctest --preset asan-ubsan -j"$(nproc)"   # = ctest --test-dir build-asan -LE timing
+      ctest --preset tsan -j"$(nproc)"
 - Never delete, skip or weaken a test, or loosen a tolerance, to make it
   pass. If a test is wrong, fix it and say why in the commit message.
   Golden files change only on purpose, with the reason in the commit.

@@ -6,7 +6,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 # Benchmarks (RAD-127)
 
 `tests/bench/` holds three benchmark programs, all ctests with the labels
-`slow` and `perf` (not in the fast run; `ctest -L perf` runs them):
+`slow` and `perf` (not in the fast run; `ctest -L perf` runs them).
+`bench_limits` and `perf_engine` also carry `timing` (time limits; left
+out of the sanitizer trees):
 
 | ctest | What | Fails when |
 |---|---|---|

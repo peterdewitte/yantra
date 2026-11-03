@@ -146,7 +146,8 @@ struct Sim {
     }
     double offset() { return sensor("true_offset_db").f64; }
 
-    // Streams with a serving plan until `done` says so (or `seconds` pass).
+    // Streams with a serving plan until `done` says so (or `seconds` times
+    // YANTRA_TEST_TIME_SCALE pass).
     StreamResult stream(const std::function<bool(const Record&)>& on_record, double seconds,
                         const std::function<void(const radios::Event&)>& on_event = {},
                         const SinkOptions& sink = {})
@@ -156,7 +157,8 @@ struct Sim {
         plan.type = YR_PLAN_SERVING;
         std::atomic<bool> stop{false};
         StreamLimits limits;
-        limits.max_seconds = seconds;
+        // A hang guard only (the sanitizer trees run 4-13x slower).
+        limits.max_seconds = seconds * YANTRA_TEST_TIME_SCALE;
         limits.interrupt = &stop;
         return run_stream(
             *host, device, plan, limits,

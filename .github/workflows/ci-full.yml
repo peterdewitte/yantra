@@ -23,11 +23,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-24.04,     name: x86-64, preset: ci }
-          - { os: ubuntu-24.04,     name: scalar, preset: ci-scalar }
-          - { os: ubuntu-24.04,     name: asan,   preset: asan-ubsan }
-          - { os: ubuntu-24.04,     name: tsan,   preset: tsan }
-          - { os: ubuntu-24.04-arm, name: arm64,  preset: ci }
+          - { os: ubuntu-24.04,     name: x86-64, preset: ci,         skip_labels: "" }
+          - { os: ubuntu-24.04,     name: scalar, preset: ci-scalar,  skip_labels: "" }
+          # The sanitizer trees run 4-13x slower than real time: their
+          # real-time checks (label timing) cannot hold and are left out.
+          - { os: ubuntu-24.04,     name: asan,   preset: asan-ubsan, skip_labels: timing }
+          - { os: ubuntu-24.04,     name: tsan,   preset: tsan,       skip_labels: timing }
+          - { os: ubuntu-24.04-arm, name: arm64,  preset: ci,         skip_labels: "" }
     runs-on: ${{ matrix.os }}
     name: full-${{ matrix.name }}
     steps:
@@ -58,10 +60,11 @@ jobs:
       - name: All tests including slow and opt-in
         env:
           YANTRA_TESTS_OPT_IN: 1
+          EXCLUDE: ${{ matrix.skip_labels }}
           ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
           UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
           TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
-        run: ctest --test-dir build-full --timeout 1800 --output-on-failure --repeat until-pass:2 -j "$(nproc)"
+        run: ctest --test-dir build-full --timeout 1800 --output-on-failure --repeat until-pass:2 -j "$(nproc)" ${EXCLUDE:+-LE "$EXCLUDE"}
       - name: Completeness checks (RAD-133)
         if: matrix.name == 'x86-64' || matrix.name == 'arm64' || matrix.name == 'scalar'
         run: python3 tools/ci/check_completeness.py build-full/bin/plugins

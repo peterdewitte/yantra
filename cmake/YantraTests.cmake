@@ -24,6 +24,19 @@
 # ctest runs (the long robustness and sensitivity suites): the default
 # `ctest` leaves them out, `YANTRA_TESTS_OPT_IN=1 ctest -L opt_in` runs them.
 
+# YANTRA_TEST_TIME_SCALE: the sanitizer trees (Debug, ASan/TSan) run 5-60x
+# slower; their hang guards scale with it: the TIMEOUT of the per-case
+# ctests and the tests' own stream limits (C++ YANTRA_TEST_TIME_SCALE).
+# Only guards: no check or tolerance changes, the real-time checks are
+# label timing and left out of those trees.
+if(YANTRA_SANITIZER STREQUAL "")
+  set(_yantra_scale 1)
+else()
+  set(_yantra_scale 5)
+endif()
+set(YANTRA_TEST_TIME_SCALE ${_yantra_scale} CACHE STRING
+    "Factor on the tests' hang guards (5 in sanitizer trees)")
+
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 set(YANTRA_DOCTEST_DISCOVER ${CMAKE_CURRENT_LIST_DIR}/doctest_discover.py)
 set(YANTRA_TEST_COSTS ${PROJECT_SOURCE_DIR}/tests/ctest_costs.txt)
@@ -44,7 +57,8 @@ function(yantra_doctest_tests target)
   set(_gen ${CMAKE_CURRENT_BINARY_DIR}/${ARG_GROUP}_tests.cmake)
   set(_opts)
   if(ARG_TIMEOUT)
-    list(APPEND _opts --timeout ${ARG_TIMEOUT})
+    math(EXPR _timeout "${ARG_TIMEOUT} * ${YANTRA_TEST_TIME_SCALE}")
+    list(APPEND _opts --timeout ${_timeout})
   endif()
   if(ARG_RUN_SERIAL)
     list(APPEND _opts --run-serial)

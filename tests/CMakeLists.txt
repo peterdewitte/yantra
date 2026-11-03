@@ -31,7 +31,8 @@ endif()
 target_compile_definitions(yantra_test_main PUBLIC
   YANTRA_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
   YANTRA_BINARY_DIR="${CMAKE_BINARY_DIR}"
-  YANTRA_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
+  YANTRA_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"
+  YANTRA_TEST_TIME_SCALE=${YANTRA_TEST_TIME_SCALE})
 
 # yantra_add_test_dir(<module> [LIBS ...])
 function(yantra_add_test_dir module)
