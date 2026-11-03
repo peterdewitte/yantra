@@ -15,6 +15,8 @@ parameter set is `yantra/receiver/tetra_params.hpp` (namespace
 synchroniser that feeds osmo-tetra are `burst.hpp` and `burst_sync.hpp`.
 Copied from yantra 68ea20a (`core/dsp`, `plugins/tetra/rx`, the decoder's
 burst synchroniser).
+The osmo-tetra decoder that takes the bursts (lower MAC, SYNC, SYSINFO,
+AACH, time base) is `yantra::tetra_decoder`: docs/TETRA_DECODER.md.
 
 | Block | Header | Purpose |
 |---|---|---|

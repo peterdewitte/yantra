@@ -122,3 +122,14 @@ The first version (tag v0.1.0 when released).
   `yantra::osmo_tetra` (`cmake/OsmoTetra.cmake`, never `crypto/`); the
   dependency manifest compiled in (`yantra::receiver::bundled_libraries()`).
   The osmo-tetra cross-check tests no longer need the system libosmocore.
+- TETRA decoder `yantra::tetra_decoder` (receiver/, RAD-101): lower MAC
+  on osmo-tetra (burst split, descrambling, de-interleaving, Viterbi, CRC,
+  RM(30,14) AACH decoding with up to 3 corrections), MAC-SYNC/D-MLE-SYNC,
+  MAC-SYSINFO/D-MLE-SYSINFO, ACCESS-ASSIGN and MAC PDU classification as
+  typed structs (DEC-02, DEC-05), the serving-cell parameter set (DEC-03),
+  encryption state and encrypted block counts (DEC-10), the H-M-F-S time
+  base from SYNC with UTC stamps (DEC-11), and the per-carrier
+  `CarrierDecoder` (IQ to slots, cell events and per-period counters).
+  Instances share no state. Tests with osmo-tetra's test PDUs, generator
+  signals with noise and offsets, parallel carriers and a bundled scenario
+  (RAD-123, docs/TETRA_DECODER.md).
