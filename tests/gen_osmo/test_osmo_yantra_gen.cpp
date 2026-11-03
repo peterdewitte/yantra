@@ -143,9 +143,16 @@ TEST_CASE("yantra-gen IQ files decode with osmo-tetra as the ground truth says")
         Bits bits = ref::differential_decode(z, {1.0, 0.0});
 
         captured_blocks().clear();
-        tetra_rx_state trs{};
+        // While unlocked, osmo-tetra's training-sequence search reads 21
+        // bits past the bits it holds; with a full 4096-bit buffer (no
+        // sync burst in the first ~0.2 s here) that is past the end of
+        // tetra_rx_state, so the state gets padding behind it.
+        struct {
+            tetra_rx_state trs;
+            uint8_t padding[64];
+        } rx{};
         for (size_t pos = 0; pos < bits.size(); pos += 200)
-            tetra_burst_sync_in(&trs, bits.data() + pos,
+            tetra_burst_sync_in(&rx.trs, bits.data() + pos,
                                 static_cast<unsigned>(std::min<size_t>(200, bits.size() - pos)));
 
         const uint32_t scrambling = scrambling_init(static_cast<uint16_t>(mcc), static_cast<uint16_t>(mnc),
