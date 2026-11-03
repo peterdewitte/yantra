@@ -32,6 +32,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(YantraWarnings)
 include(YantraSanitizers)
 include(OsmoTetra)
+include(YantraRadioPlugin)
 
 # SIMD kernels or the plain C++ fallback; both give the same results.
 if(YANTRA_SIMD)
