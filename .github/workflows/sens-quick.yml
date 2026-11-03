@@ -1,0 +1,56 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Quick sensitivity sweep, on demand (RAD-134, RAD-126): the generator
+# scenarios (awgn, cfo, fading) through the receiver, the decode-rate
+# curves as an artifact. The sweep tests carry the ctest label "sens";
+# until the sweep exists (RAD-126) this workflow fails on purpose
+# (--no-tests=error) instead of passing with nothing run.
+
+name: sens-quick
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenarios:
+        description: "ctest regex of the sweep scenarios (empty = all)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  sens-quick:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build g++ python3 binutils
+      - name: Cache the dependency builds (RAD-136)
+        uses: actions/cache@v4
+        with:
+          path: build/deps
+          key: deps-${{ hashFiles('tools/deps/**', '.gitmodules') }}-${{ runner.os }}-${{ runner.arch }}
+      - name: Static dependency builds (RAD-136)
+        run: tools/deps/build_deps.sh build/deps
+      - name: Configure and build
+        run: |
+          cmake --preset default
+          cmake --build --preset default -j "$(nproc)"
+      - name: Sensitivity sweep (label sens)
+        env:
+          SCENARIOS: ${{ inputs.scenarios }}
+        run: |
+          ctest --test-dir build -L sens --no-tests=error --timeout 3600 \
+            --output-on-failure ${SCENARIOS:+-R "$SCENARIOS"}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: sens-quick
+          path: build/sens/
+          if-no-files-found: warn

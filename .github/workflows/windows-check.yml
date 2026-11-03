@@ -1,0 +1,59 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Full Windows run on demand (RAD-134, RAD-131): MSYS2 UCRT64 build, every
+# test including slow, the completeness checks of the .dll plugins
+# (RAD-133) and the conformance kit without MSYS2 on PATH.
+# DEFERRED (Windows): written, never run yet.
+# Copied from yantra 68ea20a: .github/workflows/windows.yml, adapted.
+
+name: windows-check
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-full:
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-rust
+            mingw-w64-ucrt-x86_64-binutils
+      - name: Cache the dependency builds (RAD-136)
+        uses: actions/cache@v4
+        with:
+          path: build/deps
+          key: deps-${{ hashFiles('tools/deps/**', '.gitmodules') }}-windows-ucrt64
+      - name: Static dependency builds (RAD-136)
+        run: tools/deps/build_deps.sh build/deps
+      - name: Configure and build (warnings are errors)
+        run: |
+          cmake --preset ci
+          cmake --build --preset ci
+      - name: All tests including slow
+        run: ctest --test-dir build --timeout 1800 --output-on-failure --repeat until-pass:2
+      - name: Completeness checks (RAD-133)
+        run: python3 tools/ci/check_completeness.py --platform windows build/bin/plugins
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-plugins
+          path: build/bin/plugins/
+          if-no-files-found: ignore

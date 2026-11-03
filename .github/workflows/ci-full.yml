@@ -1,0 +1,62 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Full CI, nightly and before a release (RAD-134, RAD-90, Yantra
+# TST-03/05): every test including slow, the scalar build without SIMD
+# (same results), the ASan+UBSan and TSan builds, and Linux arm64 (S).
+# Copied from yantra-v1 c24e8f5: .github/workflows/nightly.yml, adapted.
+
+name: ci-full
+
+on:
+  schedule:
+    - cron: "17 2 * * *"
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  full:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-24.04,     name: x86-64, preset: ci }
+          - { os: ubuntu-24.04,     name: scalar, preset: ci-scalar }
+          - { os: ubuntu-24.04,     name: asan,   preset: asan-ubsan }
+          - { os: ubuntu-24.04,     name: tsan,   preset: tsan }
+          - { os: ubuntu-24.04-arm, name: arm64,  preset: ci }
+    runs-on: ${{ matrix.os }}
+    name: full-${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ python3 python3-yaml binutils pipx
+          pipx install reuse
+      - name: Cache the dependency builds (RAD-136)
+        uses: actions/cache@v4
+        with:
+          path: deps
+          key: deps-${{ hashFiles('tools/deps/**', '.gitmodules') }}-${{ runner.os }}-${{ runner.arch }}
+      - name: Static dependency builds (RAD-136)
+        run: tools/deps/build_deps.sh deps
+      - name: Configure
+        run: cmake --preset ${{ matrix.preset }} -B build-full
+      - name: Build
+        run: cmake --build build-full -j "$(nproc)"
+      - name: All tests including slow
+        env:
+          ASAN_OPTIONS: detect_leaks=1:abort_on_error=1
+          UBSAN_OPTIONS: print_stacktrace=1:halt_on_error=1
+          TSAN_OPTIONS: halt_on_error=1:second_deadlock_stack=1
+        run: ctest --test-dir build-full --timeout 1800 --output-on-failure --repeat until-pass:2 -j "$(nproc)"
+      - name: Completeness checks (RAD-133)
+        if: matrix.name == 'x86-64' || matrix.name == 'arm64' || matrix.name == 'scalar'
+        run: python3 tools/ci/check_completeness.py build-full/bin/plugins

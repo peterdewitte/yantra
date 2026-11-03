@@ -1,0 +1,148 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# CI on every push and pull request (RAD-134, RAD-90): lint (shell, YAML,
+# Python, FFI widths, reuse lint, cargo-deny), Linux build with warnings
+# as errors + fast tests, Windows MSYS2 UCRT64 build + fast tests, and the
+# completeness checks (RAD-133). Locally the same Linux steps run with
+# tools/ci/run_linux.sh.
+# DEFERRED (Windows): the windows-ucrt64 job is written but has not run;
+# the Windows build is not worked on yet.
+# Copied from yantra 68ea20a: .github/workflows/ci.yml, adapted for RAD-134.
+
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  # Static dependency builds (RAD-136), cached per script version.
+  DEPS_KEY: deps-${{ hashFiles('tools/deps/**', '.gitmodules') }}
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install lint tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3-yaml shellcheck pipx
+          pipx install reuse
+      - name: Cache cargo-deny
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-deny
+          key: cargo-deny-0.20.2-${{ runner.os }}-${{ runner.arch }}
+      - name: Install cargo-deny
+        run: command -v cargo-deny || cargo install --locked cargo-deny@0.20.2
+      - name: Shell, Python and YAML syntax, FFI widths, cargo-deny
+        run: YANTRA_LINT_REQUIRE_TOOLS=1 sh tools/ci/lint.sh
+      - name: REUSE compliance
+        run: reuse lint
+
+  linux-x86-64:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ python3 python3-yaml binutils pipx
+          pipx install reuse
+      - name: Cache the dependency builds (RAD-136)
+        uses: actions/cache@v4
+        with:
+          path: build/deps
+          key: ${{ env.DEPS_KEY }}-${{ runner.os }}-${{ runner.arch }}
+      - name: Static dependency builds (RAD-136)
+        run: tools/deps/build_deps.sh build/deps
+      - name: Configure (warnings are errors)
+        run: cmake --preset ci
+      - name: Build
+        run: cmake --build --preset ci -j "$(nproc)"
+      - name: Fast tests
+        run: ctest --test-dir build -LE 'slow|timing' --timeout 600 --output-on-failure -j "$(nproc)"
+      - name: Timing-sensitive tests (retried once)
+        run: ctest --test-dir build -L timing -LE slow --timeout 600 --output-on-failure --repeat until-pass:2
+      - name: Completeness checks (RAD-133)
+        run: python3 tools/ci/check_completeness.py build/bin/plugins
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86-64-plugins
+          path: build/bin/plugins/
+          if-no-files-found: ignore
+
+  # RAD-133: the plugins in a clean environment, without SoapySDR or
+  # vendor packages: a bare container that only gets the built plugins,
+  # the test host and Python. The conformance kit run is added with the
+  # test host (RAD-91); until then the container re-runs the NEEDED and
+  # export checks where no build dependency is installed.
+  completeness-clean:
+    needs: linux-x86-64
+    runs-on: ubuntu-24.04
+    container: ubuntu:24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-x86-64-plugins
+          path: plugins
+        continue-on-error: true
+      - name: Install the check tools only
+        run: apt-get update && apt-get install -y --no-install-recommends python3 binutils
+      - name: Completeness checks in a clean container
+        run: |
+          mkdir -p plugins
+          python3 tools/ci/check_completeness.py plugins
+
+  # DEFERRED (Windows): written, never run yet.
+  windows-ucrt64:
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-rust
+            mingw-w64-ucrt-x86_64-binutils
+      - name: Cache the dependency builds (RAD-136)
+        uses: actions/cache@v4
+        with:
+          path: build/deps
+          key: ${{ env.DEPS_KEY }}-windows-ucrt64
+      - name: Static dependency builds (RAD-136)
+        run: tools/deps/build_deps.sh build/deps
+      - name: Configure (warnings are errors)
+        run: cmake --preset ci
+      - name: Build
+        run: cmake --build --preset ci
+      - name: Fast tests
+        run: ctest --test-dir build -LE 'slow|timing' --timeout 600 --output-on-failure
+      - name: Timing-sensitive tests (retried once)
+        run: ctest --test-dir build -L timing -LE slow --timeout 600 --output-on-failure --repeat until-pass:2
+      - name: Completeness checks (RAD-133)
+        run: python3 tools/ci/check_completeness.py --platform windows build/bin/plugins

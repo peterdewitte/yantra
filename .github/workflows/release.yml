@@ -1,0 +1,110 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Release on a version tag (RAD-134, RAD-137): the full CI first, then per
+# platform the plugin artefacts with the licence bundle, the complete
+# corresponding source (this repository with every third_party/ source at
+# the pinned versions and the build scripts), SHA-256 checksums and the
+# release notes from CHANGELOG.md. Packaging: tools/ci/package_release.sh.
+# DEFERRED (Windows): the windows-x64 job is written, never run yet.
+
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  full-ci:
+    uses: ./.github/workflows/ci-full.yml
+
+  linux-x86-64:
+    needs: full-ci
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build g++ python3 binutils
+      - name: Static dependency builds (RAD-136)
+        run: tools/deps/build_deps.sh build/deps
+      - name: Build (warnings are errors) and fast tests
+        run: |
+          cmake --preset ci -DCMAKE_BUILD_TYPE=Release
+          cmake --build --preset ci -j "$(nproc)"
+          ctest --test-dir build -LE slow --timeout 600 --output-on-failure -j "$(nproc)"
+      - name: Completeness checks (RAD-133)
+        run: python3 tools/ci/check_completeness.py build/bin/plugins
+      - name: Package plugins, licence bundle and source
+        run: tools/ci/package_release.sh build dist "${GITHUB_REF_NAME}" linux-x86_64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-linux-x86_64
+          path: dist/
+
+  # DEFERRED (Windows): written, never run yet.
+  windows-x64:
+    needs: full-ci
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            git
+            zip
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-rust
+            mingw-w64-ucrt-x86_64-binutils
+      - name: Static dependency builds (RAD-136)
+        run: tools/deps/build_deps.sh build/deps
+      - name: Build and fast tests
+        run: |
+          cmake --preset ci -DCMAKE_BUILD_TYPE=Release
+          cmake --build --preset ci
+          ctest --test-dir build -LE slow --timeout 600 --output-on-failure
+      - name: Completeness checks (RAD-133)
+        run: python3 tools/ci/check_completeness.py --platform windows build/bin/plugins
+      - name: Package plugins and licence bundle
+        run: tools/ci/package_release.sh build dist "${GITHUB_REF_NAME}" windows-x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-windows-x64
+          path: dist/
+
+  publish:
+    needs: [linux-x86-64, windows-x64]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums over every file (SHA-256)
+        run: |
+          cd dist
+          rm -f SHA256SUMS
+          sha256sum -- * > SHA256SUMS
+      - name: Release notes from CHANGELOG.md
+        run: python3 tools/ci/release_notes.py CHANGELOG.md "${GITHUB_REF_NAME}" > notes.md
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "${GITHUB_REF_NAME}" dist/* --notes-file notes.md --verify-tag
