@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# Build output (default, scalar, sanitizer and fuzz trees)
+/build/
+/build-*/
+/out/
+/target/
+**/target/
+CMakeUserPresets.json
+compile_commands.json
+*.o
+*.a
+*.so
+*.so.*
+*.dll
+*.exe
+
+# IQ recordings and large captures (RAD-26: IQ stays inside the plugins;
+# only short test fixtures are committed, through explicit paths)
+*.cf32
+*.cs8
+*.cu8
+*.cs16
+*.sigmf-data
+*.wav
+!/tests/fixtures/**
+
+# Record files and test output
+*.yrec
+*.yrec.zst
+
+# Python byte code
+__pycache__/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*~
+
+# AI-assistant settings never belong in this repository
+.claude/
+CLAUDE.md
+
+# Downloaded MAK example plans (Yantra DEMO-12, CC BY-NC-ND 4.0): never
+# committed, wherever a tool caches them
+mak_cache/
+**/mak/*.jpg
+**/mak/*.png
+
+# cargo-fuzz output of the Rust protocol crate
+/receiver/rust/fuzz/corpus/
+/receiver/rust/fuzz/artifacts/
+/receiver/rust/fuzz/Cargo.lock

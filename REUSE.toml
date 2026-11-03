@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# REUSE annotations (RAD-05, Yantra NFR-01) for files that cannot carry an
+# SPDX header themselves. Code and documentation files carry their own
+# header; vendored and pinned third-party sources get an entry here.
+version = 1
+
+[[annotations]]
+path = ["LICENSE"]
+SPDX-FileCopyrightText = "2007 Free Software Foundation, Inc."
+SPDX-License-Identifier = "GPL-3.0-or-later"
