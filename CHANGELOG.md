@@ -168,3 +168,6 @@ The first version (tag v0.1.0 when released).
   engine into a record file; `--plugin` is no longer needed for it.
   `capture-iq` stays a hook (needs the plugins' device layer). Tests
   compare decoded records of yantra-gen scenarios with the ground truth.
+- `perf_engine` ctest (RAD-114, labels slow/perf/timing): four carriers
+  in a 1 MS/s capture through the whole engine must take less than half
+  of real time on one thread.

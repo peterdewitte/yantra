@@ -92,3 +92,7 @@ centre or rate restarts every carrier (SYNC_LOST) and ends the partial
 interval. `stats()` gives samples, signal and processing time
 (`load()`, RAD-114), records and overloads; a plugin that falls behind
 drops blocks and reports DROPPED itself.
+
+The `perf_engine` ctest (labels slow, perf, timing) runs four carriers of
+a 1 MS/s capture through the engine on one thread and fails above half
+of real time (about 0.05 on the build machine).

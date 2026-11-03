@@ -12,3 +12,12 @@ add_executable(bench_receiver bench_receiver.cpp)
 target_link_libraries(bench_receiver PRIVATE yantra::receiver yantra::gen yantra_warnings)
 add_test(NAME bench_receiver COMMAND bench_receiver)
 set_tests_properties(bench_receiver PROPERTIES LABELS "slow;perf" TIMEOUT 600)
+
+# RAD-114: the measurement engine against real time (timing: labelled
+# perf, with a factor 2 margin; see perf_engine.cpp).
+if(TARGET yantra::tetra_engine)
+  add_executable(perf_engine perf_engine.cpp)
+  target_link_libraries(perf_engine PRIVATE yantra::tetra_engine yantra::gen yantra_warnings)
+  add_test(NAME perf_engine COMMAND perf_engine)
+  set_tests_properties(perf_engine PROPERTIES LABELS "slow;perf;timing" TIMEOUT 600)
+endif()
