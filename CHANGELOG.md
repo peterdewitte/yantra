@@ -75,3 +75,9 @@ The first version (tag v0.1.0 when released).
   neighbours) and the slot schedule of a cell's main carrier, with golden
   vectors and osmo-tetra cross-checks (RAD-93). Test binaries take
   `--update` to rewrite golden files on purpose.
+- Generator second part (RAD-70): synchronization and normal continuous
+  downlink bursts (clause 9), pi/4-DQPSK modulator with root-raised-cosine
+  shaping at any sample rate, `CellTransmitter` (one cell's continuous
+  carrier with level, frequency offset and timing offset) and
+  `MultiCarrierTransmitter` (several carriers in one span), with burst and
+  IQ golden vectors and an osmo-tetra burst-sync round trip (RAD-93).
