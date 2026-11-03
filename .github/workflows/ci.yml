@@ -79,17 +79,32 @@ jobs:
         run: ctest --test-dir build -L timing -LE slow --timeout 600 --output-on-failure --repeat until-pass:2
       - name: Completeness checks (RAD-133)
         run: python3 tools/ci/check_completeness.py build/bin/plugins
+      - name: Conformance kit on every plugin (RAD-91)
+        run: |
+          for p in build/bin/plugins/*.so; do
+            build/bin/yantra-radio-host conformance --plugin "$p" \
+              --report "build/conformance/$(basename "$p" .so).json"
+          done
+      # The plugins and the test host (with the kit) for the clean run.
       - uses: actions/upload-artifact@v4
         with:
           name: linux-x86-64-plugins
-          path: build/bin/plugins/
+          path: |
+            build/bin/plugins/
+            build/bin/yantra-radio-host
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86-64-conformance
+          path: build/conformance/
           if-no-files-found: ignore
 
   # RAD-133: the plugins in a clean environment, without SoapySDR or
   # vendor packages: a bare container that only gets the built plugins,
-  # the test host and Python. The conformance kit run is added with the
-  # test host (RAD-91); until then the container re-runs the NEEDED and
-  # export checks where no build dependency is installed.
+  # the test host and Python. It re-runs the NEEDED and export checks and
+  # the conformance kit on every plugin where no build dependency is
+  # installed, so a plugin that needs a library of the build machine fails
+  # here. (The fake SoapySDR module joins with RAD-92.)
   completeness-clean:
     needs: linux-x86-64
     runs-on: ubuntu-24.04
@@ -99,14 +114,27 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: linux-x86-64-plugins
-          path: plugins
-        continue-on-error: true
+          path: kit
       - name: Install the check tools only
         run: apt-get update && apt-get install -y --no-install-recommends python3 binutils
       - name: Completeness checks in a clean container
+        run: python3 tools/ci/check_completeness.py kit/plugins
+      - name: Conformance kit in a clean container (RAD-91, RAD-133)
         run: |
-          mkdir -p plugins
-          python3 tools/ci/check_completeness.py plugins
+          chmod +x kit/yantra-radio-host
+          mkdir -p conformance
+          status=0
+          for p in kit/plugins/*.so; do
+            kit/yantra-radio-host conformance --plugin "$p" \
+              --report "conformance/$(basename "$p" .so).json" || status=1
+          done
+          exit $status
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-x86-64-conformance-clean
+          path: conformance/
+          if-no-files-found: ignore
 
   # DEFERRED (Windows): written, never run yet.
   windows-ucrt64:
