@@ -1,0 +1,98 @@
+{
+  "format": "yantra-radios-scenario",
+  "version": 1,
+  "id": "failed_site",
+  "name": "Network with a failed site",
+  "description": "Three sites; site 3 is announced in the neighbour lists of sites 1 and 2 but does not transmit (DEMO-09, Yantra PP-03). Site 2 goes off the air at 6 s and comes back at 8 s.",
+  "seed": 1004,
+  "duration_s": 10.0,
+  "truth_interval_s": 0.1,
+  "sample_rate_hz": 500000,
+  "network": {
+    "mcc": 901,
+    "mnc": 2
+  },
+  "cells": [
+    {
+      "id": "N1",
+      "label": "Site 1",
+      "cell_number": 1,
+      "la": 300,
+      "colour_code": 1,
+      "main_carrier": 3600,
+      "frequency_band": 3,
+      "level_dbm": -72.0,
+      "neighbours": [
+        {
+          "cell": "N2"
+        },
+        {
+          "cell": "N3"
+        }
+      ]
+    },
+    {
+      "id": "N2",
+      "label": "Site 2",
+      "cell_number": 2,
+      "la": 300,
+      "colour_code": 2,
+      "main_carrier": 3608,
+      "frequency_band": 3,
+      "level_dbm": -85.0,
+      "ppm": -0.1,
+      "time_offset_s": 3.5,
+      "neighbours": [
+        {
+          "cell": "N1"
+        },
+        {
+          "cell": "N3"
+        }
+      ]
+    },
+    {
+      "id": "N3",
+      "label": "Site 3 (failed)",
+      "cell_number": 3,
+      "la": 301,
+      "colour_code": 3,
+      "main_carrier": 3616,
+      "frequency_band": 3,
+      "level_dbm": -80.0,
+      "on_air": false,
+      "neighbours": [
+        {
+          "cell": "N1"
+        },
+        {
+          "cell": "N2"
+        }
+      ]
+    }
+  ],
+  "channel": {
+    "fading": {
+      "model": "none"
+    }
+  },
+  "receiver": {
+    "noise_figure_db": 7.0
+  },
+  "events": [
+    {
+      "t": 6.0,
+      "type": "cell_off",
+      "cell": "N2"
+    },
+    {
+      "t": 8.0,
+      "type": "cell_on",
+      "cell": "N2"
+    }
+  ],
+  "planted": [
+    "N3 announced as neighbour but not on air",
+    "N2 off from 6 s to 8 s"
+  ]
+}

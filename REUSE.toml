@@ -25,6 +25,13 @@ path = ["tests/fixtures/**/*.json", "tests/fixtures/**/*.jsonl"]
 SPDX-FileCopyrightText = "2026 The Yantra contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+# Scenario files and their scenes (RAD-74), JSON without comment syntax,
+# and the golden files of the generator tests.
+[[annotations]]
+path = ["data/scenarios/**/*.json", "tests/gen_sim/golden/*.txt"]
+SPDX-FileCopyrightText = "2026 The Yantra contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
 # doctest 2.4.12 (MIT), vendored unchanged; tests only.
 [[annotations]]
 path = ["third_party/doctest/doctest/**", "third_party/doctest/LICENSE.txt"]

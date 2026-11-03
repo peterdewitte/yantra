@@ -79,7 +79,10 @@ every check of the radio API rules it can, with a JSON report
 - The radio API reference: `ninja -C build docs-radio-api` (Doxygen) into
   `build/docs/radio-api/html`.
 - [docs/RECORD_FILES.md](docs/RECORD_FILES.md) record files,
-  [docs/SCENE_FORMAT.md](docs/SCENE_FORMAT.md) scene JSON.
+  [docs/SCENE_FORMAT.md](docs/SCENE_FORMAT.md) scene JSON,
+  [docs/SCENARIO_FORMAT.md](docs/SCENARIO_FORMAT.md) scenario files,
+  [docs/CHANNEL_MODEL.md](docs/CHANNEL_MODEL.md) channel and multi-wall
+  model.
 - [CHANGELOG.md](CHANGELOG.md): releases and the radio API changelog
   (RAD-11).
 

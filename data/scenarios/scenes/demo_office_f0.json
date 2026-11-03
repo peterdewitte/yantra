@@ -1,0 +1,203 @@
+{
+  "format": "yantra-radio-scene",
+  "version": 1,
+  "floor": {
+    "id": "f0",
+    "name": "Demo office, ground floor",
+    "scale_set": true,
+    "width_m": 40.0,
+    "height_m": 20.0,
+    "slab_attenuation_db": 18.0,
+    "storey_height_m": 3.5
+  },
+  "wall_classes": [
+    {
+      "id": "concrete",
+      "label": "Concrete",
+      "attenuation_db": 12.0,
+      "reflection_loss_db": 6.0
+    },
+    {
+      "id": "brick",
+      "label": "Brick",
+      "attenuation_db": 8.0,
+      "reflection_loss_db": 7.0
+    },
+    {
+      "id": "plaster",
+      "label": "Plasterboard",
+      "attenuation_db": 3.0
+    },
+    {
+      "id": "glass",
+      "label": "Glass",
+      "attenuation_db": 2.0
+    }
+  ],
+  "walls": [
+    {
+      "x1_m": 0,
+      "y1_m": 0,
+      "x2_m": 40,
+      "y2_m": 0,
+      "class": "concrete",
+      "attenuation_db": 12.0
+    },
+    {
+      "x1_m": 40,
+      "y1_m": 0,
+      "x2_m": 40,
+      "y2_m": 20,
+      "class": "glass",
+      "attenuation_db": 2.0
+    },
+    {
+      "x1_m": 40,
+      "y1_m": 20,
+      "x2_m": 0,
+      "y2_m": 20,
+      "class": "concrete",
+      "attenuation_db": 12.0
+    },
+    {
+      "x1_m": 0,
+      "y1_m": 20,
+      "x2_m": 0,
+      "y2_m": 0,
+      "class": "glass",
+      "attenuation_db": 2.0
+    },
+    {
+      "x1_m": 0,
+      "y1_m": 8,
+      "x2_m": 40,
+      "y2_m": 8,
+      "class": "plaster",
+      "attenuation_db": 3.0
+    },
+    {
+      "x1_m": 0,
+      "y1_m": 12,
+      "x2_m": 40,
+      "y2_m": 12,
+      "class": "plaster",
+      "attenuation_db": 3.0
+    },
+    {
+      "x1_m": 10,
+      "y1_m": 0,
+      "x2_m": 10,
+      "y2_m": 8,
+      "class": "brick",
+      "attenuation_db": 8.0
+    },
+    {
+      "x1_m": 20,
+      "y1_m": 0,
+      "x2_m": 20,
+      "y2_m": 8,
+      "class": "brick",
+      "attenuation_db": 8.0
+    },
+    {
+      "x1_m": 30,
+      "y1_m": 0,
+      "x2_m": 30,
+      "y2_m": 8,
+      "class": "brick",
+      "attenuation_db": 8.0
+    },
+    {
+      "x1_m": 10,
+      "y1_m": 12,
+      "x2_m": 10,
+      "y2_m": 20,
+      "class": "brick",
+      "attenuation_db": 8.0
+    },
+    {
+      "x1_m": 20,
+      "y1_m": 12,
+      "x2_m": 20,
+      "y2_m": 20,
+      "class": "brick",
+      "attenuation_db": 8.0
+    },
+    {
+      "x1_m": 30,
+      "y1_m": 12,
+      "x2_m": 30,
+      "y2_m": 20,
+      "class": "brick",
+      "attenuation_db": 8.0
+    }
+  ],
+  "cells": [
+    {
+      "id": "D0",
+      "label": "DAS ground floor",
+      "mcc": 901,
+      "mnc": 1,
+      "la": 100,
+      "colour_code": 1,
+      "carrier_hz": 390000000
+    },
+    {
+      "id": "D1",
+      "label": "DAS first floor",
+      "mcc": 901,
+      "mnc": 1,
+      "la": 100,
+      "colour_code": 2,
+      "carrier_hz": 390100000
+    }
+  ],
+  "antennas": [
+    {
+      "id": "a0",
+      "cell": "D0",
+      "x_m": 10.0,
+      "y_m": 10.0,
+      "height_m": 2.7,
+      "eirp_dbm": 15.0,
+      "pattern": {
+        "type": "omni"
+      }
+    },
+    {
+      "id": "a1",
+      "cell": "D0",
+      "x_m": 30.0,
+      "y_m": 10.0,
+      "height_m": 2.7,
+      "eirp_dbm": 15.0,
+      "pattern": {
+        "type": "omni"
+      }
+    },
+    {
+      "id": "b0",
+      "cell": "D1",
+      "x_m": 10.0,
+      "y_m": 10.0,
+      "height_m": 2.7,
+      "eirp_dbm": 15.0,
+      "pattern": {
+        "type": "omni"
+      },
+      "floor_offset": 1
+    },
+    {
+      "id": "b1",
+      "cell": "D1",
+      "x_m": 30.0,
+      "y_m": 10.0,
+      "height_m": 2.7,
+      "eirp_dbm": 15.0,
+      "pattern": {
+        "type": "omni"
+      },
+      "floor_offset": 1
+    }
+  ]
+}

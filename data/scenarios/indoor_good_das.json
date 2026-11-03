@@ -1,0 +1,134 @@
+{
+  "format": "yantra-radios-scenario",
+  "version": 1,
+  "id": "indoor_good_das",
+  "name": "Indoor, good DAS coverage",
+  "description": "Demo office with a DAS on each floor (DEMO-09): a walk along the ground-floor corridor with strong DAS levels; a macro site outside is weak indoors. The default scenario for plans without one.",
+  "default": true,
+  "seed": 1001,
+  "duration_s": 10.0,
+  "truth_interval_s": 0.1,
+  "sample_rate_hz": 500000,
+  "network": {
+    "mcc": 901,
+    "mnc": 1
+  },
+  "cells": [
+    {
+      "id": "D0",
+      "label": "DAS ground floor",
+      "cell_number": 1,
+      "la": 100,
+      "colour_code": 1,
+      "main_carrier": 3600,
+      "frequency_band": 3,
+      "level_dbm": -60.0,
+      "neighbours": [
+        {
+          "cell": "D1"
+        },
+        {
+          "cell": "M1"
+        }
+      ]
+    },
+    {
+      "id": "D1",
+      "label": "DAS first floor",
+      "cell_number": 2,
+      "la": 100,
+      "colour_code": 2,
+      "main_carrier": 3604,
+      "frequency_band": 3,
+      "level_dbm": -75.0,
+      "neighbours": [
+        {
+          "cell": "D0"
+        },
+        {
+          "cell": "M1"
+        }
+      ]
+    },
+    {
+      "id": "M1",
+      "label": "Macro site north",
+      "cell_number": 3,
+      "la": 200,
+      "colour_code": 3,
+      "main_carrier": 3612,
+      "frequency_band": 3,
+      "level_dbm": -95.0,
+      "site": {
+        "x_m": 20.0,
+        "y_m": -600.0,
+        "height_m": 30.0,
+        "eirp_dbm": 50.0,
+        "pattern": {
+          "type": "sector",
+          "azimuth_deg": 180.0,
+          "beamwidth_deg": 65.0,
+          "front_to_back_db": 25.0
+        }
+      },
+      "ppm": 0.05,
+      "time_offset_s": 12.3,
+      "neighbours": [
+        {
+          "cell": "D0"
+        }
+      ]
+    }
+  ],
+  "floors": [
+    {
+      "scene_file": "scenes/demo_office_f0.json"
+    },
+    {
+      "scene_file": "scenes/demo_office_f1.json"
+    }
+  ],
+  "channel": {
+    "path_loss": {
+      "exponent": 3.5,
+      "reference_distance_m": 1.0
+    },
+    "penetration_loss_db": 12.0,
+    "shadowing": {
+      "sigma_db": 4.0,
+      "decorrelation_m": 20.0
+    },
+    "multiwall": {
+      "reflections": 0,
+      "shadowing_sigma_db": 0.0
+    },
+    "fading": {
+      "model": "none"
+    }
+  },
+  "receiver": {
+    "noise_figure_db": 7.0,
+    "reference_level_dbm": -20.0,
+    "ppm": 0.5,
+    "height_m": 1.5
+  },
+  "path": {
+    "mode": "linear",
+    "points": [
+      {
+        "t": 0.0,
+        "floor": "f0",
+        "x_m": 2.0,
+        "y_m": 10.0
+      },
+      {
+        "t": 10.0,
+        "floor": "f0",
+        "x_m": 38.0,
+        "y_m": 10.0
+      }
+    ]
+  },
+  "events": [],
+  "planted": []
+}
