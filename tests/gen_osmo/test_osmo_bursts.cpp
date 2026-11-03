@@ -21,6 +21,7 @@
 // Partly copied from yantra-v1 c24e8f5 (tests/tetra_gen/test_cell_tx.cpp,
 // tp_sap_capture.cpp), adapted for RAD-93.
 
+#include "osmo_support.hpp"
 #include "ref_demod.hpp"
 
 #include "yantra/gen/burst.hpp"
@@ -54,21 +55,15 @@ void tetra_burst_rx_cb(const uint8_t* burst, unsigned int len, enum tetra_train_
 using namespace yantra::gen;
 using cf = std::complex<float>;
 
-namespace {
+using osmo_test::CapturedBlock;
+using osmo_test::captured_blocks;
+using osmo_test::osmo_decode;
 
-struct CapturedBlock {
-    int type;  // enum tp_sap_data_type
-    int blk_num;
-    Bits bits;
-};
-
-std::vector<CapturedBlock>& captured_blocks()
+std::vector<CapturedBlock>& osmo_test::captured_blocks()
 {
     static std::vector<CapturedBlock> blocks;
     return blocks;
 }
-
-}  // namespace
 
 // osmo-tetra's TP-SAP entry point (normally its lower MAC): records every
 // block the PHY delivers.
@@ -91,22 +86,6 @@ Bits random_bits(std::mt19937& rng, size_t n)
     return b;
 }
 
-// osmo-tetra's receive chain of tetra_lower_mac.c for one block.
-Bits osmo_decode(Bits type5, const BlockSpec& spec, uint32_t scrambling, bool& crc_ok)
-{
-    tetra_scramb_bits(scrambling, type5.data(), static_cast<int>(type5.size()));
-    std::vector<uint8_t> type3(type5.size());
-    block_deinterleave(static_cast<uint32_t>(type5.size()), static_cast<uint32_t>(spec.a), type5.data(),
-                       type3.data());
-    const int type2_bits = spec.type1 + kCrcBits + kTailBits;
-    std::vector<uint8_t> dp(static_cast<size_t>(type2_bits) * 4, 0xff);
-    tetra_rcpc_depunct(TETRA_RCPC_PUNCT_2_3, type3.data(), static_cast<int>(type3.size()), dp.data());
-    std::vector<uint8_t> type2(static_cast<size_t>(type2_bits));
-    viterbi_dec_sb1_wrapper(dp.data(), type2.data(), static_cast<unsigned>(type2_bits));
-    crc_ok = crc16_ccitt_bits(type2.data(), static_cast<unsigned>(spec.type1 + kCrcBits)) == kOsmoCrcOk;
-    return Bits(type2.begin(), type2.begin() + spec.type1);
-}
-
 // osmo-tetra's training-sequence search over one burst (padded: the
 // search looks 21 bits ahead), restricted to `mask`.
 int find_train_seq(const Bits& burst, uint32_t mask, unsigned& offset)
@@ -124,6 +103,22 @@ Bits concat(const Bits& a, const Bits& b)
 }
 
 }  // namespace
+
+Bits osmo_test::osmo_decode(Bits type5, const BlockSpec& spec, uint32_t scrambling, bool& crc_ok)
+{
+    tetra_scramb_bits(scrambling, type5.data(), static_cast<int>(type5.size()));
+    std::vector<uint8_t> type3(type5.size());
+    block_deinterleave(static_cast<uint32_t>(type5.size()), static_cast<uint32_t>(spec.a), type5.data(),
+                       type3.data());
+    const int type2_bits = spec.type1 + kCrcBits + kTailBits;
+    std::vector<uint8_t> dp(static_cast<size_t>(type2_bits) * 4, 0xff);
+    tetra_rcpc_depunct(TETRA_RCPC_PUNCT_2_3, type3.data(), static_cast<int>(type3.size()), dp.data());
+    std::vector<uint8_t> type2(static_cast<size_t>(type2_bits));
+    viterbi_dec_sb1_wrapper(dp.data(), type2.data(), static_cast<unsigned>(type2_bits));
+    crc_ok = crc16_ccitt_bits(type2.data(), static_cast<unsigned>(spec.type1 + kCrcBits)) == kOsmoCrcOk;
+    return Bits(type2.begin(), type2.begin() + spec.type1);
+}
+
 
 TEST_CASE("Bursts have osmo-tetra's layout: its training-sequence search and burst splitter")
 {

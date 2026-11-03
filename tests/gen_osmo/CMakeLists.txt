@@ -47,3 +47,7 @@ yantra_add_test_dir(gen_osmo LIBS yantra::gen yantra_test_osmo_coding)
 # demodulator of tests/gen.
 target_sources(test_gen_osmo PRIVATE ${CMAKE_SOURCE_DIR}/tests/gen/ref_demod.cpp)
 target_include_directories(test_gen_osmo PRIVATE ${CMAKE_SOURCE_DIR}/tests/gen)
+# The yantra-gen round trip (test_osmo_yantra_gen.cpp) runs the yantra-gen
+# program and decodes its IQ file.
+target_compile_definitions(test_gen_osmo PRIVATE YANTRA_GEN_EXE="$<TARGET_FILE:yantra-gen>")
+add_dependencies(test_gen_osmo yantra-gen)
