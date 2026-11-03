@@ -72,8 +72,8 @@ request. Build steps follow in BUILD.md once the CMake project exists.
 
 ## Building and testing
 
-- Use at most 6 parallel jobs for local builds and tests (`ninja -j6`,
-  `ctest -j6`, `CARGO_BUILD_JOBS=6`); CI runners keep their own default.
+- Local builds and tests may use all cores (`ninja`, `ctest -j"$(nproc)"`,
+  `CARGO_BUILD_JOBS="$(nproc)"`), as the CI runners do.
 - Tests run under `ctest` with the labels `fast`, `slow` and `timing`
   (RAD-03). They wait on observable conditions, never on a fixed sleep.
 - Never delete, skip or weaken a test, or loosen a tolerance, to make it
