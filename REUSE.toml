@@ -45,3 +45,11 @@ path = ["third_party/nlohmann_json/include/**", "third_party/nlohmann_json/LICEN
 precedence = "override"
 SPDX-FileCopyrightText = "2013-2025 Niels Lohmann"
 SPDX-License-Identifier = "MIT"
+
+# pocketfft (C++ header-only, branch cpp at 4d865cb, BSD-3-Clause),
+# vendored unchanged (RAD-04, RAD-100).
+[[annotations]]
+path = ["third_party/pocketfft/pocketfft_hdronly.h", "third_party/pocketfft/LICENSE.md"]
+precedence = "override"
+SPDX-FileCopyrightText = ["2010-2024 Max-Planck-Society", "The pocketfft authors (see the header of pocketfft_hdronly.h)"]
+SPDX-License-Identifier = "BSD-3-Clause"
