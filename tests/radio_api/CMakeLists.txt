@@ -4,7 +4,7 @@
 # Radio API tests (RAD-10, RAD-11): C11 and C++20 translation units with
 # the ABI layout asserts and the helper tests, always with -Werror; and a
 # syntax check of the public headers in the oldest language modes a
-# plugin may use (C99 and C++11 for radio.h) with -pedantic.
+# plugin may use (C99 for radio.h, C++20 for radio.hpp) with -pedantic.
 yantra_add_test_dir(radio_api LIBS yantra::radio_api)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(test_radio_api PRIVATE -Wall -Wextra -Werror)
@@ -16,6 +16,9 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   add_test(NAME radio_api_header_cxx11
     COMMAND ${CMAKE_CXX_COMPILER} -std=c++11 -pedantic -Wall -Wextra -Werror -Wundef
             -fsyntax-only -I${_inc} -x c++ ${_dir}/radio_h.c)
-  set_tests_properties(radio_api_header_c99 radio_api_header_cxx11
+  add_test(NAME radio_api_header_hpp
+    COMMAND ${CMAKE_CXX_COMPILER} -std=c++20 -pedantic -Wall -Wextra -Werror -Wundef -Wshadow
+            -Wconversion -fsyntax-only -I${_inc} -x c++ ${_dir}/radio_hpp.cpp)
+  set_tests_properties(radio_api_header_c99 radio_api_header_cxx11 radio_api_header_hpp
     PROPERTIES LABELS fast)
 endif()
