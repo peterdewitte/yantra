@@ -11,7 +11,8 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 build=${1:-build-ci}
 shift || true
-jobs=$(nproc)
+# At most 6 parallel jobs on a developer machine (owner, 2026-11-03).
+jobs=$(( $(nproc) < 6 ? $(nproc) : 6 ))
 tools/deps/build_deps.sh "$build/deps"
 cmake -S . -B "$build" -G Ninja -DYANTRA_WERROR=ON "$@"
 cmake --build "$build" -j "$jobs"

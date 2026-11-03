@@ -51,8 +51,8 @@ Needs CMake >= 3.20, Ninja, gcc or clang with C++20 and Python 3.
 
     git submodule update --init
     cmake -S . -B build -G Ninja
-    ninja -C build
-    ctest --test-dir build -j"$(nproc)"
+    ninja -C build -j6
+    ctest --test-dir build -j6
 
 Presets (CMakePresets.json): `ci` (warnings as errors), `scalar` (no SIMD,
 same results), `asan-ubsan`, `tsan`. `tools/ci/run_linux.sh` runs the same
