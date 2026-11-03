@@ -13,7 +13,8 @@
 # include/yantra/receiver/, position independent so it goes into plugin
 # modules (RAD-132). docs/RECEIVER_DSP.md describes it; tests in
 # tests/receiver and tests/receiver_tetra. The osmo-tetra lower layers are
-# the static library yantra::osmo_tetra (cmake/OsmoTetra.cmake).
+# the static library yantra::osmo_tetra (cmake/OsmoTetra.cmake); the
+# decoder on top of it is yantra::tetra_decoder (below).
 # Copied from yantra 68ea20a: core/dsp, plugins/tetra/rx and
 # plugins/tetra/decoder burst_sync (namespace yantra::receiver).
 
@@ -63,3 +64,28 @@ set_target_properties(yantra_receiver PROPERTIES
   POSITION_INDEPENDENT_CODE ON
   CXX_VISIBILITY_PRESET hidden
   VISIBILITY_INLINES_HIDDEN ON)
+
+# The TETRA decoder on osmo-tetra (RAD-101, DEC-01..03, DEC-05, DEC-10,
+# DEC-11): lower MAC glue (it defines osmo-tetra's TP-SAP entry point
+# tp_sap_udata_ind), broadcast PDU parsers, TDMA time base and the
+# per-carrier decoder (IQ -> demodulator -> burst sync -> lower MAC).
+# Static library yantra::tetra_decoder; headers lower_mac.hpp,
+# broadcast.hpp, tdma.hpp, carrier_decoder.hpp. osmo-tetra stays private:
+# its headers never reach the public ones. docs/TETRA_DECODER.md.
+# Copied from yantra 68ea20a: plugins/tetra/decoder.
+if(YANTRA_OSMO_TETRA_FOUND)
+  add_library(yantra_tetra_decoder STATIC
+    src/decoder/broadcast.cpp
+    src/decoder/carrier_decoder.cpp
+    src/decoder/lower_mac.cpp
+    src/decoder/tdma.cpp)
+  add_library(yantra::tetra_decoder ALIAS yantra_tetra_decoder)
+  target_link_libraries(yantra_tetra_decoder
+    PUBLIC yantra::receiver
+    PRIVATE yantra::osmo_tetra yantra_warnings)
+  target_compile_features(yantra_tetra_decoder PUBLIC cxx_std_20)
+  set_target_properties(yantra_tetra_decoder PROPERTIES
+    POSITION_INDEPENDENT_CODE ON
+    CXX_VISIBILITY_PRESET hidden
+    VISIBILITY_INLINES_HIDDEN ON)
+endif()
