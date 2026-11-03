@@ -884,20 +884,23 @@ signal time, receiver load and the true offset. The action
 generator at -70 dBm decoded) and the context callbacks.
 
 Real time. The stream thread paces itself to the signal time divided by
-the playback speed. When the host takes records more slowly than that
-and the backlog exceeds `device_buffer_s`, the plugin drops the samples
-as a real device would: it sends `YR_EVENT_OVERFLOW` and
-`YR_EVENT_DROPPED` (the samples lost), the receiver is told of the
-discontinuity, and the stream goes on. `stop` and `start` pause and
-resume it.
+the playback speed. When the host holds its pushes so long that the
+backlog exceeds `device_buffer_s`, the plugin drops the samples as a real
+device would: it sends `YR_EVENT_OVERFLOW` and `YR_EVENT_DROPPED` (the
+samples lost), the receiver is told of the discontinuity, and the stream
+goes on. A computer too slow for real time (sensor `receiver_load` above
+1) drops nothing: the simulation runs slower, its time base moves to the
+host clock at each record interval, and a warning is logged once.
+`stop` and `start` pause and resume it.
 
 The tests (`tests/simulator`, RAD-94) run the plugin through the test
 host's emulated context callbacks: levels within 0.5 dB of the multi-wall
 formula at each record's `sim_position`, a cursor move followed within
 1 s, a scene change reloaded, the fallbacks without plan or position,
 ground truth (identity, neighbours, C1), each example id's scenario,
-seeds, real-time pacing within 1 % (label timing), the practice
-calibration, the slow sink and pause/resume.
+seeds, real-time pacing within 1 % and the cursor latency (both in
+`test_simulator_timing`, label timing), the practice calibration, the
+slow sink and pause/resume.
 
 ## The conformance kit
 

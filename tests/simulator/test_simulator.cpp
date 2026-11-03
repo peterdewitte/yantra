@@ -255,41 +255,6 @@ TEST_CASE("simulator: levels follow the multi-wall model at each sim_position (R
     CHECK(checked >= 20);
 }
 
-TEST_CASE("simulator: the level follows a cursor move within 1 s (RAD-94)")
-{
-    const PlanPoint a{4, 5}, b{15, 5};
-    Sim sim(fraunces_plan({a}));
-    const double want_b = formula_t1(fraunces_scene(), b.x_m, b.y_m);
-    REQUIRE(std::abs(want_b - formula_t1(fraunces_scene(), a.x_m, a.y_m)) > 10.0);
-    int at_a = 0;
-    int64_t moved_ns = 0;
-    int64_t followed_ns = -1;
-    const yr_host_api& api = sim.host->host_api();
-    sim.stream(
-        [&](const Record& r) {
-            if (!sim.is_cell(r, kT1Hz) || !sim.has_position(r))
-                return false;
-            if (moved_ns == 0) {
-                if (++at_a == 3) {
-                    moved_ns = api.monotonic_ns(api.host);
-                    sim.host->notify(sim.host->context().set_cursor(b));
-                }
-                return false;
-            }
-            const double got = sim.v(r, YR_FIELD_LEVEL).f64 + sim.offset();
-            if (sim.x(r) == b.x_m && std::abs(got - want_b) <= 0.5) {
-                followed_ns = r.time.monotonic_ns;
-                return true;
-            }
-            return false;
-        },
-        30.0);
-    REQUIRE(moved_ns != 0);
-    REQUIRE(followed_ns > 0);
-    MESSAGE("followed after " << (followed_ns - moved_ns) / 1e6 << " ms");
-    CHECK(followed_ns - moved_ns <= 1'000'000'000);
-}
-
 TEST_CASE("simulator: walk position and position sources (RAD-61)")
 {
     ContextOptions ctx = fraunces_plan({{4, 4}});
@@ -559,6 +524,41 @@ TEST_CASE("simulator: pause and resume, live settings and the simulated fault (R
 
 TEST_SUITE("timing")
 {
+    TEST_CASE("simulator: the level follows a cursor move within 1 s (RAD-94)")
+    {
+        const PlanPoint a{4, 5}, b{15, 5};
+        Sim sim(fraunces_plan({a}));
+        const double want_b = formula_t1(fraunces_scene(), b.x_m, b.y_m);
+        REQUIRE(std::abs(want_b - formula_t1(fraunces_scene(), a.x_m, a.y_m)) > 10.0);
+        int at_a = 0;
+        int64_t moved_ns = 0;
+        int64_t followed_ns = -1;
+        const yr_host_api& api = sim.host->host_api();
+        sim.stream(
+            [&](const Record& r) {
+                if (!sim.is_cell(r, kT1Hz) || !sim.has_position(r))
+                    return false;
+                if (moved_ns == 0) {
+                    if (++at_a == 3) {
+                        moved_ns = api.monotonic_ns(api.host);
+                        sim.host->notify(sim.host->context().set_cursor(b));
+                    }
+                    return false;
+                }
+                const double got = sim.v(r, YR_FIELD_LEVEL).f64 + sim.offset();
+                if (sim.x(r) == b.x_m && std::abs(got - want_b) <= 0.5) {
+                    followed_ns = r.time.monotonic_ns;
+                    return true;
+                }
+                return false;
+            },
+            30.0);
+        REQUIRE(moved_ns != 0);
+        REQUIRE(followed_ns > 0);
+        MESSAGE("followed after " << (followed_ns - moved_ns) / 1e6 << " ms");
+        CHECK(followed_ns - moved_ns <= 1'000'000'000);
+    }
+
     TEST_CASE("simulator: real-time pacing within 1 % (RAD-94)")
     {
         for (double speed : {1.0, 2.0}) {

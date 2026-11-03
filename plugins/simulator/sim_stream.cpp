@@ -7,7 +7,9 @@
 // the multi-wall model RAD-73) and the same measurement engine as the SDR
 // plugins (RAD-102, RAD-110..114) decoding it, paced to real time (or the
 // playback speed) with a simulated device buffer that overflows like a
-// real one when the computer or the sink is too slow (RAD-24, RAD-25).
+// real one when the sink is too slow (RAD-24, RAD-25). A computer too slow
+// for real time does not drop samples: the simulation then runs slower,
+// with its record times moved to the host clock at each interval start.
 //
 // Records: every record interval (1 / record_rate_hz of signal) the
 // position is read once and held, so all records of an interval carry the
@@ -60,6 +62,9 @@ PlanContext read_plan(const yr_host_api& h)
 }
 
 namespace {
+
+/// Lag at an interval start above which a slow computer moves the time base.
+constexpr double kCpuLagS = 0.05;
 
 void offset_scene(radios::Scene& scene, double db)
 {
@@ -273,6 +278,8 @@ private:
     uint64_t clipped_seen_ = 0;
     std::optional<gen::ReceiverPosition> last_pos_;
     bool warned_slow_ = false;
+    bool warned_cpu_ = false;
+    double sink_wait_s_ = 0.0; ///< lag caused by pushes the host held
 };
 
 std::optional<gen::ReceiverPosition> Stream::read_position(std::string& text)
@@ -565,6 +572,26 @@ void Stream::run()
             build();
         }
         if (in_interval_ == 0) {
+            // A computer slower than real time: the lag not caused by the
+            // sink moves the time base (no drop, no discontinuity), so the
+            // records keep the host's time.
+            const auto due = base_wall_ + std::chrono::duration_cast<Clock::duration>(
+                                              std::chrono::duration<double>(
+                                                  static_cast<double>(n_) / speed_rate()));
+            const double cpu_lag =
+                std::chrono::duration<double>(Clock::now() - due).count() - sink_wait_s_;
+            if (cpu_lag > kCpuLagS) {
+                base_wall_ += std::chrono::duration_cast<Clock::duration>(
+                    std::chrono::duration<double>(cpu_lag));
+                base_mono_ += static_cast<int64_t>(std::llround(cpu_lag * 1e9));
+                need_base_ = true;
+                if (!warned_cpu_) {
+                    log(*d_->plugin, d_, YR_LOG_WARNING,
+                        "the simulation runs slower than real time on this computer (lower the "
+                        "playback speed or the sample rate)");
+                    warned_cpu_ = true;
+                }
+            }
             if ((pending & (1u << YR_CONTEXT_SCENE_CHANGED)) != 0)
                 reload_scene();
             pending = 0; // positions are read at every interval start
@@ -606,7 +633,9 @@ void Stream::run()
             d_->load = busy_s / signal_s;
             busy_s = signal_s = 0.0;
         }
+        const auto t1 = Clock::now();
         deliver(out);
+        sink_wait_s_ += std::chrono::duration<double>(Clock::now() - t1).count();
         in_interval_ += got;
         if (in_interval_ >= interval_len_)
             in_interval_ = 0;
@@ -618,8 +647,11 @@ void Stream::run()
                                              std::chrono::duration<double>(
                                                  static_cast<double>(n_) / speed_rate()));
         const double behind = std::chrono::duration<double>(Clock::now() - target).count();
-        if (behind > s_.device_buffer_s) {
-            const auto lost = static_cast<uint64_t>(std::ceil(behind * speed_rate()));
+        // Only the lag of held pushes fills the device buffer.
+        sink_wait_s_ = std::clamp(sink_wait_s_, 0.0, std::max(0.0, behind));
+        if (sink_wait_s_ > s_.device_buffer_s) {
+            const auto lost = static_cast<uint64_t>(std::ceil(sink_wait_s_ * speed_rate()));
+            sink_wait_s_ = 0.0;
             n_ += lost;
             d_->samples_dropped += lost;
             const uint64_t count = ++d_->overflows;
@@ -627,8 +659,8 @@ void Stream::run()
             h_.stream_event(d_->sink, YR_EVENT_DROPPED, static_cast<int64_t>(lost));
             if (!warned_slow_) {
                 log(*d_->plugin, d_, YR_LOG_WARNING,
-                    "the simulation does not keep up; samples are dropped (lower the playback "
-                    "speed or the sample rate)");
+                    "the records are taken too slowly; the simulated device buffer overflowed "
+                    "and samples were dropped");
                 warned_slow_ = true;
             }
             discontinuity_ = true;
