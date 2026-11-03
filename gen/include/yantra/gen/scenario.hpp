@@ -25,6 +25,7 @@
 #include <yantra/radios/scene.hpp>
 
 #include <cstdint>
+#include <functional>
 #include <optional>
 #include <stdexcept>
 #include <string>
@@ -206,6 +207,12 @@ struct Scenario {
 /// place of the problem; a newer version or another format is refused.
 /// Unknown members are ignored (version 1 may gain members compatibly).
 Scenario parse_scenario(std::string_view json_text, const std::string& base_dir = "");
+/// Returns the text of a scene file named in a scenario ("scene_file" as
+/// written); throws ScenarioError when there is none.
+using ScenarioFileReader = std::function<std::string(const std::string& file)>;
+/// parse_scenario() with scene files from `read_scene` instead of the file
+/// system (the simulator's scenarios compiled into the plugin, RAD-61).
+Scenario parse_scenario(std::string_view json_text, const ScenarioFileReader& read_scene);
 /// parse_scenario() of a file, relative scene files from its folder.
 Scenario load_scenario_file(const std::string& path);
 

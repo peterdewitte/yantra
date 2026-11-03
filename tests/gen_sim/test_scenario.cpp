@@ -307,3 +307,28 @@ TEST_CASE("scenario: cells added from a scene")
     bad.cells = {{"off", "Off raster", 901, 1, 1, 1, 390001000}};
     CHECK_THROWS_AS(add_scene_cells(s, bad), ScenarioError);
 }
+
+TEST_CASE("scenario: scene files from a reader instead of the file system (RAD-61)")
+{
+    std::ifstream in(kDir + "/indoor_good_das.json");
+    std::stringstream text;
+    text << in.rdbuf();
+    std::vector<std::string> asked;
+    const Scenario from_reader = parse_scenario(text.str(), [&](const std::string& file) {
+        asked.push_back(file);
+        std::ifstream f(kDir + "/" + file);
+        std::stringstream body;
+        body << f.rdbuf();
+        return body.str();
+    });
+    CHECK(asked == std::vector<std::string>{"scenes/demo_office_f0.json", "scenes/demo_office_f1.json"});
+    const Scenario from_file = load_scenario_file(kDir + "/indoor_good_das.json");
+    REQUIRE(from_reader.floors.size() == from_file.floors.size());
+    for (size_t i = 0; i < from_file.floors.size(); ++i)
+        CHECK(from_reader.floors[i].scene == from_file.floors[i].scene);
+    // A reader without the file: the error names the floor.
+    CHECK_THROWS_AS(parse_scenario(text.str(), [](const std::string& file) -> std::string {
+                        throw ScenarioError("no " + file);
+                    }),
+                    ScenarioError);
+}

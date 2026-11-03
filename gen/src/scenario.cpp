@@ -241,7 +241,7 @@ radios::Scene scene_from_text(const std::string& text, const std::string& where)
     return scene;
 }
 
-Scenario parse(const json& root, const std::string& base_dir)
+Scenario parse(const json& root, const ScenarioFileReader& read_scene)
 {
     object_check(root, "");
     const json* f = member(root, "format");
@@ -295,12 +295,9 @@ Scenario parse(const json& root, const std::string& base_dir)
             if (!file->is_string() || file->get<std::string>().empty())
                 fail(at(w, "scene_file"), "must be a file name");
             fl.file = file->get<std::string>();
-            std::filesystem::path p(fl.file);
-            if (p.is_relative() && !base_dir.empty())
-                p = std::filesystem::path(base_dir) / p;
             std::string body;
             try {
-                body = read_file(p.string());
+                body = read_scene(fl.file);
             } catch (const ScenarioError&) {
                 fail(at(w, "scene_file"), "cannot read \"" + fl.file + "\"");
             }
@@ -499,7 +496,23 @@ Scenario parse_scenario(std::string_view json_text, const std::string& base_dir)
     } catch (const json::exception& e) {
         throw ScenarioError(std::string("not valid JSON: ") + e.what());
     }
-    return parse(root, base_dir);
+    return parse(root, [&base_dir](const std::string& file) {
+        std::filesystem::path p(file);
+        if (p.is_relative() && !base_dir.empty())
+            p = std::filesystem::path(base_dir) / p;
+        return read_file(p.string());
+    });
+}
+
+Scenario parse_scenario(std::string_view json_text, const ScenarioFileReader& read_scene)
+{
+    json root;
+    try {
+        root = json::parse(json_text.begin(), json_text.end());
+    } catch (const json::exception& e) {
+        throw ScenarioError(std::string("not valid JSON: ") + e.what());
+    }
+    return parse(root, read_scene);
 }
 
 Scenario load_scenario_file(const std::string& path)
