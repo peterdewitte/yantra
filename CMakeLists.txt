@@ -54,6 +54,12 @@ target_include_directories(yantra_radio_api INTERFACE
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 add_library(yantra::radio_api ALIAS yantra_radio_api)
 
+# nlohmann/json (RAD-04), vendored header-only release (third_party/nlohmann_json).
+add_library(yantra_json INTERFACE)
+target_include_directories(yantra_json SYSTEM INTERFACE
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/third_party/nlohmann_json/include>)
+add_library(yantra::json ALIAS yantra_json)
+
 if(YANTRA_RADIOS_BUILD_TESTS)
   enable_testing()
 endif()
