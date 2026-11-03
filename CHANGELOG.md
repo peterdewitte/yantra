@@ -69,3 +69,9 @@ The first version (tag v0.1.0 when released).
   (`yantra_add_radio_plugin`).
 - Example radio plugin `beacon` (RAD-64) and the plugin tutorial
   docs/RADIO_PLUGINS.md.
+- TETRA test-signal generator library `yantra::gen` (gen/, RAD-70), first
+  part: downlink channel coding (EN 300 392-2 clause 8), the broadcast
+  PDUs (SYNC, SYSINFO, ACCESS-ASSIGN, MAC-RESOURCE, D-NWRK-BROADCAST with
+  neighbours) and the slot schedule of a cell's main carrier, with golden
+  vectors and osmo-tetra cross-checks (RAD-93). Test binaries take
+  `--update` to rewrite golden files on purpose.
