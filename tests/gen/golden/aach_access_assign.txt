@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# TETRA generator golden vector (RAD-70): AACH, ACCESS-ASSIGN header 00, access code A, 1 frame
+# Written by tests/gen/test_golden.cpp; rewrite only on purpose
+# (test_gen --update, target update-golden-gen). Bits first transmitted first.
+channel AACH
+scrambling 0xE1400107
+type1 00000001000001
+type5 110000001000100100011000111010

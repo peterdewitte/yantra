@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# TETRA generator golden vector (RAD-70): BSCH (SB1), MAC-SYNC + D-MLE-SYNC, TN 1 FN 18 MN 1
+# Written by tests/gen/test_golden.cpp; rewrite only on purpose
+# (test_gen --update, target update-golden-gen). Bits first transmitted first.
+channel BSCH
+scrambling 0x00000003
+type1 000000000100100100000010000000011100001010000000000000110001
+type5 101110110111001010110101010000110100101000000001011000000000010110100000110100110111011101010010000111111111011010011000

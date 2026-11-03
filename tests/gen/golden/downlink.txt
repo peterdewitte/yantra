@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# TETRA generator golden digests (RAD-93): SHA-256 of the coded blocks
+# (content kind, AACH, block 1, block 2) of 4320 slots from TN 1 FN 1 MN 1 HN 7.
+# default: CellConfig::defaults() with two neighbours; seeded: drawn from the seed.
+# Written by tests/gen/test_golden.cpp; rewrite only on purpose
+# (test_gen --update, target update-golden-gen).
+digest default 23fa97837c74327658b3e668ab776494ebf81248118d50e0347cd6649c48bc2c
+digest seeded-20261103 01908a36f9af87cd11c91ccbc397bbdf29915d39d9e49b1e18c8aee0ac4e70f7

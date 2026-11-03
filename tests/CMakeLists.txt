@@ -15,6 +15,8 @@ target_include_directories(yantra_doctest SYSTEM INTERFACE ${CMAKE_SOURCE_DIR}/t
 
 add_library(yantra_test_main STATIC test_main.cpp)
 target_link_libraries(yantra_test_main PUBLIC yantra_doctest yantra_warnings)
+# golden.hpp (the --update option of every test binary, RAD-93)
+target_include_directories(yantra_test_main PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   # doctest 2.4.12 includes <ciso646>, which libstdc++ flags with #warning
   # under C++20; clang does not silence it for system headers.

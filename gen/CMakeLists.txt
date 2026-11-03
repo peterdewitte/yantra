@@ -3,14 +3,18 @@
 #
 # gen/: TETRA test-signal generator library (RAD-02, RAD-70), own C++20
 # code independent of osmo-tetra (so decoding its output with osmo-tetra
-# is a real cross-check): bit helpers, channel coding (EN 300 392-2
-# clause 8) and broadcast PDUs.
+# is a real cross-check): bit helpers, channel coding
+# (EN 300 392-2 clause 8), broadcast PDUs, TDMA time, the downlink
+# logical-channel schedule and SHA-256 for golden digests (RAD-93).
 # Static library yantra::gen, headers under include/yantra/gen/; position
 # independent so it can go into plugin modules. Tests: tests/gen/.
 add_library(yantra_gen STATIC
   src/bits.cpp
   src/coding.cpp
-  src/pdu.cpp)
+  src/digest.cpp
+  src/downlink.cpp
+  src/pdu.cpp
+  src/timing.cpp)
 target_include_directories(yantra_gen PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
 target_link_libraries(yantra_gen PRIVATE yantra_warnings)
