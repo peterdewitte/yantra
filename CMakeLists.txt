@@ -93,30 +93,45 @@ add_subdirectory(udev)
 #   lib/udev/rules.d, lib/modprobe.d  udev rules and the RTL-SDR DVB-T
 #                              blacklist (udev/)
 #   share/licenses/yantra-radios  the licence bundle (RAD-137): LICENSE,
-#                              LICENSES/, THIRD_PARTY.md and the licence
-#                              texts of every bundled library
+#                              LICENSES/, THIRD_PARTY.md, the licence
+#                              texts of every bundled library and the
+#                              index BUNDLE.md
 #   share/doc/yantra-radios    README, CHANGELOG, the top-level docs and docs/
 include(GNUInstallDirs)
 install(DIRECTORY data/scenarios DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra-radios)
-set(_licences ${CMAKE_INSTALL_DATADIR}/licenses/yantra-radios)
-install(FILES LICENSE THIRD_PARTY.md DESTINATION ${_licences})
-install(DIRECTORY LICENSES DESTINATION ${_licences})
-file(GLOB _third_party RELATIVE ${PROJECT_SOURCE_DIR}/third_party ${PROJECT_SOURCE_DIR}/third_party/*)
-foreach(_comp ${_third_party})
-  if(_comp STREQUAL "doctest" OR NOT IS_DIRECTORY ${PROJECT_SOURCE_DIR}/third_party/${_comp})
-    continue() # test only, never shipped
-  endif()
-  file(GLOB _texts ${PROJECT_SOURCE_DIR}/third_party/${_comp}/COPYING*
-                   ${PROJECT_SOURCE_DIR}/third_party/${_comp}/LICEN[CS]E*
-                   ${PROJECT_SOURCE_DIR}/third_party/${_comp}/NOTICE*)
-  if(NOT _texts)
-    # libhackrf and libairspy: BSD-3-Clause in their source headers.
-    set(_texts ${PROJECT_SOURCE_DIR}/LICENSES/BSD-3-Clause.txt)
-  endif()
-  install(FILES ${_texts} DESTINATION ${_licences}/${_comp})
-endforeach()
+# The licence bundle is made at build time by tools/ci/licence_bundle.py
+# from tools/deps/manifest.tsv (checked against THIRD_PARTY.md and
+# third_party/ first), the same bundle the release packages carry.
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+set(YANTRA_LICENCE_BUNDLE ${CMAKE_BINARY_DIR}/licence-bundle)
+file(GLOB _bundle_inputs ${PROJECT_SOURCE_DIR}/LICENSES/*.txt)
+add_custom_command(OUTPUT ${YANTRA_LICENCE_BUNDLE}/BUNDLE.md
+  COMMAND ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/ci/licence_bundle.py bundle
+          ${PROJECT_SOURCE_DIR} ${YANTRA_LICENCE_BUNDLE}
+  DEPENDS ${PROJECT_SOURCE_DIR}/tools/ci/licence_bundle.py ${PROJECT_SOURCE_DIR}/tools/deps/manifest.tsv
+          ${PROJECT_SOURCE_DIR}/THIRD_PARTY.md ${PROJECT_SOURCE_DIR}/LICENSE ${_bundle_inputs}
+  COMMENT "Licence bundle (RAD-137) in ${YANTRA_LICENCE_BUNDLE}"
+  VERBATIM)
+add_custom_target(licence_bundle ALL DEPENDS ${YANTRA_LICENCE_BUNDLE}/BUNDLE.md)
+install(DIRECTORY ${YANTRA_LICENCE_BUNDLE}/ DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/yantra-radios)
 file(GLOB _docs ${PROJECT_SOURCE_DIR}/docs/*.md)
 install(FILES README.md CHANGELOG.md ARCHITECTURE.md BUILD.md CONTRIBUTING.md CONTRIBUTORS.md
               DEVICES.md REAL_WORLD_CHECKLIST.md ${_docs}
         DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/yantra-radios)
 install(DIRECTORY docs/plugins DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/yantra-radios)
+
+# Release folder <build>/release/v<version> (RAD-98, RAD-134, RAD-137):
+# the plugin package with the licence bundle, the corresponding source,
+# SHA256SUMS and the release notes (tools/ci/make_release.sh). Build the
+# The tag is v${PROJECT_VERSION}; the packaged artefacts are built first.
+add_custom_target(release
+  COMMAND ${CMAKE_COMMAND} -E env bash ${PROJECT_SOURCE_DIR}/tools/ci/make_release.sh
+          ${CMAKE_BINARY_DIR} ${CMAKE_BINARY_DIR}/release/v${PROJECT_VERSION} v${PROJECT_VERSION}
+  WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+  COMMENT "Release v${PROJECT_VERSION} in ${CMAKE_BINARY_DIR}/release/v${PROJECT_VERSION}"
+  VERBATIM USES_TERMINAL)
+foreach(_t licence_bundle hackrf soapysdr simulator pei yantra-radio-host yantra-gen yantra-hackrf)
+  if(TARGET ${_t})
+    add_dependencies(release ${_t})
+  endif()
+endforeach()

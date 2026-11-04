@@ -15,4 +15,4 @@ add_test(NAME install_destdir
          COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_install.py
                  ${CMAKE_BINARY_DIR} ${CMAKE_BINARY_DIR}/tests/install_root)
 # Installs what the build made: it runs after the build, on its own.
-set_tests_properties(install_destdir PROPERTIES LABELS fast RUN_SERIAL TRUE)
+set_tests_properties(install_destdir PROPERTIES LABELS fast RUN_SERIAL TRUE RESOURCE_LOCK install_tree)

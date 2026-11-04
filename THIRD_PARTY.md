@@ -14,7 +14,12 @@ submodule itself.
 Every bundled library is pinned under `third_party/` (git submodule, or
 release archive with its SHA-256) and built statically into the plugins
 with only the features used, by the scripts in `tools/deps/` (RAD-132,
-RAD-136). Entries marked *planned* are not in the repository yet; their
+RAD-136). `tools/deps/manifest.tsv` is the machine-readable list; the
+licence bundle that ships next to the plugins
+(`share/licenses/yantra-radios`, RAD-137) is made from it by
+`tools/ci/licence_bundle.py`, which also checks it against this file, and
+every release publishes the corresponding source with the upstream
+archives (BUILD.md, "Release"). Entries marked *planned* are not in the repository yet; their
 version, source and checksum are filled in when they are added.
 
 ## Bundled libraries
@@ -57,6 +62,8 @@ version, source and checksum are filled in when they are added.
 | Python 3 (standard library) | PSF-2.0 | test and check scripts |
 | PyYAML (CI lint only) | MIT | YAML syntax check of the workflows in `tools/ci/lint.sh` (RAD-134) |
 | binutils (readelf, objdump) | GPL-3.0-or-later | completeness checks of the plugins (RAD-133) |
+| Doxygen (optional) | GPL-2.0-only | the radio API reference from `radio.h` (RAD-97, Yantra DOC-17); ctest `radio_api_doxygen` |
+| bubblewrap (optional, local only) | LGPL-2.0-or-later | the clean-environment conformance run on a developer machine (`tools/ci/clean_env.py`, RAD-133); CI uses a bare container instead |
 
 ## Excluded
 

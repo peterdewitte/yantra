@@ -5,7 +5,9 @@
 # platform the plugin artefacts with the licence bundle, the complete
 # corresponding source (this repository with every third_party/ source at
 # the pinned versions and the build scripts), SHA-256 checksums and the
-# release notes from CHANGELOG.md. Packaging: tools/ci/package_release.sh.
+# release notes from CHANGELOG.md. Packaging: tools/ci/package_release.sh
+# (locally all steps for Linux: `ninja -C build release`,
+# tools/ci/make_release.sh).
 # DEFERRED (Windows): the windows-x64 job is written, never run yet.
 
 name: release
@@ -41,8 +43,15 @@ jobs:
           ctest --test-dir build -LE slow --timeout 600 --output-on-failure -j "$(nproc)"
       - name: Completeness checks (RAD-133)
         run: python3 tools/ci/check_completeness.py build/bin/plugins
+      - name: Release archives of the bundled libraries (corresponding source, RAD-137)
+        run: python3 tools/deps/verify_sources.py build/deps-cache
       - name: Package plugins, licence bundle and source
         run: tools/ci/package_release.sh build dist "${GITHUB_REF_NAME}" linux-x86_64
+      - name: Completeness of the packaged plugins (RAD-133, RAD-138)
+        run: |
+          mkdir -p check
+          tar -C check -xzf "dist/yantra-radios-${GITHUB_REF_NAME}-linux-x86_64.tar.gz"
+          python3 tools/ci/check_completeness.py "check/yantra-radios-${GITHUB_REF_NAME}-linux-x86_64/lib/yantra-radios/plugins"
       - uses: actions/upload-artifact@v4
         with:
           name: release-linux-x86_64
