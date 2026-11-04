@@ -50,7 +50,8 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(YantraWarnings)
 include(YantraSanitizers)
 
-# Public plugin API header (PLG-01; the full C ABI follows with PLG-06).
+# Public plugin API headers: plugin.h (C ABI, PLG-03) and plugin.hpp (C++
+# helpers).
 add_library(yantra_plugin_api INTERFACE)
 add_library(yantra::plugin_api ALIAS yantra_plugin_api)
 target_include_directories(yantra_plugin_api INTERFACE

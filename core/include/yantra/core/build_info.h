@@ -19,8 +19,8 @@ struct BuildInfo {
     Version version;
     std::string_view version_string;  // "major.minor.patch"
     bool simd = false;                // built with YANTRA_SIMD=ON
-    unsigned plugin_abi_major = 0;    // include/yantra/plugin.h
-    unsigned plugin_abi_minor = 0;
+    unsigned plugin_api_major = 0;    // include/yantra/plugin.h
+    unsigned plugin_api_minor = 0;
 };
 
 // Build information of the linked core library (constant for a build).

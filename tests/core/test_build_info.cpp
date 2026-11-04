@@ -22,11 +22,11 @@ TEST_CASE("build_info reports a consistent version") {
     CHECK(info.version_string == expected);
 }
 
-TEST_CASE("build_info reports the SIMD option and plugin ABI of this build") {
+TEST_CASE("build_info reports the SIMD option and plugin API of this build") {
     const auto& info = yantra::core::build_info();
     CHECK(info.simd == (YANTRA_TEST_EXPECT_SIMD != 0));
-    CHECK(info.plugin_abi_major == YANTRA_PLUGIN_ABI_VERSION_MAJOR);
-    CHECK(info.plugin_abi_minor == YANTRA_PLUGIN_ABI_VERSION_MINOR);
+    CHECK(info.plugin_api_major == YANTRA_PLUGIN_API_VERSION_MAJOR);
+    CHECK(info.plugin_api_minor == YANTRA_PLUGIN_API_VERSION_MINOR);
 }
 
 TEST_CASE("build_info is the same object on every call") {
