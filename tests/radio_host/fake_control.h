@@ -53,6 +53,8 @@ struct Control {
 
 using ControlFn = Control* (*)();
 using PushFn = int (*)(int count, int invalid);  // returns the YR_OK results
+using PushOneFn = int (*)(std::int64_t monotonic_ns, std::uint64_t hz, double level,
+                          std::uint32_t flags);  // returns the yr_status of push_record
 using EventFn = void (*)(std::uint32_t event, std::int64_t value);
 using UnplugFn = void (*)();
 using ReplugFn = void (*)(int send_back);  // 1: DEVICE_BACK on the stream, 0: devices_changed

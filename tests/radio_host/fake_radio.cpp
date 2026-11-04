@@ -322,6 +322,36 @@ YR_EXPORT int fake_push(int count, int invalid) {
     return ok;
 }
 
+// Pushes one serving record measured at `monotonic_ns` (0: now) on `hz`
+// with `level` dBFS and extra record flags (late, out-of-order, burst and
+// duplicate records of the measurement pipeline tests, TST-23). Returns
+// the host's result.
+YR_EXPORT int fake_push_one(std::int64_t monotonic_ns, std::uint64_t hz, double level,
+                            std::uint32_t flags) {
+    const std::lock_guard lock(g_ctl.m);
+    if (g_plugin.host == nullptr) return YR_ERR_BUSY;
+    const bool no_sync = (flags & YR_RECORD_NO_SYNC) != 0;
+    yr_value v[11];
+    v[0] = yr_value_uint(hz);
+    v[1] = no_sync ? yr_value_none() : yr_value_uint(1000);
+    v[2] = yr_value_enum(YR_ROLE_SERVING);
+    v[3] = yr_value_double(level);
+    for (int i = 4; i < 8; ++i) v[i] = no_sync ? yr_value_none() : yr_value_uint(static_cast<std::uint64_t>(i));
+    v[8] = yr_value_string("ground");
+    v[9] = yr_value_double(1.5);
+    v[10] = yr_value_double(2.5);
+    yr_record r{};
+    r.struct_size = sizeof r;
+    r.schema_index = 0;
+    r.time.monotonic_ns =
+        monotonic_ns != 0 ? monotonic_ns : g_plugin.host->monotonic_ns(g_plugin.host->host);
+    r.flags = YR_RECORD_SIMULATED | flags;
+    r.present = YR_GROUP_SIM_POSITION;
+    r.value_count = 11;
+    r.values = v;
+    return g_plugin.host->push_record(g_sink, &r);
+}
+
 YR_EXPORT void fake_event(std::uint32_t event, std::int64_t value) {
     const std::lock_guard lock(g_ctl.m);
     if (g_plugin.host != nullptr && g_sink != nullptr) g_plugin.host->stream_event(g_sink, event, value);
