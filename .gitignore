@@ -1,0 +1,61 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Copied from yantra-v2 68ea20a: .gitignore, adapted (radios submodule,
+# record files).
+
+# Build trees (default, scalar, sanitizer, fuzz, packaging ...), only at
+# the root so source folders whose names start with "build" stay visible.
+/build/
+/build-*/
+/out/
+/_deps/
+CMakeUserPresets.json
+compile_commands.json
+.cache/
+
+# Rust build output.
+/target/
+**/target/
+
+# IQ recordings and captures never belong in Yantra (RAD-26, HW-01: IQ
+# stays inside the radio plugins of third_party/yantra-radios).
+*.cf32
+*.cs8
+*.cu8
+*.cs16
+*.iq
+*.sigmf
+*.sigmf-data
+*.sigmf-meta
+
+# Downloaded MAK floor plans (DEMO-12, CC BY-NC-ND 4.0) are never
+# committed. The app keeps them in the user's cache folder; these patterns
+# guard against a copy ending up in the tree.
+mak_cache/
+**/mak_cache/
+/cache/
+mak_*.jpg
+mak_*.png
+**/mak/*.jpg
+**/mak/*.png
+
+# AI-assistant files and the manager project's files never belong here
+# (spec section 0, "Folders").
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+/BUILD_LOG*.md
+/BUILD_PROMPT*.md
+/RESTART_PROMPT.md
+/HANDOFF.md
+/requirements_*.txt
+
+# Editors, tools and OS clutter.
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
