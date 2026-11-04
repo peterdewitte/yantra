@@ -128,5 +128,16 @@ level corrector is called on the delivery threads, several at once.
   (`ReplayOptions::calibration_key`, else the header device's driver and
   serial: `device_calibration_key`; record files hold no CALIBRATION
   settings), so replayed dBFS levels are calibrated and get an estimated
-  C1 like live ones. Drive a `ManualClock` from the record times for
-  cycles.
+  C1 like live ones. For cycles, `ReplayOptions::advance` is called with
+  each line's time before it is fed: move a `ManualClock` there and
+  `tick()` every period that ended (the cycles of the recording, TST-31).
+- End-to-end tests (TST-10, tests/measure_host/test_measure_e2e.cpp): the
+  radios' scenarios through RadioHost + pipeline + TETRA plugin with the
+  simulator plugin, and as record files the submodule's yantra-gen and
+  `yantra-radio-host decode-iq` write into the build tree at build time
+  (tests/measure_host/gen_records.cmake; nothing committed), against the
+  generator's ground truth (STEM.cells.csv, STEM.truth.csv): levels,
+  identities, neighbour lists, delivered and estimated C1, flags, held
+  carriers, cadence; late, burst, out-of-order and duplicate records
+  (TST-23); calibration to 0.01 dB (TST-30). A 600 s replayed walk is the
+  opt-in ctest test_measure_host_long.
