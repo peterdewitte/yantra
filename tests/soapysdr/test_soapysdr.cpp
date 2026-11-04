@@ -56,9 +56,15 @@ void configure_fake(const std::string& control, const std::string& extra = "")
     REQUIRE(setenv("YANTRA_FAKE_SOAPY", json.c_str(), 1) == 0);
 }
 
+// Writes a control file of the fake module atomically (write, then
+// rename): the module polls the folder from its stream thread and must
+// never see the file before its content (an empty .overflow file reads
+// as 1 overflow instead of 2).
 void touch(const std::string& path, const std::string& content = "")
 {
-    std::ofstream(path) << content;
+    const std::string tmp = path + ".tmp";
+    std::ofstream(tmp) << content;
+    fs::rename(tmp, path);
 }
 
 bool wait_for(const std::function<bool()>& ok, double seconds)
