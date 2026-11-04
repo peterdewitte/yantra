@@ -1,0 +1,22 @@
+{
+  "format": "yantra-radios-scenario",
+  "version": 1,
+  "id": "fake_two_cells",
+  "name": "Two cells for the fake SoapySDR device",
+  "description": "Signal of the fake SoapySDR module in the tests (RAD-92): two steady cells near 392.5 MHz, no fading.",
+  "seed": 4242,
+  "duration_s": 10.0,
+  "truth_interval_s": 0.1,
+  "sample_rate_hz": 2000000,
+  "network": {"mcc": 901, "mnc": 1},
+  "cells": [
+    {"id": "A", "label": "Cell A", "cell_number": 1, "la": 120, "colour_code": 1,
+     "main_carrier": 3700, "frequency_band": 3, "level_dbm": -60.0, "neighbours": [{"cell": "B"}]},
+    {"id": "B", "label": "Cell B", "cell_number": 2, "la": 120, "colour_code": 2,
+     "main_carrier": 3712, "frequency_band": 3, "level_dbm": -70.0, "neighbours": [{"cell": "A"}]}
+  ],
+  "channel": {"fading": {"model": "none"}},
+  "receiver": {"noise_figure_db": 7.0, "reference_level_dbm": -20.0},
+  "events": [],
+  "planted": []
+}

@@ -39,6 +39,7 @@ include(${CMAKE_CURRENT_SOURCE_DIR}/tools/deps/deps.cmake)
 include(OsmoTetra)
 include(RustProto)
 include(YantraRadioPlugin)
+include(YantraSoapy)
 
 # SIMD kernels or the plain C++ fallback; both give the same results.
 if(YANTRA_SIMD)
