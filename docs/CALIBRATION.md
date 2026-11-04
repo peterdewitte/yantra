@@ -48,6 +48,14 @@ key that was valid when it was **measured**, not when it arrived. A record
 that was measured before a gain change and arrives after it still gets the
 old key. `RadioDevice::calibration_key()` gives the current key.
 
+Replayed record files (`measure::replay`, MEASUREMENT_PIPELINE.md) carry
+the key given in `ReplayOptions::calibration_key` (e.g. the live device's
+key when the file was recorded with it), else the key of the file's
+device: its driver and serial without settings, as record files do not
+store the CALIBRATION settings. A file without a device (yantra-gen,
+decode-iq) has no key: its dBFS levels stay uncalibrated unless a key is
+given.
+
 ## Lookup
 
 For the record's key and carrier frequency:

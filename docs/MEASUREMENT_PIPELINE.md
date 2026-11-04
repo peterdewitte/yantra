@@ -122,6 +122,11 @@ level corrector is called on the delivery threads, several at once.
   Remove it (`remove_plugin`) before the plugin is disabled or unloaded.
   `PipelineConfig::ms_power_dbm` is the RF-06 MS class power setting
   (30 dBm portable, 35 dBm mobile). [plugins/TETRA.md](plugins/TETRA.md).
-- Record files and simulator tests (6.4): replay a record file by building
-  `RadioRecord`s with `radio_schema` set from a `RadioSchemaView` and
-  driving a `ManualClock` from the record times.
+- Record files (6.4): `measure::replay(file, pipeline, options)` feeds a
+  yantra-radios record file in as the radio host would: every record with
+  its header schema as `radio_schema` and a calibration key
+  (`ReplayOptions::calibration_key`, else the header device's driver and
+  serial: `device_calibration_key`; record files hold no CALIBRATION
+  settings), so replayed dBFS levels are calibrated and get an estimated
+  C1 like live ones. Drive a `ManualClock` from the record times for
+  cycles.

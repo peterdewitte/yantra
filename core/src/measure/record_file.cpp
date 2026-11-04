@@ -222,7 +222,11 @@ void parse_header(const json& h, Context& c, const std::string& where) {
     if (f.plugin_id.empty() || f.technology_id.empty())
         fail(where + ": the header names no plugin id or technology id");
     if (const auto d = h.find("device"); d != h.end() && d->is_object())
+    {
         f.device_key = str(*d, "key");
+        f.device_driver = str(*d, "driver");
+        f.device_serial = str(*d, "serial");
+    }
     const auto schemas = h.find("schemas");
     if (schemas == h.end() || !schemas->is_array() || schemas->empty())
         fail(where + ": the header has no schemas");
@@ -384,11 +388,30 @@ plugin::Parsed<RecordFile> read_record_file(const std::filesystem::path& path) {
     return parse_record_file(in, path.string());
 }
 
-std::size_t replay(const RecordFile& file, MeasurementInput& input) {
+std::shared_ptr<const calibration::Key> device_calibration_key(const RecordFile& file) {
+    if (file.device_driver.empty() && file.device_serial.empty()) return nullptr;
+    auto key = std::make_shared<calibration::Key>();
+    key->driver = file.device_driver;
+    key->serial = file.device_serial;
+    return key;
+}
+
+std::size_t replay(const RecordFile& file, MeasurementInput& input, const ReplayOptions& options) {
+    // The radio schemas of the header, as the radio host hands its
+    // plugin's descriptor schemas on (valid during on_radio_record).
+    std::vector<std::unique_ptr<RadioSchemaView>> views;
+    views.reserve(file.schemas.size());
+    for (const RecordFileSchema& s : file.schemas) views.push_back(std::make_unique<RadioSchemaView>(s));
+    std::shared_ptr<const calibration::Key> key = options.calibration_key;
+    if (!key && options.key_from_device) key = device_calibration_key(file);
+
     std::size_t n = 0;
     for (const RecordFileLine& line : file.lines) {
         if (const auto* r = std::get_if<RadioRecord>(&line)) {
-            input.on_radio_record(*r);
+            RadioRecord copy = *r;
+            copy.radio_schema = r->schema_index < views.size() ? &views[r->schema_index]->get() : nullptr;
+            copy.calibration_key = key;
+            input.on_radio_record(copy);
             ++n;
         } else {
             input.on_radio_event(std::get<RadioEvent>(line));

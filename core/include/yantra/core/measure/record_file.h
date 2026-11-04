@@ -85,6 +85,8 @@ struct RecordFile {
     std::string api_version;        // "MAJOR.MINOR"
     std::uint32_t capabilities = 0; // YR_CAP_*
     std::string device_key;         // "" when the header has no device
+    std::string device_driver;      // its yr_device_info::driver ("" when none)
+    std::string device_serial;      // its yr_device_info::serial ("" when none)
     std::vector<RecordFileSchema> schemas;
     std::vector<RecordFileLine> lines;
     std::size_t record_count = 0;
@@ -97,8 +99,29 @@ struct RecordFile {
 plugin::Parsed<RecordFile> read_record_file(const std::filesystem::path& path);
 plugin::Parsed<RecordFile> parse_record_file(std::istream& in, const std::string& source);
 
+// How a replay names the radio configuration of its records (HW-01b), so
+// replayed dBFS levels can be calibrated (RF-02) like live ones.
+struct ReplayOptions {
+    // The calibration key of every record; wins over the file's device.
+    // Use the key of the live device the file was recorded with (or the
+    // one a calibration entry was made for) to calibrate the replay.
+    std::shared_ptr<const calibration::Key> calibration_key;
+    // Without calibration_key: the key of the header's device (driver and
+    // serial, no settings: record files do not store the CALIBRATION
+    // settings, docs/RECORD_FILES.md of yantra-radios), see
+    // device_calibration_key. false: no key, the levels stay uncalibrated.
+    bool key_from_device = true;
+};
+
+// The calibration key of the header's device: driver + serial, no
+// settings; nullptr when the header names no device (yantra-gen,
+// decode-iq). It matches a table entry made for that key only.
+std::shared_ptr<const calibration::Key> device_calibration_key(const RecordFile& file);
+
 // Feeds every record and event of the file, in file order, into `input`
-// as the radio host would (stream id 1). Returns the number of records.
-std::size_t replay(const RecordFile& file, MeasurementInput& input);
+// as the radio host would (stream id 1): each record with its header
+// schema as radio_schema and the calibration key of `options`. Returns
+// the number of records.
+std::size_t replay(const RecordFile& file, MeasurementInput& input, const ReplayOptions& options = {});
 
 }  // namespace yantra::measure

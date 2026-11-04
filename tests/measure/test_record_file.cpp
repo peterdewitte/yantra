@@ -8,13 +8,19 @@
 
 #include <doctest/doctest.h>
 
+#include <cmath>
 #include <filesystem>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <variant>
 
+#include <yantra/core/calibration/corrector.h>
+#include <yantra/core/calibration/table.h>
+#include <yantra/core/measure/measurement_pipeline.h>
 #include <yantra/core/measure/record_file.h>
 #include <yantra/core/measure/technology_map.h>
+#include <yantra/core/platform/clock.h>
 #include <yantra/core/plugin/record.h>
 
 namespace fs = std::filesystem;
@@ -231,4 +237,116 @@ TEST_CASE("technology map: a radio schema the technology does not describe is re
     const std::string e = all(map.errors);
     CHECK(e.find("'rogue'") != std::string::npos);
     CHECK(e.find("'role'") != std::string::npos);  // not delivered and not OPTIONAL
+}
+
+namespace {
+
+// What a pipeline gave out for a replay.
+struct Replayed final : ym::MeasurementObserver {
+    std::vector<ym::MappedRecord> records;
+    void on_record(const ym::MappedRecord& r) override { records.push_back(r); }
+    void on_cycle(const ym::MeasurementCycle&) override {}
+    void on_event(const ym::RadioEvent&) override {}
+};
+
+yantra::calibration::Entry practice_entry(const yantra::calibration::Key& key, double offset_db) {
+    yantra::calibration::Entry e;
+    e.key = key;
+    e.created_unix = yantra::calibration::now_unix();
+    e.simulated = true;
+    e.method = yantra::calibration::kMethodPractice;
+    for (double hz : {350e6, 480e6}) {
+        yantra::calibration::Point p;
+        p.frequency_hz = hz;
+        p.offset_db = offset_db;
+        e.points.push_back(p);
+    }
+    return e;
+}
+
+}  // namespace
+
+// 6.2/6.3 known issue: replayed records had no radio schema (the pipeline
+// refused them as unmapped) and no calibration key (dBFS levels stayed
+// uncalibrated). The replay now hands both on (HW-01b, RF-02, TST-10).
+TEST_CASE("record file: a replay is mapped and calibrated by the device's key or an explicit one (HW-01b, RF-02, TST-10)") {
+    const auto p = ym::read_record_file(kSource / "plugins/tetra/testdata/tetra_sim.records.jsonl");
+    INFO(all(p.errors));
+    REQUIRE(p.ok());
+    const ym::RecordFile& file = *p.value;
+    CHECK(file.device_key == "simulator:0");
+    CHECK(file.device_driver == "simulator");
+    CHECK(file.device_serial == "0");
+    const auto device_key = ym::device_calibration_key(file);
+    REQUIRE(device_key != nullptr);
+    CHECK(device_key->id() == yantra::calibration::Key{"simulator", "0", {}}.id());
+
+    // The simulator's true offset at gain 0 is -20 dB (RAD-61): a practice
+    // entry for the file's device.
+    auto table = std::make_shared<yantra::calibration::Table>();
+    table->put(practice_entry(*device_key, -20.0));
+    auto run = [&](const ym::ReplayOptions& options) {
+        ym::MeasurementPipeline::Options o;
+        o.clock = std::make_shared<yantra::platform::ManualClock>(0);
+        o.corrector = std::make_shared<yantra::calibration::TableCorrector>(table);
+        ym::MeasurementPipeline pipeline(std::move(o));
+        auto out = std::make_shared<Replayed>();
+        pipeline.add_observer(out);
+        REQUIRE(ym::replay(file, pipeline, options) == file.record_count);
+        CHECK(pipeline.stats().unmapped == 0);
+        CHECK(pipeline.stats().records == file.record_count);
+        return out->records;
+    };
+    auto levels = [](const std::vector<ym::MappedRecord>& rs) {
+        std::size_t n = 0;
+        for (const ym::MappedRecord& r : rs) n += std::isfinite(r.radio_level) ? 1 : 0;
+        return n;
+    };
+
+    SUBCASE("by default the header's device names the key") {
+        const auto rs = run({});
+        REQUIRE(levels(rs) > 10);
+        for (const ym::MappedRecord& r : rs) {
+            if (!std::isfinite(r.radio_level)) continue;
+            CHECK(r.radio_dbfs);
+            CHECK(r.correction.calibrated);
+            CHECK(r.correction.key == device_key->id());
+            CHECK((r.flags & ym::sample_flag::kUncalibrated) == 0);
+            CHECK(r.level == doctest::Approx(r.radio_level - 20.0).epsilon(1e-12));
+        }
+    }
+    SUBCASE("an explicit key wins: another key has no entry") {
+        ym::ReplayOptions o;
+        o.calibration_key = std::make_shared<const yantra::calibration::Key>(
+            yantra::calibration::Key{"simulator", "0", {{"gain_db", "17"}}});
+        for (const ym::MappedRecord& r : run(o)) {
+            if (!std::isfinite(r.radio_level)) continue;
+            CHECK_FALSE(r.correction.calibrated);
+            CHECK((r.flags & ym::sample_flag::kUncalibrated) != 0);
+        }
+        table->put(practice_entry(*o.calibration_key, -37.0));
+        for (const ym::MappedRecord& r : run(o)) {
+            if (!std::isfinite(r.radio_level)) continue;
+            CHECK(r.correction.calibrated);
+            CHECK(r.level == doctest::Approx(r.radio_level - 37.0).epsilon(1e-12));
+        }
+    }
+    SUBCASE("without a key the levels stay dBFS and uncalibrated") {
+        ym::ReplayOptions o;
+        o.key_from_device = false;
+        const auto rs = run(o);
+        REQUIRE(levels(rs) > 10);
+        for (const ym::MappedRecord& r : rs) {
+            if (!std::isfinite(r.radio_level)) continue;
+            CHECK_FALSE(r.correction.calibrated);
+            CHECK((r.flags & ym::sample_flag::kUncalibrated) != 0);
+            CHECK(r.level == r.radio_level);
+        }
+    }
+    SUBCASE("a header without a device gives no key") {
+        const auto gen = ym::read_record_file(kSource / "plugins/tetra/testdata/tetra_gen.records.jsonl");
+        REQUIRE(gen.ok());
+        CHECK(gen.value->device_driver.empty());
+        CHECK(ym::device_calibration_key(*gen.value) == nullptr);
+    }
 }
