@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Windows x64 build with MSYS2 UCRT64 (OA-02, TST-02).
+# DEFERRED (Windows): the Windows build is not worked on yet, so this
+# workflow only runs when started by hand and has never run. When Windows
+# support starts, add the push and pull_request triggers so it runs on
+# every change.
+# Adapted from yantra-v2 68ea20a: .github/workflows/windows.yml.
+
+name: windows
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-x64-ucrt64:
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-python
+      - name: Configure (warnings are errors)
+        run: cmake --preset ci
+      - name: Build
+        run: cmake --build --preset ci
+      - name: Fast tests
+        run: ctest --test-dir build -LE 'slow|timing' --timeout 600 --output-on-failure
+      - name: Timing-sensitive tests (retried once)
+        run: ctest --test-dir build -L timing -LE slow --timeout 600 --output-on-failure --repeat until-pass:2

@@ -1,0 +1,61 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# CI on every push and pull request (TST-02, OA-02): lint (shell, YAML and
+# Python syntax, reuse lint) and the Linux x86-64 build with warnings as
+# errors, then the fast tests (ctest -LE slow, timeout 600 s) with the
+# timing-sensitive tests retried once. The Windows x64 (MSYS2 UCRT64) job
+# is in windows.yml: DEFERRED (Windows), written but not run.
+# The yantra-radios submodule (third_party/yantra-radios, PLG-26) is
+# checked out with the repository.
+# Adapted from yantra-radios fb194f5: .github/workflows/ci.yml.
+
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install lint tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends python3-yaml pipx
+          pipx install reuse
+      - name: Shell, Python and YAML syntax
+        run: YANTRA_LINT_REQUIRE_TOOLS=1 sh tools/ci/lint.sh
+      - name: REUSE compliance
+        run: reuse lint
+
+  linux-x86-64:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ python3 python3-yaml pipx
+          pipx install reuse
+      - name: Configure (warnings are errors)
+        run: cmake --preset ci
+      - name: Build
+        run: cmake --build --preset ci -j "$(nproc)"
+      - name: Fast tests
+        run: ctest --test-dir build -LE 'slow|timing' --timeout 600 --output-on-failure -j "$(nproc)"
+      - name: Timing-sensitive tests (retried once)
+        run: ctest --test-dir build -L timing -LE slow --timeout 600 --output-on-failure --repeat until-pass:2
