@@ -23,6 +23,7 @@
 #include <map>
 #include <set>
 #include <sstream>
+#include <tuple>
 
 namespace yantra::soapy {
 
@@ -497,7 +498,9 @@ void watch(Plugin* p)
         std::set<std::string> keys;
         for (const Found& f : found)
             keys.insert(f.key);
-        std::vector<std::pair<yr_stream*, uint32_t>> events;
+        // Delivered below under the locks, so no event reaches a sink after
+        // stop_stream returned (RAD-24/25).
+        std::vector<std::tuple<Device*, yr_stream*, uint32_t>> events;
         bool changed = false;
         {
             std::lock_guard plock(p->mutex);
@@ -538,8 +541,7 @@ void watch(Plugin* p)
                     ++d->settings_version;
                     back.push_back(d);
                     if (d->sink != nullptr)
-                        events.emplace_back(d->sink, YR_EVENT_DEVICE_BACK);
-                    d->sink = nullptr;
+                        events.emplace_back(d, d->sink, YR_EVENT_DEVICE_BACK);
                     continue;
                 }
                 if (present) {
@@ -562,7 +564,7 @@ void watch(Plugin* p)
                 d->stop = true;
                 d->error = "the device was unplugged or stopped answering";
                 if (d->sink != nullptr)
-                    events.emplace_back(d->sink, YR_EVENT_DEVICE_LOST);
+                    events.emplace_back(d, d->sink, YR_EVENT_DEVICE_LOST);
                 lock.unlock();
                 d->wake.notify_all();
             }
@@ -572,8 +574,23 @@ void watch(Plugin* p)
                 changed = true;
             }
         }
-        for (const auto& [sink, e] : events)
-            p->host->stream_event(sink, e, 0);
+        if (!events.empty()) {
+            // The device and its sink are checked again: sp_close removes a
+            // device under the plugin mutex and sp_stop clears the sink under
+            // the device mutex, so a sink gets no event once its stream was
+            // stopped. The host's stream_event only queues the event.
+            std::lock_guard plock(p->mutex);
+            for (const auto& [d, sink, e] : events) {
+                if (std::find(p->devices.begin(), p->devices.end(), d) == p->devices.end())
+                    continue;
+                std::lock_guard lock(d->mutex);
+                if (d->sink != sink)
+                    continue;
+                p->host->stream_event(sink, e, 0);
+                if (e == YR_EVENT_DEVICE_BACK)
+                    d->sink = nullptr; // the stream starts again from Yantra
+            }
+        }
         for (Device* d : back)
             p->host->settings_changed(p->host->host, reinterpret_cast<yr_device*>(d));
         if (changed)
