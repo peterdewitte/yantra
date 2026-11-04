@@ -34,9 +34,12 @@ while(_broken)
 endwhile()
 
 # yantra_kit_test(<name> EXIT <code> [MATCH <regex>] [REQUIRE_FILE <file>]
-#                 [LABELS ...] ARGS ...); without REQUIRE_FILE it is skipped.
+#                 [PROCESSORS <n>] [LABELS ...] ARGS ...); without
+#                 REQUIRE_FILE it is skipped. The ctest TIMEOUT is a hang
+#                 guard and scales with YANTRA_TEST_TIME_SCALE (sanitizer
+#                 trees); so does the radio wait of a live run (_kit_radio_wait).
 function(yantra_kit_test name)
-  cmake_parse_arguments(T "" "EXIT;MATCH;REQUIRE_FILE" "ARGS;LABELS" ${ARGN})
+  cmake_parse_arguments(T "" "EXIT;MATCH;REQUIRE_FILE;PROCESSORS" "ARGS;LABELS" ${ARGN})
   list(JOIN T_ARGS "|" _args)
   if(NOT T_LABELS)
     set(T_LABELS fast)
@@ -45,9 +48,19 @@ function(yantra_kit_test name)
     COMMAND ${CMAKE_COMMAND} -DKIT=${_kit} "-DARGS=${_args}" -DEXIT=${T_EXIT}
             "-DMATCH=${T_MATCH}" "-DREQUIRE_FILE=${T_REQUIRE_FILE}" -DREPORT=${_out}/${name}.report.json
             -P ${CMAKE_CURRENT_SOURCE_DIR}/expect.cmake)
-  set_tests_properties(${name} PROPERTIES LABELS "${T_LABELS}" TIMEOUT 300
+  math(EXPR _timeout "300 * ${YANTRA_TEST_TIME_SCALE}")
+  set_tests_properties(${name} PROPERTIES LABELS "${T_LABELS}" TIMEOUT ${_timeout}
     SKIP_REGULAR_EXPRESSION "SKIPPED: ")
+  if(T_PROCESSORS)
+    set_tests_properties(${name} PROPERTIES PROCESSORS ${T_PROCESSORS})
+  endif()
 endfunction()
+
+# The kit's wait for a live radio's records (--timeout, default 30 s): the
+# sanitizer trees run the radio plugins 5-13x slower than real time, so the
+# wait is a hang guard scaled like the others; the record count it waits
+# for (the check) stays the same.
+math(EXPR _kit_radio_wait "30 * ${YANTRA_TEST_TIME_SCALE}")
 
 yantra_kit_test(conformance_example_beacon EXIT 0 MATCH "PASS .*example_beacon"
   ARGS check --plugin ${_example} --records ${_example_data}/beacon.records.jsonl
@@ -56,7 +69,7 @@ yantra_kit_test(conformance_example_beacon EXIT 0 MATCH "PASS .*example_beacon"
 yantra_kit_test(conformance_example_beacon_live EXIT 0 MATCH "pass  radio_schema: radio beacon"
   LABELS slow REQUIRE_FILE ${YANTRA_RADIO_TEST_PLUGIN_DIR}/beacon.so
   ARGS check --plugin ${_example} --radio ${YANTRA_RADIO_TEST_PLUGIN_DIR}/beacon.so --count 8
-       --strict-translations)
+       --timeout ${_kit_radio_wait} --strict-translations)
 yantra_kit_test(conformance_ctest EXIT 0 MATCH "PASS .*ctest"
   ARGS check --plugin ${_ctest}/ctest_ok/ctest.so --records ${_data}/ctest.records.jsonl
        --golden ${_data}/ctest.golden.json --output ${_out}/ctest.out.json)
@@ -117,6 +130,6 @@ yantra_kit_test(conformance_tetra EXIT 0 MATCH "pass  neighbours: [0-9]+ entries
        --golden ${_tetra_data}/tetra.golden.json --strict-translations
        --output ${_out}/tetra.out.json)
 yantra_kit_test(conformance_tetra_live EXIT 0 MATCH "pass  radio_schema: radio simulator.*PASS .*tetra"
-  LABELS slow REQUIRE_FILE ${YANTRA_RADIO_PLUGIN_DIR}/simulator.so
-  ARGS check --plugin ${_tetra} --radio ${YANTRA_RADIO_PLUGIN_DIR}/simulator.so --count 20 --timeout 120
-       --strict-translations)
+  LABELS slow REQUIRE_FILE ${YANTRA_RADIO_PLUGIN_DIR}/simulator.so PROCESSORS 4
+  ARGS check --plugin ${_tetra} --radio ${YANTRA_RADIO_PLUGIN_DIR}/simulator.so --count 40
+       --timeout ${_kit_radio_wait} --strict-translations)
