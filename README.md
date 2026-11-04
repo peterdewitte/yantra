@@ -49,6 +49,8 @@ How measurement records become calibrated, flagged samples once per
 second: [docs/MEASUREMENT_PIPELINE.md](docs/MEASUREMENT_PIPELINE.md).
 The calibration table and antenna correction:
 [docs/CALIBRATION.md](docs/CALIBRATION.md).
+The TETRA technology plugin (schemas, channel raster, C1, reselection):
+[docs/plugins/TETRA.md](docs/plugins/TETRA.md).
 
 Out of scope, by design: short data messages, subscriber addresses, voice
 and decryption. Yantra only handles broadcast and system information,

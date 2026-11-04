@@ -1,0 +1,138 @@
+<!--
+SPDX-FileCopyrightText: 2026 The Yantra contributors
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
+# TETRA technology plugin
+
+`plugins/tetra` builds `tetra.so`, the technology plugin (PLG-02) for the
+TETRA radio plugins of yantra-radios (technology id `tetra`). It is
+installed into the application's plugin folder `lib/yantra/plugins`
+(PLG-09) and is the only place in Yantra with TETRA knowledge: the core
+uses it through the plugin API (PLG-01, [PLUGIN_API.md](../PLUGIN_API.md)).
+The meaning and source of every radio field is in yantra-radios'
+`docs/TETRA_RECORDS.md`; the standard is ETSI EN 300 392-2.
+
+| File | What |
+|------|------|
+| `tetra_technology.cpp` | Descriptor, entry point, the plugin API functions |
+| `tetra_schemas.inc` | The four record schemas, field by field |
+| `tetra_raster.h/.cpp` | Carrier numbers, offsets, duplex spacing (library `yantra::tetra_rules`) |
+| `tetra_rules.h/.cpp` | C1/C2, reselection, verification grids (same library) |
+| `tetra_translations.inc` | Dutch, French and German labels (UI-12) |
+| `testdata/` | Record files and the golden output of the conformance test |
+
+## Schemas (PLG-05)
+
+The schemas are those of the radio plugins with the same id, field by
+field: name, type, unit, enum items, label and help text. The plugin adds
+the data category of every field (PLG-08), OPTIONAL for every field a
+radio may leave out, and VERIFY for the broadcast parameters compared with
+the cell database (DB-04).
+
+| Schema | Kind | Radios | Key |
+|--------|------|--------|-----|
+| `tetra_cell` | measurement, the cell schema | simulator, hackrf, soapysdr | `frequency_hz`, `mcc`, `mnc`, `la` |
+| `tetra_neighbour` | neighbour list entry, the neighbour schema | simulator, hackrf, soapysdr | `frequency_hz`, `entry_index` |
+| `tetra_scan` | band scan channel | hackrf | `frequency_hz`, `mcc`, `mnc`, `la` |
+| `tetra_terminal_cell` | cell as a terminal reports it | pei | `frequency_hz`, `mcc`, `mnc`, `la` |
+
+- `level` is a LEVEL in dBm (the radios deliver dBFS or dBm; Yantra
+  calibrates, RF-02). `c1_db` is a LEVEL in dB.
+- The quality group (MER, CRC error rates, BER, SNR, EVM, frequency error)
+  is QUALITY; the simulator's plan position is PLAN_POSITION; everything
+  else, the broadcast thresholds included, is SYSTEM_INFO and is never
+  corrected (HW-09).
+- A cell (DB-01) is the main carrier of a location area of a network. The
+  colour code is not part of the key, since no neighbour list carries it;
+  it is a VERIFY field.
+- Neighbour links (DB-05): `neighbour_frequency_hz` names the cell's
+  `frequency_hz`; MCC, MNC and LA come from the broadcasting cell
+  (plugin.h `yantra_field_link`). A neighbour in another location area
+  therefore resolves to the broadcaster's LA; see "Open points".
+- Every schema is checked against every shipped radio plugin by
+  `test_tetra` (`check_radio_schema`); a radio schema change in
+  yantra-radios fails it until this table follows.
+
+## Channel raster (PLG-02)
+
+`downlink = band x 100 MHz + carrier x 25 kHz + offset`, offsets 0,
++6.25, -6.25 and +12.5 kHz (EN 300 392-2 21.4.4.1); the uplink is the
+downlink minus the duplex spacing (plus with reverse operation) of the
+TS 100 392-15 table, the same table yantra-radios decodes with.
+
+| Band | Downlink | Band code | Carriers (channels) |
+|------|----------|-----------|---------------------|
+| `tetra_380` | 380.000-399.975 MHz | 3 | 3200-3999 |
+| `tetra_410` | 410.000-429.975 MHz | 4 | 400-1199 |
+| `tetra_450` | 450.000-469.975 MHz | 4 | 2000-2799 |
+
+The channel number is the carrier number of the radio records' `channel`
+field. `frequency_to_channel` accepts every offset;
+`channel_to_frequency` gives the offset-0 frequency. 350-370 MHz is not a
+band of the plugin: its carriers (band 3, 2000-2799) have the numbers of
+450-470 MHz (band 4), and a channel number alone must name one frequency.
+
+## C1 (RF-06)
+
+`C1 = level - RXLEV_ACCESS_MIN - max(0, MS_TXPWR_MAX_CELL - MS power)`
+(EN 300 392-2 clause 23), in dBm and dB, with the operations of
+yantra-radios' `tetra_c1_db`, so a radio's C1 and Yantra's are the same
+number for the same inputs (tested). The MS power is the class power
+setting, `PipelineConfig::ms_power_dbm`: 30 dBm portable (default),
+35 dBm mobile. `compute_c1` answers UNSUPPORTED for a record without
+`rxlev_access_min_dbm` and `ms_txpwr_max_cell_dbm`.
+
+The pipeline keeps a radio's C1 and asks the plugin only for records
+without it whose level is calibrated; such records carry the
+`c1_estimated` flag ([MEASUREMENT_PIPELINE.md](../MEASUREMENT_PIPELINE.md)).
+
+## Cell reselection (DB-08)
+
+`reselect` takes the serving cell and its neighbours (records of
+`tetra_cell` with a level), computes C1 and the neighbours' C2 with the
+same formula and checks, in this order (thresholds SRT, SRH, FRT, FRH of
+the serving cell's D-NWRK-BROADCAST, dB):
+
+| State | Condition | Reselection |
+|-------|-----------|-------------|
+| `radio_link_failure` | C1 < 0 | to the best neighbour with C2 > 0 |
+| `exclusive` | no neighbour with C2 > 0 | none |
+| `superior` | C1 >= every C2 | none |
+| `relinquishable` | C1 < FRT | fast, when the best C2 > C1 + FRH |
+| `improvable` | C1 < SRT | slow, when the best C2 > C1 + SRH |
+| `usable` | otherwise | none |
+
+It answers UNSUPPORTED without the serving cell's access parameters, or
+when a neighbour is better and the thresholds are unknown. The time
+conditions of the standard (5 s) are not simulated.
+
+## Verification (DB-04)
+
+`values_match` compares exactly, except the dBm parameters MAC-SYSINFO
+sends as codes: RXLEV_ACCESS_MIN (5 dB steps from -125 dBm),
+MS_TXPWR_MAX_CELL (5 dB steps from 15 dBm) and the access parameter
+(2 dB steps from -53 dBm) match when the stored value stands for the
+received code (nearest code, ties to the higher one).
+
+## Tests
+
+- `conformance_tetra`: the plugin test kit (PLG-13) on two record files,
+  `yantra-gen --scenario fraunces` (dBm) and the simulator through
+  `yantra-radio-host` (dBFS, with C1), against `testdata/tetra.golden.json`;
+  `conformance_tetra_live` on the live simulator.
+- `test_tetra`: raster and duplex values, C1 by hand, against
+  `tetra_c1_db` and against the C1 in the record files, reselection and
+  verification cases, the schemas of every shipped radio plugin.
+- `test_measure_host`: the simulator through the radio host and pipeline
+  (records on `tetra_cell`, the radio's C1 equal to the plugin's), and
+  `soapysdr_fake` with a calibration (C1 estimated and flagged).
+
+## Open points
+
+- Neighbour links use the frequency only; linking `neighbour_la`,
+  `neighbour_mcc` and `neighbour_mnc` needs a link rule "the entry's
+  value, else the broadcaster's" in plugin.h (an API change).
+- The reselection formulation is ours; it is to be checked against
+  EN 300 392-2 clause 18.3.4 before the cell database uses it.
+- Help texts are English only; the labels are translated.

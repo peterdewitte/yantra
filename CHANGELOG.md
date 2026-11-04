@@ -14,6 +14,14 @@ own changes are in its CHANGELOG.md.
 
 ## [Unreleased]
 
+### Measurements
+
+- 2026-11-04: the TETRA technology plugin (`tetra.so`): TETRA cell,
+  neighbour, scan and terminal records with their own columns, the
+  380/410/450 MHz channel raster, C1 (MS power 30 dBm portable, 35 dBm
+  mobile) and cell reselection states. A C1 the radio does not deliver is
+  calculated from the calibrated level and marked estimated.
+
 ### Radio plugins (yantra-radios)
 
 - 2026-11-04: pinned to yantra-radios **v0.2.0** (commit 205ca7a): scene

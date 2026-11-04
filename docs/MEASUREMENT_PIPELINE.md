@@ -121,7 +121,7 @@ level corrector is called on the delivery threads, several at once.
   map onto its schemas and C1 is estimated where the radio has none.
   Remove it (`remove_plugin`) before the plugin is disabled or unloaded.
   `PipelineConfig::ms_power_dbm` is the RF-06 MS class power setting
-  (30 dBm portable, 35 dBm mobile).
+  (30 dBm portable, 35 dBm mobile). [plugins/TETRA.md](plugins/TETRA.md).
 - Record files and simulator tests (6.4): replay a record file by building
   `RadioRecord`s with `radio_schema` set from a `RadioSchemaView` and
   driving a `ManualClock` from the record times.

@@ -17,6 +17,8 @@ complete technology plugin, the example beacon plugin in
   [PLUGIN_API.md](PLUGIN_API.md) (DOC-17).
 - Changes between API versions are in
   [PLUGIN_API_CHANGELOG.md](PLUGIN_API_CHANGELOG.md) (DOC-18).
+- The TETRA technology plugin Yantra ships, a full-size example of the
+  same interface: [plugins/TETRA.md](plugins/TETRA.md).
 - **Radio plugins** (a receiver that measures and delivers records) are a
   different interface, the radio API of yantra-radios. They are described
   in [RADIO_PLUGINS.md](../third_party/yantra-radios/docs/RADIO_PLUGINS.md)
