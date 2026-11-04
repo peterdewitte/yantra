@@ -30,9 +30,14 @@ marked:
 Record file (RAD-65) and scene JSON (RAD-36) versions are listed here as
 well; they change independently of the radio API version.
 
-## [0.1.0] - not yet released
+## [0.1.0] - 2026-11-04
 
-The first version (tag v0.1.0 when released).
+The first version, tag v0.1.0 (RAD-98). Linux x86-64 `.so` plugins
+`hackrf`, `soapysdr`, `simulator` and `pei`, the tools `yantra-radio-host`,
+`yantra-gen` and `yantra-hackrf`, the licence bundle and the complete
+corresponding source. Not yet in this release: the Windows `.dll` build
+(written, not run), radios measured on real hardware (DEVICES.md), real
+recorded signal fixtures (RAD-121).
 
 ### Radio API
 
@@ -281,3 +286,26 @@ The first version (tag v0.1.0 when released).
   truth) and with the conformance kit. SoapyBladeRF is not built: libbladeRF
   needs the ADI no-OS AD9361 driver, whose licence is not GPL-3.0
   compatible (THIRD_PARTY.md).
+- Documentation (RAD-97, RAD-135): ARCHITECTURE.md (layers, data flow,
+  threads), BUILD.md (Linux, MSYS2 UCRT64, static dependency builds,
+  completeness checks, release), DEVICES.md (RAD-95: the test devices
+  measured, the real radios open), CONTRIBUTORS.md, docs/IQ-FORMATS.md,
+  one page per plugin in docs/plugins/ (devices, settings, presets,
+  sensors, self-test, known issues), the record schemas with the source
+  of every field (message and EN 300 392-2 clause, or how it is measured)
+  incl. the terminal schema, and the robustness checklist moved to
+  REAL_WORLD_CHECKLIST.md. Docs checks: `doc_links` (relative links and
+  anchors) and `plugin_docs` (the plugin pages' generated parts and the
+  schema tables against the built plugins).
+- Licence bundle (RAD-137) made from tools/deps/manifest.tsv by
+  `tools/ci/licence_bundle.py` (checked against third_party/, LICENSES/
+  and THIRD_PARTY.md, ctest `licence_bundle`), with the copyright notices
+  of the libraries whose licence is only in their source headers, the Rust
+  standard library and the index BUNDLE.md; installed to
+  share/licenses/yantra-radios and in every release package.
+- Release (RAD-98, RAD-134, RAD-138): `ninja release`
+  (`tools/ci/make_release.sh`) writes build/release/v<version>/ with the
+  plugin package (the install tree), the corresponding source with the
+  upstream release archives of the bundled libraries and their SHA-256,
+  the release notes and SHA256SUMS; the packaged plugins pass the
+  completeness check. release.yml does the same per platform on a tag.
