@@ -21,9 +21,13 @@ foreach(_floor IN ITEMS f0 f1)
                    --records 1 --out ${CMAKE_CURRENT_BINARY_DIR}/scene_${_floor}.records.jsonl)
   set_tests_properties(scene_radios_check_${_floor} PROPERTIES LABELS fast TIMEOUT 120)
 endforeach()
-# The check itself refuses a broken scene (an antenna of an unknown cell).
-add_test(NAME scene_radios_check_refuses
-         COMMAND ${_host} stream --plugin ${YANTRA_RADIO_PLUGIN_DIR}/simulator.so
-                 --scene ${PROJECT_SOURCE_DIR}/tests/fixtures/building/invalid_unknown_cell.scene.json
-                 --records 1 --out ${CMAKE_CURRENT_BINARY_DIR}/scene_invalid.records.jsonl)
-set_tests_properties(scene_radios_check_refuses PROPERTIES LABELS fast TIMEOUT 120 WILL_FAIL TRUE)
+# The check itself refuses a broken scene: an antenna of an unknown cell
+# (1.0), a storey below with a level above (a 1.1 member, so the pinned
+# parser reads the 1.1 members).
+foreach(_bad IN ITEMS unknown_cell storey_level)
+  add_test(NAME scene_radios_check_refuses_${_bad}
+           COMMAND ${_host} stream --plugin ${YANTRA_RADIO_PLUGIN_DIR}/simulator.so
+                   --scene ${PROJECT_SOURCE_DIR}/tests/fixtures/building/invalid_${_bad}.scene.json
+                   --records 1 --out ${CMAKE_CURRENT_BINARY_DIR}/scene_invalid_${_bad}.records.jsonl)
+  set_tests_properties(scene_radios_check_refuses_${_bad} PROPERTIES LABELS fast TIMEOUT 120 WILL_FAIL TRUE)
+endforeach()

@@ -9,7 +9,9 @@
 
 #include <cmath>
 #include <cstdint>
+#include <algorithm>
 #include <limits>
+#include <map>
 #include <set>
 
 #include <nlohmann/json.hpp>
@@ -80,6 +82,24 @@ std::optional<Json> cell_json(const Cell& c, std::string& why) {
     return j;
 }
 
+// The minor version of the scene format written when a 1.1 member is used
+// (yantra-radios docs/SCENE_FORMAT.md "Version 1.1 members").
+constexpr unsigned kSceneMinorVersion = 1;
+
+// Level of the floor at `level` above floor `f` in metres (negative below):
+// the floor-to-floor heights of the floors in between, `f`'s height for a
+// level without a floor (as the scene's storey_height_m).
+double level_above_m(const Building& b, const Floor& f, int level) {
+    const int lo = std::min(f.level, level);
+    const int hi = std::max(f.level, level);
+    double m = 0.0;
+    for (int k = lo; k < hi; ++k) {
+        const Floor* at = b.floor_at_level(k);
+        m += at != nullptr ? at->height_m : f.height_m;
+    }
+    return level > f.level ? m : -m;
+}
+
 struct Placed {
     const Floor* floor = nullptr;
     const Antenna* antenna = nullptr;
@@ -109,6 +129,7 @@ SceneExport export_scene(const Building& b, const std::string& floor_id, const S
     if (!scale_set && (!f->walls.empty() || !f->antennas.empty()))
         warn("floor \"" + f->id + "\" has no scale: its walls and antennas are not in the scene");
     const double slab_db = b.floor_attenuation_db;
+    bool minor_1 = false;  // a 1.1 member is written
 
     // Antennas (and the cells they need).
     std::vector<Placed> placed;
@@ -136,12 +157,7 @@ SceneExport export_scene(const Building& b, const std::string& floor_id, const S
             warn(what + ": no EIRP, left out");
             return;
         }
-        double e = *eirp;
-        if (offset != 0) {
-            // The scene applies |offset| x slab_db; the model the per-floor slabs.
-            e -= b.inter_floor_attenuation_db(f->level, on.level) - std::abs(offset) * slab_db;
-        }
-        placed.push_back({&on, &a, at_m, offset, e});
+        placed.push_back({&on, &a, at_m, offset, *eirp});
         cell_ids.insert(a.cell);
     };
     if (scale_set) {
@@ -189,6 +205,20 @@ SceneExport export_scene(const Building& b, const std::string& floor_id, const S
     floor["height_m"] = size ? r6(size->y) : 0.0;
     floor["slab_attenuation_db"] = r6(slab_db);
     floor["storey_height_m"] = r6(f->height_m);
+    // Storeys (1.1): every other floor with antennas in the scene, with its
+    // level and the model's slab sum in between (IND-44, IND-09).
+    std::map<int, const Floor*> storeys;
+    for (const Placed& p : placed)
+        if (p.floor_offset != 0) storeys.emplace(p.floor_offset, p.floor);
+    if (!storeys.empty()) {
+        Json st = Json::array();
+        for (const auto& [offset, on] : storeys)
+            st.push_back({{"floor_offset", offset},
+                          {"level_m", r6(level_above_m(b, *f, on->level))},
+                          {"slab_attenuation_db", r6(b.inter_floor_attenuation_db(f->level, on->level))}});
+        floor["storeys"] = st;
+        minor_1 = true;
+    }
 
     Json classes = Json::array();
     for (const auto& c : b.wall_classes) {
@@ -201,17 +231,46 @@ SceneExport export_scene(const Building& b, const std::string& floor_id, const S
 
     Json walls = Json::array();
     if (scale_set) {
-        for (const auto& w : f->walls) {
+        std::set<std::string> wall_ids;
+        for (const auto& w : f->walls)
+            if (!w.id.empty()) wall_ids.insert(w.id);
+        for (std::size_t k = 0; k < f->walls.size(); ++k) {
+            const building::Wall& w = f->walls[k];
             const double att = *b.wall_attenuation_db(w, mhz);
+            // 1.1: all segments of the polyline share an id, so a path
+            // through a vertex crosses the wall once (as walls_crossed).
+            std::string polyline = w.id;
+            if (polyline.empty()) {
+                polyline = f->id + "/" + std::to_string(k);
+                while (wall_ids.count(polyline) != 0) polyline = "/" + polyline;
+            }
+            // 1.1: the class table per band; a wall with its own loss has it
+            // at every frequency (attenuation_db alone).
+            Json bands = Json::array();
+            if (!w.attenuation_db) {
+                if (const building::WallClass* c = b.find_class(w.wall_class)) {
+                    std::uint64_t last = 0;
+                    for (const building::BandAttenuation& band : c->bands) {
+                        const auto hz_band = static_cast<std::uint64_t>(std::llround(band.frequency_mhz * 1e6));
+                        if (hz_band == 0 || hz_band <= last) continue;
+                        bands.push_back({{"frequency_hz", hz_band}, {"attenuation_db", r6(band.attenuation_db)}});
+                        last = hz_band;
+                    }
+                }
+            }
             for (std::size_t i = 0; i + 1 < w.points.size(); ++i) {
                 const Point2 p = *b.to_plan_metres(*f, w.points[i]);
                 const Point2 q = *b.to_plan_metres(*f, w.points[i + 1]);
-                walls.push_back({{"x1_m", r6(p.x)},
-                                 {"y1_m", r6(p.y)},
-                                 {"x2_m", r6(q.x)},
-                                 {"y2_m", r6(q.y)},
-                                 {"class", w.wall_class},
-                                 {"attenuation_db", r6(att)}});
+                Json seg{{"x1_m", r6(p.x)},
+                         {"y1_m", r6(p.y)},
+                         {"x2_m", r6(q.x)},
+                         {"y2_m", r6(q.y)},
+                         {"class", w.wall_class},
+                         {"attenuation_db", r6(att)},
+                         {"polyline", polyline}};
+                if (!bands.empty()) seg["bands"] = bands;
+                walls.push_back(seg);
+                minor_1 = true;
             }
         }
     }
@@ -237,9 +296,13 @@ SceneExport export_scene(const Building& b, const std::string& floor_id, const S
         antennas.push_back(aj);
     }
 
-    const Json scene{{"format", YR_SCENE_FORMAT}, {"version", YR_SCENE_VERSION}, {"floor", floor},
-                     {"wall_classes", classes},   {"walls", walls},             {"cells", cells},
-                     {"antennas", antennas}};
+    Json scene{{"format", YR_SCENE_FORMAT}, {"version", YR_SCENE_VERSION}};
+    if (minor_1) scene["minor_version"] = kSceneMinorVersion;
+    scene["floor"] = floor;
+    scene["wall_classes"] = classes;
+    scene["walls"] = walls;
+    scene["cells"] = cells;
+    scene["antennas"] = antennas;
     out.json = scene.dump(options.indent);
     out.ok = true;
     return out;

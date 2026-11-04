@@ -190,24 +190,38 @@ equal model.
 ## Scene export (RAD-36)
 
 `export_scene(building, floor_id)` writes the floor as scene JSON in the
-format defined by yantra-radios (`yantra-radio-scene` version 1,
+format defined by yantra-radios (`yantra-radio-scene` version 1.1,
 `YR_SCENE_FORMAT` in `yantra/radio.h`, documented in the submodule's
-`docs/SCENE_FORMAT.md`). The radio host answers `get_scene` with it.
+`docs/SCENE_FORMAT.md`; `"minor_version": 1` whenever a 1.1 member is
+written, so a scene without walls and other floors stays 1.0). The radio
+host answers `get_scene` with it.
 
 - `floor`: id, name, `scale_set` (a scale and a plan size above 0), plan
   size in metres, `slab_attenuation_db` = `floor_attenuation_db`,
-  `storey_height_m` = the floor's height.
+  `storey_height_m` = the floor's height (both for 1.0 readers and for
+  floors without a storey).
+- `floor.storeys` (1.1): every other floor with antennas in the scene,
+  with `floor_offset` = level difference, `level_m` = its level above
+  this floor (the floor-to-floor heights of the floors in between,
+  negative below; a level without a floor counts this floor's height) and
+  `slab_attenuation_db` = the model's slab sum in between
+  (`inter_floor_attenuation_db`, IND-44).
 - `wall_classes`: every class, with its attenuation at the scene frequency.
 - `walls`: one entry per polyline segment, in plan-frame metres, with the
-  class and the effective attenuation at the scene frequency.
+  class and the effective attenuation at the scene frequency (what a 1.0
+  reader uses), the `polyline` id (1.1: the wall id, else
+  `<floor id>/<index>`, the same on every segment of the wall) and, for a
+  wall of a class without its own loss, the class table as `bands` (1.1:
+  frequencies in Hz, the same log-f interpolation as
+  `WallClass::attenuation_at_db`). A wall with its own loss has no bands:
+  that loss holds at every frequency.
 - Scene frequency: the mean carrier of the exported cells (or an explicit
   option); without cells the classes' first band.
-- `antennas`: the indoor antennas of the floor with a cell and an EIRP.
-  Antennas of other floors are added with `floor_offset` = level
-  difference when both floors have a scale and a reference point; their
-  EIRP is lowered by the model's slab sum beyond `floor_offset` x the
-  scene's uniform slab, so the scene's levels equal the model's per-floor
-  slabs.
+- `antennas`: the indoor antennas of the floor with a cell and an EIRP
+  (or `SceneExportOptions::default_eirp_dbm`, a nominal value, for those
+  without). Antennas of other floors are added with `floor_offset` =
+  level difference when both floors have a scale and a reference point,
+  with their own EIRP: their storey gives the height and the slabs.
 - `cells`: the cells of the exported antennas, identity by the radio API's
   core field names `mcc`, `mnc`, `la`, `colour_code`, and the carrier.
 
@@ -218,21 +232,24 @@ a floor without scale. Numbers are rounded to 1e-6 so the text is the same
 on every platform. The golden scenes
 `tests/fixtures/building/example_office.f0.scene.json` and `.f1.scene.json`
 are also read by yantra-radios' own scene parser (ctests
-`scene_radios_check_*`), and the simulator's levels are checked against the
-model end to end (`tests/scene_sim`).
+`scene_radios_check_*`, which also check that it refuses a broken 1.0 and
+a broken 1.1 member), and the simulator's levels are checked against the
+model end to end (`tests/scene_sim`: a wall, a storey slab, a per-band
+wall at the simulated carrier and a path through a polyline vertex).
 
-Known differences between the model and the scene, kept for a later
-version of the scene format:
+Known differences between the model and the scene:
 
-- One attenuation per wall: cells on carriers far apart share the scene
-  frequency's wall losses.
-- The scene has one slab attenuation and one storey height; per-floor
-  slabs are folded into the EIRP of antennas on other floors, per-floor
-  heights are not.
-- Polylines become segments: a path exactly through the vertex of a
-  polyline at an angle crosses the wall once in the model and both
-  segments in the simulator's multi-wall model.
-- Outdoor donor directions and unknown EIRPs have no place in the scene.
+- Outdoor donor directions have no place in the scene: outdoor coverage
+  is the simulator scenario's outdoor site (yantra-radios RAD-74).
+- An unknown EIRP (IND-12) has no place in the scene either: such an
+  antenna is left out, or written with the nominal
+  `default_eirp_dbm`; for a bundled example plan the simulator's scenario
+  replaces antenna EIRPs by antenna id. Estimating it is Yantra's job on
+  its own model (IND-41, IND-42).
+- A 1.0 reader (yantra-radios 0.1.0) ignores the 1.1 members: it applies
+  the uniform `slab_attenuation_db` and `storey_height_m` to other floors,
+  one attenuation per wall at the scene frequency, and both segments of a
+  polyline crossed exactly at a vertex.
 
 ## Context from the model (PLG-27)
 

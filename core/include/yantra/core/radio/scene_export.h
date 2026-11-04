@@ -7,20 +7,25 @@
 // docs/SCENE_FORMAT.md), the input of radio plugins with YR_CAP_SCENE such
 // as the simulator (RAD-61, multi-wall model RAD-73).
 //
-// Mapping (docs/BUILDING_MODEL.md, "Scene export"):
+// Mapping (docs/BUILDING_MODEL.md, "Scene export"); scene format 1.1
+// ("minor_version": 1 when a 1.1 member is written):
 // - floor: id, name, scale_set and plan size in metres (IND-08);
 //   slab_attenuation_db = Building::floor_attenuation_db, storey_height_m =
-//   the floor's height.
+//   the floor's height; storeys (1.1): every other floor with antennas in
+//   the scene, with its level above this floor (the floor-to-floor
+//   heights in between) and the model's slab sum in between (IND-44).
 // - wall_classes: every class with its attenuation at the scene frequency
 //   (IND-11) and its reflection loss when set.
 // - walls: each polyline segment in plan-frame metres with its class and
-//   effective attenuation at the scene frequency.
+//   effective attenuation at the scene frequency (for 1.0 readers), the
+//   polyline id (1.1: the wall id, else "<floor>/<index>"; a path through
+//   a vertex crosses the wall once) and, for a wall of a class without its
+//   own loss, the class table as bands (1.1, in Hz).
 // - antennas: the indoor antennas with a cell and an EIRP, in plan-frame
 //   metres; with `other_floors`, also those of other floors when both
 //   floors have a scale and an alignment point (IND-09, IND-44), with
-//   floor_offset = level difference and their EIRP lowered by the slabs'
-//   attenuation beyond floor_offset x slab_attenuation_db, so the scene's
-//   uniform slab gives the model's per-floor slab sum exactly.
+//   floor_offset = level difference (their storey gives the slabs and
+//   the height).
 // - cells: the cells those antennas serve. The identity values are taken
 //   by the radio API's core field names (YR_FIELD_MCC, YR_FIELD_MNC,
 //   YR_FIELD_LA, YR_FIELD_COLOUR_CODE); a cell without them or without a

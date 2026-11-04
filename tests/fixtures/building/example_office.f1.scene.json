@@ -1,6 +1,7 @@
 {
   "format": "yantra-radio-scene",
   "version": 1,
+  "minor_version": 1,
   "floor": {
     "id": "f1",
     "name": "First floor",
@@ -8,7 +9,14 @@
     "width_m": 20.0,
     "height_m": 10.0,
     "slab_attenuation_db": 15.0,
-    "storey_height_m": 3.0
+    "storey_height_m": 3.0,
+    "storeys": [
+      {
+        "floor_offset": -1,
+        "level_m": -3.2,
+        "slab_attenuation_db": 20.0
+      }
+    ]
   },
   "wall_classes": [
     {
@@ -59,7 +67,18 @@
       "x2_m": 5.0,
       "y2_m": 10.0,
       "class": "plasterboard",
-      "attenuation_db": 3.0
+      "attenuation_db": 3.0,
+      "polyline": "w1",
+      "bands": [
+        {
+          "frequency_hz": 400000000,
+          "attenuation_db": 3.0
+        },
+        {
+          "frequency_hz": 900000000,
+          "attenuation_db": 6.0
+        }
+      ]
     }
   ],
   "cells": [
@@ -99,7 +118,7 @@
       "x_m": 3.5,
       "y_m": 5.0,
       "height_m": 2.8,
-      "eirp_dbm": 5.0,
+      "eirp_dbm": 10.0,
       "pattern": {
         "type": "omni"
       },
@@ -111,7 +130,7 @@
       "x_m": 13.0,
       "y_m": 2.5,
       "height_m": 2.5,
-      "eirp_dbm": 8.0,
+      "eirp_dbm": 13.0,
       "pattern": {
         "type": "sector",
         "azimuth_deg": 90.0,

@@ -82,6 +82,7 @@ TEST_CASE("scene of the ground floor: floor, classes, walls, cells, antennas") {
     const json s = json::parse(e.json);
     CHECK(s["format"] == YR_SCENE_FORMAT);
     CHECK(s["version"] == YR_SCENE_VERSION);
+    CHECK(s["minor_version"] == 1);  // scene format 1.1 (yantra-radios 0.2.0)
     CHECK(s["floor"]["id"] == "f0");
     CHECK(s["floor"]["name"] == "Ground floor");
     CHECK(s["floor"]["scale_set"] == true);
@@ -89,16 +90,25 @@ TEST_CASE("scene of the ground floor: floor, classes, walls, cells, antennas") {
     CHECK(s["floor"]["height_m"] == 10.0);
     CHECK(s["floor"]["slab_attenuation_db"] == 15.0);
     CHECK(s["floor"]["storey_height_m"] == 3.2);
+    // Storeys (1.1): f1 with its antenna a3, 3.2 m up, behind f0's 20 dB slab.
+    CHECK(s["floor"]["storeys"] == json::parse(R"([{"floor_offset": 1, "level_m": 3.2, "slab_attenuation_db": 20.0}])"));
     REQUIRE(s["wall_classes"].size() == 8);
     CHECK(s["wall_classes"][0]["id"] == "concrete");
     CHECK(s["wall_classes"][0]["attenuation_db"] == 12.0);  // 390 MHz: the 400 MHz band
-    // Walls: one per polyline segment, in plan-frame metres.
+    // Walls: one per polyline segment, in plan-frame metres, with the
+    // polyline id and the class table in Hz (1.1).
     REQUIRE(s["walls"].size() == 4);
     CHECK(s["walls"][0] == json::parse(R"({"x1_m": 10.0, "y1_m": 0.0, "x2_m": 10.0, "y2_m": 10.0,
-        "class": "concrete", "attenuation_db": 12.0})"));
+        "class": "concrete", "attenuation_db": 12.0, "polyline": "w1",
+        "bands": [{"frequency_hz": 400000000, "attenuation_db": 12.0},
+                  {"frequency_hz": 900000000, "attenuation_db": 23.0}]})"));
+    CHECK(s["walls"][1]["polyline"] == "w2");  // the brick L: two segments, one wall
+    CHECK(s["walls"][2]["polyline"] == "w2");
     CHECK(s["walls"][2]["x1_m"] == 15.0);
     CHECK(s["walls"][2]["y2_m"] == 5.0);
     CHECK(s["walls"][3]["attenuation_db"] == 7.0);  // the wall's own loss
+    CHECK(s["walls"][3]["polyline"] == "w3");
+    CHECK_FALSE(s["walls"][3].contains("bands"));  // at every frequency
     // Cells: only those of exported antennas; identity by the radio API names.
     REQUIRE(s["cells"].size() == 1);
     CHECK(s["cells"][0] == json::parse(R"({"id": "T1", "label": "Indoor DAS", "mcc": 901, "mnc": 1,
@@ -116,8 +126,8 @@ TEST_CASE("scene of the ground floor: floor, classes, walls, cells, antennas") {
     CHECK((*a3)["floor_offset"] == 1);
     CHECK((*a3)["x_m"] == 5.0);  // aligned by the reference points (IND-09)
     CHECK((*a3)["y_m"] == 5.0);
-    // The f0|f1 slab is 20 dB, the scene's uniform slab 15: 5 dB in the EIRP.
-    CHECK((*a3)["eirp_dbm"] == 12.0 - 5.0);
+    // Its own EIRP: the 20 dB slab is in the storey, not folded in (1.1).
+    CHECK((*a3)["eirp_dbm"] == 12.0);
     CHECK((*a3)["pattern"]["type"] == "table");
     // What was left out, with the reason.
     CHECK(warned(e, "antenna \"donor\": outdoor donor directions are not part of the scene"));
@@ -137,8 +147,11 @@ TEST_CASE("scene of the first floor: antennas from below and the shared scale") 
     REQUIRE(a1);
     CHECK((*a1)["floor_offset"] == -1);
     CHECK((*a1)["x_m"] == 3.5);  // building (3, 5) m = f1 plan (70, 100) units
-    CHECK((*a1)["eirp_dbm"] == 5.0);
-    CHECK((*antenna(s, "a2"))["eirp_dbm"] == 8.0);
+    CHECK((*a1)["eirp_dbm"] == 10.0);
+    CHECK((*antenna(s, "a2"))["eirp_dbm"] == 13.0);
+    // f0 is 3.2 m below (its floor-to-floor height), behind its 20 dB slab.
+    CHECK(s["floor"]["storeys"] == json::parse(R"([{"floor_offset": -1, "level_m": -3.2, "slab_attenuation_db": 20.0}])"));
+    CHECK(s["walls"][0]["polyline"] == "w1");
     CHECK(antenna(s, "a3"));
     CHECK(s["antennas"].size() == 3);
 }
@@ -148,11 +161,13 @@ TEST_CASE("scene options: own floor only, frequency, default EIRP") {
     SceneExportOptions only;
     only.other_floors = false;
     CHECK(scene_of(b, "f0", only)["antennas"].size() == 2);
+    CHECK_FALSE(scene_of(b, "f0", only)["floor"].contains("storeys"));
     SceneExportOptions f900;
     f900.frequency_hz = 900e6;
     const json s = scene_of(b, "f0", f900);
     CHECK(s["wall_classes"][0]["attenuation_db"] == 23.0);
     CHECK(s["walls"][0]["attenuation_db"] == 23.0);
+    CHECK(s["walls"][0]["bands"].size() == 2);  // the same table at any frequency
     CHECK(s["walls"][3]["attenuation_db"] == 7.0);
     // An antenna without a known EIRP (IND-12) is left out unless a default is given.
     b.find_floor("f0")->antennas[0].eirp_dbm.reset();
@@ -178,6 +193,7 @@ TEST_CASE("a floor without scale, without alignment, an unknown floor, an invali
     CHECK(s["walls"].empty());
     CHECK(s["antennas"].empty());
     CHECK(s["cells"].empty());
+    CHECK_FALSE(s.contains("minor_version"));  // no 1.1 member: a 1.0 scene
     CHECK(warned(e, "floor \"f1\" has no scale"));
     // The ground floor cannot place f1's antennas any more.
     e = export_scene(b, "f0");
@@ -198,4 +214,49 @@ TEST_CASE("a floor without scale, without alignment, an unknown floor, an invali
     e = export_scene(b, "f0");
     CHECK_FALSE(e.ok);
     CHECK(e.error == "the building model is not valid: floors[0].walls[0]: unknown wall class \"steel\"");
+}
+
+TEST_CASE("scene 1.1: storeys of several floors, polyline ids without a wall id") {
+    Building b = example_office();
+    // A basement 2.5 m high with its own slab (to the ground floor) and an antenna.
+    Floor bm;
+    bm.id = "b1";
+    bm.name = "Basement";
+    bm.level = -1;
+    bm.height_m = 2.5;
+    bm.plan_width = 400;
+    bm.plan_height = 200;
+    bm.scale.method = Scale::Method::Shared;
+    bm.scale.shared_floor = "f0";
+    bm.reference_point = Point2{0, 0};
+    bm.slab_attenuation_db = 30.0;
+    Antenna a5;
+    a5.id = "a5";
+    a5.position = {100, 100};
+    a5.eirp_dbm = 9.0;
+    a5.cell = "T1";
+    bm.antennas.push_back(a5);
+    b.floors.push_back(bm);
+    b.find_floor("f1")->walls[0].id = "";  // a wall without an id
+    REQUIRE(b.validate().empty());
+
+    const json s1 = scene_of(b, "f1");
+    // From f1: f0 one storey down (3.2 m, 20 dB), the basement two (3.2 + 2.5 m, 20 + 30 dB).
+    CHECK(s1["floor"]["storeys"] == json::parse(R"([
+        {"floor_offset": -2, "level_m": -5.7, "slab_attenuation_db": 50.0},
+        {"floor_offset": -1, "level_m": -3.2, "slab_attenuation_db": 20.0}])"));
+    CHECK((*antenna(s1, "a5"))["floor_offset"] == -2);
+    CHECK((*antenna(s1, "a5"))["eirp_dbm"] == 9.0);
+    CHECK(s1["walls"][0]["polyline"] == "f1/0");
+    // From the basement: f0 2.5 m up (the basement's own height), f1 5.7 m.
+    const json sb = scene_of(b, "b1");
+    CHECK(sb["floor"]["storeys"] == json::parse(R"([
+        {"floor_offset": 1, "level_m": 2.5, "slab_attenuation_db": 30.0},
+        {"floor_offset": 2, "level_m": 5.7, "slab_attenuation_db": 50.0}])"));
+    // A level without a floor counts this floor's height and the default slab.
+    b.find_floor("f1")->level = 2;
+    const json s0 = scene_of(b, "f0");
+    CHECK(s0["floor"]["storeys"] == json::parse(R"([
+        {"floor_offset": -1, "level_m": -2.5, "slab_attenuation_db": 30.0},
+        {"floor_offset": 2, "level_m": 6.4, "slab_attenuation_db": 35.0}])"));
 }
