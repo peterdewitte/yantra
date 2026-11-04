@@ -7,7 +7,11 @@
  * small but complete plugin with static tables only: a made-up "ctest"
  * technology (bands, cell and neighbour schemas, C1, reselection), a
  * feature with a recording schema, an exporter and a UI panel with a
- * menu entry. It is linked into the tests, not loaded as a plugin.
+ * menu entry. It is linked into the tests and also built as plugin
+ * modules for the loader tests (tests/plugin_loader, PLG-09), with
+ * variants by compile definition: CTEST_API_MAJOR (descriptor's API
+ * major), CTEST_INIT_STATUS (init fails with it), CTEST_NO_ENTRY (no
+ * entry point).
  * The network codes are made up (MCC 901 is not a country).
  */
 #include "abi_layout.h"
@@ -261,8 +265,18 @@ static const yantra_translation translations[] = {
 
 static struct yantra_plugin_instance the_instance;
 
+#ifndef CTEST_API_MAJOR
+#define CTEST_API_MAJOR YANTRA_PLUGIN_API_VERSION_MAJOR
+#endif
+
 static yantra_status plugin_init(const yantra_host_api* host, yantra_plugin_instance** out)
 {
+#ifdef CTEST_INIT_STATUS
+    (void)host;
+    (void)out;
+    (void)the_instance;
+    return CTEST_INIT_STATUS;
+#else
     if (host == NULL || out == NULL)
         return YANTRA_ERR_INVALID_ARGUMENT;
     if (!YANTRA_HAS_FIELD(host, yantra_host_api, ui_close_window))
@@ -272,6 +286,7 @@ static yantra_status plugin_init(const yantra_host_api* host, yantra_plugin_inst
     *out = &the_instance;
     host->log(host->host, YANTRA_LOG_INFO, "ctest plugin ready");
     return YANTRA_OK;
+#endif
 }
 static void plugin_shutdown(yantra_plugin_instance* instance)
 {
@@ -280,7 +295,7 @@ static void plugin_shutdown(yantra_plugin_instance* instance)
 
 static const yantra_plugin_descriptor descriptor = {
     sizeof(yantra_plugin_descriptor),
-    {YANTRA_PLUGIN_API_VERSION_MAJOR, YANTRA_PLUGIN_API_VERSION_MINOR},
+    {CTEST_API_MAJOR, YANTRA_PLUGIN_API_VERSION_MINOR},
     YANTRA_KIND_TECHNOLOGY | YANTRA_KIND_FEATURE | YANTRA_KIND_EXPORTER,
     YANTRA_CATEGORY_SYSTEM_INFO | YANTRA_CATEGORY_LEVEL | YANTRA_CATEGORY_QUALITY |
         YANTRA_CATEGORY_DEVICE,
@@ -304,6 +319,7 @@ static const yantra_plugin_descriptor descriptor = {
 
 static int entry_count;
 
+#ifndef CTEST_NO_ENTRY
 YANTRA_PLUGIN_EXPORT const yantra_plugin_descriptor* yantra_plugin_entry(
     const yantra_host_api* host)
 {
@@ -312,6 +328,14 @@ YANTRA_PLUGIN_EXPORT const yantra_plugin_descriptor* yantra_plugin_entry(
         return NULL;
     return &descriptor;
 }
+#else
+const yantra_plugin_descriptor* yantra_test_c_descriptor(void);
+const yantra_plugin_descriptor* yantra_test_c_descriptor(void)
+{
+    ++entry_count;
+    return &descriptor;
+}
+#endif
 
 /* --- Helpers for the C++ tests ------------------------------------------ */
 

@@ -12,16 +12,20 @@ configure_file(src/build_config.h.in
 
 add_library(yantra_core STATIC
   src/build_info.cpp
+  src/platform/dynlib.cpp
   src/plugin/abi.cpp
   src/plugin/descriptor.cpp
+  src/plugin/folders.cpp
   src/plugin/licence.cpp
+  src/plugin/loader.cpp
   src/plugin/record.cpp
-  src/plugin/schema.cpp)
+  src/plugin/schema.cpp
+  src/plugin/state_store.cpp)
 add_library(yantra::core ALIAS yantra_core)
 
 target_include_directories(yantra_core
   PUBLIC include
   PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
 target_link_libraries(yantra_core
-  PUBLIC yantra::plugin_api yantra::radio_api
+  PUBLIC yantra::plugin_api yantra::radio_api Threads::Threads ${CMAKE_DL_LIBS}
   PRIVATE yantra::warnings)
