@@ -18,7 +18,9 @@ manifest compiled into the artefacts (`yantra::receiver::bundled_libraries()`).
 | `CMakeLists.txt` | standalone project around `deps.cmake` with install rules |
 | `build_deps.sh <prefix>` | configures, builds and installs the standalone project into `<prefix>` (libraries, headers, licence texts, `deps-manifest.tsv`); reuses the prefix when nothing changed (stamp) |
 | `verify_sources.py [cache]` | downloads the release archives (or takes them from the cache, default `build/deps-cache`), checks their SHA-256 and compares every vendored file with the archive |
-| `talloc/config.h`, `libosmocore/config.h` | hand-written configure results: the upstream build systems (waf, autotools) are not on the tool lists, so the sources are compiled directly |
+| `sdr.cmake` | static targets `yantra::usb`, `yantra::soapysdr` and `yantra::soapy_modules` (SoapySDR, SoapyHackRF/libhackrf, SoapyRTLSDR/librtlsdr, SoapyAirspy/libairspy, libusb), linked whole so the modules' static registrations stay in; `YANTRA_SOAPY_MODULES` lists the modules; included by `deps.cmake` |
+| `talloc/config.h`, `libosmocore/config.h`, `libusb/config.h` | hand-written configure results: the upstream build systems (waf, autotools) are not on the tool lists, so the sources are compiled directly |
+| `soapysdr/modules_static.cpp` | replaces SoapySDR's `lib/Modules.in.cpp`: no module search paths, no dlopen; the modules compiled into a plugin register themselves when it is loaded, so a system SoapySDR or its modules are never mixed in (RAD-132) |
 | `libosmocore/backtrace.c` | replaces libosmocore's `src/core/backtrace.c`, which needs the logging framework the subset leaves out |
 
 Two ways to use it, the same on Linux and in MSYS2 UCRT64 (Windows
@@ -33,5 +35,10 @@ DEFERRED):
 
 osmo-tetra itself (submodule, never `crypto/`) is compiled by
 `cmake/OsmoTetra.cmake` into `yantra::osmo_tetra` on `yantra::osmocore`.
-SoapySDR, its modules, the vendor libraries and libusb join this folder
-with the SDR plugins (phase 5).
+SoapySDR modules not built yet (RAD-50): SoapyBladeRF (libbladeRF),
+SoapyPlutoSDR (libiio, libad9361), SoapyRemote; S: SoapyLMS7, SoapyUHD.
+To add a module: vendor the release files unchanged under `third_party/`,
+add manifest rows (archive URL and SHA-256), compile it in `sdr.cmake`
+(static library linked whole by `yantra::soapy_modules`, one
+`YANTRA_SOAPY_MODULES` entry), install it in `CMakeLists.txt`, add its
+folder to the stamp in `build_deps.sh`, and run `verify_sources.py`.

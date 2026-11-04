@@ -76,3 +76,53 @@ precedence = "override"
 SPDX-FileCopyrightText = "The libosmocore authors (see the file headers and debian/copyright of the libosmocore 1.11.0 release)"
 SPDX-License-Identifier = "GPL-2.0-or-later"
 
+
+# libusb 1.0.30 (LGPL-2.1-or-later), vendored subset, unchanged (RAD-136).
+[[annotations]]
+path = ["third_party/libusb/COPYING", "third_party/libusb/AUTHORS", "third_party/libusb/libusb/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "The libusb authors (see AUTHORS and the file headers of the libusb 1.0.30 release)"
+SPDX-License-Identifier = "LGPL-2.1-or-later"
+
+# SoapySDR 0.8.1 (BSL-1.0), vendored subset, unchanged (RAD-50, RAD-136).
+[[annotations]]
+path = ["third_party/soapysdr/LICENSE_1_0.txt", "third_party/soapysdr/include/**", "third_party/soapysdr/lib/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "2014-2021 Josh Blum and the SoapySDR contributors (see the file headers)"
+SPDX-License-Identifier = "BSL-1.0"
+
+# libhackrf 2026.01.3 and libairspy 1.0.10 (BSD-3-Clause), vendored
+# subsets, unchanged (RAD-136).
+[[annotations]]
+path = ["third_party/hackrf/host/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "2012-2022 Great Scott Gadgets and the libhackrf authors (see the file headers)"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+[[annotations]]
+path = ["third_party/airspy/libairspy/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "2012-2016 The libairspy authors (see the file headers)"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+# librtlsdr 2.0.3 (GPL-2.0-or-later), vendored subset, unchanged (RAD-136).
+[[annotations]]
+path = ["third_party/rtl-sdr/COPYING", "third_party/rtl-sdr/AUTHORS", "third_party/rtl-sdr/src/**", "third_party/rtl-sdr/include/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "The rtl-sdr authors (see AUTHORS and the file headers of the rtl-sdr 2.0.3 release)"
+SPDX-License-Identifier = "GPL-2.0-or-later"
+
+# SoapyHackRF 0.3.6, SoapyRTLSDR 0.3.4, SoapyAirspy 0.2.1 (MIT), vendored
+# subsets, unchanged (RAD-50, RAD-136).
+[[annotations]]
+path = ["third_party/soapyhackrf/*.cpp", "third_party/soapyhackrf/*.hpp", "third_party/soapyhackrf/LICENSE"]
+precedence = "override"
+SPDX-FileCopyrightText = "2015-2017 Wei Jiang, Josh Blum and the SoapyHackRF contributors (see the file headers)"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["third_party/soapyrtlsdr/*.cpp", "third_party/soapyrtlsdr/*.hpp", "third_party/soapyrtlsdr/LICENSE.txt",
+        "third_party/soapyairspy/*.cpp", "third_party/soapyairspy/*.hpp", "third_party/soapyairspy/LICENSE.txt"]
+precedence = "override"
+SPDX-FileCopyrightText = "2015 Charles J. Cliffe and the SoapyRTLSDR/SoapyAirspy contributors (see the file headers)"
+SPDX-License-Identifier = "MIT"

@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Static dependency builds (RAD-136): builds the bundled libraries of
-# tools/deps/deps.cmake (talloc, the libosmocore subset osmo-tetra needs)
+# tools/deps/deps.cmake (talloc, the libosmocore subset osmo-tetra needs;
+# SoapySDR, its modules, their vendor libraries and libusb, sdr.cmake)
 # from the pinned sources under third_party/ and installs them, with their
 # headers, licence texts and deps-manifest.tsv (name, version, licence),
 # into <prefix>. The build folder is <prefix>/build. Configure the main
@@ -20,7 +21,9 @@ mkdir -p "$prefix"
 prefix=$(cd "$prefix" && pwd)
 
 # Stamp: hash of tools/deps and the vendored sources.
-stamp=$(cd "$root" && find tools/deps third_party/talloc third_party/libosmocore -type f -print0 \
+stamp=$(cd "$root" && find tools/deps third_party/talloc third_party/libosmocore third_party/libusb \
+    third_party/soapysdr third_party/hackrf third_party/soapyhackrf third_party/rtl-sdr \
+    third_party/soapyrtlsdr third_party/airspy third_party/soapyairspy -type f -print0 \
     | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
 if [ -f "$prefix/deps.stamp" ] && [ "$(cat "$prefix/deps.stamp")" = "$stamp" ]; then
     echo "build_deps: $prefix is up to date"

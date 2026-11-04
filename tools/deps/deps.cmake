@@ -104,3 +104,6 @@ else()
 endif()
 add_library(yantra::talloc ALIAS yantra_talloc)
 add_library(yantra::osmocore ALIAS yantra_osmocore)
+
+# SoapySDR, its modules, the vendor libraries and libusb (phase 5).
+include(${YANTRA_DEPS_DIR}/sdr.cmake)
