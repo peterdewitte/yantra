@@ -19,6 +19,7 @@ parser's documented error, or a broken property (`fuzz::fail`).
 | `scenario` | yantra-radios-scenario JSON (RAD-74) | an accepted scenario gives every cell's broadcast configuration; the scenario engine refuses it with its documented errors or makes samples and ground truth (inputs naming scene files are skipped) |
 | `scene` | yantra-radio-scene JSON (RAD-36) | an accepted scene reads back unchanged from `scene_to_json`; the multi-wall model gives a level for every cell |
 | `record_file` | yantra-radio-records file (RAD-65) | every accepted record is written again and reads back to the same line |
+| `pei` | byte 0: the command (low bits) and the read size (high bits), then the terminal's reply bytes | the terminal plugin's AT parser (RAD-80): reply lines, result codes, AT+CSQ, AT+CREG, identification texts, cell lines by field list and field-list texts; values within their documented ranges, carrier numbers round-trip, every buffer terminated |
 
 PEI responses (RAD-96) get their target with the terminal plugin
 (RAD-80). The Rust crate has the same entry points in

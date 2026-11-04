@@ -11,8 +11,9 @@
 # committed crash regressions (regressions/<target>/) and seeded mutations
 # of both; the sanitizer trees run the same tests under ASan/UBSan/TSan.
 # With YANTRA_FUZZ=ON (preset "fuzz", clang only) they are libFuzzer
-# binaries instead: tools/ci/fuzz.sh runs each for a bounded time. The PEI
-# responses of RAD-96 get their target with the terminal plugin (RAD-80).
+# binaries instead: tools/ci/fuzz.sh runs each for a bounded time. pei
+# takes the PEI responses of a terminal into the terminal plugin's AT
+# parser (RAD-80).
 # See docs/FUZZING.md.
 # Copied from yantra 68ea20a: tests/fuzz/CMakeLists.txt, adapted.
 if(NOT TARGET yantra::radio_host_iq)
@@ -31,7 +32,11 @@ set(_libs_sigmf yantra::radio_host_iq)
 set(_libs_scenario yantra::gen)
 set(_libs_scene yantra::gen yantra::radios_common)
 set(_libs_record_file yantra::radios_common)
+set(_libs_pei yantra_pei_at)
 set(YANTRA_FUZZ_TARGETS tetra_pdu tetra_bursts iq sigmf scenario scene record_file)
+if(TARGET yantra_pei_at)
+  list(APPEND YANTRA_FUZZ_TARGETS pei)
+endif()
 
 add_executable(yantra-fuzz-seeds seeds.cpp)
 target_link_libraries(yantra-fuzz-seeds PRIVATE yantra_gen_app yantra::gen yantra_warnings)

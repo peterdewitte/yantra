@@ -288,6 +288,35 @@ bool generator_seeds(Corpus& c, const fs::path& src)
 
 }  // namespace
 
+// PEI replies as the simulated terminal and real terminals give them; the
+// first byte picks the command (target_pei.cpp): 0 AT+CSQ, 1 AT+CREG?,
+// 2 AT+YCELL?, 3 AT+YNCELL?, 4 AT+GMI, 5 ATE0, the high bits the read size.
+void pei_seeds(Corpus& c)
+{
+    const std::vector<std::pair<int, std::string>> replies = {
+        {0, "AT+CSQ\r\r\n+CSQ: 21,99\r\n\r\nOK\r\n"},
+        {0x08, "\r\n+CSQ: 99,99\r\n\r\nOK\r\n"},
+        {1, "\r\n+CREG: 1,410,90100007\r\n\r\nOK\r\n"},
+        {1, "\r\n+CREG: 2,1,300,901-2\r\n\r\nOK\r\n"},
+        {1, "\r\n+CREG: 2\r\n\r\nOK\r\n"},
+        {2, "\r\n+YCELL: 3600,3,0,901,7,410,5,-71,34,\"camped\"\r\n\r\nOK\r\n"},
+        {0x12, "\r\n+YNOTE: 1\r\n+YCELL: 3604,3,1,901,7,410,6,-86,19\r\n\r\nOK\r\n"},
+        {3, "\r\n+YNCELL: 3604,3,1,901,7,410,6,-86,19\r\n+YNCELL: 3608,3,0,901,7,411,7,-97,8\r\n\r\nOK\r\n"},
+        {3, "\r\n+CME ERROR: 4\r\n"},
+        {4, "\r\nYantra\r\n\r\nOK\r\n"},
+        {4, "\r\n+GMI: \"Acme\"\r\n\x01\xfe#!\r\n\r\nOK\r\n"},
+        {5, "ATE0\r\r\nOK\r\n"},
+        {5, "\r\nERROR\r\n"},
+        {2, "\r\nNO CARRIER\r\n"},
+    };
+    for (const auto& [first, text] : replies) {
+        std::vector<uint8_t> d;
+        d.push_back(static_cast<uint8_t>(first));
+        d.insert(d.end(), text.begin(), text.end());
+        c.add("pei", d);
+    }
+}
+
 int main(int argc, char** argv)
 {
     if (argc != 3) {
@@ -300,6 +329,7 @@ int main(int argc, char** argv)
     Corpus c(out);
     tetra_pdu_seeds(c);
     tetra_burst_seeds(c);
+    pei_seeds(c);
     text_files(c, "scenario", src / "data/scenarios", ".json");
     text_files(c, "scene", src / "data/scenarios/scenes", ".json");
     text_files(c, "scene", src / "tests/fixtures/scenes", ".json");

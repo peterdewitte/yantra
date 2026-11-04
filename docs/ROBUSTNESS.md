@@ -72,7 +72,8 @@ run, `YANTRA_TESTS_OPT_IN=1 ctest -L opt_in` runs them; CONTRIBUTING.md). Other 
 | Overflow during an IQ capture | `capture_iq/test_capture_iq.cpp` "an overflow starts a new capture segment" (RAD-63) |
 | A CPU too slow for real time | `bench/perf_engine.cpp` (RAD-114: four carriers at 1 Msps below half of real time) and the benchmarks (RAD-127, [BENCHMARKS.md](BENCHMARKS.md)); the engine reports its load (`EngineStats::load`); a plugin that falls behind drops whole blocks and flags the next as a discontinuity (robustness drops test); the simulator plugin runs slower instead of dropping samples (its time base follows the host clock per record interval, RAD-61) |
 | NaN/Inf samples, zero-length blocks | robustness "NaN/Inf samples and zero-length blocks" (counted, replaced, never in a record); `tetra_engine/test_measurement_engine.cpp`; fuzz target `iq` |
-| Truncated and corrupted files | `decode_iq/test_decode_iq.cpp` "file and option errors"; fuzz targets `iq`, `sigmf`, `record_file`, `scenario`, `scene` (RAD-96) |
+| Truncated and corrupted files | `decode_iq/test_decode_iq.cpp` "file and option errors"; fuzz targets `iq`, `sigmf`, `record_file`, `scenario`, `scene`, `pei` (RAD-96) |
+| TETRA terminal: no reply, ERROR replies, line noise, unplugged cable | `pei/test_pei.cpp` "a terminal that stops answering times out and recovers", "a terminal that never answers", "a command answered with ERROR is not sent again", "garbage and unsolicited lines do not disturb the readings", "unplug and replug during a stream" (RAD-35, RAD-80); `conformance_pei` with `--unplug`/`--replug` |
 
 ## Level (RAD-125)
 
