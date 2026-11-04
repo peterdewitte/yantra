@@ -94,7 +94,7 @@ pattern, and cells with their carrier. For a receiver at plan position
 cell gives
 
 ```
-L_a = 10 log10( sum over paths p of 10^(L_p / 10) ) - |o_a| S - X_a(x, y)
+L_a = 10 log10( sum over paths p of 10^(L_p / 10) ) - S_a - X_a(x, y)
 
 L_p = EIRP_a + G_a(theta_p) - FSPL(d_p, f) - sum W(walls crossed by p)
       - sum R(walls p reflects off)
@@ -105,21 +105,32 @@ and the cell's level is the power sum over its antennas:
 
 - `f` is the cell's `carrier_hz`.
 - `d_p` is the 3D length of the path: its length in the plan combined with
-  the height difference `o_a H + h_a - h_rx`, with `o_a` the antenna's
-  `floor_offset` (storeys above or below) and H the floor's
-  `storey_height_m` (default 3 m).
+  the height difference `z_a + h_a - h_rx`, with `z_a` the level of the
+  antenna's floor above this floor: the `level_m` of the floor's
+  `storeys[]` entry for the antenna's `floor_offset` (scene 1.1), else
+  `o_a H` with `o_a` the antenna's `floor_offset` (storeys above or below)
+  and H the floor's `storey_height_m` (default 3 m).
 - `G_a(theta)` is the pattern gain towards the path's first point
   (bearing clockwise from the plan's -y axis): omni 0 dB; sector
   `-min(12 (off / beamwidth)^2, front_to_back)` (3 dB down at half the
   beamwidth); table: linear interpolation between the entries, clockwise
   from the azimuth, from the last entry back to the first at 360 degrees.
-- `W` is a wall's `attenuation_db`. Walls are counted on this floor only
-  (also for antennas on other floors). Rules: a path that starts or ends
-  on a wall does not cross it; a path along a wall does not cross it; a
-  path through the joint of two collinear walls (one wall drawn in pieces)
-  crosses once; through the corner of two walls at an angle it crosses
-  both.
-- `S` is the floor's `slab_attenuation_db` per storey (default 15 dB).
+- `W` is a wall's attenuation at f: with per-band values (`bands`, scene
+  1.1) linear in log f between the two bands around f and the first or
+  last band's value outside them, else the wall's `attenuation_db`. Walls
+  are counted on this floor only (also for antennas on other floors).
+  Rules: a path that starts or ends on a wall does not cross it; a path
+  along a wall does not cross it; a path through the joint of two
+  collinear walls (one wall drawn in pieces) crosses once; a path through
+  a vertex of a polyline (segments with the same `polyline` id, scene 1.1)
+  crosses that polyline once, at any angle; through the corner of two
+  different walls at an angle it crosses both. A polyline crossed at two
+  different points counts twice. (Scenes without polyline ids keep the
+  1.0 rule: each segment is its own wall.)
+- `S_a` is the slab sum to the antenna's floor: the `slab_attenuation_db`
+  of the floor's `storeys[]` entry for its `floor_offset` (scene 1.1),
+  else `|o_a|` times the floor's `slab_attenuation_db` per storey (default
+  15 dB); 0 on this floor.
 - `X_a` is an optional spatially correlated shadowing per antenna (see
   above; sigma 0 by default), seeded from the model seed and the antenna id.
 - **Reflections** (optional, `reflections` 0, 1 or 2; default 0) use the

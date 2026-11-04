@@ -4,7 +4,9 @@
 // Indoor multi-wall model (RAD-73, RAD-93) on fixture scenes: levels
 // against hand-calculated values (free-space loss, walls crossed, the
 // crossing rules, 3D distance, floors, patterns, reflections, the power
-// sum over DAS antennas) and determinism of the seeded shadowing. The
+// sum over DAS antennas), determinism of the seeded shadowing, and the
+// scene 1.1 members (RAD-36): a polyline crossed at a vertex counts once,
+// per-band wall attenuation at the cell's carrier, per-floor storeys. The
 // expected numbers were worked out by hand (20 log10(4 pi d f / c) with
 // c = 299792458 m/s), not with this code.
 #include <doctest/doctest.h>
@@ -29,9 +31,9 @@ namespace {
 constexpr double kFspl10 = 44.26907536241336;
 constexpr double kFspl20 = 50.289675275692986;
 
-Scene fixture()
+Scene fixture(const char* name = "multiwall_v1.json")
 {
-    std::ifstream in(std::string(YANTRA_TEST_DATA_DIR) + "/scenes/multiwall_v1.json");
+    std::ifstream in(std::string(YANTRA_TEST_DATA_DIR) + "/scenes/" + name);
     std::ostringstream s;
     s << in.rdbuf();
     Scene scene;
@@ -270,4 +272,76 @@ TEST_CASE("multiwall: seeded shadowing is deterministic")
             sum2 += v * v;
         }
     CHECK(std::sqrt(sum2 / n) == doctest::Approx(4.0).epsilon(0.35));
+}
+
+TEST_CASE("multiwall: a path through a polyline vertex crosses the wall once (scene 1.1, regression)")
+{
+    // Polyline "v": (10, 0)-(15, 10)-(10, 20), 10 dB. The path y = 10 from
+    // (5, 10) passes exactly through the vertex (15, 10) at an angle.
+    const Scene s = fixture("multiwall_v1_1.json");
+    WallCrossings c = walls_crossed(s, {5.0, 10.0}, {25.0, 10.0});
+    REQUIRE(c.crossings.size() == 1);
+    CHECK(c.total_db == doctest::Approx(10.0));
+    const CellLevel l = MultiWallModel().cell(s, "das", {25.0, 10.0});
+    CHECK(l.antennas[0].paths[0].walls == 1);
+    CHECK(l.level_dbm == doctest::Approx(20.0 - kFspl20 - 10.0));
+
+    // The same segments as two separate walls (a 1.0 scene has no
+    // polyline ids): the corner of two walls, both count, as before.
+    Scene separate = s;
+    for (SceneWall& w : separate.walls)
+        w.polyline.clear();
+    c = walls_crossed(separate, {5.0, 10.0}, {25.0, 10.0});
+    CHECK(c.crossings.size() == 2);
+    CHECK(c.total_db == doctest::Approx(20.0));
+
+    // One polyline crossed at two different points counts twice.
+    c = walls_crossed(s, {12.0, -1.0}, {12.0, 21.0});
+    REQUIRE(c.crossings.size() == 2);
+    CHECK(c.crossings[0].t < c.crossings[1].t);
+    CHECK(c.total_db == doctest::Approx(20.0));
+}
+
+TEST_CASE("multiwall: per-band wall attenuation at the cell's carrier (scene 1.1)")
+{
+    // The glass wall at x = 30 has 4 dB at 380 MHz and 9 dB at 450 MHz:
+    // at 390 MHz 4 + 5 ln(390/380) / ln(450/380) = 4.76816 dB.
+    const Scene s = fixture("multiwall_v1_1.json");
+    const SceneWall& glass = s.walls[2];
+    CHECK(glass.attenuation_at_db(390e6) == doctest::Approx(4.768158570644132));
+    CHECK(glass.attenuation_at_db(450e6) == doctest::Approx(9.0));
+    CHECK(glass.attenuation_at_db(470e6) == doctest::Approx(9.0)); // above the last band
+    CHECK(glass.attenuation_at_db(350e6) == doctest::Approx(4.0)); // below the first
+    CHECK(glass.attenuation_at_db(0.0) == doctest::Approx(4.0));   // attenuation_db
+    CHECK(s.walls[0].attenuation_at_db(450e6) == doctest::Approx(10.0)); // no bands
+
+    // (35, 10): 30 m from a1/b1 through the polyline vertex (10 dB) and
+    // the glass wall at each cell's carrier.
+    const MultiWallModel m;
+    const CellLevel das = m.cell(s, "das", {35.0, 10.0});
+    CHECK(das.antennas[0].paths[0].wall_loss_db == doctest::Approx(10.0 + 4.768158570644132));
+    CHECK(das.level_dbm == doctest::Approx(-48.579659027450745));
+    const CellLevel uhf = m.cell(s, "uhf", {35.0, 10.0});
+    CHECK(uhf.antennas[0].paths[0].wall_loss_db == doctest::Approx(19.0));
+    CHECK(uhf.level_dbm == doctest::Approx(-54.0544585917835));
+    // Without a frequency the walls' attenuation_db (the 1.0 value).
+    CHECK(walls_crossed(s, {5.0, 10.0}, {35.0, 10.0}).total_db == doctest::Approx(14.0));
+}
+
+TEST_CASE("multiwall: per-floor levels and slabs from the storeys (scene 1.1)")
+{
+    // Storeys: +1 at 4.5 m with 12 dB of slabs, -1 at -3.5 m with 20 dB;
+    // +2 is not listed: 2 x 3 m and 2 x 15 dB of the floor's values.
+    const Scene s = fixture("multiwall_v1_1.json");
+    const CellLevel up = MultiWallModel().cell(s, "up", {25.0, 10.0});
+    REQUIRE(up.antennas.size() == 3);
+    CHECK(up.antennas[0].distance_m == doctest::Approx(4.5));
+    CHECK(up.antennas[0].floor_loss_db == doctest::Approx(12.0));
+    CHECK(up.antennas[0].level_dbm == doctest::Approx(-29.333325637920233));
+    CHECK(up.antennas[1].distance_m == doctest::Approx(3.5));
+    CHECK(up.antennas[1].floor_loss_db == doctest::Approx(20.0));
+    CHECK(up.antennas[2].distance_m == doctest::Approx(6.0));
+    CHECK(up.antennas[2].floor_loss_db == doctest::Approx(30.0));
+    REQUIRE(s.floor.find_storey(1) != nullptr);
+    CHECK(s.floor.find_storey(2) == nullptr);
 }

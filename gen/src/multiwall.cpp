@@ -5,7 +5,9 @@
 // docs/CHANNEL_MODEL.md. Segment intersection and wall-crossing rules
 // copied from yantra 68ea20a (core/src/building/geometry.cpp), the pattern
 // formula from core/src/building/building.cpp; reflections, floors and
-// tables added.
+// tables added; scene 1.1 polylines, per-band walls and storeys follow
+// yantra 07a3da6 (core/src/building/geometry.cpp walls_crossed,
+// model.cpp WallClass::attenuation_at_db).
 
 #include "yantra/gen/multiwall.hpp"
 
@@ -112,7 +114,8 @@ std::optional<double> segment_intersection(PlanPoint p0, PlanPoint p1, PlanPoint
     return std::clamp(t, 0.0, 1.0);
 }
 
-WallCrossings walls_crossed(const radios::Scene& scene, PlanPoint a, PlanPoint b, const std::vector<size_t>& skip)
+WallCrossings walls_crossed(const radios::Scene& scene, PlanPoint a, PlanPoint b, const std::vector<size_t>& skip,
+                            double frequency_hz)
 {
     WallCrossings result;
     for (size_t i = 0; i < scene.walls.size(); ++i) {
@@ -122,18 +125,22 @@ WallCrossings walls_crossed(const radios::Scene& scene, PlanPoint a, PlanPoint b
         const auto t = segment_intersection(a, b, wall_start(w), wall_end(w));
         if (!t || *t <= kEndEps || *t >= 1.0 - kEndEps)
             continue;
-        result.crossings.push_back({i, *t, w.attenuation_db});
+        result.crossings.push_back({i, *t, w.attenuation_at_db(frequency_hz)});
     }
     std::stable_sort(result.crossings.begin(), result.crossings.end(),
                      [](const WallCrossing& x, const WallCrossing& y) { return x.t < y.t; });
     // A wall drawn as several collinear pieces is crossed once where the
-    // path passes exactly through the joint of two pieces.
+    // path passes exactly through the joint of two pieces, and a polyline
+    // once where the path passes exactly through one of its vertices.
     std::vector<WallCrossing> kept;
     for (const WallCrossing& c : result.crossings) {
         const PlanPoint dc = sub(wall_end(scene.walls[c.wall]), wall_start(scene.walls[c.wall]));
+        const std::string& polyline = scene.walls[c.wall].polyline;
         const bool joint = std::any_of(kept.begin(), kept.end(), [&](const WallCrossing& k) {
             if (std::fabs(k.t - c.t) > kEndEps)
                 return false;
+            if (!polyline.empty() && scene.walls[k.wall].polyline == polyline)
+                return true;
             const PlanPoint dk = sub(wall_end(scene.walls[k.wall]), wall_start(scene.walls[k.wall]));
             const double scale = std::hypot(dc.x_m, dc.y_m) * std::hypot(dk.x_m, dk.y_m);
             return std::fabs(cross(dc, dk)) <= 1e-9 * scale;
@@ -181,12 +188,16 @@ AntennaContribution MultiWallModel::antenna(const radios::Scene& scene, const ra
     const double storey = scene.floor.storey_height_m.value_or(params_.storey_height_m);
     const double slab = scene.floor.slab_attenuation_db.value_or(params_.slab_attenuation_db);
     const PlanPoint ap{a.x_m, a.y_m};
-    const double dz = static_cast<double>(a.floor_offset) * storey + a.height_m - params_.receiver_height_m;
+    // The antenna's floor: its own level and slab sum when the scene lists
+    // it (1.1 storeys), else uniform storeys.
+    const radios::SceneStorey* level = a.floor_offset != 0 ? scene.floor.find_storey(a.floor_offset) : nullptr;
+    const double floor_level_m = level ? level->level_m : static_cast<double>(a.floor_offset) * storey;
+    const double dz = floor_level_m + a.height_m - params_.receiver_height_m;
 
     AntennaContribution c;
     c.antenna = a.id;
     c.cell = a.cell;
-    c.floor_loss_db = std::abs(a.floor_offset) * slab;
+    c.floor_loss_db = level ? level->slab_attenuation_db : std::abs(a.floor_offset) * slab;
     c.shadowing_db = shadowing(a.id, rx);
 
     auto add_path = [&](int bounces, std::vector<size_t> reflected, double length_2d, PlanPoint first,
@@ -212,7 +223,7 @@ AntennaContribution MultiWallModel::antenna(const radios::Scene& scene, const ra
     };
 
     // Direct path.
-    const WallCrossings direct = walls_crossed(scene, ap, rx);
+    const WallCrossings direct = walls_crossed(scene, ap, rx, {}, frequency_hz);
     add_path(0, {}, length(ap, rx), rx, direct.total_db, static_cast<int>(direct.crossings.size()));
     c.distance_m = c.paths.front().length_m;
 
@@ -225,8 +236,8 @@ AntennaContribution MultiWallModel::antenna(const radios::Scene& scene, const ra
             const auto p1 = hit(*img, rx, scene.walls[i]);
             if (!p1)
                 continue;
-            const WallCrossings l1 = walls_crossed(scene, ap, *p1, {i});
-            const WallCrossings l2 = walls_crossed(scene, *p1, rx, {i});
+            const WallCrossings l1 = walls_crossed(scene, ap, *p1, {i}, frequency_hz);
+            const WallCrossings l2 = walls_crossed(scene, *p1, rx, {i}, frequency_hz);
             add_path(1, {i}, length(*img, rx), *p1, l1.total_db + l2.total_db,
                      static_cast<int>(l1.crossings.size() + l2.crossings.size()));
         }
@@ -248,9 +259,9 @@ AntennaContribution MultiWallModel::antenna(const radios::Scene& scene, const ra
                 const auto p1 = hit(*img1, *p2, scene.walls[i]);
                 if (!p1)
                     continue;
-                const WallCrossings l1 = walls_crossed(scene, ap, *p1, {i});
-                const WallCrossings l2 = walls_crossed(scene, *p1, *p2, {i, j});
-                const WallCrossings l3 = walls_crossed(scene, *p2, rx, {j});
+                const WallCrossings l1 = walls_crossed(scene, ap, *p1, {i}, frequency_hz);
+                const WallCrossings l2 = walls_crossed(scene, *p1, *p2, {i, j}, frequency_hz);
+                const WallCrossings l3 = walls_crossed(scene, *p2, rx, {j}, frequency_hz);
                 add_path(2, {i, j}, length(*img2, rx), *p1, l1.total_db + l2.total_db + l3.total_db,
                          static_cast<int>(l1.crossings.size() + l2.crossings.size() + l3.crossings.size()));
             }

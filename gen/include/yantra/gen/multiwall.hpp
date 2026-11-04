@@ -6,13 +6,16 @@
 // cell at a receiver position, as the simulator plugin (RAD-61) and the
 // scenario engine use it. Per antenna a of the cell:
 //
-//   L_a = EIRP_a + G_a(bearing) - FSPL(d_a, f) - sum(walls crossed)
-//         - |floor_offset_a| * slab - S_a(x, y)
+//   L_a = EIRP_a + G_a(bearing) - FSPL(d_a, f) - sum(walls crossed at f)
+//         - slabs_a - S_a(x, y)
 //
-// with d_a the 3D distance (storeys of storey_height_m apart for antennas
-// on other floors), f the cell's carrier, G_a the pattern gain
-// towards the receiver, the walls the straight 2D path crosses on this
-// floor, slab the floor's slab attenuation, S_a an optional seeded
+// with d_a the 3D distance (the level of the antenna's floor from the
+// scene's storeys, else floor_offset storeys of storey_height_m), f the
+// cell's carrier, G_a the pattern gain towards the receiver, the walls the
+// straight 2D path crosses on this floor (each at f when it has per-band
+// values, scene 1.1), slabs_a the slab sum to the antenna's floor (the
+// scene's storeys, else |floor_offset| x the floor's slab attenuation),
+// S_a an optional seeded
 // spatially correlated shadowing; optional specular reflections (image
 // method, up to 2 bounces) add paths with the reflection loss of each
 // wall and the walls crossed on every leg. The cell's level is the power
@@ -71,17 +74,21 @@ struct WallCrossings {
 };
 
 /// The walls the straight path a-b crosses and their total attenuation
-/// (SceneWall::attenuation_db). Rules: a crossing at a path end point (t
-/// within 1e-9 of 0 or 1) does not count (a point on a wall is on neither
-/// side); where the path passes exactly through the joint of two
-/// collinear walls (one wall drawn in pieces) it counts once, through the
-/// corner of two walls at an angle both count; the walls
-/// in `skip` (indexes) are left out (the reflecting walls of a leg).
+/// (SceneWall::attenuation_at_db at `frequency_hz`; 0: attenuation_db).
+/// Rules: a crossing at a path end point (t within 1e-9 of 0 or 1) does not
+/// count (a point on a wall is on neither side); where the path passes
+/// exactly through the joint of two collinear walls (one wall drawn in
+/// pieces) it counts once; through a vertex of one polyline (segments with
+/// the same SceneWall::polyline id, scene 1.1) it counts once, as in
+/// Yantra's building model (one crossing per polyline and crossing point;
+/// a polyline crossed at two different points counts twice); through the
+/// corner of two different walls at an angle both count; the walls in
+/// `skip` (indexes) are left out (the reflecting walls of a leg).
 WallCrossings walls_crossed(const radios::Scene& scene, PlanPoint a, PlanPoint b,
-                            const std::vector<size_t>& skip = {});
+                            const std::vector<size_t>& skip = {}, double frequency_hz = 0.0);
 
 /// Parameters of the model; the scene's own values win where it has them
-/// (floor slab_attenuation_db and storey_height_m, wall class
+/// (floor storeys, slab_attenuation_db and storey_height_m, wall class
 /// reflection_loss_db).
 struct MultiWallParams {
     double receiver_height_m = 1.5;     ///< above the floor
