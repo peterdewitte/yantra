@@ -546,9 +546,13 @@ int FakeDevice::readStream(SoapySDR::Stream* stream, void* const* buffs, const s
     auto* s = reinterpret_cast<FakeStream*>(stream);
     flags = 0;
     timeNs = 0;
-    if (!s->active)
-        return SOAPY_SDR_STREAM_ERROR;
     const auto deadline = Clock::now() + std::chrono::microseconds(std::max(timeoutUs, 0L));
+    if (!s->active) {
+        // As SoapyHackRF: no samples before activateStream, a timeout
+        // (SoapyRemote's server reads from setupStream on).
+        std::this_thread::sleep_until(deadline);
+        return SOAPY_SDR_TIMEOUT;
+    }
     const Config cfg = read_config();
     if (!lost_ && !present(cfg, spec_.serial))
         lost_ = true;
