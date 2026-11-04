@@ -12,6 +12,8 @@ configure_file(src/build_config.h.in
 
 add_library(yantra_core STATIC
   src/build_info.cpp
+  src/building/geometry.cpp
+  src/building/model.cpp
   src/context/context.cpp
   src/measure/pipeline.cpp
   src/measure/record_file.cpp
