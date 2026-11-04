@@ -14,12 +14,14 @@ add_test(NAME bench_receiver COMMAND bench_receiver)
 set_tests_properties(bench_receiver PROPERTIES LABELS "slow;perf" TIMEOUT 600)
 
 # RAD-114: the measurement engine against real time (timing: labelled
-# perf, with a factor 2 margin; see perf_engine.cpp).
+# perf, with a factor 2 margin; see perf_engine.cpp). RUN_SERIAL like the
+# other time limits: next to other tests it measures their load, not the
+# engine (CONTRIBUTING.md, label timing).
 if(TARGET yantra::tetra_engine)
   add_executable(perf_engine perf_engine.cpp)
   target_link_libraries(perf_engine PRIVATE yantra::tetra_engine yantra::gen yantra_warnings)
   add_test(NAME perf_engine COMMAND perf_engine)
-  set_tests_properties(perf_engine PROPERTIES LABELS "slow;perf;timing" TIMEOUT 600)
+  set_tests_properties(perf_engine PROPERTIES LABELS "slow;perf;timing" TIMEOUT 600 RUN_SERIAL TRUE)
 endif()
 
 # Benchmarks with CPU-calibrated limits (RAD-127, docs/BENCHMARKS.md):

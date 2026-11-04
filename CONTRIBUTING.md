@@ -107,6 +107,18 @@ request. Build steps follow in BUILD.md once the CMake project exists.
 
       ctest --preset asan-ubsan -j"$(nproc)"   # = ctest --test-dir build-asan -LE timing
       ctest --preset tsan -j"$(nproc)"
+
+  The time-limited ones (`perf_engine`, `bench_limits`, the
+  `*_timing/*` cases) are RUN_SERIAL, so ctest runs no other test next to
+  them. Load from outside ctest still counts: another tree building or
+  testing at the same time makes them fail. On a CPU with hyper-threads
+  or efficiency cores a busy sibling slows a thread down even when the
+  other program is niced (`perf_engine`: load 0.25 alone, 0.44-0.48 with
+  seven busy loops on a 12-thread i7-1365U, in CPU time as well as wall
+  clock; the simulator at playback speed 2 then falls behind real time).
+  Run the default and scalar trees' timing tests on an otherwise idle
+  machine, and rerun a timing failure that came under outside load
+  alone before calling it a regression.
 - Never delete, skip or weaken a test, or loosen a tolerance, to make it
   pass. If a test is wrong, fix it and say why in the commit message.
   Golden files change only on purpose, with the reason in the commit.
