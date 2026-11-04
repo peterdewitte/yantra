@@ -58,6 +58,12 @@ target_include_directories(yantra_plugin_api INTERFACE
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
 
 # Radio API header from the yantra-radios submodule (PLG-26).
+# nlohmann/json 3.12.0, vendored header-only (spec 16.2).
+add_library(yantra_json INTERFACE)
+add_library(yantra::json ALIAS yantra_json)
+target_include_directories(yantra_json SYSTEM INTERFACE
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/third_party/nlohmann_json/include>)
+
 include(YantraRadios)
 # The radio plugins Yantra ships, built from the submodule (or a prebuilt
 # yantra-radios package) into <build>/lib/yantra/plugins/radios (PLG-26).
