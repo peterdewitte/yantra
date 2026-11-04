@@ -982,6 +982,78 @@ same layer and modules to SigMF (cf32, cs16, cs8 or cu8; `--rolling S`
 keeps the last S seconds); decode-iq reads the recordings back. IQ stays
 in the host tool: it never crosses the radio API.
 
+All SoapySDR plugins also have the sensors gain state, clipping (share of
+full-scale values; records carry `YR_RECORD_OVERLOAD` while it clips),
+saturation warning (what to do), noise floor (dBFS of the quietest 25 kHz
+channels of the span, while streaming), receiver load, tuned frequency
+and build info (the bundled libraries and versions, RAD-136). Changing an
+`UNAVAILABLE` setting returns `YR_ERR_UNSUPPORTED`.
+
+### Device profiles
+
+A device-specific plugin passes a `Profile` in its `Options`
+(`soapy_plugin.hpp`): the rate range, the gain elements under its own keys
+and labels (a one-step element such as the HackRF's 14 dB amplifier as an
+on/off switch), module settings under its own keys (`power = true` marks
+antenna port power: `YR_SETTING_WARNING`, off by default, switched off
+again at every open and replug, never set by a preset), sensors from the
+hardware information, presets (gain values, clamped to the device), an
+offset for tuning beside the carriers (away from the DC spike), the
+saturation remedy, and two features:
+
+- `scan`: `YR_CAP_SCAN` and SCAN plans (RAD-23). A band wider than the
+  span is swept in steps of the span (`scan_dwell_s` per step, default
+  1 s); each pass gives one `tetra_scan` record per 25 kHz channel of the
+  band, with the cell identity (and without `YR_RECORD_NO_SYNC`) where a
+  carrier of that channel was decoded in the dwell, then
+  `YR_EVENT_SCAN_DONE` with the channel count. A scan gives no cell
+  records. A band given backwards or a step other than 25 kHz is refused
+  at `start_stream`.
+- `c1`: `c1_enabled` and `c1_level_offset_db` (dBm = dBFS + offset, from
+  a calibration against a signal generator, e.g. `yantra-hackrf level`).
+  With C1 enabled the cell records carry C1 (`YR_GROUP_C1`, RAD-22) from
+  the corrected level, the cell's broadcast access parameters and
+  `ms_max_power_dbm`, as the simulator does; the level itself stays dBFS.
+  Without it there is no C1: an uncalibrated SDR cannot know dBm.
+
+### The HackRF plugin (RAD-60)
+
+`plugins/hackrf` builds `hackrf.so`, "HackRF One": the layer with the
+driver `hackrf` only and this profile (settings and presets adapted from
+yantra 68ea20a):
+
+| Setting | Key | Values |
+|---|---|---|
+| Sample rate | `receiver_rate` | 2 to 20 Msps (default 2) |
+| Baseband filter | `bandwidth` | the module's filters or automatic |
+| LNA (IF) gain | `gain_lna` | 0-40 dB in 8 dB steps (CALIBRATION) |
+| VGA (baseband) gain | `gain_vga` | 0-62 dB in 2 dB steps (CALIBRATION) |
+| RF amplifier | `rf_amplifier` | on/off, 14 dB (CALIBRATION) |
+| Antenna port power | `antenna_power` | off by default; WARNING: 3.3 V on the antenna port for a preamplifier |
+| Antenna port, ppm, reference clock | `antenna`, `ppm`, `clock_source` | as the module offers |
+| Offset tuning | `offset_khz` | 250 kHz (0 = tuned on the carriers) |
+| Scan dwell, C1 | `scan_dwell_s`, `c1_enabled`, `c1_level_offset_db` | see above |
+
+Presets: "Indoor, sensitive" (amplifier on, LNA 32 dB, VGA 30 dB) and
+"Near site, strong signal" (amplifier off, LNA 8 dB, VGA 16 dB).
+Sensors: board, firmware, serial number and part id from the module,
+plus the layer's. The self-test adds rates, gains (a missing element is a
+warning), the hardware information and antenna port power (a warning
+while it is on). The saturation remedy: amplifier off first, then less
+LNA, then less VGA.
+
+`hackrf_fake` (build/tests/plugins, never installed) is the same plugin
+with the fake module as driver `hackrf`. `tests/hackrf` checks it against
+the generator's truth: settings and the safety rule, presets, sensors and
+self-test, clipping, levels within 1.5 dB with offset tuning, C1, a band
+scan of 391-394 MHz (121 channels, retuned), overflow and drop events,
+unplug/replug; plus the conformance kit with `--unplug`/`--replug` and
+the completeness check. The fake's `<serial>.level_offset` control file
+(dB) steps the whole signal like a signal generator.
+
+`yantra-hackrf` (RAD-66, docs/YANTRA_HACKRF.md) tests a real HackRF One
+through this plugin.
+
 ## The conformance kit
 
 `yantra-radio-host conformance --plugin FILE` (RAD-91) runs every check of

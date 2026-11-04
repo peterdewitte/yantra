@@ -81,7 +81,39 @@ if(YANTRA_RADIOS_BUILD_TESTS)
   add_subdirectory(tests)
 endif()
 
-# Install (RAD-71, RAD-74): yantra-gen (tools/yantra-gen) and the scenario
-# files with their scenes. The plugins' own packaging is RAD-132/137.
+add_subdirectory(udev)
+
+# Install (RAD-99), all relative to the prefix (never /etc; tested into a
+# DESTDIR by tests/install):
+#   lib/yantra-radios/plugins  the self-contained plugins (RAD-132): the
+#                              plugins' CMakeLists; the example beacon is
+#                              not installed (Yantra would offer it)
+#   bin/                       yantra-radio-host, yantra-gen, yantra-hackrf
+#   share/yantra-radios/       the scenarios with their scenes (RAD-74)
+#   lib/udev/rules.d, lib/modprobe.d  udev rules and the RTL-SDR DVB-T
+#                              blacklist (udev/)
+#   share/licenses/yantra-radios  the licence bundle (RAD-137): LICENSE,
+#                              LICENSES/, THIRD_PARTY.md and the licence
+#                              texts of every bundled library
+#   share/doc/yantra-radios    README, CHANGELOG and docs/
 include(GNUInstallDirs)
 install(DIRECTORY data/scenarios DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra-radios)
+set(_licences ${CMAKE_INSTALL_DATADIR}/licenses/yantra-radios)
+install(FILES LICENSE THIRD_PARTY.md DESTINATION ${_licences})
+install(DIRECTORY LICENSES DESTINATION ${_licences})
+file(GLOB _third_party RELATIVE ${PROJECT_SOURCE_DIR}/third_party ${PROJECT_SOURCE_DIR}/third_party/*)
+foreach(_comp ${_third_party})
+  if(_comp STREQUAL "doctest" OR NOT IS_DIRECTORY ${PROJECT_SOURCE_DIR}/third_party/${_comp})
+    continue() # test only, never shipped
+  endif()
+  file(GLOB _texts ${PROJECT_SOURCE_DIR}/third_party/${_comp}/COPYING*
+                   ${PROJECT_SOURCE_DIR}/third_party/${_comp}/LICEN[CS]E*
+                   ${PROJECT_SOURCE_DIR}/third_party/${_comp}/NOTICE*)
+  if(NOT _texts)
+    # libhackrf and libairspy: BSD-3-Clause in their source headers.
+    set(_texts ${PROJECT_SOURCE_DIR}/LICENSES/BSD-3-Clause.txt)
+  endif()
+  install(FILES ${_texts} DESTINATION ${_licences}/${_comp})
+endforeach()
+file(GLOB _docs ${PROJECT_SOURCE_DIR}/docs/*.md)
+install(FILES README.md CHANGELOG.md ${_docs} DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/yantra-radios)

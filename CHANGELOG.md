@@ -247,3 +247,17 @@ The first version (tag v0.1.0 when released).
   kit runs against it, unplug and replug included.
 - `yantra-radio-host capture-iq` (RAD-63): SDR capture to SigMF in four
   formats with a rolling buffer and capture segments at drops.
+- HackRF plugin `hackrf` (RAD-60) on the SoapySDR layer's device
+  profiles: 2-20 Msps, LNA/VGA gains and the RF amplifier switch, antenna
+  port power (off at every open and replug, never in a preset), offset
+  tuning, presets, sensors and self-test items, band scans wider than
+  the span (RAD-23) and C1 from a calibration offset (RAD-22). All
+  SoapySDR plugins gain clipping (OVERLOAD), saturation warning, noise
+  floor, receiver load, tuned frequency and build info sensors.
+- `yantra-hackrf` (RAD-66): HackRF One test tool through the plugin
+  (list, info, selftest, settings, measure, capture, noise, level, ppm,
+  throughput, replug, report), text or JSON, exit codes for scripts,
+  docs/YANTRA_HACKRF.md.
+- Install rules (RAD-99): plugins, tools, udev rules and the RTL-SDR
+  DVB-T blacklist (udev/), the licence bundle (RAD-137) and the docs,
+  tested by an install into a DESTDIR.

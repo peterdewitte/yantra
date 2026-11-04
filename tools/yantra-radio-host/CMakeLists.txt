@@ -14,6 +14,8 @@ add_library(yantra::radio_host ALIAS yantra_radio_host_lib)
 
 add_executable(yantra-radio-host main.cpp)
 target_link_libraries(yantra-radio-host PRIVATE yantra::radio_host yantra_warnings)
+include(GNUInstallDirs)
+install(TARGETS yantra-radio-host RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 # decode-iq (RAD-63): IQ files through the TETRA measurement engine; only
 # when the receiver is built (osmo-tetra found).

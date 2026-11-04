@@ -37,6 +37,7 @@ speech, short data or subscriber identities, and never decrypt anything.
 | `gen/` | TETRA test-signal generator library |
 | `plugins/` | one folder per plugin: hackrf, simulator, soapy, pei, and `beacon`, the example |
 | `tools/` | `yantra-gen`, `yantra-radio-host`, `yantra-hackrf`; `tools/deps/` static dependency builds |
+| `udev/` | udev rules and the RTL-SDR DVB-T driver blacklist (RAD-99) |
 | `third_party/` | pinned sources of every bundled library, incl. osmo-tetra |
 | `tests/`, `docs/` | tests and documentation |
 
@@ -97,7 +98,16 @@ ground-truth record file from a scenario in `data/scenarios` or from
 cells on the command line, e.g.
 `yantra-gen --scenario failed_site --format cs8 --out failed_site.cs8`.
 `yantra-gen --help` lists every option; docs/YANTRA_GEN.md describes the
-outputs. `cmake --install build` installs it with the scenarios.
+outputs.
+
+`cmake --install build` installs, relative to the prefix, the plugins to
+`lib/yantra-radios/plugins`, the tools to `bin`, the scenarios, the udev
+rules (`lib/udev/rules.d`) and the RTL-SDR blacklist (`lib/modprobe.d`),
+the licence bundle (`share/licenses/yantra-radios`) and the docs
+(RAD-99). It changes nothing in the running system: for a prefix other
+than `/usr`, copy the udev rules to `/etc/udev/rules.d` and reload udev
+as root. `yantra-hackrf` tests a HackRF One through the HackRF plugin
+(docs/YANTRA_HACKRF.md).
 
 ## Documentation
 
@@ -109,6 +119,7 @@ outputs. `cmake --install build` installs it with the scenarios.
   `build/docs/radio-api/html`.
 - [docs/YANTRA_GEN.md](docs/YANTRA_GEN.md) the yantra-gen command and its
   output files.
+- [docs/YANTRA_HACKRF.md](docs/YANTRA_HACKRF.md) the HackRF One test tool.
 - [docs/RECORD_FILES.md](docs/RECORD_FILES.md) record files,
   [docs/SCENE_FORMAT.md](docs/SCENE_FORMAT.md) scene JSON,
   [docs/SCENARIO_FORMAT.md](docs/SCENARIO_FORMAT.md) scenario files,
