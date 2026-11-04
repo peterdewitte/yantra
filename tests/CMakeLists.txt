@@ -43,7 +43,7 @@ target_compile_definitions(yantra_test_main PUBLIC
 # yantra_add_test_dir(<module> [LIBS ...])
 function(yantra_add_test_dir module)
   cmake_parse_arguments(ARG "" "" "LIBS" ${ARGN})
-  set(_dir ${CMAKE_CURRENT_SOURCE_DIR}/${module})
+  set(_dir ${PROJECT_SOURCE_DIR}/tests/${module})
   file(GLOB _srcs CONFIGURE_DEPENDS ${_dir}/*.cpp ${_dir}/*.c)
   if(NOT _srcs)
     return()

@@ -43,7 +43,11 @@ simulator radio plugin or recorded measurement files) (TST-60).
 ## Building and testing
 
 The yantra-radios submodule is needed for every build
-(`git submodule update --init --recursive`). Builds and tests may use all
+(`git submodule update --init --recursive`; its URL is relative,
+`../yantra-radios`, so yantra-radios is cloned next to yantra). The build
+uses only its radio API header so far (`yantra::radio_api`,
+`cmake/YantraRadios.cmake`); moving the pin is its own commit and needs
+Yantra's full test suite and the radio test kit to pass first (PLG-26). Builds and tests may use all
 cores:
 
     cmake --preset default            # or: cmake -S . -B build -G Ninja

@@ -56,9 +56,15 @@ tested hardware is listed in yantra-radios' `DEVICES.md`.
 
 ## Install
 
-Linux: build from source:
+Linux: build from source. The radio plugins come from the yantra-radios
+repository as a git submodule (`third_party/yantra-radios`, pinned to a
+tagged release). Its submodule URL is relative (`../yantra-radios`), so
+yantra-radios is cloned next to yantra:
 
-    git clone --recursive <repository>
+    git clone <yantra-radios repository> yantra-radios
+    git clone <yantra repository> yantra
+    cd yantra
+    git submodule update --init --recursive
     cmake --preset default
     ninja -C build
     ctest --test-dir build -j"$(nproc)"

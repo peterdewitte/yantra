@@ -56,6 +56,9 @@ add_library(yantra::plugin_api ALIAS yantra_plugin_api)
 target_include_directories(yantra_plugin_api INTERFACE
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
 
+# Radio API header from the yantra-radios submodule (PLG-26).
+include(YantraRadios)
+
 if(YANTRA_BUILD_TESTS)
   enable_testing()
 endif()
@@ -73,4 +76,5 @@ endif()
 
 message(STATUS "Yantra ${PROJECT_VERSION}: SIMD=${YANTRA_SIMD} "
                "APP=${YANTRA_BUILD_APP} TESTS=${YANTRA_BUILD_TESTS} "
-               "SANITIZER='${YANTRA_SANITIZER}'")
+               "SANITIZER='${YANTRA_SANITIZER}' "
+               "RADIO_API=${YANTRA_RADIO_API_VERSION_MAJOR}.${YANTRA_RADIO_API_VERSION_MINOR}")

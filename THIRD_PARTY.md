@@ -29,6 +29,7 @@ Entries are added together with the code that first uses each library.
 
 | Component | Version | Licence | Source | Used for |
 |---|---|---|---|---|
+| yantra-radios | v0.1.0 (commit fb194f5), git submodule `third_party/yantra-radios` | GPL-3.0-or-later; its plugins contain AGPL-3.0 parts (osmo-tetra) and the libraries of its own THIRD_PARTY.md | The yantra-radios project (its README names the public source) | Radio API header `yantra/radio.h` and the radio plugins with their SDR processing and TETRA decoder (PLG-26); its components and licence bundle are listed in its own THIRD_PARTY.md |
 | doctest | 2.4.12 (single header, vendored unchanged in `third_party/doctest/`, SHA-256 in its README) | MIT | https://github.com/doctest/doctest | C++ unit tests under ctest (TST-01); tests only, never shipped |
 
 ## Build, test and packaging tools
