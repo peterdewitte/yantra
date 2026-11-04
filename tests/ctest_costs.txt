@@ -1,0 +1,6 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Measured seconds of the per-case doctest ctests ("<test> <seconds>"), the
+# COST of cmake/YantraTests.cmake (longest first in a fresh tree). Written by
+# tools/ci/test_costs.py; tests below 1 s are left out.
