@@ -30,6 +30,44 @@ marked:
 Record file (RAD-65) and scene JSON (RAD-36) versions are listed here as
 well; they change independently of the radio API version.
 
+## [0.2.1] - 2026-11-04
+
+A patch release (tag v0.2.1, RAD-98): the simulator measures every cell
+of its scenario, and a given serving carrier gets one decoder. No API or
+format change: radio API 1.0, record files 1, scene JSON 1.1 and
+scenario files 1 as in 0.2.0.
+
+### Radio API
+
+- **Radio API 1.0**: no change.
+
+### Fixed
+
+- Simulator plugin 0.2.1 (RAD-61, RAD-102, RAD-112): the carrier search
+  held only the middle 80 % of the capture, less half a channel at each
+  edge, while the plugin offered plans the middle 80 %; cells near the
+  edge of a scenario's capture were neither found nor decoded when pinned
+  (failed_site gave records of N2 only, at the capture centre, also with
+  N1 asked for as the serving carrier). The search now uses 90 % of the
+  rate (the generated I/Q has no analogue anti-alias roll-off; as
+  `decode-iq`), and `plan_ranges` and the plan check offer exactly the
+  span the search holds (`usable_half_width()` in carrier_search.hpp).
+- TETRA receiver, all TETRA plugins (simulator, soapysdr 0.1.1, hackrf
+  0.1.1; RAD-32): a SERVING plan with a given carrier pinned that carrier
+  twice (as a plan carrier and as the serving carrier), so two decoders
+  followed it and each interval gave a second record of it with role
+  "other". A frequency pinned twice now gets one decoder.
+- `yantra-radio-host` 0.2.1 (same receiver; `decode-iq` was not affected:
+  it pins a given serving carrier once).
+
+### Tests
+
+- Every bundled scenario with two or more decodable cells (all but
+  weak_signal, whose second cell is below the noise by design): each cell
+  in the capture measured within 0.5 dB of the ground truth, the
+  strongest serving; failed_site with N1 or N2 given as serving; one
+  decoder per carrier in the search and with the fake SoapySDR module.
+
 ## [0.2.0] - 2026-11-04
 
 Scene format 1.1 for Yantra's building model (tag v0.2.0, RAD-98). A new

@@ -57,7 +57,7 @@ and how: [DEVICES.md](DEVICES.md) (none on real hardware yet).
 
 ## Status
 
-Release 0.2.0 (2026-11-04, tag v0.2.0; [CHANGELOG.md](CHANGELOG.md)): scene format 1.1.
+Release 0.2.1 (2026-11-04, tag v0.2.1; [CHANGELOG.md](CHANGELOG.md)): the simulator measures every cell of its scenario.
 Linux x86-64 is built and tested; Linux arm64 is in the nightly CI; the
 Windows build (MSYS2 UCRT64, `.dll`) is written and not yet run. The
 screenshots of the radio windows Yantra generates from the plugins'
