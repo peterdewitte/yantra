@@ -93,6 +93,7 @@ jobs:
           name: linux-x86-64-plugins
           path: |
             build/bin/plugins/
+            build/tests/plugins/
             build/bin/yantra-radio-host
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
@@ -103,10 +104,11 @@ jobs:
 
   # RAD-133: the plugins in a clean environment, without SoapySDR or
   # vendor packages: a bare container that only gets the built plugins,
-  # the test host and Python. It re-runs the NEEDED and export checks and
-  # the conformance kit on every plugin where no build dependency is
-  # installed, so a plugin that needs a library of the build machine fails
-  # here. (The fake SoapySDR module joins with RAD-92.)
+  # the fake-module test builds (RAD-92), the test host and Python. It
+  # re-runs the NEEDED and export checks and the conformance kit on every
+  # plugin where no build dependency is installed, so a plugin that needs
+  # a library of the build machine fails here. Locally the same script
+  # runs in a bubblewrap sandbox (ctest clean_env_conformance).
   completeness-clean:
     needs: linux-x86-64
     runs-on: ubuntu-24.04
@@ -120,17 +122,13 @@ jobs:
       - name: Install the check tools only
         run: apt-get update && apt-get install -y --no-install-recommends python3 binutils
       - name: Completeness checks in a clean container
-        run: python3 tools/ci/check_completeness.py kit/plugins
+        run: python3 tools/ci/check_completeness.py kit/bin/plugins
       - name: Conformance kit in a clean container (RAD-91, RAD-133)
         run: |
-          chmod +x kit/yantra-radio-host
-          mkdir -p conformance
-          status=0
-          for p in kit/plugins/*.so; do
-            kit/yantra-radio-host conformance --plugin "$p" \
-              --report "conformance/$(basename "$p" .so).json" || status=1
-          done
-          exit $status
+          chmod +x kit/bin/yantra-radio-host
+          python3 tools/ci/clean_env.py --sandbox none --host kit/bin/yantra-radio-host \
+            --plugins kit/bin/plugins --plugins kit/tests/plugins \
+            --fixture tests/fixtures/soapy/fake_two_cells.json --report-dir conformance
       - uses: actions/upload-artifact@v4
         if: always()
         with:
