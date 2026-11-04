@@ -119,9 +119,11 @@ std::vector<std::string> check_schema_upgrade(const Schema& previous, const Sche
 // the same id (plugin.h "Radio records and technology schemas")? Every
 // radio field exists in `tech` with the same name and type and unit (a
 // LEVEL field: "dBm" in tech, "dBFS" or "dBm" from the radio), every enum
-// item of the radio exists in tech, the kinds match, and tech fields the
-// radio never delivers are OPTIONAL. Returns the problems; empty when it
-// matches.
+// item of the radio exists in tech, the kinds match, tech fields the
+// radio never delivers are OPTIONAL, and no radio field of the BROADCAST
+// or NEIGHBOURS group is a LEVEL field in tech (broadcast thresholds are
+// SYSTEM_INFO: never calibrated or antenna-corrected, RF-02/HW-09).
+// Returns the problems; empty when it matches.
 std::vector<std::string> check_radio_schema(const Schema& tech, const yr_schema& radio);
 
 }  // namespace yantra::plugin

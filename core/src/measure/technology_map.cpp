@@ -58,14 +58,28 @@ plugin::Parsed<SchemaMap> SchemaMap::make(const plugin::Schema& tech, std::uint3
     m.tech_index_ = tech_index;
     m.tech_version_ = tech.version;
     m.tech_field_count_ = tech.fields.size();
+    // The unit of the radio's own measurements: that of its core level
+    // (dBFS, or dBm for a SELF_CALIBRATED radio, RAD-21).
+    std::string measured_unit = "dBFS";
+    for (std::uint32_t i = 0; i < radio.field_count; ++i)
+        if (plugin::text_of(radio.fields[i]->name) == YR_FIELD_LEVEL)
+            measured_unit = plugin::text_of(radio.fields[i]->unit);
     for (std::uint32_t i = 0; i < radio.field_count; ++i) {
         const yr_field_def& rf = *radio.fields[i];
         const std::size_t ti = *tech.field_index(plugin::text_of(rf.name));
         const plugin::Field& tf = tech.fields[ti];
         m.target_.push_back(ti);
-        const bool level = tf.category == plugin::Category::Level && tf.unit == "dBm";
+        // A level reading of this radio (RF-02, HW-09): a LEVEL field in dBm
+        // of the technology schema, a DOUBLE in the radio's measurement unit
+        // and not a broadcast value (check_radio_schema refuses LEVEL for
+        // the BROADCAST and NEIGHBOURS groups). Other dBm values (e.g. a
+        // simulator's ground truth in dBm next to dBFS readings) pass
+        // unchanged.
+        const std::string unit = plugin::text_of(rf.unit);
+        const bool level = tf.category == plugin::Category::Level && tf.unit == "dBm" &&
+                           rf.type == YR_TYPE_DOUBLE && unit == measured_unit;
         m.level_.push_back(level);
-        m.dbfs_level_.push_back(level && plugin::text_of(rf.unit) == "dBFS");
+        m.dbfs_level_.push_back(level && unit == "dBFS");
     }
     out.value = std::move(m);
     return out;

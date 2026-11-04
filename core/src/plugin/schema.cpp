@@ -397,6 +397,14 @@ std::vector<std::string> check_radio_schema(const Schema& tech, const yr_schema&
         if (!unit_ok) {
             problems.push_back(at + ": radio unit '" + unit + "' differs from '" + tf.unit + "'");
         }
+        // Broadcast values in dBm (access thresholds, MS power limits) are
+        // not level readings: no calibration or antenna correction (RF-02,
+        // HW-09) may touch them, so they are SYSTEM_INFO.
+        if (tf.category == Category::Level &&
+            (rf->group == YR_GROUP_BROADCAST || rf->group == YR_GROUP_NEIGHBOURS)) {
+            problems.push_back(at + ": a broadcast value of the radio is SYSTEM_INFO, not LEVEL "
+                                    "(levels are calibrated and corrected, thresholds are not)");
+        }
         for (std::uint32_t k = 0; k < rf->enum_count && rf->enum_items != nullptr; ++k) {
             if (tf.find_enum(rf->enum_items[k].value) == nullptr) {
                 problems.push_back(at + ": radio enum value " +

@@ -146,7 +146,12 @@
  * a radio of that technology may deliver, with the same name and type;
  * the unit is the same too, except that a LEVEL field is always "dBm" in
  * the technology schema while the radio may report "dBFS". Fields a radio
- * does not deliver stay absent (#YANTRA_FIELD_OPTIONAL). The schema kinds
+ * does not deliver stay absent (#YANTRA_FIELD_OPTIONAL). LEVEL fields are
+ * the radio's level readings (DOUBLE, in its measurement unit): they get
+ * the calibration and the antenna correction (HW-09). Broadcast values in
+ * dBm, such as access thresholds or MS power limits (radio groups
+ * BROADCAST and NEIGHBOURS), are SYSTEM_INFO and are never corrected; a
+ * LEVEL category there is refused. The schema kinds
  * #YANTRA_SCHEMA_MEASUREMENT, #YANTRA_SCHEMA_SCAN and
  * #YANTRA_SCHEMA_NEIGHBOUR have the values of the radio API's
  * YR_SCHEMA_* kinds. The core fields of a radio MEASUREMENT record

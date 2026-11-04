@@ -54,7 +54,7 @@ FIELD(f_la, "la", YANTRA_TYPE_UINT, YANTRA_CATEGORY_SYSTEM_INFO,
       YANTRA_FIELD_KEY | YANTRA_FIELD_DEFAULT, "LA", "", "Location area.");
 FIELD(f_cc, "colour_code", YANTRA_TYPE_UINT, YANTRA_CATEGORY_SYSTEM_INFO, YANTRA_FIELD_VERIFY,
       "Colour code", "", "Colour code.");
-FIELD(f_rx_min, "rx_level_min", YANTRA_TYPE_DOUBLE, YANTRA_CATEGORY_LEVEL,
+FIELD(f_rx_min, "rx_level_min", YANTRA_TYPE_DOUBLE, YANTRA_CATEGORY_SYSTEM_INFO,
       YANTRA_FIELD_OPTIONAL | YANTRA_FIELD_VERIFY, "Minimum RX level", "dBm",
       "Broadcast minimum receive level for access.");
 FIELD(f_mer, "mer_pct", YANTRA_TYPE_DOUBLE, YANTRA_CATEGORY_QUALITY, YANTRA_FIELD_OPTIONAL,
