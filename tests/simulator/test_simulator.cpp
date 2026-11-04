@@ -257,6 +257,76 @@ TEST_CASE("simulator: levels follow the multi-wall model at each sim_position (R
     CHECK(checked >= 20);
 }
 
+// The Fraunces plan as a scene 1.1 (RAD-36): the first drywall is a
+// polyline with a vertex at (8, 5) on the line from a1, the second has
+// per-band values (3 dB at 380 MHz, 9 dB at 400 MHz), and a second T1
+// antenna is one floor up at its own level and slab sum.
+std::string fraunces_scene_v1_1()
+{
+    return R"({"format": "yantra-radio-scene", "version": 1, "minor_version": 1,
+  "floor": {"id": "fr-ground", "name": "Ground floor", "scale_set": true,
+            "width_m": 20.0, "height_m": 10.0,
+            "storeys": [{"floor_offset": 1, "level_m": 4.0, "slab_attenuation_db": 10.0}]},
+  "wall_classes": [{"id": "drywall", "label": "Drywall", "attenuation_db": 3.0}],
+  "walls": [{"x1_m": 6.0, "y1_m": 0.0, "x2_m": 8.0, "y2_m": 5.0, "class": "drywall",
+             "attenuation_db": 3.0, "polyline": "d1"},
+            {"x1_m": 8.0, "y1_m": 5.0, "x2_m": 6.0, "y2_m": 10.0, "class": "drywall",
+             "attenuation_db": 3.0, "polyline": "d1"},
+            {"x1_m": 13.0, "y1_m": 0.0, "x2_m": 13.0, "y2_m": 10.0, "class": "drywall",
+             "attenuation_db": 3.0, "bands": [{"frequency_hz": 380000000, "attenuation_db": 3.0},
+                                              {"frequency_hz": 400000000, "attenuation_db": 9.0}]}],
+  "cells": [{"id": "T1", "label": "Indoor DAS", "mcc": 901, "mnc": 1, "la": 100,
+             "colour_code": 1, "carrier_hz": 390000000}],
+  "antennas": [{"id": "a1", "cell": "T1", "x_m": 3.0, "y_m": 5.0, "height_m": 2.8,
+                "eirp_dbm": 10.0, "pattern": {"type": "omni"}},
+               {"id": "a2", "cell": "T1", "x_m": 17.0, "y_m": 5.0, "height_m": 2.8,
+                "eirp_dbm": 10.0, "floor_offset": 1, "pattern": {"type": "omni"}}]})";
+}
+
+TEST_CASE("simulator: a scene 1.1 is simulated with its polylines, bands and storeys (RAD-36, RAD-61, RAD-73)")
+{
+    const std::string scene = fraunces_scene_v1_1();
+    // The same scene read as 1.0 would be: polyline ids, bands and storeys
+    // dropped.
+    radios::Scene v10;
+    std::string error;
+    REQUIRE(radios::parse_scene(scene, v10, error));
+    for (radios::SceneWall& w : v10.walls) {
+        w.polyline.clear();
+        w.bands.clear();
+    }
+    v10.floor.storeys.clear();
+    v10.minor_version = 0;
+    const std::string scene10 = radios::scene_to_json(v10);
+
+    const std::vector<PlanPoint> path = {{12, 5}, {15, 5}};
+    for (const PlanPoint& p : path) {
+        // Each point differs by more than 2 dB from the 1.0 reading.
+        CAPTURE(p.x_m);
+        CHECK(std::abs(formula_t1(scene, p.x_m, p.y_m) - formula_t1(scene10, p.x_m, p.y_m)) > 2.0);
+    }
+    Sim sim(fraunces_plan(path, 12, scene));
+    std::set<std::pair<double, double>> seen;
+    int checked = 0;
+    const double offset = -20.0;
+    sim.stream(
+        [&](const Record& r) {
+            if (!sim.is_cell(r, kT1Hz) || !sim.has_position(r))
+                return false;
+            const double want = formula_t1(scene, sim.x(r), sim.y(r));
+            const double got = sim.v(r, YR_FIELD_LEVEL).f64 + offset;
+            CHECK_MESSAGE(std::abs(got - want) <= 0.5,
+                          "at " << sim.x(r) << ", " << sim.y(r) << ": " << got << " dBm, model " << want
+                                << " dBm");
+            seen.insert({sim.x(r), sim.y(r)});
+            ++checked;
+            return seen.size() >= path.size() && checked >= 6;
+        },
+        60.0);
+    CHECK(sim.offset() == doctest::Approx(offset));
+    CHECK(seen.size() == path.size());
+}
+
 TEST_CASE("simulator: walk position and position sources (RAD-61)")
 {
     ContextOptions ctx = fraunces_plan({{4, 4}});
