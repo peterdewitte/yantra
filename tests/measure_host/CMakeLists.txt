@@ -22,5 +22,8 @@ target_compile_definitions(test_measure_host PRIVATE
   EXAMPLE_BEACON_PATH="$<TARGET_FILE:yantra_example_beacon>"
   FAKE_SDR_SCENARIO="${YANTRA_RADIOS_FAKE_SDR_SCENARIO}"
   FAKE_SDR_CONTROL_DIR="${CMAKE_CURRENT_BINARY_DIR}/fake_sdr_control")
-yantra_doctest_tests(test_measure_host GROUP test_measure_host LABELS fast TIMEOUT 600
+# PROCESSORS: the simulator and SDR plugin cases keep a stream thread,
+# the plugin's engine workers and the pipeline busy and check real-time
+# cadence; ctest -j must not start more of them than the machine runs.
+yantra_doctest_tests(test_measure_host GROUP test_measure_host LABELS fast TIMEOUT 600 PROCESSORS 4
   WORKING_DIRECTORY ${PROJECT_BINARY_DIR})

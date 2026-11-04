@@ -478,13 +478,21 @@ TEST_CASE("measurement host: an LNA gain change selects the other calibration en
         });
     };
     REQUIRE(with_key(*k16, 0, 3));
-    REQUIRE(dev->set_setting("gain_lna", 24.0) == YR_OK);
+    REQUIRE(dev->set_setting("gain_lna", 24.0) == YR_OK);  // while streaming
     REQUIRE(dev->calibration_key()->id() == k24.id());
+    // The plugin stamps records by sample count from its stream start; with
+    // the unpaced fake module those times run ahead of the clock (default
+    // build) or behind it (sanitizers, slower than real time, never reaching
+    // the change). A restart anchors them to the clock again, so the records
+    // after it are measured after the change in every build. The key per
+    // measurement time is tested exactly in tests/radio_host.
+    CHECK(dev->stop() == YR_OK);
     std::size_t mark = 0;
     {
         const std::lock_guard lock(rig.out->m);
         mark = rig.out->records.size();
     }
+    REQUIRE(dev->start(serving(0)) == YR_OK);
     REQUIRE(with_key(k24, mark, 3));
     CHECK(dev->stop() == YR_OK);
 
