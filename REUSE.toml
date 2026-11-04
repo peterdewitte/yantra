@@ -13,6 +13,12 @@ path = ["LICENSE"]
 SPDX-FileCopyrightText = "2007 Free Software Foundation, Inc."
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+# JSON without comment syntax: the CMake presets.
+[[annotations]]
+path = ["CMakePresets.json"]
+SPDX-FileCopyrightText = "2026 The Yantra contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
 # curtat.be logo: trademark of Curtat BV, not GPL (BRD-04). The files are
 # the owner's and are kept byte-for-byte, so they are annotated here.
 [[annotations]]
