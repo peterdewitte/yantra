@@ -11,12 +11,17 @@ configure_file(src/build_config.h.in
   ${CMAKE_CURRENT_BINARY_DIR}/generated/yantra/core/build_config.h @ONLY)
 
 add_library(yantra_core STATIC
-  src/build_info.cpp)
+  src/build_info.cpp
+  src/plugin/abi.cpp
+  src/plugin/descriptor.cpp
+  src/plugin/licence.cpp
+  src/plugin/record.cpp
+  src/plugin/schema.cpp)
 add_library(yantra::core ALIAS yantra_core)
 
 target_include_directories(yantra_core
   PUBLIC include
   PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
 target_link_libraries(yantra_core
-  PUBLIC yantra::plugin_api
+  PUBLIC yantra::plugin_api yantra::radio_api
   PRIVATE yantra::warnings)
