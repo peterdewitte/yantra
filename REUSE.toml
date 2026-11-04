@@ -126,3 +126,11 @@ path = ["third_party/soapyrtlsdr/*.cpp", "third_party/soapyrtlsdr/*.hpp", "third
 precedence = "override"
 SPDX-FileCopyrightText = "2015 Charles J. Cliffe and the SoapyRTLSDR/SoapyAirspy contributors (see the file headers)"
 SPDX-License-Identifier = "MIT"
+
+# SoapyRemote 0.5.3 (BSL-1.0), vendored subset, unchanged (RAD-50, RAD-136).
+[[annotations]]
+path = ["third_party/soapyremote/LICENSE_1_0.txt", "third_party/soapyremote/client/**",
+        "third_party/soapyremote/common/**", "third_party/soapyremote/server/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "2015-2020 Josh Blum, 2016 Bastille Networks (see the file headers)"
+SPDX-License-Identifier = "BSL-1.0"

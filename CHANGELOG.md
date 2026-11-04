@@ -272,3 +272,12 @@ The first version (tag v0.1.0 when released).
   pseudo-terminal answering from a generator scenario (errors, timeouts,
   garbage, unplug/replug), with the conformance kit and the fuzz target
   `pei` for the AT parser (RAD-96).
+- SoapyRemote 0.5.3 (RAD-50, network radios) built into the SDR plugins:
+  the generic plugin lists the devices of the SoapySDRServers named in
+  `YANTRA_SOAPY_REMOTE` (host[:port], comma-separated) as
+  `remote:<serial>`; the module's multicast discovery never runs in a
+  plugin. Tested end to end with SoapyRemote's server side on the
+  loopback serving the fake module (records match the generator's
+  truth) and with the conformance kit. SoapyBladeRF is not built: libbladeRF
+  needs the ADI no-OS AD9361 driver, whose licence is not GPL-3.0
+  compatible (THIRD_PARTY.md).

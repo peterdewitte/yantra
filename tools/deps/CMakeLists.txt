@@ -24,6 +24,9 @@ file(GLOB _rtl_headers ${_tp}/rtl-sdr/include/*.h)
 install(FILES ${_rtl_headers} DESTINATION include)
 install(FILES ${_tp}/airspy/libairspy/src/airspy.h ${_tp}/airspy/libairspy/src/airspy_commands.h
         DESTINATION include/libairspy)
+file(GLOB _remote_headers ${_tp}/soapyremote/common/*.hpp ${_tp}/soapyremote/server/*.hpp)
+install(FILES ${_remote_headers} ${CMAKE_BINARY_DIR}/yantra_deps/soapyremote/SoapySocketDefs.hpp
+        DESTINATION include/SoapyRemote)
 install(FILES ${YANTRA_DEPS_ROOT}/third_party/talloc/LICENSE DESTINATION share/licenses/talloc)
 install(FILES ${_tp}/libusb/COPYING DESTINATION share/licenses/libusb)
 install(FILES ${_tp}/soapysdr/LICENSE_1_0.txt DESTINATION share/licenses/SoapySDR)
@@ -33,6 +36,7 @@ install(FILES ${_tp}/rtl-sdr/COPYING DESTINATION share/licenses/librtlsdr)
 install(FILES ${_tp}/soapyrtlsdr/LICENSE.txt DESTINATION share/licenses/SoapyRTLSDR)
 install(FILES ${YANTRA_DEPS_ROOT}/LICENSES/BSD-3-Clause.txt DESTINATION share/licenses/libairspy)
 install(FILES ${_tp}/soapyairspy/LICENSE.txt DESTINATION share/licenses/SoapyAirspy)
+install(FILES ${_tp}/soapyremote/LICENSE_1_0.txt DESTINATION share/licenses/SoapyRemote)
 install(FILES ${YANTRA_DEPS_ROOT}/third_party/libosmocore/COPYING DESTINATION share/licenses/libosmocore)
 
 # deps-manifest.tsv: name, version, licence per bundled library.

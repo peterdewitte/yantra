@@ -912,7 +912,14 @@ built statically into each plugin (RAD-132, RAD-136, `tools/deps/sdr.cmake`):
 the module loader is replaced, so no system SoapySDR or module is ever
 loaded, and the modules register their drivers when the plugin loads.
 Built in now: SoapyHackRF (libhackrf), SoapyRTLSDR (osmocom librtlsdr,
-RTL-SDR Blog V4) and SoapyAirspy (libairspy), on libusb without libudev.
+RTL-SDR Blog V4) and SoapyAirspy (libairspy), on libusb without libudev,
+and SoapyRemote for network radios. SoapyRemote's devices are those of
+the SoapySDRServers named in the environment variable
+`YANTRA_SOAPY_REMOTE` (`host[:port]` or `tcp://host:port`,
+comma-separated; port 55132 by default), listed by the generic plugin as
+`remote:<serial>`; without it no network radio is listed and the
+diagnostic says so. The module's own discovery (SSDP multicast with a
+thread that stays) never runs inside a plugin.
 
 `plugins/soapysdr` builds `soapysdr.so`, "SDR receiver (SoapySDR)": every
 built-in driver except `hackrf`, which has its own plugin (RAD-60). What

@@ -19,7 +19,7 @@
 TEST_CASE("built-in modules register their drivers")
 {
     const auto drivers = SoapySDR::Registry::listFindFunctions();
-    for (const char* d : {"hackrf", "rtlsdr", "airspy"})
+    for (const char* d : {"hackrf", "rtlsdr", "airspy", "remote"})
         CHECK_MESSAGE(drivers.count(d) == 1, d);
     CHECK(SoapySDR::getLibVersion() == "0.8.1");
 }
@@ -53,4 +53,14 @@ TEST_CASE("enumeration without hardware finds no device and does not fail")
         for (const auto& k : found)
             CHECK(k.count("driver") == 1);
     }
+}
+
+TEST_CASE("SoapyRemote without a server finds no device and does not fail")
+{
+    // Only with a server address (the plugins never run its multicast
+    // discovery); nothing listens on the discard port of the loopback.
+    SoapySDR::Kwargs args{{"driver", "remote"}, {"remote", "tcp://127.0.0.1:9"}};
+    SoapySDR::KwargsList found;
+    CHECK_NOTHROW(found = SoapySDR::Device::enumerate(args));
+    CHECK(found.empty());
 }

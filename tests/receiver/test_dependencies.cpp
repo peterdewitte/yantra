@@ -29,4 +29,6 @@ TEST_CASE("The dependency manifest lists the bundled libraries (RAD-136)")
     REQUIRE(find("osmo-tetra") != nullptr);
     CHECK(std::string_view(find("osmo-tetra")->version) == "59fb603");
     REQUIRE(find("pocketfft") != nullptr);
+    REQUIRE(find("SoapyRemote") != nullptr); // RAD-50 network radios
+    CHECK(std::string_view(find("SoapyRemote")->licence) == "BSL-1.0");
 }

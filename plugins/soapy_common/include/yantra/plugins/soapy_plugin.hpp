@@ -63,6 +63,16 @@ struct DriverFilter {
 /// out and named in `problems`.
 std::vector<Found> find_devices(const DriverFilter& filter, std::string* problems = nullptr);
 
+/// SoapyRemote (RAD-50, network radios): its driver name, and the
+/// environment variable that lists the SoapySDRServer addresses
+/// (host[:port] or tcp://host:port, comma-separated) whose devices the
+/// plugins list. Without it no network radio is listed: the module's own
+/// discovery (SSDP multicast and a thread that outlives the call) is never
+/// run inside a plugin.
+inline constexpr const char* kRemoteDriver = "remote";
+inline constexpr const char* kRemoteServersEnv = "YANTRA_SOAPY_REMOTE";
+std::vector<std::string> remote_servers();
+
 /// The diagnostics text (RAD-52): modules and versions, SoapySDR version,
 /// the devices found and the usual reasons none is (udev rules, DVB
 /// kernel driver).

@@ -35,6 +35,7 @@ EXPECTED = [
     "usr/share/licenses/yantra-radios/soapysdr/LICENSE_1_0.txt",
     "usr/share/licenses/yantra-radios/soapyhackrf/LICENSE",
     "usr/share/licenses/yantra-radios/hackrf/BSD-3-Clause.txt",
+    "usr/share/licenses/yantra-radios/soapyremote/LICENSE_1_0.txt",
     "usr/share/doc/yantra-radios/README.md",
     "usr/share/doc/yantra-radios/RADIO_PLUGINS.md",
     "usr/share/doc/yantra-radios/YANTRA_HACKRF.md",
@@ -44,6 +45,7 @@ NOT_INSTALLED = [
     "usr/lib/yantra-radios/plugins/beacon.so",       # the example
     "usr/lib/yantra-radios/plugins/hackrf_fake.so",  # test builds
     "usr/lib/yantra-radios/plugins/soapysdr_fake.so",
+    "usr/bin/yantra-soapy-remote-test-server",       # test server (SoapyRemote)
 ]
 
 

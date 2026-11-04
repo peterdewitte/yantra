@@ -23,7 +23,8 @@ prefix=$(cd "$prefix" && pwd)
 # Stamp: hash of tools/deps and the vendored sources.
 stamp=$(cd "$root" && find tools/deps third_party/talloc third_party/libosmocore third_party/libusb \
     third_party/soapysdr third_party/hackrf third_party/soapyhackrf third_party/rtl-sdr \
-    third_party/soapyrtlsdr third_party/airspy third_party/soapyairspy -type f -print0 \
+    third_party/soapyrtlsdr third_party/airspy third_party/soapyairspy third_party/soapyremote \
+    -type f -print0 \
     | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
 if [ -f "$prefix/deps.stamp" ] && [ "$(cat "$prefix/deps.stamp")" = "$stamp" ]; then
     echo "build_deps: $prefix is up to date"

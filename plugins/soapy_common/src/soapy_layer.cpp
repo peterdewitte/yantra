@@ -12,6 +12,7 @@
 
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
 #include <sstream>
 
 namespace yantra::soapy {
@@ -60,6 +61,21 @@ std::string scoped(const char* prefix, const std::string& module_key)
 
 } // namespace
 
+std::vector<std::string> remote_servers()
+{
+    std::vector<std::string> out;
+    const char* env = std::getenv(kRemoteServersEnv);
+    if (env == nullptr)
+        return out;
+    for (std::string s : split(env, ',')) {
+        s.erase(0, s.find_first_not_of(" \t"));
+        s.erase(s.find_last_not_of(" \t") + 1);
+        if (!s.empty())
+            out.push_back(s);
+    }
+    return out;
+}
+
 std::string arg_setting_key(const std::string& module_key) { return scoped("arg_", module_key); }
 std::string sensor_setting_key(const std::string& module_key) { return scoped("sensor_", module_key); }
 
@@ -99,9 +115,20 @@ std::vector<Found> find_devices(const DriverFilter& filter, std::string* problem
             continue;
         SoapySDR::KwargsList list;
         try {
-            SoapySDR::Kwargs args;
-            args["driver"] = driver;
-            list = find(args);
+            if (driver == kRemoteDriver) {
+                // SoapyRemote: only the configured servers, one connection
+                // each; its discovery (SSDP multicast, a thread that stays)
+                // never runs inside a plugin.
+                for (const std::string& server : remote_servers()) {
+                    SoapySDR::Kwargs args{{"driver", driver}, {"remote", server}};
+                    for (auto& entry : find(args))
+                        list.push_back(std::move(entry));
+                }
+            } else {
+                SoapySDR::Kwargs args;
+                args["driver"] = driver;
+                list = find(args);
+            }
         } catch (const std::exception& e) {
             if (problems != nullptr)
                 *problems += driver + ": " + e.what() + "; ";
@@ -153,6 +180,17 @@ std::string diagnostics(const DriverFilter& filter)
         o << "; no device found: check that it is plugged in, that the udev rules of the "
              "yantra-radios package are installed (USB access without root), and for an "
              "RTL-SDR that the DVB-T kernel driver dvb_usb_rtl28xxu is blacklisted";
+    if (filter.takes(kRemoteDriver) && SoapySDR::Registry::listFindFunctions().count(kRemoteDriver)) {
+        const std::vector<std::string> servers = remote_servers();
+        if (servers.empty()) {
+            o << "; network radios (SoapyRemote): set " << kRemoteServersEnv
+              << " to the SoapySDRServer addresses (host[:port], comma-separated)";
+        } else {
+            o << "; network radio servers:";
+            for (std::size_t i = 0; i < servers.size(); ++i)
+                o << (i == 0 ? " " : ", ") << servers[i];
+        }
+    }
     return o.str();
 }
 
