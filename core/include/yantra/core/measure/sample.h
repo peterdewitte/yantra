@@ -46,11 +46,15 @@ inline constexpr std::uint32_t kDeviceLost = 1u << 11;
 // The radio reported dropped records or sample overflows in this cycle (RAD-24, RAD-25).
 inline constexpr std::uint32_t kDataLoss = 1u << 12;
 inline constexpr std::uint32_t kCycleMask = kHeld | kStale | kLate | kDeviceLost | kDataLoss;
-inline constexpr std::uint32_t kAllMask = kRecordMask | kCycleMask;
+// The record's C1 (RF-06) was not delivered by the radio: Yantra estimated
+// it from the calibrated level and the cell's broadcast parameters
+// through the technology plugin (MappedRecord::c1_source).
+inline constexpr std::uint32_t kC1Estimated = 1u << 13;
+inline constexpr std::uint32_t kAllMask = kRecordMask | kCycleMask | kC1Estimated;
 }  // namespace sample_flag
 
 // "no_sync,overload,uncalibrated,simulated,held,stale,late,device_lost,
-// data_loss" for the bits set, in bit order; "" for none.
+// data_loss,c1_estimated" for the bits set, in bit order; "" for none.
 std::string sample_flags_text(std::uint32_t flags);
 
 // The part a record plays, from the radio API's schema kind and core role.
@@ -72,8 +76,16 @@ struct QualityValue {
     double value = 0.0;
 };
 
-// One accepted radio record after schema mapping (PLG-05) and level
-// correction (RF-02, HW-09).
+// Where the C1 value of a record comes from (RF-06).
+enum class C1Source {
+    None,       // the record has no C1 (no C1 field, or not computable)
+    Radio,      // delivered by the radio plugin in its record
+    Estimated,  // calculated by Yantra: technology plugin's compute_c1 on the calibrated level
+};
+const char* c1_source_text(C1Source source) noexcept;  // "", "radio", "estimated"
+
+// One accepted radio record after schema mapping (PLG-05), level
+// correction (RF-02, HW-09) and C1 (RF-06).
 struct MappedRecord {
     // Provenance (PLG-12): technology id, technology plugin id and version
     // ("" for the generic schema), schema id and version.
@@ -95,7 +107,8 @@ struct MappedRecord {
     bool radio_dbfs = false;           // radio_level is in dBFS
     LevelCorrection correction;        // what was applied
     std::vector<QualityValue> quality;
-    std::uint32_t flags = 0;           // sample_flag record bits (+ kSimulated for SIMULATED radios)
+    C1Source c1_source = C1Source::None;  // the C1 field (radio API name c1_db) of `record`
+    std::uint32_t flags = 0;           // sample_flag record bits (+ kSimulated for SIMULATED radios, + kC1Estimated)
     std::int64_t arrival_ns = 0;       // pipeline clock when it arrived
 };
 

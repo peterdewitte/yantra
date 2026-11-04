@@ -62,12 +62,13 @@ TEST_CASE("names: identifiers and the scope words (PLG-08)") {
     CHECK_FALSE(yp::is_identifier(std::string(65, 'a')));
     CHECK(yp::is_item_name("1"));
     for (const char* bad : {"issi", "nb_gssi", "sds_text", "voice", "iq_samples", "imsi", "pdu",
-                            "cck_id", "subscriber_count", "tmsi"}) {
+                            "cck_id", "subscriber_count", "subscriber", "subscriber_classes", "tmsi"}) {
         INFO(bad);
         CHECK(yp::names_out_of_scope_data(bad));
     }
     for (const char* good : {"rssi", "encrypted_blocks", "mcc", "la", "colour_code", "ber",
-                             "keyed", "messages_per_s_rate"}) {
+                             "keyed", "messages_per_s_rate", "subscriber_class",
+                             "neighbour_subscriber_class_bits"}) {
         INFO(good);
         CHECK_FALSE(yp::names_out_of_scope_data(good));
     }

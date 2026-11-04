@@ -11,8 +11,13 @@
 //     technology plugin's schema of the same id (TechnologyCatalog), or of
 //     the generic schema derived from the radio schema when no technology
 //     plugin is loaded (PLG-12 generic views);
-//  3. level correction (RF-02, HW-09): LevelCorrector (correction.h), the
-//     hook of step 6.2; IdentityCorrector until then;
+//  3. level correction (RF-02, HW-09): LevelCorrector (correction.h:
+//     calibration::TableCorrector in the app, IdentityCorrector by
+//     default); then C1 (RF-06): a record of a technology plugin's cell
+//     schema whose C1 field (the radio API's c1_db) the radio left empty
+//     gets the C1 the plugin's compute_c1 gives for the calibrated level
+//     and PipelineConfig::ms_power_dbm, flagged kC1Estimated; a radio's C1
+//     is kept as delivered; an uncalibrated (dBFS) level gets none;
 //  4. checks and per-carrier state: implausible levels are refused,
 //     out-of-order and duplicate records ignored, late ones flagged, all
 //     counted (TST-23);
@@ -83,6 +88,9 @@ struct PipelineConfig {
     std::uint32_t max_catch_up = 600;              // cycles emitted by one tick at most
     double min_level = -250.0;                     // plausible levels (dBFS or dBm)
     double max_level = 50.0;
+    // MS class power for C1 estimated by Yantra (RF-06): 30 dBm portable
+    // (default), 35 dBm mobile; between 10 and 50 dBm.
+    double ms_power_dbm = 30.0;
     // "" when valid, else what is wrong.
     std::string validate() const;
 };
@@ -104,6 +112,9 @@ struct PipelineStats {
     std::uint64_t stale = 0;           // samples with kStale
     std::uint64_t expired = 0;         // carriers that left after drop_after
     std::uint64_t skipped_cycles = 0;  // beyond max_catch_up in one tick
+    std::uint64_t c1_radio = 0;        // accepted records with the radio's C1 (RF-06)
+    std::uint64_t c1_estimated = 0;    // accepted records with C1 estimated by Yantra
+    std::uint64_t c1_failed = 0;       // compute_c1 answered an error (not UNSUPPORTED)
 };
 
 class MeasurementPipeline final : public MeasurementInput {
@@ -162,6 +173,8 @@ private:
         int frequency = -1, role = -1, level = -1, entry_index = -1;
         bool radio_dbfs = false;
         int tech_level = -1;  // technology field of the level
+        int tech_c1 = -1;     // technology field c1_db (DOUBLE) of a cell schema, -1 none
+        std::shared_ptr<const TechnologyRules> rules;  // with compute_c1, for tech_c1
         std::vector<std::size_t> quality;  // technology QUALITY fields
     };
     using CarrierKey = std::tuple<std::string, std::string, std::string, std::uint64_t, std::uint64_t>;

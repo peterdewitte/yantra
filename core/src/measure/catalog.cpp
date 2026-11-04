@@ -7,7 +7,8 @@ namespace yantra::measure {
 
 void TechnologyCatalog::add(const std::string& technology_id, const std::string& plugin_id,
                             const std::string& plugin_version,
-                            const std::vector<plugin::Schema>& schemas) {
+                            const std::vector<plugin::Schema>& schemas,
+                            std::shared_ptr<const TechnologyRules> rules) {
     const std::lock_guard lock(mutex_);
     auto& by_id = by_technology_[technology_id];
     for (std::size_t i = 0; i < schemas.size(); ++i) {
@@ -17,6 +18,7 @@ void TechnologyCatalog::add(const std::string& technology_id, const std::string&
         t.technology_id = technology_id;
         t.plugin_id = plugin_id;
         t.plugin_version = plugin_version;
+        t.rules = rules;
         by_id[schemas[i].id] = std::move(t);
     }
     ++generation_;
@@ -25,6 +27,20 @@ void TechnologyCatalog::add(const std::string& technology_id, const std::string&
 bool TechnologyCatalog::add(const plugin::PluginInfo& info) {
     if (!info.technology) return false;
     add(info.technology->technology_id, info.id, info.version, info.technology->schemas);
+    return true;
+}
+
+bool TechnologyCatalog::add(const plugin::PluginInfo& info,
+                            const yantra_plugin_descriptor* descriptor,
+                            yantra_plugin_instance* instance) {
+    if (!info.technology || descriptor == nullptr || descriptor->technology == nullptr)
+        return false;
+    auto rules = std::make_shared<TechnologyRules>();
+    rules->api = descriptor->technology;
+    rules->instance = instance;
+    rules->cell_schema = static_cast<std::uint32_t>(info.technology->cell_schema);
+    add(info.technology->technology_id, info.id, info.version, info.technology->schemas,
+        std::move(rules));
     return true;
 }
 

@@ -227,6 +227,13 @@ bool names_out_of_scope_data(std::string_view name) noexcept {
             end = name.size();
         }
         const std::string_view word = name.substr(start, end - start);
+        // "subscriber_class" is the cell's broadcast access-class bitmap
+        // (D-MLE-SYSINFO; DB-01, DB-07), not a subscriber identity.
+        if (word == "subscriber" && name.substr(end).starts_with("_class") &&
+            (end + 6 == name.size() || name[end + 6] == '_')) {
+            start = end + 7;
+            continue;
+        }
         if (std::find(std::begin(kOutOfScopeWords), std::end(kOutOfScopeWords), word) !=
             std::end(kOutOfScopeWords)) {
             return true;

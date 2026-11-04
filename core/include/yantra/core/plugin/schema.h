@@ -95,7 +95,8 @@ bool is_item_name(std::string_view name) noexcept;
 // (PLG-08): subscriber identities or addresses, message content, speech,
 // key material, or raw signal data (IQ, samples, bursts, PDUs). Checked
 // per '_'-separated word, so "rssi" or "encrypted_blocks" pass and "issi"
-// or "sds_text" do not. The word list is the radio API's (RAD-17) plus a
+// or "sds_text" do not; "subscriber" passes only as "subscriber_class"
+// (a cell's broadcast access classes, DB-01). The word list is the radio API's (RAD-17) plus a
 // few more identity words.
 bool names_out_of_scope_data(std::string_view name) noexcept;
 

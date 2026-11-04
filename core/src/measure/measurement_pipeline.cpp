@@ -51,6 +51,8 @@ std::string PipelineConfig::validate() const {
     if (late_after_ns <= 0) return "late_after_ns must be > 0";
     if (max_catch_up == 0) return "max_catch_up must be at least 1";
     if (!(min_level < max_level)) return "min_level must be below max_level";
+    if (!std::isfinite(ms_power_dbm) || ms_power_dbm < 10.0 || ms_power_dbm > 50.0)
+        return "ms_power_dbm must be between 10 and 50 dBm (RF-06)";
     return {};
 }
 
@@ -136,6 +138,14 @@ std::shared_ptr<const MeasurementPipeline::SchemaEntry> MeasurementPipeline::sch
                 e->index = t->index;
                 e->provenance.plugin_id = t->plugin_id;
                 e->provenance.plugin_version = t->plugin_version;
+                // RF-06: C1 of the cell schema, when the plugin computes it.
+                const auto c1 = t->schema->field_index(YR_FIELD_C1_DB);
+                if (t->rules && t->rules->api != nullptr && t->rules->api->compute_c1 != nullptr &&
+                    t->index == t->rules->cell_schema && c1 &&
+                    t->schema->fields[*c1].type == plugin::FieldType::Double) {
+                    e->tech_c1 = static_cast<int>(*c1);
+                    e->rules = t->rules;
+                }
             } else {
                 {
                     const std::lock_guard slock(mutex_);
@@ -261,6 +271,35 @@ void MeasurementPipeline::on_radio_record(const RadioRecord& rr) {
     m.radio_level = radio_level;
     m.radio_dbfs = e->radio_dbfs;
     m.correction = c;
+    // Stage 3b: C1 (RF-06): the radio's, else estimated from the calibrated level.
+    bool c1_failed = false;
+    if (e->tech_c1 >= 0) {
+        plugin::Value& v = m.record.values[static_cast<std::size_t>(e->tech_c1)];
+        if (std::holds_alternative<double>(v)) {
+            m.c1_source = C1Source::Radio;
+        } else if (e->rules && std::isfinite(m.level) &&
+                   (m.record.flags & YANTRA_RECORD_UNCALIBRATED) == 0) {
+            const RecordView view(m.record, m.schema_index);
+            yantra_c1_input in{};
+            in.struct_size = sizeof in;
+            in.record = view.get();
+            in.level_dbm = m.level;
+            in.ms_power_dbm = config_.ms_power_dbm;
+            double c1 = std::nan("");
+            const yantra_status st = e->rules->api->compute_c1(e->rules->instance, &in, &c1);
+            if (st == YANTRA_OK && std::isfinite(c1)) {
+                v = c1;
+                m.c1_source = C1Source::Estimated;
+            } else if (st != YANTRA_ERR_UNSUPPORTED) {
+                c1_failed = true;
+                const std::string once = "c1/" + m.provenance.plugin_id;
+                const std::lock_guard slock(schema_mutex_);
+                if (log_ && logged_.insert(once).second)
+                    log_("technology plugin " + m.provenance.plugin_id + ": compute_c1 answered " +
+                         std::to_string(st) + " (C1 left empty, RF-06)");
+            }
+        }
+    }
     for (const std::size_t qi : e->quality) {
         const auto n = number_of(m.record.values[qi]);
         if (n && std::isfinite(*n)) m.quality.push_back({e->schema->fields[qi].name, e->schema->fields[qi].unit, *n});
@@ -268,6 +307,7 @@ void MeasurementPipeline::on_radio_record(const RadioRecord& rr) {
     m.flags = m.record.flags & sample_flag::kRecordMask;
     if ((rr.capabilities & YR_CAP_SIMULATED) != 0) m.flags |= sample_flag::kSimulated;
     m.record.flags = m.flags;
+    if (m.c1_source == C1Source::Estimated) m.flags |= sample_flag::kC1Estimated;
     m.arrival_ns = now;
 
     // Stage 4b: per-carrier state (TST-23: out of order, duplicates, late).
@@ -276,6 +316,7 @@ void MeasurementPipeline::on_radio_record(const RadioRecord& rr) {
     {
         const std::lock_guard lock(mutex_);
         ++stats_.records;
+        if (c1_failed) ++stats_.c1_failed;
         const CarrierKey key{rr.plugin_id, rr.device_key, m.provenance.schema_id, m.frequency_hz,
                              m.entry_index};
         auto [it, inserted] = carriers_.try_emplace(key);
@@ -305,6 +346,8 @@ void MeasurementPipeline::on_radio_record(const RadioRecord& rr) {
         d.stopped = false;
         ++stats_.accepted;
         if (m.generic) ++stats_.generic;
+        if (m.c1_source == C1Source::Radio) ++stats_.c1_radio;
+        if (m.c1_source == C1Source::Estimated) ++stats_.c1_estimated;
     }
     bump();
     // Stage 5: observers (recording, feature plugins), without the lock.

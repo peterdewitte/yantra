@@ -13,6 +13,7 @@
 #include <limits>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <thread>
 #include <vector>
 
@@ -722,4 +723,128 @@ TEST_CASE("pipeline: a SELF_CALIBRATED radio's dBm levels get no table and no UN
     CHECK(m.flags == 0);
     CHECK(m.correction.source == "radio");
     CHECK_FALSE(m.correction.calibrated);
+}
+
+namespace {
+
+// A schema with C1 (RF-06): level, the radio's C1 and two access parameters.
+FIELD(f_c1, YR_FIELD_C1_DB, YR_TYPE_DOUBLE, YR_GROUP_C1, 0, "dB", nullptr, 0);
+FIELD(f_c1rx, "rx_min_dbm", YR_TYPE_INT, YR_GROUP_BROADCAST, 0, "dBm", nullptr, 0);
+const yr_field_def* const kC1Fields[] = {&f_freq, &f_chan, &f_role, &f_level, &f_mcc,
+                                         &f_mnc,  &f_la,   &f_cc,   &f_c1,    &f_c1rx};
+const yr_schema kC1Schema = {sizeof(yr_schema), YR_SCHEMA_MEASUREMENT, "x_c1", "Cell", 1, 10,
+                             kC1Fields, YR_GROUP_C1 | YR_GROUP_BROADCAST, 0};
+
+std::atomic<int> c1_calls{0};
+
+// A technology's C1: level - rx_min - (ms_power - 30); UNSUPPORTED without rx_min.
+yantra_status test_c1(yantra_plugin_instance*, const yantra_c1_input* in, double* out) {
+    ++c1_calls;
+    if (in->record->value_count < 10 || in->record->values[9].type != YANTRA_TYPE_INT)
+        return YANTRA_ERR_UNSUPPORTED;
+    if (in->record->values[9].u.i64 == 0) return YANTRA_ERR_INVALID_ARGUMENT;
+    *out = in->level_dbm - static_cast<double>(in->record->values[9].u.i64) - (in->ms_power_dbm - 30.0);
+    return YANTRA_OK;
+}
+
+ym::RadioRecord c1_record(std::int64_t t, double level, std::optional<double> c1,
+                          std::optional<std::int64_t> rx_min, std::uint32_t flags = 0) {
+    ym::RadioRecord r = base(kC1Schema, 0, t, flags);
+    auto& v = r.record.values;
+    v[0] = std::uint64_t{390'000'000};
+    v[2] = yp::EnumValue{YR_ROLE_SERVING};
+    v[3] = level;
+    v[1] = v[4] = v[5] = v[6] = v[7] = std::uint64_t{1};
+    if (c1) v[8] = *c1;
+    if (rx_min) v[9] = *rx_min;
+    r.present = (c1 ? YR_GROUP_C1 : 0u) | (rx_min ? YR_GROUP_BROADCAST : 0u);
+    return r;
+}
+
+}  // namespace
+
+TEST_CASE("pipeline: C1 is the radio's, else estimated by the technology plugin and flagged (RF-06)") {
+    yantra_technology_api api{};
+    api.struct_size = sizeof api;
+    api.compute_c1 = test_c1;
+    auto rules = std::make_shared<ym::TechnologyRules>();
+    rules->api = &api;
+    rules->cell_schema = 0;
+    auto catalog = std::make_shared<ym::TechnologyCatalog>();
+    catalog->add("xtech", "org.example.xtech", "1.0.0", {ym::generic_schema(kC1Schema)}, rules);
+    ym::PipelineConfig config;
+    config.ms_power_dbm = 35.0;
+    yantra::calibration::AntennaSettings antenna;
+    antenna.all.cable_loss_db = 3.0;
+    Fixture f(config, catalog, std::make_shared<yantra::calibration::TableCorrector>(cal_table(), antenna));
+    const auto c1_of = [](const ym::MappedRecord& m) { return m.record.values[8]; };
+
+    SUBCASE("a radio's C1 is kept as delivered") {
+        ym::RadioRecord r = c1_record(f.now(), -40.0, 51.25, std::int64_t{-110});
+        r.calibration_key = std::make_shared<const yantra::calibration::Key>(cal_key("10"));
+        f.p->on_radio_record(r);
+        REQUIRE(f.out->records.size() == 1);
+        CHECK(std::get<double>(c1_of(f.out->records[0])) == 51.25);
+        CHECK(f.out->records[0].c1_source == ym::C1Source::Radio);
+        CHECK((f.out->records[0].flags & sf::kC1Estimated) == 0);
+        CHECK(f.p->stats().c1_radio == 1);
+        CHECK(c1_calls == 0);
+    }
+    SUBCASE("a missing C1 is estimated from the calibrated level and the MS power") {
+        ym::RadioRecord r = c1_record(f.now(), -40.0, std::nullopt, std::int64_t{-110});
+        r.calibration_key = std::make_shared<const yantra::calibration::Key>(cal_key("10"));
+        f.p->on_radio_record(r);
+        REQUIRE(f.out->records.size() == 1);
+        const ym::MappedRecord& m = f.out->records[0];
+        CHECK(m.level == doctest::Approx(-40.0 - 60.0 + 3.0));  // cable loss added back
+        CHECK(std::get<double>(c1_of(m)) == doctest::Approx(-97.0 + 110.0 - 5.0));
+        CHECK(m.c1_source == ym::C1Source::Estimated);
+        CHECK((m.flags & sf::kC1Estimated) != 0);
+        CHECK((m.record.flags & sf::kC1Estimated) == 0);  // the record keeps record bits only
+        CHECK(ym::sample_flags_text(m.flags) == "c1_estimated");
+        CHECK(f.p->stats().c1_estimated == 1);
+        // The flag reaches the cycle sample.
+        const ym::MeasurementCycle c = f.next();
+        REQUIRE(c.samples.size() == 1);
+        CHECK((c.samples[0].flags & sf::kC1Estimated) != 0);
+    }
+    SUBCASE("an uncalibrated level gets no C1") {
+        f.p->on_radio_record(c1_record(f.now(), -40.0, std::nullopt, std::int64_t{-110}));
+        REQUIRE(f.out->records.size() == 1);
+        CHECK(std::holds_alternative<std::monostate>(c1_of(f.out->records[0])));
+        CHECK(f.out->records[0].c1_source == ym::C1Source::None);
+        CHECK(c1_calls == 0);
+    }
+    SUBCASE("without the broadcast parameters the plugin answers UNSUPPORTED: no C1, no log") {
+        ym::RadioRecord r = c1_record(f.now(), -40.0, std::nullopt, std::nullopt);
+        r.calibration_key = std::make_shared<const yantra::calibration::Key>(cal_key("10"));
+        f.p->on_radio_record(r);
+        REQUIRE(f.out->records.size() == 1);
+        CHECK(std::holds_alternative<std::monostate>(c1_of(f.out->records[0])));
+        CHECK(f.p->stats().c1_failed == 0);
+        CHECK(f.log.empty());
+    }
+    SUBCASE("an error answer leaves C1 empty, is counted and logged once") {
+        for (int i = 0; i < 2; ++i) {
+            ym::RadioRecord r = c1_record(f.now() + i, -40.0, std::nullopt, std::int64_t{0});
+            r.calibration_key = std::make_shared<const yantra::calibration::Key>(cal_key("10"));
+            f.p->on_radio_record(r);
+        }
+        REQUIRE(f.out->records.size() == 2);
+        CHECK(std::holds_alternative<std::monostate>(c1_of(f.out->records[1])));
+        CHECK(f.p->stats().c1_failed == 2);
+        REQUIRE(f.log.size() == 1);
+        CHECK(f.log[0].find("compute_c1") != std::string::npos);
+    }
+    c1_calls = 0;
+}
+
+TEST_CASE("pipeline: the MS power for C1 must be between 10 and 50 dBm (RF-06)") {
+    ym::PipelineConfig c;
+    CHECK(c.ms_power_dbm == 30.0);
+    CHECK(c.validate().empty());
+    for (double bad : {9.0, 51.0, std::nan("")}) {
+        c.ms_power_dbm = bad;
+        CHECK_FALSE(c.validate().empty());
+    }
 }

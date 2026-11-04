@@ -16,6 +16,7 @@ std::string sample_flags_text(std::uint32_t flags) {
         {sample_flag::kLate, "late"},
         {sample_flag::kDeviceLost, "device_lost"},
         {sample_flag::kDataLoss, "data_loss"},
+        {sample_flag::kC1Estimated, "c1_estimated"},
     };
     std::string out;
     for (const auto& [bit, name] : names) {
@@ -24,6 +25,15 @@ std::string sample_flags_text(std::uint32_t flags) {
         out += name;
     }
     return out;
+}
+
+const char* c1_source_text(C1Source source) noexcept {
+    switch (source) {
+    case C1Source::None: return "";
+    case C1Source::Radio: return "radio";
+    case C1Source::Estimated: return "estimated";
+    }
+    return "";
 }
 
 const char* role_text(CarrierRole role) noexcept {
