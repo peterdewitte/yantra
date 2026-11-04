@@ -103,7 +103,7 @@ request. Build steps follow in BUILD.md once the CMake project exists.
   leave the label out; the default and scalar trees run it. The hang
   guards (ctest TIMEOUT of the per-case tests, the simulator tests' stream
   limits) are multiplied by `YANTRA_TEST_TIME_SCALE` (CMake cache, 5 in
-  the sanitizer trees, 1 otherwise); the checks stay the same:
+  the ASan/UBSan tree, 10 in the TSan tree, 1 otherwise); the checks stay the same:
 
       ctest --preset asan-ubsan -j"$(nproc)"   # = ctest --test-dir build-asan -LE timing
       ctest --preset tsan -j"$(nproc)"

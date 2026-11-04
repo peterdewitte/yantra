@@ -27,15 +27,19 @@
 # YANTRA_TEST_TIME_SCALE: the sanitizer trees (Debug, ASan/TSan) run 5-60x
 # slower; their hang guards scale with it: the TIMEOUT of the per-case
 # ctests and the tests' own stream limits (C++ YANTRA_TEST_TIME_SCALE).
+# 5 for ASan/UBSan, 10 for TSan (the DSP runs ~2x slower again under TSan:
+# the HackRF records case took 298 s alone and over 600 s under ctest -j).
 # Only guards: no check or tolerance changes, the real-time checks are
 # label timing and left out of those trees.
 if(YANTRA_SANITIZER STREQUAL "")
   set(_yantra_scale 1)
+elseif(YANTRA_SANITIZER STREQUAL "tsan")
+  set(_yantra_scale 10)
 else()
   set(_yantra_scale 5)
 endif()
 set(YANTRA_TEST_TIME_SCALE ${_yantra_scale} CACHE STRING
-    "Factor on the tests' hang guards (5 in sanitizer trees)")
+    "Factor on the tests' hang guards (5 in ASan, 10 in TSan trees)")
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 set(YANTRA_DOCTEST_DISCOVER ${CMAKE_CURRENT_LIST_DIR}/doctest_discover.py)

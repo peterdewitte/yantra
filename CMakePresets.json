@@ -42,7 +42,8 @@
       "displayName": "ThreadSanitizer developer build (RAD-90, TST-05)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build-tsan",
-      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "YANTRA_SANITIZER": "tsan" }
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "Debug", "YANTRA_SANITIZER": "tsan",
+                          "YANTRA_TEST_TIME_SCALE": "10" }
     },
     {
       "name": "fuzz",
