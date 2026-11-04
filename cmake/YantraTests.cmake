@@ -6,7 +6,7 @@
 #
 # yantra_doctest_tests(<target> GROUP <name> [FILTERS <doctest args>...]
 #                      [LABELS <l>...] [TIMEOUT <s>] [RUN_SERIAL] [OPT_IN]
-#                      [WORKING_DIRECTORY <dir>])
+#                      [PROCESSORS <n>] [WORKING_DIRECTORY <dir>])
 #   One ctest "<name>/<case>" per doctest test case of <target> that passes
 #   FILTERS (e.g. --test-suite=slow), so ctest -j runs the cases of a long
 #   binary in parallel. The cases are listed after every link
@@ -14,6 +14,10 @@
 #   and --test-case=<case>, so the group checks exactly what one ctest
 #   "<target> FILTERS" did. COST comes from tests/ctest_costs.txt (the
 #   longest start first in a fresh tree; afterwards ctest's own cost data).
+#   PROCESSORS: the ctest PROCESSORS property of every case, for cases that
+#   keep several threads busy (a plugin's stream thread, its engine worker
+#   pool and the fake device), so `ctest -j N` does not start more of them
+#   than the machine runs and the hang guards stay far away.
 #
 # yantra_add_opt_in_test(<name> COMMAND <cmd>... [LABELS <l>...]
 #                        [TIMEOUT <s>] [RUN_SERIAL] [COST <c>])
@@ -49,7 +53,7 @@ if(_yantra_opt_in)
 ]=])
 
 function(yantra_doctest_tests target)
-  cmake_parse_arguments(ARG "RUN_SERIAL;OPT_IN" "GROUP;TIMEOUT;WORKING_DIRECTORY" "FILTERS;LABELS" ${ARGN})
+  cmake_parse_arguments(ARG "RUN_SERIAL;OPT_IN" "GROUP;TIMEOUT;PROCESSORS;WORKING_DIRECTORY" "FILTERS;LABELS" ${ARGN})
   if(NOT ARG_GROUP)
     message(FATAL_ERROR "yantra_doctest_tests(${target}): GROUP is required")
   endif()
@@ -66,6 +70,9 @@ function(yantra_doctest_tests target)
   endif()
   if(ARG_RUN_SERIAL)
     list(APPEND _opts --run-serial)
+  endif()
+  if(ARG_PROCESSORS)
+    list(APPEND _opts --processors ${ARG_PROCESSORS})
   endif()
   if(ARG_WORKING_DIRECTORY)
     list(APPEND _opts --workdir ${ARG_WORKING_DIRECTORY})

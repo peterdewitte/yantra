@@ -79,6 +79,7 @@ def main():
     ap.add_argument("--labels", default="")
     ap.add_argument("--timeout", default="")
     ap.add_argument("--run-serial", action="store_true")
+    ap.add_argument("--processors", default="")
     ap.add_argument("--workdir", default="")
     ap.add_argument("--costs", default="")
     ap.add_argument("filters", nargs="*")
@@ -114,6 +115,8 @@ def main():
             props.append(f"TIMEOUT {a.timeout}")
         if a.run_serial:
             props.append("RUN_SERIAL TRUE")
+        if a.processors:
+            props.append(f"PROCESSORS {a.processors}")
         if a.workdir:
             props.append(f"WORKING_DIRECTORY {bracket(a.workdir)}")
         if test in costs:

@@ -14,9 +14,13 @@ target_link_libraries(test_hackrf PRIVATE yantra_test_main yantra_warnings
 target_compile_definitions(test_hackrf PRIVATE HACKRF_FAKE_PLUGIN="$<TARGET_FILE:hackrf_fake>")
 add_dependencies(test_hackrf hackrf_fake)
 # Real-time checks are TEST_SUITE("timing"): label timing, left out of the
-# sanitizer trees.
+# sanitizer trees. A case keeps about three threads busy (the plugin's
+# stream thread, its two engine workers, the fake's producer): PROCESSORS 3
+# keeps `ctest -j$(nproc)` from oversubscribing the machine, which made
+# the records case reach its 600 s hang guard once in the asan-ubsan tree
+# (166 s alone).
 yantra_doctest_tests(test_hackrf GROUP test_hackrf FILTERS --test-suite-exclude=timing
-  LABELS fast TIMEOUT 300 WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+  LABELS fast TIMEOUT 300 PROCESSORS 3 WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 yantra_doctest_tests(test_hackrf GROUP test_hackrf_timing FILTERS --test-suite=timing
   LABELS timing TIMEOUT 120 RUN_SERIAL WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
