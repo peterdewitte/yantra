@@ -16,6 +16,7 @@
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
+#include <memory>
 #include <string>
 #include <vector>
 
@@ -29,13 +30,13 @@ const char* const kSerial = "00000000000000000000000000000042";
 
 struct Config {
     fs::path control;
-    Config()
+    explicit Config(const std::string& extra = "")
     {
         control = fs::path(YANTRA_BINARY_DIR) / "tests" / "fake_soapy_control" / std::to_string(::getpid());
         fs::create_directories(control);
         const std::string json = "{\"control\":\"" + control.string() + "\",\"devices\":[{\"serial\":\"" +
                                  kSerial + "\",\"scenario\":\"" + YANTRA_TEST_DATA_DIR +
-                                 "/soapy/fake_two_cells.json\",\"buffer_s\":10}]}";
+                                 "/soapy/fake_two_cells.json\",\"buffer_s\":10" + extra + "}]}";
         setenv("YANTRA_FAKE_SOAPY", json.c_str(), 1);
     }
     ~Config()
@@ -137,6 +138,49 @@ TEST_CASE("fake soapy: paced scenario IQ, gain-following level, overflow and unp
     fs::remove(c.control / (std::string(kSerial) + ".unplugged"));
     // A replug never revives an old handle.
     CHECK(d->readStream(st, b, buf.size(), flags, t, 50000) == SOAPY_SDR_TIMEOUT);
+    d->deactivateStream(st);
+    d->closeStream(st);
+}
+
+TEST_CASE("fake soapy: an unpaced read returns at its timeout with the samples ready so far (RAD-92, RAD-15)")
+{
+    // Like a real module, a read never takes much longer than its timeout:
+    // a stop_stream waits for it (RAD-15). The samples not generated in
+    // time come with the next read, the same samples as in one long read.
+    Config c(",\"paced\":false");
+    const auto open = [] {
+        std::unique_ptr<SoapySDR::Device> d(make());
+        d->setSampleRate(SOAPY_SDR_RX, 0, 2e6);
+        d->setFrequency(SOAPY_SDR_RX, 0, 392.5e6);
+        return d;
+    };
+    constexpr std::size_t kN = 131072;
+    int flags = 0;
+    long long t = 0;
+    std::vector<std::complex<float>> whole(kN);
+    {
+        auto d = open();
+        SoapySDR::Stream* st = d->setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32, {0});
+        REQUIRE(d->activateStream(st) == 0);
+        void* b[] = {whole.data()};
+        CHECK(d->readStream(st, b, kN, flags, t, 100'000'000) == static_cast<int>(kN));
+        d->deactivateStream(st);
+        d->closeStream(st);
+    }
+    auto d = open();
+    SoapySDR::Stream* st = d->setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32, {0});
+    REQUIRE(d->activateStream(st) == 0);
+    std::vector<std::complex<float>> pieces;
+    std::vector<std::complex<float>> buf(kN);
+    void* b[] = {buf.data()};
+    while (pieces.size() < kN) {
+        // Timeout 0: one piece of 8192 samples, never the whole request.
+        const int n = d->readStream(st, b, kN - pieces.size(), flags, t, 0);
+        REQUIRE(n == 8192);
+        CHECK(t == static_cast<long long>(static_cast<double>(pieces.size()) / 2e6 * 1e9));
+        pieces.insert(pieces.end(), buf.begin(), buf.begin() + n);
+    }
+    CHECK(pieces == whole);
     d->deactivateStream(st);
     d->closeStream(st);
 }

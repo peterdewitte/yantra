@@ -85,6 +85,9 @@ using Clock = std::chrono::steady_clock;
 using cf = std::complex<float>;
 namespace fs = std::filesystem;
 
+/// Samples generated at a time in readStream before the deadline is checked.
+constexpr std::size_t kGeneratePiece = 8192;
+
 struct Gain {
     std::string name;
     double min = 0.0, max = 0.0, step = 1.0;
@@ -611,9 +614,19 @@ int FakeDevice::readStream(SoapySDR::Stream* stream, void* const* buffs, const s
         std::this_thread::sleep_for(std::chrono::milliseconds(2));
         avail = available();
     }
-    const auto n = static_cast<std::size_t>(std::min<int64_t>(avail, static_cast<int64_t>(numElems)));
-    s->buffer.resize(n);
-    s->signal->read(s->buffer.data(), n);
+    // Like a real module, the read returns within its timeout: the signal
+    // is generated in pieces and what is ready at the deadline goes out
+    // (at least one piece; the rest stays available for the next read).
+    // Generating a whole MTU at once took 10 s on a loaded machine under
+    // ASan, so a stop_stream waiting for the read missed its RAD-15 limit.
+    const auto wanted = static_cast<std::size_t>(std::min<int64_t>(avail, static_cast<int64_t>(numElems)));
+    s->buffer.resize(wanted);
+    std::size_t n = 0;
+    do {
+        const std::size_t piece = std::min(kGeneratePiece, wanted - n);
+        s->signal->read(s->buffer.data() + n, piece);
+        n += piece;
+    } while (n < wanted && Clock::now() < deadline);
     timeNs = static_cast<long long>(static_cast<double>(s->produced) / s->rate * 1e9);
     s->produced += n;
     flags |= SOAPY_SDR_HAS_TIME;
