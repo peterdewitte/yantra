@@ -12,6 +12,8 @@ configure_file(src/build_config.h.in
 
 add_library(yantra_core STATIC
   src/build_info.cpp
+  src/context/context.cpp
+  src/measure/pipeline.cpp
   src/platform/dynlib.cpp
   src/plugin/abi.cpp
   src/plugin/descriptor.cpp
