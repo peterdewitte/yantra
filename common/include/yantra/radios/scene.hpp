@@ -2,13 +2,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 /**
  * \file yantra/radios/scene.hpp
- * \brief Scene JSON v1 (RAD-36): parser and writer.
+ * \brief Scene JSON v1.1 (RAD-36): parser and writer.
  *
  * The scene of one floor (walls with their attenuation, antennas, cells)
  * that a #YR_CAP_SCENE plugin pulls with yr_host_api::get_scene (RAD-18).
  * The format ("yantra-radio-scene", version #YR_SCENE_VERSION) is defined
- * in yantra/radio.h. Used by the simulator plugin (RAD-61), the radio test
- * host's emulated callbacks (RAD-91) and Yantra's tests.
+ * in yantra/radio.h; minor version 1 (member "minor_version", absent in
+ * 1.0 scenes) adds optional members that 1.0 readers ignore:
+ * SceneFloor::storeys, SceneWall::polyline and SceneWall::bands
+ * (docs/SCENE_FORMAT.md). Used by the simulator plugin (RAD-61), the radio
+ * test host's emulated callbacks (RAD-91) and Yantra's tests.
  */
 #ifndef YANTRA_RADIOS_SCENE_HPP
 #define YANTRA_RADIOS_SCENE_HPP
@@ -23,6 +26,30 @@
 
 namespace yantra::radios {
 
+/** Minor version of the scene JSON this code reads and writes (1.1). The
+ *  major version is #YR_SCENE_VERSION; a newer minor of the same major is
+ *  read (its unknown members are ignored), a newer major is refused. */
+inline constexpr uint32_t kSceneMinorVersion = 1;
+
+/** Since 1.1: another floor as seen from the scene's floor, for antennas
+ *  with SceneAntenna::floor_offset (per-floor heights and slabs). */
+struct SceneStorey {
+    int32_t floor_offset = 0;        ///< -200..200, not 0, unique.
+    /** Height of that floor's level above this floor's level in metres
+     *  (negative below; the sign of floor_offset). */
+    double level_m = 0.0;
+    /** Total attenuation of the slabs between this floor and that one. */
+    double slab_attenuation_db = 0.0;
+    bool operator==(const SceneStorey&) const = default;
+};
+
+/** Since 1.1: attenuation of a wall at one frequency. */
+struct SceneBand {
+    uint64_t frequency_hz = 0;
+    double attenuation_db = 0.0;
+    bool operator==(const SceneBand&) const = default;
+};
+
 /** The floor the scene belongs to. */
 struct SceneFloor {
     std::string id;
@@ -36,6 +63,13 @@ struct SceneFloor {
     /** Optional: floor-to-floor height in metres (> 0) for the distance to
      *  antennas on other floors; readers use their default when absent. */
     std::optional<double> storey_height_m;
+    /** Since 1.1, optional: other floors with their own level and slab sum;
+     *  an antenna whose floor_offset is listed uses them instead of
+     *  floor_offset x storey_height_m and |floor_offset| x
+     *  slab_attenuation_db. */
+    std::vector<SceneStorey> storeys;
+    /** The storey with `floor_offset`, nullptr when not listed. */
+    const SceneStorey* find_storey(int32_t floor_offset) const;
     bool operator==(const SceneFloor&) const = default;
 };
 
@@ -58,6 +92,18 @@ struct SceneWall {
     double y2_m = 0.0;
     std::string wall_class; ///< wall_classes[].id, "" if none ("class" in JSON).
     double attenuation_db = 0.0; ///< Effective attenuation.
+    /** Since 1.1, optional: id of the polyline this segment belongs to;
+     *  segments with the same non-empty id are one wall, which a path
+     *  through their shared vertex crosses once (RAD-73). */
+    std::string polyline;
+    /** Since 1.1, optional: attenuation per frequency, strictly ascending
+     *  frequency_hz; when present it replaces attenuation_db at the
+     *  carrier (attenuation_at_db). */
+    std::vector<SceneBand> bands;
+    /** The attenuation at `frequency_hz`: attenuation_db without bands or
+     *  for frequency_hz 0; else linear in log(f) between the two bands
+     *  around it, the first or last band's value outside them. */
+    double attenuation_at_db(double frequency_hz) const;
     bool operator==(const SceneWall&) const = default;
 };
 
@@ -104,6 +150,11 @@ struct SceneAntenna {
 /** A parsed scene. */
 struct Scene {
     uint32_t version = YR_SCENE_VERSION;
+    /** "minor_version"; 0 when absent (a 1.0 scene). scene_to_json writes
+     *  it when above 0, and 1 at least when a 1.1 member is set. */
+    uint32_t minor_version = 0;
+    /** True when a member added in 1.1 is set (storeys, polyline, bands). */
+    bool uses_minor_1() const;
     SceneFloor floor;
     std::vector<SceneWallClass> wall_classes;
     std::vector<SceneWall> walls;
@@ -117,14 +168,15 @@ struct Scene {
 };
 
 /**
- * Parses and checks scene JSON: format name, version (a newer one is
- * refused), required members and their types, unique ids, references
+ * Parses and checks scene JSON: format name, version (a newer major is
+ * refused, any minor of major 1 is read), required members and their types, unique ids, references
  * (wall class, antenna cell) and value ranges. Unknown members are ignored.
  * False with a one-line `error` ("antennas[1].cell: unknown cell \"c9\"").
  */
 bool parse_scene(std::string_view json_text, Scene& out, std::string& error);
 
-/** Scene JSON v1 of `scene` (compact, one line). */
+/** Scene JSON of `scene` (compact, one line); the 1.1 members only when
+ *  set, so a 1.0 scene read and written again stays a 1.0 scene. */
 std::string scene_to_json(const Scene& scene);
 
 } // namespace yantra::radios

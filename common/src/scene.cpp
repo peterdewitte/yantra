@@ -1,12 +1,13 @@
 // SPDX-FileCopyrightText: 2026 The Yantra contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Scene JSON v1 (RAD-36): parser and writer. The format is defined in
+// Scene JSON v1.1 (RAD-36): parser and writer. The format is defined in
 // include/yantra/radio.h (YR_SCENE_FORMAT).
 #include <yantra/radios/scene.hpp>
 
 #include <nlohmann/json.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <set>
 #include <stdexcept>
@@ -158,6 +159,8 @@ Scene parse(const json& root)
                   " is newer than this program reads (" + std::to_string(YR_SCENE_VERSION) + ")");
     Scene s;
     s.version = static_cast<uint32_t>(version);
+    if (root.find("minor_version") != root.end())
+        s.minor_version = static_cast<uint32_t>(unsigned_num(root, "minor_version", "scene", UINT32_MAX));
 
     const json fl = need(root, "floor", "scene");
     object_check(fl, "floor");
@@ -179,6 +182,30 @@ Scene parse(const json& root)
     s.floor.storey_height_m = opt_num(fl, "storey_height_m", "floor");
     if (s.floor.storey_height_m && !(*s.floor.storey_height_m > 0.0))
         fail("floor.storey_height_m", "must be above 0");
+    if (fl.find("storeys") != fl.end()) {
+        const json& st = fl["storeys"];
+        if (!st.is_array())
+            fail("floor.storeys", "must be an array");
+        for (std::size_t i = 0; i < st.size(); ++i) {
+            const std::string w = "floor.storeys[" + std::to_string(i) + "]";
+            object_check(st[i], w);
+            SceneStorey y;
+            const json& o = need(st[i], "floor_offset", w);
+            if (!o.is_number_integer() || o.get<int64_t>() < -200 || o.get<int64_t>() > 200 || o.get<int64_t>() == 0)
+                fail(w + ".floor_offset", "must be an integer from -200 to 200, not 0");
+            y.floor_offset = static_cast<int32_t>(o.get<int64_t>());
+            if (s.floor.find_storey(y.floor_offset))
+                fail(w + ".floor_offset", std::to_string(y.floor_offset) + " repeated");
+            y.level_m = num(st[i], "level_m", w);
+            if (!(y.floor_offset > 0 ? y.level_m > 0.0 : y.level_m < 0.0))
+                fail(w + ".level_m", y.floor_offset > 0 ? "must be above 0 for a floor above"
+                                                        : "must be below 0 for a floor below");
+            y.slab_attenuation_db = num(st[i], "slab_attenuation_db", w);
+            if (y.slab_attenuation_db < 0.0)
+                fail(w + ".slab_attenuation_db", "must not be negative");
+            s.floor.storeys.push_back(y);
+        }
+    }
 
     std::set<std::string> ids;
     const json& classes = array_of(root, "wall_classes");
@@ -214,6 +241,26 @@ Scene parse(const json& root)
         wall.attenuation_db = num(walls[i], "attenuation_db", w);
         if (wall.attenuation_db < 0.0)
             fail(w + ".attenuation_db", "must not be negative");
+        wall.polyline = str(walls[i], "polyline", w, false);
+        if (walls[i].find("bands") != walls[i].end()) {
+            const json& b = walls[i]["bands"];
+            if (!b.is_array() || b.empty())
+                fail(w + ".bands", "must be a non-empty array");
+            for (std::size_t k = 0; k < b.size(); ++k) {
+                const std::string wb = w + ".bands[" + std::to_string(k) + "]";
+                object_check(b[k], wb);
+                SceneBand band;
+                band.frequency_hz = unsigned_num(b[k], "frequency_hz", wb, UINT64_MAX);
+                if (band.frequency_hz == 0)
+                    fail(wb + ".frequency_hz", "must be above 0");
+                if (!wall.bands.empty() && band.frequency_hz <= wall.bands.back().frequency_hz)
+                    fail(wb + ".frequency_hz", "must be above the previous band's");
+                band.attenuation_db = num(b[k], "attenuation_db", wb);
+                if (band.attenuation_db < 0.0)
+                    fail(wb + ".attenuation_db", "must not be negative");
+                wall.bands.push_back(band);
+            }
+        }
         s.walls.push_back(std::move(wall));
     }
 
@@ -267,6 +314,44 @@ Scene parse(const json& root)
 
 } // namespace
 
+const SceneStorey* SceneFloor::find_storey(int32_t floor_offset) const
+{
+    for (const SceneStorey& y : storeys)
+        if (y.floor_offset == floor_offset)
+            return &y;
+    return nullptr;
+}
+
+double SceneWall::attenuation_at_db(double frequency_hz) const
+{
+    if (bands.empty() || !(frequency_hz > 0.0))
+        return attenuation_db;
+    const auto f = [](const SceneBand& b) { return static_cast<double>(b.frequency_hz); };
+    if (frequency_hz <= f(bands.front()))
+        return bands.front().attenuation_db;
+    if (frequency_hz >= f(bands.back()))
+        return bands.back().attenuation_db;
+    for (std::size_t i = 1; i < bands.size(); ++i) {
+        const SceneBand& lo = bands[i - 1];
+        const SceneBand& hi = bands[i];
+        if (frequency_hz <= f(hi)) {
+            const double t = std::log(frequency_hz / f(lo)) / std::log(f(hi) / f(lo));
+            return lo.attenuation_db + t * (hi.attenuation_db - lo.attenuation_db);
+        }
+    }
+    return bands.back().attenuation_db;
+}
+
+bool Scene::uses_minor_1() const
+{
+    if (!floor.storeys.empty())
+        return true;
+    for (const SceneWall& w : walls)
+        if (!w.polyline.empty() || !w.bands.empty())
+            return true;
+    return false;
+}
+
 const SceneCell* Scene::find_cell(std::string_view id) const
 {
     for (const SceneCell& c : cells)
@@ -302,17 +387,27 @@ bool parse_scene(std::string_view json_text, Scene& out, std::string& error)
 std::string scene_to_json(const Scene& s)
 {
     json root = {{"format", YR_SCENE_FORMAT},
-                 {"version", s.version},
-                 {"floor",
-                  {{"id", s.floor.id},
-                   {"name", s.floor.name},
-                   {"scale_set", s.floor.scale_set},
-                   {"width_m", s.floor.width_m},
-                   {"height_m", s.floor.height_m}}}};
+                 {"version", s.version}};
+    const uint32_t minor = std::max(s.minor_version, s.uses_minor_1() ? 1u : 0u);
+    if (minor > 0)
+        root["minor_version"] = minor;
+    root["floor"] = {{"id", s.floor.id},
+                     {"name", s.floor.name},
+                     {"scale_set", s.floor.scale_set},
+                     {"width_m", s.floor.width_m},
+                     {"height_m", s.floor.height_m}};
     if (s.floor.slab_attenuation_db)
         root["floor"]["slab_attenuation_db"] = *s.floor.slab_attenuation_db;
     if (s.floor.storey_height_m)
         root["floor"]["storey_height_m"] = *s.floor.storey_height_m;
+    if (!s.floor.storeys.empty()) {
+        json st = json::array();
+        for (const SceneStorey& y : s.floor.storeys)
+            st.push_back({{"floor_offset", y.floor_offset},
+                          {"level_m", y.level_m},
+                          {"slab_attenuation_db", y.slab_attenuation_db}});
+        root["floor"]["storeys"] = std::move(st);
+    }
     json classes = json::array();
     for (const SceneWallClass& c : s.wall_classes) {
         json jc = {{"id", c.id}, {"label", c.label}, {"attenuation_db", c.attenuation_db}};
@@ -322,13 +417,23 @@ std::string scene_to_json(const Scene& s)
     }
     root["wall_classes"] = std::move(classes);
     json walls = json::array();
-    for (const SceneWall& w : s.walls)
-        walls.push_back({{"x1_m", w.x1_m},
-                         {"y1_m", w.y1_m},
-                         {"x2_m", w.x2_m},
-                         {"y2_m", w.y2_m},
-                         {"class", w.wall_class},
-                         {"attenuation_db", w.attenuation_db}});
+    for (const SceneWall& w : s.walls) {
+        json jw = {{"x1_m", w.x1_m},
+                   {"y1_m", w.y1_m},
+                   {"x2_m", w.x2_m},
+                   {"y2_m", w.y2_m},
+                   {"class", w.wall_class},
+                   {"attenuation_db", w.attenuation_db}};
+        if (!w.polyline.empty())
+            jw["polyline"] = w.polyline;
+        if (!w.bands.empty()) {
+            json b = json::array();
+            for (const SceneBand& band : w.bands)
+                b.push_back({{"frequency_hz", band.frequency_hz}, {"attenuation_db", band.attenuation_db}});
+            jw["bands"] = std::move(b);
+        }
+        walls.push_back(std::move(jw));
+    }
     root["walls"] = std::move(walls);
     json cells = json::array();
     for (const SceneCell& c : s.cells)

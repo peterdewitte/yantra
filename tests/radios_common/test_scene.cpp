@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: 2026 The Yantra contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Scene JSON v1 (RAD-36): valid scenes, invalid ones with the path of the
-// problem in the message, and version handling.
+// Scene JSON v1.1 (RAD-36): valid scenes, invalid ones with the path of
+// the problem in the message, version handling (1.0 and 1.1 read, 2 refused)
+// and the 1.1 members (storeys, polyline, bands).
 #include <doctest/doctest.h>
 
 #include <yantra/radios/scene.hpp>
@@ -15,9 +16,9 @@ using namespace yantra::radios;
 
 namespace {
 
-std::string fixture_text()
+std::string fixture_text(const char* name = "two_rooms_v1.json")
 {
-    std::ifstream in(std::string(YANTRA_TEST_DATA_DIR) + "/scenes/two_rooms_v1.json");
+    std::ifstream in(std::string(YANTRA_TEST_DATA_DIR) + "/scenes/" + name);
     std::ostringstream s;
     s << in.rdbuf();
     return s.str();
@@ -197,4 +198,89 @@ TEST_CASE("scene: optional members for the multi-wall model (RAD-73)")
           "wall_classes[0].reflection_loss_db: must be a number");
     CHECK(error_of(variant("\"eirp_dbm\": 13.0,", "\"eirp_dbm\": 13.0, \"floor_offset\": 0.5,")) ==
           "antennas[1].floor_offset: must be an integer from -200 to 200");
+}
+
+TEST_CASE("scene: minor version 1.1 is read, a 1.0 scene stays 1.0")
+{
+    Scene v10;
+    std::string error;
+    REQUIRE(parse_scene(fixture_text(), v10, error));
+    CHECK(v10.minor_version == 0);
+    CHECK_FALSE(v10.uses_minor_1());
+    const std::string text10 = scene_to_json(v10);
+    CHECK(text10.find("minor_version") == std::string::npos);
+    CHECK(text10.find("polyline") == std::string::npos);
+    CHECK(text10.find("bands") == std::string::npos);
+    CHECK(text10.find("storeys") == std::string::npos);
+
+    // A newer minor of major 1 is read (its unknown members ignored); the
+    // writer keeps the minor it read.
+    Scene later;
+    REQUIRE_MESSAGE(parse_scene(variant("\"version\": 1,", "\"version\": 1, \"minor_version\": 7, \"future\": {},"),
+                                later, error),
+                    error);
+    CHECK(later.minor_version == 7);
+    CHECK(scene_to_json(later).find("\"minor_version\":7") != std::string::npos);
+    CHECK(error_of(variant("\"version\": 1,", "\"version\": 1, \"minor_version\": -1,")) ==
+          "scene.minor_version: must be an unsigned integer");
+    CHECK(error_of(variant("\"version\": 1,", "\"version\": 2, \"minor_version\": 0,")) ==
+          "scene version 2 is newer than this program reads (1)");
+
+    // A 1.1 member raises the written minor version to 1.
+    Scene raised = v10;
+    raised.walls[0].polyline = "p";
+    CHECK(raised.uses_minor_1());
+    CHECK(scene_to_json(raised).find("\"version\":1,\"minor_version\":1,") != std::string::npos);
+}
+
+TEST_CASE("scene: the 1.1 members storeys, polyline and bands (RAD-36, RAD-73)")
+{
+    Scene s;
+    std::string error;
+    REQUIRE_MESSAGE(parse_scene(fixture_text("multiwall_v1_1.json"), s, error), error);
+    CHECK(s.version == 1);
+    CHECK(s.minor_version == 1);
+    REQUIRE(s.floor.storeys.size() == 2);
+    CHECK(s.floor.storeys[0] == SceneStorey{1, 4.5, 12.0});
+    CHECK(s.floor.storeys[1] == SceneStorey{-1, -3.5, 20.0});
+    CHECK(s.floor.find_storey(-1) == &s.floor.storeys[1]);
+    REQUIRE(s.walls.size() == 3);
+    CHECK(s.walls[0].polyline == "v");
+    CHECK(s.walls[1].polyline == "v");
+    CHECK(s.walls[2].polyline.empty());
+    CHECK(s.walls[0].bands.empty());
+    REQUIRE(s.walls[2].bands.size() == 2);
+    CHECK(s.walls[2].bands[1] == SceneBand{450000000, 9.0});
+    Scene again;
+    const std::string text = scene_to_json(s);
+    REQUIRE_MESSAGE(parse_scene(text, again, error), error);
+    CHECK(again == s);
+    CHECK(text.rfind("{\"format\":\"yantra-radio-scene\",\"version\":1,\"minor_version\":1,", 0) == 0);
+
+    const auto bad = [](const std::string& from, const std::string& to) {
+        std::string t = fixture_text("multiwall_v1_1.json");
+        const auto pos = t.find(from);
+        REQUIRE_MESSAGE(pos != std::string::npos, from);
+        t.replace(pos, from.size(), to);
+        return error_of(t);
+    };
+    CHECK(bad("\"floor_offset\": 1, \"level_m\"", "\"floor_offset\": 0, \"level_m\"") ==
+          "floor.storeys[0].floor_offset: must be an integer from -200 to 200, not 0");
+    CHECK(bad("\"floor_offset\": -1, \"level_m\"", "\"floor_offset\": 1, \"level_m\"") ==
+          "floor.storeys[1].floor_offset: 1 repeated");
+    CHECK(bad("\"level_m\": 4.5", "\"level_m\": -4.5") ==
+          "floor.storeys[0].level_m: must be above 0 for a floor above");
+    CHECK(bad("\"level_m\": -3.5", "\"level_m\": 0") ==
+          "floor.storeys[1].level_m: must be below 0 for a floor below");
+    CHECK(bad("\"slab_attenuation_db\": 12.0", "\"slab_attenuation_db\": -1") ==
+          "floor.storeys[0].slab_attenuation_db: must not be negative");
+    CHECK(bad("\"storeys\": [", "\"storeys\": {}, \"x\": [") == "floor.storeys: must be an array");
+    CHECK(bad("\"polyline\": \"v\"", "\"polyline\": 3") == "walls[0].polyline: must be a string");
+    CHECK(bad("\"frequency_hz\": 450000000", "\"frequency_hz\": 380000000") ==
+          "walls[2].bands[1].frequency_hz: must be above the previous band's");
+    CHECK(bad("\"frequency_hz\": 380000000", "\"frequency_hz\": 0") ==
+          "walls[2].bands[0].frequency_hz: must be above 0");
+    CHECK(bad("\"attenuation_db\": 9.0", "\"attenuation_db\": -9.0") ==
+          "walls[2].bands[1].attenuation_db: must not be negative");
+    CHECK(bad("\"bands\": [", "\"bands\": [], \"old\": [") == "walls[2].bands: must be a non-empty array");
 }

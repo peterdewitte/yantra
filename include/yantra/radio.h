@@ -622,11 +622,15 @@ typedef struct yr_plan_position {
  *   floor "slab_attenuation_db" and "storey_height_m", wall class
  *   "reflection_loss_db", antenna "floor_offset" (storeys above or below
  *   this floor) for the multi-wall model (RAD-73).
- * - Unknown members are ignored: version 1 may gain members compatibly; a
- *   breaking change raises the version.
+ * - Minor version 1.1 ("minor_version": 1; absent in 1.0) adds optional
+ *   floor "storeys" (level and slab sum per other floor), wall "polyline"
+ *   (segments of one wall) and wall "bands" (attenuation per frequency),
+ *   docs/SCENE_FORMAT.md. Readers read any minor of version 1.
+ * - Unknown members are ignored: version 1 may gain members compatibly
+ *   (a new minor version); a breaking change raises the version.
  */
 #define YR_SCENE_FORMAT "yantra-radio-scene"
-#define YR_SCENE_VERSION 1u /**< Version of the scene JSON. */
+#define YR_SCENE_VERSION 1u /**< Major version of the scene JSON ("version"). */
 
 /** @} */
 

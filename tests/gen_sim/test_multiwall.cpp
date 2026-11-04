@@ -45,7 +45,7 @@ Scene fixture()
 Scene open_room()
 {
     Scene s;
-    s.floor = {"r", "Room", true, 100.0, 100.0, std::nullopt, std::nullopt};
+    s.floor = {"r", "Room", true, 100.0, 100.0, std::nullopt, std::nullopt, {}};
     s.cells.push_back({"c", "C", 901, 1, 1, 1, 390000000});
     SceneAntenna a;
     a.id = "a";
@@ -114,8 +114,8 @@ TEST_CASE("multiwall: crossing rules")
 {
     Scene s = open_room();
     // An L of two walls meeting at (10, 10) at a right angle.
-    s.walls.push_back({10.0, 0.0, 10.0, 10.0, "", 3.0});
-    s.walls.push_back({10.0, 10.0, 20.0, 10.0, "", 4.0});
+    s.walls.push_back({10.0, 0.0, 10.0, 10.0, "", 3.0, "", {}});
+    s.walls.push_back({10.0, 10.0, 20.0, 10.0, "", 4.0, "", {}});
     // Through the corner: both walls count.
     WallCrossings c = walls_crossed(s, {5.0, 15.0}, {15.0, 5.0});
     CHECK(c.crossings.size() == 2);
@@ -200,7 +200,7 @@ TEST_CASE("multiwall: specular reflections (image method)")
 {
     Scene s = open_room();
     s.wall_classes.push_back({"brick", "Brick", 10.0, 4.0});
-    s.walls.push_back({-100.0, 0.0, 100.0, 0.0, "brick", 10.0});
+    s.walls.push_back({-100.0, 0.0, 100.0, 0.0, "brick", 10.0, "", {}});
     // Without reflections the floor wall changes nothing.
     CHECK(MultiWallModel().cell(s, "c", {10.0, 5.0}).level_dbm == doctest::Approx(20.0 - kFspl10));
 
@@ -220,7 +220,7 @@ TEST_CASE("multiwall: specular reflections (image method)")
     // A second wall at y = 10 without a class: the model's 6 dB. Order 1:
     // the direct path and one bounce off each wall; order 2 adds y0-y10
     // and y10-y0 (sqrt(500) m, 10 dB each).
-    s.walls.push_back({-100.0, 10.0, 100.0, 10.0, "", 3.0});
+    s.walls.push_back({-100.0, 10.0, 100.0, 10.0, "", 3.0, "", {}});
     CHECK(one.cell(s, "c", {10.0, 5.0}).level_dbm == doctest::Approx(-23.04807078671538));
     MultiWallModel two({.reflections = 2});
     l = two.cell(s, "c", {10.0, 5.0});
@@ -235,8 +235,8 @@ TEST_CASE("multiwall: specular reflections (image method)")
     // path, on the bounce's second leg).
     Scene t = open_room();
     t.wall_classes.push_back({"brick", "Brick", 10.0, 4.0});
-    t.walls.push_back({-100.0, 0.0, 100.0, 0.0, "brick", 10.0});
-    t.walls.push_back({7.0, 0.5, 7.0, 2.0, "", 5.0});
+    t.walls.push_back({-100.0, 0.0, 100.0, 0.0, "brick", 10.0, "", {}});
+    t.walls.push_back({7.0, 0.5, 7.0, 2.0, "", 5.0, "", {}});
     l = one.cell(t, "c", {10.0, 5.0});
     REQUIRE(l.antennas[0].paths.size() == 2);
     CHECK(l.antennas[0].paths[0].walls == 0);
