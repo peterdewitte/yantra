@@ -14,6 +14,7 @@ add_library(yantra_core STATIC
   src/build_info.cpp
   src/building/geometry.cpp
   src/building/model.cpp
+  src/building/model_json.cpp
   src/context/context.cpp
   src/measure/pipeline.cpp
   src/measure/record_file.cpp

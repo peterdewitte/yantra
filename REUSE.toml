@@ -57,3 +57,10 @@ SPDX-License-Identifier = "MIT"
 path = ["plugins/**/testdata/*.jsonl", "plugins/**/testdata/*.golden.json", "tests/**/*.jsonl", "tests/**/*.golden.json"]
 SPDX-FileCopyrightText = "2026 The Yantra contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# Building model and scene JSON fixtures of the tests (IND-11/12, RAD-36),
+# JSON without a comment syntax.
+[[annotations]]
+path = ["tests/fixtures/building/*.json"]
+SPDX-FileCopyrightText = "2026 The Yantra contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
