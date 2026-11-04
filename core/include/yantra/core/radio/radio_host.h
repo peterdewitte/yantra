@@ -48,6 +48,7 @@
 #include <vector>
 #include <yantra/radio.h>
 
+#include "yantra/core/calibration/key.h"
 #include "yantra/core/context/context.h"
 #include "yantra/core/measure/pipeline.h"
 #include "yantra/core/plugin/record.h"
@@ -185,6 +186,15 @@ public:
     // restarts (RAD-41).
     yr_status set_setting(const std::string& key, const plugin::Value& value);
     yr_status get_setting(const std::string& key, plugin::Value& out);
+    // The device's current calibration key (HW-01b): driver and serial
+    // from device_info and the value of every CALIBRATION setting (RAD-40),
+    // re-read after open, reopen, set_setting and settings_changed. Each
+    // record carries the key valid at its time (RadioRecord::
+    // calibration_key). nullptr before the first read.
+    std::shared_ptr<const calibration::Key> calibration_key() const;
+    // The device entry (RAD-30) read after open; nullopt when the plugin
+    // gave none.
+    std::optional<DeviceInfo> info() const;
 
     DeviceStats stats() const;
     std::string last_error() const;

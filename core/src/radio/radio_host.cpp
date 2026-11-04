@@ -16,6 +16,7 @@
 #include <condition_variable>
 #include <cstring>
 #include <deque>
+#include <limits>
 #include <mutex>
 #include <thread>
 #include <yantra/radio.hpp>
@@ -193,6 +194,36 @@ struct PluginRt {
     }
 };
 
+// --- calibration key of a device (HW-01b) ----------------------------------------
+
+// The device's calibration keys over time: a record gets the key valid at
+// its measurement time, so records measured before a gain change keep the
+// old key even when they arrive after it.
+struct KeyHistory {
+    static constexpr std::size_t kKeep = 8;
+    mutable std::mutex m;
+    std::vector<std::pair<std::int64_t, std::shared_ptr<const calibration::Key>>> h;
+
+    // Records from `since_ns` on are measured with `key`; an unchanged key
+    // is not added again.
+    void set(std::int64_t since_ns, calibration::Key key) {
+        const std::lock_guard lock(m);
+        if (!h.empty() && *h.back().second == key) return;
+        h.emplace_back(since_ns, std::make_shared<const calibration::Key>(std::move(key)));
+        if (h.size() > kKeep) h.erase(h.begin());
+    }
+    std::shared_ptr<const calibration::Key> at(std::int64_t t) const {
+        const std::lock_guard lock(m);
+        for (auto it = h.rbegin(); it != h.rend(); ++it)
+            if (it->first <= t) return it->second;
+        return h.empty() ? nullptr : h.front().second;
+    }
+    std::shared_ptr<const calibration::Key> latest() const {
+        const std::lock_guard lock(m);
+        return h.empty() ? nullptr : h.back().second;
+    }
+};
+
 // --- record sink of one stream ------------------------------------------------------
 
 struct Sink {
@@ -209,6 +240,7 @@ struct Sink {
     std::string device_key;
     std::uint64_t stream_id = 0;
     std::shared_ptr<measure::MeasurementInput> pipeline;
+    std::shared_ptr<const KeyHistory> keys;  // the device's calibration keys (HW-01b)
     std::size_t capacity = 4096;
     // Called on the delivery thread for the events the host acts on.
     std::function<void(std::uint32_t event, std::int64_t value)> on_control_event;
@@ -288,6 +320,7 @@ struct Sink {
         r.capabilities = rt->d->capabilities;
         r.field_names = rt->field_names[record->schema_index];
         r.radio_schema = &s;  // the plugin's descriptor: valid while it is loaded
+        if (keys) r.calibration_key = keys->at(record->time.monotonic_ns);
         r.record.schema_id = text(s.id);
         r.record.schema_version = s.version;
         r.record.time.monotonic_ns = record->time.monotonic_ns;
@@ -410,6 +443,9 @@ struct RadioDevice::Impl {
     SinkCounters totals;
     std::uint64_t streams = 0;
     std::uint64_t reopens = 0;
+    std::optional<DeviceInfo> info;  // device_info after open (driver, serial: HW-01b)
+    // Calibration keys (HW-01b); shared with the sinks of its streams.
+    std::shared_ptr<KeyHistory> keys = std::make_shared<KeyHistory>();
 };
 
 // --- host -------------------------------------------------------------------------------
@@ -596,12 +632,92 @@ struct RadioHost::Impl : std::enable_shared_from_this<RadioHost::Impl> {
         }
     }
 
+    // The open device's entry (RAD-30): driver and serial of the key.
+    std::optional<DeviceInfo> device_info(PluginRt& rt, yr_device* dev) {
+        auto info = std::make_shared<std::optional<DeviceInfo>>();
+        const yr_descriptor* desc = rt.d;
+        const yr_status st = call(rt, "device_info", false, [desc, dev, info] {
+            return desc->stream->device_info(
+                dev,
+                [](void* user, const yr_device_info* i) {
+                    if (i == nullptr) return;
+                    DeviceInfo x;
+                    x.key = text(i->key);
+                    x.label = text(i->label);
+                    x.driver = text(i->driver);
+                    x.serial = text(i->serial);
+                    x.module_version = text(i->module_version);
+                    x.hardware_info = text(i->hardware_info);
+                    x.flags_reason = text(i->flags_reason);
+                    x.flags = i->flags;
+                    *static_cast<std::optional<DeviceInfo>*>(user) = std::move(x);
+                },
+                info.get());
+        });
+        return st == YR_OK ? *info : std::nullopt;
+    }
+
+    // HW-01b: reads the device's driver and serial (once per open) and the
+    // current value of every CALIBRATION setting (RAD-40), and records the
+    // key from `since_ns` on. Called after open/reopen (the stored settings
+    // applied), after each set_setting and on settings_changed. Caller
+    // holds d.op.
+    void refresh_key(PluginRt& rt, RadioDevice::Impl& d, std::int64_t since_ns, bool reread_info) {
+        yr_device* dev = nullptr;
+        {
+            const std::lock_guard lock(d.m);
+            dev = d.dev;
+            if (dev == nullptr) return;
+            if (!d.info) reread_info = true;
+        }
+        if (reread_info) {
+            std::optional<DeviceInfo> info = device_info(rt, dev);
+            const std::lock_guard lock(d.m);
+            d.info = std::move(info);
+        }
+        auto keys = std::make_shared<std::vector<std::string>>();
+        const yr_descriptor* desc = rt.d;
+        const yr_status ls = call(rt, "list_settings", false, [desc, dev, keys] {
+            return desc->device->list_settings(
+                dev,
+                [](void* user, const yr_setting_def* sd) {
+                    if (sd == nullptr || sd->key == nullptr) return;
+                    if ((sd->flags & YR_SETTING_CALIBRATION) == 0 || sd->type == YR_TYPE_ACTION) return;
+                    static_cast<std::vector<std::string>*>(user)->emplace_back(sd->key);
+                },
+                keys.get());
+        });
+        calibration::Key key;
+        {
+            const std::lock_guard lock(d.m);
+            if (d.info) {
+                key.driver = d.info->driver;
+                key.serial = d.info->serial;
+            }
+        }
+        if (ls == YR_OK) {
+            for (const std::string& k : *keys) {
+                auto result = std::make_shared<plugin::Value>();
+                const yr_status st = call(rt, "get_setting", false, [desc, dev, k, result] {
+                    yr_value v = yr_value_none();
+                    char textbuf[1024] = {};
+                    const yr_status r = desc->device->get_setting(dev, k.c_str(), &v, textbuf, sizeof textbuf);
+                    if (r == YR_OK) *result = value_from_c(v);
+                    return r;
+                });
+                if (st == YR_OK) key.settings[k] = calibration::setting_text(*result);
+            }
+        }
+        d.keys->set(since_ns, std::move(key));
+    }
+
     yr_status start_locked(PluginRt& rt, RadioDevice::Impl& d, const Plan& plan) {
         auto sink = std::make_shared<Sink>();
         sink->rt = &rt;
         sink->device_key = d.key;
         sink->stream_id = next_stream_id++;
         sink->pipeline = config.pipeline;
+        sink->keys = d.keys;
         sink->capacity = std::max<std::size_t>(1, config.sink_capacity);
         std::weak_ptr<Impl> wh = weak_from_this();
         std::weak_ptr<RadioDevice::Impl> wd;
@@ -782,6 +898,7 @@ struct RadioHost::Impl : std::enable_shared_from_this<RadioHost::Impl> {
             plan = d.plan;
         }
         apply_settings(rt, d);
+        refresh_key(rt, d, platform::monotonic_ns(), true);  // HW-01b (a new handle)
         yr_status started = YR_OK;
         if (want && plan) started = start_locked(rt, d, *plan);
         log(rt.id(), d.key, YR_LOG_INFO,
@@ -851,6 +968,25 @@ struct RadioHost::Impl : std::enable_shared_from_this<RadioHost::Impl> {
             if (!present) continue;
             const std::lock_guard op(d->op);
             reopen_locked(rt, *d);
+        }
+    }
+
+    // settings_changed (any device of the plugin when `device` is NULL).
+    void on_settings_changed(PluginRt& rt, yr_device* device) {
+        std::vector<std::shared_ptr<RadioDevice::Impl>> devs;
+        {
+            const std::lock_guard lock(rt.dev_mutex);
+            for (auto& w : rt.devices)
+                if (auto d = w.lock()) devs.push_back(d);
+        }
+        const std::int64_t now = platform::monotonic_ns();
+        for (auto& d : devs) {
+            const std::lock_guard op(d->op);
+            {
+                const std::lock_guard lock(d->m);
+                if (d->dev == nullptr || (device != nullptr && d->dev != device)) continue;
+            }
+            refresh_key(rt, *d, now, false);
         }
     }
 
@@ -1081,8 +1217,19 @@ void api_devices_changed(yr_host* h) {
     }
 }
 
-void api_settings_changed(yr_host* h, yr_device*) {
-    if (PluginRt* rt = rt_of(h)) ++rt->settings_changed;
+void api_settings_changed(yr_host* h, yr_device* device) {
+    PluginRt* rt = rt_of(h);
+    if (rt == nullptr) return;
+    ++rt->settings_changed;
+    // The plugin changed setting values itself (RAD-44): the calibration
+    // key may have changed (HW-01b). Re-read it on the host's task thread.
+    try {
+        RadioHost::Impl* host = rt->host;
+        host->post([host, rt, device] {
+            if (!rt->failed.load()) host->on_settings_changed(*rt, device);
+        });
+    } catch (...) {
+    }
 }
 
 yr_status api_floor_plan(yr_host* h, yr_floor_plan_info* out) {
@@ -1408,6 +1555,8 @@ std::shared_ptr<RadioDevice> RadioHost::open(const std::string& plugin_id, const
     {
         const std::lock_guard op(d->op);
         m.apply_settings(*rt, *d);
+        // HW-01b: the key from the first record on.
+        m.refresh_key(*rt, *d, std::numeric_limits<std::int64_t>::min(), true);
     }
     return std::make_shared<RadioDevice>(d);
 }
@@ -1577,6 +1726,9 @@ yr_status RadioDevice::set_setting(const std::string& key, const plugin::Value& 
         const yr_status again = host->start_locked(rt, d, *plan);
         if (st == YR_OK) st = again;
     }
+    // HW-01b: a CALIBRATION setting (or one that changes one) makes a new
+    // key for the records measured from now on.
+    if (st == YR_OK) host->refresh_key(rt, d, platform::monotonic_ns(), false);
     return st;
 }
 
@@ -1597,6 +1749,13 @@ yr_status RadioDevice::get_setting(const std::string& key, plugin::Value& out) {
     });
     if (st == YR_OK) out = *result;
     return st;
+}
+
+std::shared_ptr<const calibration::Key> RadioDevice::calibration_key() const { return impl_->keys->latest(); }
+
+std::optional<DeviceInfo> RadioDevice::info() const {
+    const std::lock_guard lock(impl_->m);
+    return impl_->info;
 }
 
 DeviceStats RadioDevice::stats() const {

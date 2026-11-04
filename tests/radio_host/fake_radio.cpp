@@ -182,7 +182,20 @@ const yr_stream_control stream_control = {
 
 // --- device control ----------------------------------------------------------------
 
-yr_status list_settings(yr_device*, yr_setting_cb, void*) { return YR_OK; }
+// "gain" is part of the calibration key (CALIBRATION, HW-01b); "rate"
+// needs a restart.
+const yr_setting_def gain_def = {sizeof(yr_setting_def), YR_TYPE_DOUBLE, YR_SETTING_CALIBRATION, 0,
+                                 "gain", "Gain", "dB", "Receiver gain.", "Gain", nullptr, nullptr,
+                                 nullptr, 0.0, 60.0, 1.0, {YR_TYPE_DOUBLE, 0, {.f64 = 0.0}}, 0, 0};
+const yr_setting_def rate_def = {sizeof(yr_setting_def), YR_TYPE_INT, YR_SETTING_RESTART, 0,
+                                 "rate", "Rate", "", "Record rate.", "Receiver", nullptr, nullptr,
+                                 nullptr, 1.0, 10.0, 1.0, {YR_TYPE_INT, 0, {.i64 = 1}}, 0, 0};
+
+yr_status list_settings(yr_device*, yr_setting_cb cb, void* user) {
+    cb(user, &gain_def);
+    cb(user, &rate_def);
+    return YR_OK;
+}
 
 std::string value_text(const yr_value* v) {
     switch (v->type) {
@@ -384,6 +397,16 @@ YR_EXPORT void fake_replug(int send_back) {
     }
     lock.unlock();
     host->devices_changed(host->host);
+}
+
+// The device changed a setting by itself (e.g. an automatic gain) and
+// tells the host (settings_changed, RAD-44).
+YR_EXPORT void fake_change_setting(const char* key, double value) {
+    std::unique_lock lock(g_ctl.m);
+    g_ctl.settings[key] = std::to_string(value);
+    const yr_host_api* host = g_plugin.host;
+    lock.unlock();
+    if (host != nullptr) host->settings_changed(host->host, &g_device);
 }
 
 // Asks the host for the context (PLG-27, RAD-18/19) like a SCENE plugin.

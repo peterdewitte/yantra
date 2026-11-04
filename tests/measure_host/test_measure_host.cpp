@@ -8,7 +8,10 @@
 // duplicate and burst records with a ManualClock driving the cycles; the
 // simulator runs end to end on the real clock with a CycleRunner; the
 // beacon example radio is mapped onto the example beacon technology
-// plugin's schemas. Every wait is on an observable condition.
+// plugin's schemas; the calibration table follows a CALIBRATION setting
+// change of the fake SDR plugin and the simulator's practice generator is
+// calibrated with the wizard (TST-30). Every wait is on an observable
+// condition.
 
 #include <doctest/doctest.h>
 
@@ -21,6 +24,12 @@
 #include <string>
 #include <vector>
 
+#include <cstdlib>
+
+#include <unistd.h>
+
+#include <yantra/core/calibration/corrector.h>
+#include <yantra/core/calibration/wizard.h>
 #include <yantra/core/context/context.h>
 #include <yantra/core/measure/measurement_pipeline.h>
 #include <yantra/core/platform/clock.h>
@@ -376,4 +385,232 @@ TEST_CASE("measurement host: beacon radio records map onto the example technolog
     const ym::RecordView view(r.record, r.schema_index);
     const yp::RecordCheck check = yp::parse_record(view.get(), *r.schema);
     CHECK(check.parsed.ok());
+}
+
+namespace {
+
+namespace ycal = yantra::calibration;
+
+// Records of a device that came out of the pipeline after `from`.
+std::vector<ym::MappedRecord> records_since(Rig& rig, std::size_t from) {
+    const std::lock_guard lock(rig.out->m);
+    return {rig.out->records.begin() + static_cast<std::ptrdiff_t>(std::min(from, rig.out->records.size())),
+            rig.out->records.end()};
+}
+
+ycal::Entry flat_entry(const ycal::Key& key, double offset_db, bool simulated = false) {
+    ycal::Entry e;
+    e.key = key;
+    e.created_unix = ycal::now_unix();
+    e.simulated = simulated;
+    e.method = simulated ? ycal::kMethodPractice : ycal::kMethodGenerator;
+    for (double hz : {350e6, 480e6}) {
+        ycal::Point p;
+        p.frequency_hz = hz;
+        p.offset_db = offset_db;
+        e.points.push_back(p);
+    }
+    return e;
+}
+
+}  // namespace
+
+// TST-30 end to end with a real radio plugin: the SoapySDR plugin of
+// yantra-radios with its fake SoapySDR module (RAD-92). Its LNA gain is a
+// CALIBRATION setting: changing it while streaming changes the calibration
+// key, and the records measured from then on get the other table entry.
+TEST_CASE("measurement host: an LNA gain change selects the other calibration entry (RF-02, HW-01b, TST-30)") {
+    const fs::path path = fs::path(RADIO_TEST_PLUGIN_DIR) / "soapysdr_fake.so";
+    if (!fs::exists(path) || std::string(FAKE_SDR_SCENARIO).empty()) {
+        MESSAGE("no soapysdr_fake plugin (YANTRA_RADIOS_FAKE_SDR off or prebuilt radio plugins): skipped");
+        return;
+    }
+    const std::string serial = "0000000000000000a1b2c3d4e5f60001";
+    const fs::path control = fs::path(FAKE_SDR_CONTROL_DIR) / std::to_string(getpid());
+    fs::remove_all(control);
+    fs::create_directories(control);
+    const std::string config = R"({"control":")" + control.string() + R"(","devices":[{"serial":")" + serial +
+                               R"(","scenario":")" + FAKE_SDR_SCENARIO + R"(","paced":false}]})";
+    REQUIRE(setenv("YANTRA_FAKE_SOAPY", config.c_str(), 1) == 0);
+    struct Cleanup {
+        fs::path dir;
+        ~Cleanup() {
+            unsetenv("YANTRA_FAKE_SOAPY");
+            std::error_code ec;
+            fs::remove_all(dir, ec);
+        }
+    } cleanup{control};
+
+    Rig rig(true);
+    const yr::RadioPluginEntry e = rig.host->load_file(path);
+    INFO(e.message);
+    REQUIRE(e.status == yr::RadioPluginStatus::Enabled);
+    const yr::EnumerateResult en = rig.host->enumerate(e.id);
+    REQUIRE(en.status == YR_OK);
+    REQUIRE(en.devices.size() == 1);
+    const std::string key = en.devices.front().key;
+    rig.state->set_device_setting(e.id, key, "gain_lna", 16.0);
+    rig.state->set_device_setting(e.id, key, "record_rate_hz", 10.0);
+    std::string error;
+    auto dev = rig.host->open(e.id, key, error);
+    REQUIRE_MESSAGE(dev, error);
+    const auto k16 = dev->calibration_key();
+    REQUIRE(k16 != nullptr);
+    CHECK(k16->serial == serial);
+    REQUIRE(k16->settings.count("gain_lna") == 1);
+    CHECK(k16->settings.at("gain_lna") == "16");
+    ycal::Key k24 = *k16;
+    k24.settings["gain_lna"] = "24";
+    auto table = std::make_shared<ycal::Table>();
+    table->put(flat_entry(*k16, -50.0));
+    table->put(flat_entry(k24, -58.0));
+    ycal::AntennaSettings antenna;
+    antenna.all.cable_loss_db = 2.0;
+    rig.pipeline->set_corrector(std::make_shared<ycal::TableCorrector>(table, antenna));
+
+    REQUIRE(dev->start(serving(0)) == YR_OK);
+    auto with_key = [&](const ycal::Key& k, std::size_t from, std::size_t n) {
+        return rig.out->wait([&] {
+            std::size_t c = 0;
+            for (std::size_t i = from; i < rig.out->records.size(); ++i)
+                c += rig.out->records[i].correction.key == k.id() ? 1 : 0;
+            return c >= n;
+        });
+    };
+    REQUIRE(with_key(*k16, 0, 3));
+    REQUIRE(dev->set_setting("gain_lna", 24.0) == YR_OK);
+    REQUIRE(dev->calibration_key()->id() == k24.id());
+    std::size_t mark = 0;
+    {
+        const std::lock_guard lock(rig.out->m);
+        mark = rig.out->records.size();
+    }
+    REQUIRE(with_key(k24, mark, 3));
+    CHECK(dev->stop() == YR_OK);
+
+    std::size_t n16 = 0, n24 = 0;
+    for (const ym::MappedRecord& r : records_since(rig, 0)) {
+        if (r.device_key != key || !std::isfinite(r.radio_level)) continue;
+        CAPTURE(r.correction.key);
+        REQUIRE(r.correction.calibrated);
+        CHECK((r.flags & sf::kUncalibrated) == 0);
+        CHECK(r.correction.correction_db == doctest::Approx(2.0));
+        const bool high = r.correction.key == k24.id();
+        CHECK(r.level == doctest::Approx(r.radio_level + (high ? -58.0 : -50.0) + 2.0));
+        (high ? n24 : n16) += 1;
+    }
+    CHECK(n16 >= 3);
+    CHECK(n24 >= 3);
+    dev->close();
+}
+
+// The practice calibration (RAD-61, RF-02): the simulator's signal
+// generator at a known level, the wizard over its readings, the entry it
+// makes gives the generator level back; a gain change makes it a key
+// without an entry again. The practice entry is marked simulated.
+TEST_CASE("measurement host: the simulator's practice calibration gives the generator level back (RAD-61, RF-02, TST-30)") {
+    const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator.so";
+    if (!fs::exists(path)) {
+        MESSAGE("no simulator plugin built: skipped");
+        return;
+    }
+    Rig rig(true);
+    const yr::RadioPluginEntry e = rig.host->load_file(path);
+    INFO(e.message);
+    REQUIRE(e.status == yr::RadioPluginStatus::Enabled);
+    const yr::EnumerateResult en = rig.host->enumerate(e.id);
+    REQUIRE(en.status == YR_OK);
+    REQUIRE(!en.devices.empty());
+    const std::string key = en.devices.front().key;
+    rig.state->set_device_setting(e.id, key, "record_rate_hz", 10.0);
+    rig.state->set_device_setting(e.id, key, "calibration_generator", true);
+    rig.state->set_device_setting(e.id, key, "calibration_level_dbm", -60.0);
+    rig.state->set_device_setting(e.id, key, "gain_db", 0.0);
+    std::string error;
+    auto dev = rig.host->open(e.id, key, error);
+    REQUIRE_MESSAGE(dev, error);
+    const auto cal_key = dev->calibration_key();
+    REQUIRE(cal_key != nullptr);
+    CHECK(cal_key->settings.count("gain_db") == 1);
+
+    // The readings of `count` serving records from `from` on (wait for them).
+    auto serving_records = [&](std::size_t from, std::size_t count) {
+        std::vector<ym::MappedRecord> got;
+        REQUIRE(rig.out->wait([&] {
+            got.clear();
+            for (std::size_t i = from; i < rig.out->records.size(); ++i) {
+                const ym::MappedRecord& r = rig.out->records[i];
+                if (r.device_key == key && r.role == ym::CarrierRole::Serving && std::isfinite(r.radio_level))
+                    got.push_back(r);
+            }
+            return got.size() >= count;
+        }));
+        return got;
+    };
+    auto mark = [&] {
+        const std::lock_guard lock(rig.out->m);
+        return rig.out->records.size();
+    };
+
+    REQUIRE(dev->start(serving(0)) == YR_OK);
+    const std::vector<ym::MappedRecord> raw = serving_records(0, 12);
+    ycal::LevelAverager avg(2);  // the first readings settle
+    for (const ym::MappedRecord& r : raw) {
+        CHECK(r.radio_dbfs);
+        CHECK((r.flags & sf::kUncalibrated) != 0);  // no table yet
+        avg.add(r.radio_level, (r.flags & sf::kNoSync) != 0, (r.flags & sf::kOverload) != 0);
+    }
+    REQUIRE(avg.count() >= 8);
+    ycal::Plan plan;
+    plan.frequencies_hz = {static_cast<double>(raw.back().frequency_hz)};
+    plan.levels_dbm = {-60.0};
+    plan.method = ycal::kMethodPractice;
+    plan.simulated = true;
+    ycal::Wizard wizard(*cal_key, plan, e.id);
+    REQUIRE(wizard.record(avg).accepted);
+    REQUIRE(wizard.done());
+    const ycal::Entry entry = wizard.result(ycal::now_unix());
+    REQUIRE(entry.points.size() == 1);
+    CHECK(entry.simulated);
+    // The simulator's true offset at gain 0 is -20 dB (RAD-61).
+    CHECK(std::fabs(entry.points[0].offset_db - -20.0) <= 0.3);
+
+    auto table = std::make_shared<ycal::Table>();
+    table->put(entry);
+    rig.pipeline->set_corrector(std::make_shared<ycal::TableCorrector>(table));
+    std::size_t from = mark();
+    std::vector<ym::MappedRecord> cal = serving_records(from, 6);
+    double sum = 0.0;
+    for (const ym::MappedRecord& r : cal) {
+        CHECK(r.correction.calibrated);
+        CHECK((r.flags & sf::kUncalibrated) == 0);
+        CHECK((r.flags & sf::kSimulated) != 0);
+        sum += r.level;
+    }
+    CHECK(std::fabs(sum / static_cast<double>(cal.size()) - -60.0) <= 0.5);
+
+    // Another gain: another key, no entry: uncalibrated again.
+    REQUIRE(dev->set_setting("gain_db", 17.0) == YR_OK);
+    CHECK_FALSE(dev->calibration_key()->id() == cal_key->id());
+    from = mark();
+    REQUIRE(rig.out->wait([&] {
+        std::size_t n = 0;
+        for (std::size_t i = from; i < rig.out->records.size(); ++i) {
+            const ym::MappedRecord& r = rig.out->records[i];
+            n += r.device_key == key && r.role == ym::CarrierRole::Serving && !r.correction.calibrated ? 1 : 0;
+        }
+        return n >= 3;
+    }));
+    CHECK(dev->stop() == YR_OK);
+    const std::vector<ym::MappedRecord> after = records_since(rig, from);
+    REQUIRE(!after.empty());
+    const ym::MappedRecord& last = after.back();
+    CHECK_FALSE(last.correction.calibrated);
+    CHECK((last.flags & sf::kUncalibrated) != 0);
+    // The entry stays the simulated radio's: a real radio with the same key gets nothing.
+    ym::LevelContext real;
+    real.calibration_key = cal_key.get();
+    real.frequency_hz = raw.back().frequency_hz;
+    CHECK_FALSE(ycal::TableCorrector(table).correction(real).calibrated);
+    dev->close();
 }

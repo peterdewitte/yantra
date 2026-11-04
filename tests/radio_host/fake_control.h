@@ -59,5 +59,6 @@ using EventFn = void (*)(std::uint32_t event, std::int64_t value);
 using UnplugFn = void (*)();
 using ReplugFn = void (*)(int send_back);  // 1: DEVICE_BACK on the stream, 0: devices_changed
 using QueryFn = void (*)(ContextAnswer* out);
+using ChangeSettingFn = void (*)(const char* key, double value);  // settings_changed
 
 }  // namespace fake

@@ -22,6 +22,7 @@
 
 #include <yantra/core/context/context.h>
 #include <yantra/core/measure/pipeline.h>
+#include <yantra/core/platform/clock.h>
 #include <yantra/core/platform/dynlib.h>
 #include <yantra/core/radio/radio_host.h>
 
@@ -187,6 +188,63 @@ TEST_CASE("radio host: a wrong radio API major is refused (RAD-11)") {
     CHECK(s.log.has("refused"));
     // Not a radio plugin, and not a library at all.
     CHECK(host.load_file(FAKE_RADIO_PATH).status == yr::RadioPluginStatus::Enabled);
+}
+
+TEST_CASE("radio host: every record carries the calibration key valid at its time (HW-01b)") {
+    Fake fake;
+    std::string error;
+    auto push_one = reinterpret_cast<fake::PushOneFn>(fake.lib->symbol("fake_push_one", error));
+    auto change = reinterpret_cast<fake::ChangeSettingFn>(fake.lib->symbol("fake_change_setting", error));
+    REQUIRE((push_one && change));
+    Setup s;
+    yr::RadioHost host(s.config());
+    REQUIRE(host.load_file(FAKE_RADIO_PATH).status == yr::RadioPluginStatus::Enabled);
+    s.state->set_device_setting("test.fake", "fake:0", "gain", 10.0);
+    s.state->set_device_setting("test.fake", "fake:0", "rate", std::int64_t{2});
+    auto dev = host.open("test.fake", "fake:0", error);
+    REQUIRE_MESSAGE(dev, error);
+    // Driver and serial from device_info, the CALIBRATION settings only
+    // ("rate" is not one).
+    const auto first = dev->calibration_key();
+    REQUIRE(first != nullptr);
+    CHECK(first->id() == "fake|F0|gain=10");
+    REQUIRE(dev->info().has_value());
+    CHECK(dev->info()->serial == "F0");
+    REQUIRE(dev->start(serving()) == YR_OK);
+    const std::int64_t before = yantra::platform::monotonic_ns();
+    REQUIRE(push_one(before, 390'012'500, -40.0, 0) == YR_OK);
+    REQUIRE(s.queue->wait_records(1, kWait));
+
+    // A CALIBRATION setting changes: a new key for what is measured from now
+    // on; a record measured before the change keeps the old key.
+    REQUIRE(dev->set_setting("gain", 20.0) == YR_OK);
+    CHECK(dev->calibration_key()->id() == "fake|F0|gain=20");
+    REQUIRE(push_one(yantra::platform::monotonic_ns(), 390'012'500, -40.0, 0) == YR_OK);
+    REQUIRE(push_one(before + 1, 390'012'500, -40.0, 0) == YR_OK);  // measured before, arrives late
+    REQUIRE(s.queue->wait_records(3, kWait));
+    // Another setting does not change the key.
+    REQUIRE(dev->set_setting("rate", std::int64_t{3}) == YR_OK);
+    CHECK(dev->calibration_key()->id() == "fake|F0|gain=20");
+
+    // The device changes a CALIBRATION setting itself (settings_changed).
+    change("gain", 30.0);
+    bool changed = false;
+    for (int i = 0; i < 6000 && !changed; ++i) {
+        changed = dev->calibration_key()->id() == "fake|F0|gain=30";
+        if (!changed) std::this_thread::sleep_for(std::chrono::milliseconds(5));
+    }
+    CHECK(changed);
+    REQUIRE(push_one(yantra::platform::monotonic_ns(), 390'012'500, -40.0, 0) == YR_OK);
+    REQUIRE(s.queue->wait_records(4, kWait));
+    CHECK(dev->stop() == YR_OK);
+
+    const std::vector<ym::RadioRecord> recs = s.queue->records();
+    REQUIRE(recs.size() == 4);
+    for (const auto& r : recs) REQUIRE(r.calibration_key != nullptr);
+    CHECK(recs[0].calibration_key->id() == "fake|F0|gain=10");
+    CHECK(recs[1].calibration_key->id() == "fake|F0|gain=20");
+    CHECK(recs[2].calibration_key->id() == "fake|F0|gain=10");
+    CHECK(recs[3].calibration_key->id() == "fake|F0|gain=30");
 }
 
 TEST_CASE("radio host: stream cycle with stored settings into the pipeline") {
