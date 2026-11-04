@@ -1,0 +1,5 @@
+{"format": "yantra-radio-scene", "version": 1,
+ "floor": {"id": "f0", "scale_set": true, "width_m": 20.0, "height_m": 10.0},
+ "wall_classes": [], "walls": [], "cells": [],
+ "antennas": [{"id": "a1", "cell": "T9", "x_m": 1.0, "y_m": 1.0, "height_m": 2.0,
+               "eirp_dbm": 10.0, "pattern": {"type": "omni"}}]}
