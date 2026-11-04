@@ -19,5 +19,7 @@ devices of the SoapySDRServers named in `YANTRA_SOAPY_REMOTE`; its
 multicast discovery is never run inside a plugin. The server side is
 linked into test programs only (`tests/soapy_remote`), never into a
 plugin. `tools/deps/verify_sources.py` checks these files against the
-archive. The complete release is the corresponding source offered with
+archive. `client/LogAcceptor.cpp` is compiled from the copy
+`tools/deps/soapyremote/LogAcceptor.cpp` instead (one marked change: an
+atomic stop flag, upstream's flag is a data race). The complete release is the corresponding source offered with
 every plugin release (RAD-137).

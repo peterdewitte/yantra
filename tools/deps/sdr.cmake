@@ -185,8 +185,11 @@ int main(void){return strerror_r(0, NULL, 0);}" YANTRA_SOAPY_REMOTE_STRERROR_R_X
   target_link_libraries(yantra_soapy_remote_common PRIVATE $<COMPILE_ONLY:yantra_soapysdr>
     PUBLIC Threads::Threads $<$<PLATFORM_ID:Windows>:ws2_32>)
   add_library(yantra_soapy_remote STATIC ${_m}/client/Registration.cpp ${_m}/client/Settings.cpp
-    ${_m}/client/Streaming.cpp ${_m}/client/LogAcceptor.cpp ${_m}/client/ClientStreamData.cpp
-    ${_m}/client/DiscoverServers.cpp)
+    ${_m}/client/Streaming.cpp ${_m}/client/ClientStreamData.cpp ${_m}/client/DiscoverServers.cpp
+    # In place of client/LogAcceptor.cpp: the same file with an atomic stop
+    # flag (upstream's sig_atomic_t flag is a data race; see the file).
+    ${YANTRA_DEPS_DIR}/soapyremote/LogAcceptor.cpp)
+  target_include_directories(yantra_soapy_remote SYSTEM PRIVATE ${_m}/client)
   target_link_libraries(yantra_soapy_remote PUBLIC yantra_soapy_remote_common
     PRIVATE $<COMPILE_ONLY:yantra_soapysdr>)
   add_library(yantra_soapy_remote_server STATIC ${_m}/server/ServerListener.cpp

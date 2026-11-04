@@ -21,6 +21,7 @@ manifest compiled into the artefacts (`yantra::receiver::bundled_libraries()`).
 | `sdr.cmake` | static targets `yantra::usb`, `yantra::soapysdr` and `yantra::soapy_modules` (SoapySDR, SoapyHackRF/libhackrf, SoapyRTLSDR/librtlsdr, SoapyAirspy/libairspy, SoapyRemote, libusb), linked whole so the modules' static registrations stay in; `YANTRA_SOAPY_MODULES` lists the modules; included by `deps.cmake` |
 | `talloc/config.h`, `libosmocore/config.h`, `libusb/config.h` | hand-written configure results: the upstream build systems (waf, autotools) are not on the tool lists, so the sources are compiled directly |
 | `soapysdr/modules_static.cpp` | replaces SoapySDR's `lib/Modules.in.cpp`: no module search paths, no dlopen; the modules compiled into a plugin register themselves when it is loaded, so a system SoapySDR or its modules are never mixed in (RAD-132) |
+| `soapyremote/LogAcceptor.cpp` | replaces SoapyRemote 0.5.3 `client/LogAcceptor.cpp` (BSL-1.0, one marked change): the log acceptor thread's stop flag is a `std::atomic<bool>` instead of `sig_atomic_t` (data race under ThreadSanitizer) |
 | `libosmocore/backtrace.c` | replaces libosmocore's `src/core/backtrace.c`, which needs the logging framework the subset leaves out |
 
 Two ways to use it, the same on Linux and in MSYS2 UCRT64 (Windows
@@ -37,7 +38,10 @@ osmo-tetra itself (submodule, never `crypto/`) is compiled by
 `cmake/OsmoTetra.cmake` into `yantra::osmo_tetra` on `yantra::osmocore`.
 SoapyRemote's client is a module like the others (network radios: the
 servers in `YANTRA_SOAPY_REMOTE`); its server side is the static target
-`yantra_soapy_remote_server` for the loopback tests only. SoapySDR modules
+`yantra_soapy_remote_server` for the loopback tests only. `soapyremote/LogAcceptor.cpp` replaces the
+client's LogAcceptor.cpp (an atomic stop flag instead of upstream's
+`sig_atomic_t`, which ThreadSanitizer reports as a data race), like
+`soapysdr/modules_static.cpp` replaces SoapySDR's loader. SoapySDR modules
 not built (RAD-50, THIRD_PARTY.md): SoapyBladeRF (libbladeRF needs the ADI
 no-OS AD9361 driver, whose licence is not GPL-3.0 compatible: owner
 question), SoapyPlutoSDR (libiio needs libxml2: owner question); S:
