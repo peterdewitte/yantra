@@ -44,6 +44,8 @@ constexpr double kSpanFraction = 0.8;   ///< of the sample rate measured at once
 constexpr auto kScanPeriod = std::chrono::milliseconds(500);
 constexpr int64_t kStallNs = 1'000'000'000; ///< no samples this long while streaming: stalled
 constexpr long kReadTimeoutUs = 100'000;
+/// Samples per engine call: a stop waits for at most one piece (RAD-15).
+constexpr std::size_t kProcessPiece = 16384;
 
 Plugin* P(yr_plugin* p) { return reinterpret_cast<Plugin*>(p); }
 Device* D(yr_device* d) { return reinterpret_cast<Device*>(d); }
@@ -148,6 +150,7 @@ private:
     bool poll_settings(EngineOutput& out);
     /// One read into buf_ through the engine; false: stop.
     bool step(EngineOutput& out);
+    bool stopping() const; ///< stop_stream asked to stop
     void measure_floor();
     void run_scan(EngineOutput& out);
 
@@ -241,14 +244,17 @@ void Stream::measure_floor()
     d_->noise_floor_dbfs = levels[k];
 }
 
+bool Stream::stopping() const
+{
+    std::lock_guard lock(d_->mutex);
+    return d_->stop;
+}
+
 bool Stream::step(EngineOutput& out)
 {
     last_samples_ = 0;
-    {
-        std::lock_guard lock(d_->mutex);
-        if (d_->stop)
-            return false;
-    }
+    if (stopping())
+        return false;
     poll_settings(out);
     void* buffs[] = {buf_.data()};
     int flags = 0;
@@ -298,19 +304,31 @@ bool Stream::step(EngineOutput& out)
         bi.utc_ns = p_.host->utc_now_ns(p_.host->host) + (bi.monotonic_ns - t_now);
         bi.utc_source = YR_TIME_SOURCE_SYSTEM;
     }
-    uint64_t clipped = 0;
-    for (int i = 0; i < n; ++i)
-        if (std::fabs(buf_[i].real()) >= 0.999f || std::fabs(buf_[i].imag()) >= 0.999f)
-            ++clipped;
-    bi.overload = clipped > 0;
-    clipped_ += clipped;
-    values_ += static_cast<uint64_t>(n);
-    eng_->process(buf_.data(), static_cast<std::size_t>(n), centre_, rate_, bi, out);
+    // The block goes through the engine in pieces, and a stop between two
+    // pieces drops the rest: stop_stream waits for this thread, and on a
+    // slow or loaded machine a whole MTU (131072 samples) took seconds,
+    // more than the RAD-15 call limit.
+    std::size_t done = 0;
+    while (done < static_cast<std::size_t>(n)) {
+        const std::size_t piece = std::min(kProcessPiece, static_cast<std::size_t>(n) - done);
+        uint64_t clipped = 0;
+        for (std::size_t i = done; i < done + piece; ++i)
+            if (std::fabs(buf_[i].real()) >= 0.999f || std::fabs(buf_[i].imag()) >= 0.999f)
+                ++clipped;
+        bi.overload = clipped > 0;
+        clipped_ += clipped;
+        values_ += piece;
+        eng_->process(buf_.data() + done, piece, centre_, rate_, bi, out);
+        done += piece;
+        bi = BlockInfo{}; // the next piece continues this one
+        if (done < static_cast<std::size_t>(n) && stopping())
+            break;
+    }
     discontinuity_ = false;
     need_base_ = false;
     busy_s_ += std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
-    signal_s_ += n / rate_;
-    floor_s_ += n / rate_;
+    signal_s_ += static_cast<double>(done) / rate_;
+    floor_s_ += static_cast<double>(done) / rate_;
     d_->clipped_percent = 100.0 * static_cast<double>(clipped_) / static_cast<double>(values_);
     if (signal_s_ >= 1.0) {
         d_->load = busy_s_ / signal_s_;
@@ -321,7 +339,7 @@ bool Stream::step(EngineOutput& out)
         measure_floor();
         floor_s_ = 0.0;
     }
-    last_samples_ = static_cast<uint64_t>(n);
+    last_samples_ = done;
     return true;
 }
 
