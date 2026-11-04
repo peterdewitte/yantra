@@ -12,7 +12,8 @@ The header is the reference: every function, struct, field and callback is
 documented there, with units, ownership and the thread that calls it.
 `ninja -C build docs-plugin-api` turns it into HTML in
 `build/docs/plugin-api/html`. Changes per version are listed in
-[PLUGIN_API_CHANGELOG.md](PLUGIN_API_CHANGELOG.md) (DOC-18).
+[PLUGIN_API_CHANGELOG.md](PLUGIN_API_CHANGELOG.md) (DOC-18). The guide and
+tutorial for writing and testing plugins is [PLUGINS.md](PLUGINS.md).
 
 Radio plugins are not covered here: they use the radio API of
 yantra-radios (`yantra/radio.h`, documented there, RAD-97).

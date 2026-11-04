@@ -150,7 +150,8 @@ static const yantra_technology_api technology = {
     NULL, NULL, tech_compute_c1, tech_reselect, NULL};
 
 /* --- Feature with a recording schema ----------------------------------- */
-
+/* (quoted in docs/PLUGINS.md) */
+/* [snippet:feature] */
 FIELD(r_temp, "device_temperature", YANTRA_TYPE_DOUBLE, YANTRA_CATEGORY_DEVICE,
       YANTRA_FIELD_DEFAULT, "Probe temperature", "degC", "Temperature of the measuring probe.");
 static const yantra_field_def* const recording_fields[] = {&r_temp};
@@ -176,9 +177,10 @@ static void feature_on_record(yantra_plugin_instance* instance, const yantra_pro
 static const yantra_feature_api feature = {
     sizeof(yantra_feature_api), 0, "ctest_feature", "C test feature", 1, 0, feature_schemas,
     NULL, NULL, NULL, feature_on_record};
+/* [/snippet] */
 
 /* --- Exporter: counts rows ---------------------------------------------- */
-
+/* [snippet:exporter] */
 static const yantra_export_format format_rows = {sizeof(yantra_export_format),
                                                  YANTRA_EXPORT_BATCH, "ctest_rows", "Row count",
                                                  "txt", "Writes the number of rows per table."};
@@ -220,6 +222,7 @@ static void exp_abort(yantra_export_job* job)
 
 static const yantra_exporter_api exporter = {sizeof(yantra_exporter_api), 1, formats, exp_begin,
                                              exp_write, exp_finish, exp_abort};
+/* [/snippet] */
 
 /* --- UI: one panel opened from the View menu ---------------------------- */
 

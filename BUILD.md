@@ -68,6 +68,14 @@ For tests and development, `YANTRA_USER_PLUGIN_DIR` replaces the user
 folder and `YANTRA_PLUGIN_PATH` (`:`-separated) adds folders searched
 first. Tests always set these and never use the real home folder.
 
+## Plugin development (PLG-13, PLG-15)
+
+The build also makes the example technology plugin
+(`build/lib/yantra/examples/example_beacon.so`, not installed) and the
+plugin test kit `build/bin/yantra-plugin-test`; `ninja -C build install`
+installs the kit, the plugin headers and the out-of-tree plugin template
+(`share/yantra/plugin-template`). See [docs/PLUGINS.md](docs/PLUGINS.md).
+
 ## Other trees
 
 | Tree | Configure |

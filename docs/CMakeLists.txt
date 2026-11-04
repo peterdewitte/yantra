@@ -45,3 +45,24 @@ elseif(YANTRA_BUILD_TESTS)
   set_tests_properties(plugin_api_doxygen PROPERTIES
     LABELS "fast;lint;docs" SKIP_RETURN_CODE 77)
 endif()
+
+# Code quoted in docs/PLUGINS.md must be the real, compiled code, and the
+# relative links of the Markdown files must resolve (DOC-17; offline: web
+# links are not fetched). Scripts copied from yantra-radios fb194f5.
+if(YANTRA_BUILD_TESTS)
+  find_package(Python3 COMPONENTS Interpreter QUIET)
+  if(Python3_Interpreter_FOUND)
+    add_test(NAME doc_snippets
+             COMMAND ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/ci/check_doc_snippets.py
+                     ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/docs/PLUGINS.md)
+    add_test(NAME doc_links
+             COMMAND ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/ci/check_doc_links.py
+                     ${PROJECT_SOURCE_DIR})
+    set_tests_properties(doc_snippets doc_links PROPERTIES LABELS "fast;lint;docs")
+  else()
+    foreach(_t doc_snippets doc_links)
+      add_test(NAME ${_t} COMMAND sh -c "echo 'SKIPPED: Python 3 was not found'; exit 77")
+      set_tests_properties(${_t} PROPERTIES LABELS "fast;lint;docs" SKIP_RETURN_CODE 77)
+    endforeach()
+  endif()
+endif()

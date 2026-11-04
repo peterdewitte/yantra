@@ -41,7 +41,8 @@ Radios are plugins from the separate yantra-radios project, included as a
 git submodule in `third_party/yantra-radios`: each radio plugin processes
 its own IQ samples and gives Yantra measurement records only. Feature
 plugins (for example the remote probe API and terminal mode) use Yantra's
-public plugin API (`include/yantra/plugin.h`).
+public plugin API (`include/yantra/plugin.h`). How to write and test a
+plugin: [docs/PLUGINS.md](docs/PLUGINS.md).
 
 Out of scope, by design: short data messages, subscriber addresses, voice
 and decryption. Yantra only handles broadcast and system information,
