@@ -751,7 +751,7 @@ TEST_CASE("TST-23 simulator: a burst the pipeline cannot keep up with is dropped
     REQUIRE(sim.dev->start(serving(0)) == YR_OK);
     // The delivery thread hangs in the observer; the simulator pushes on.
     REQUIRE(sim.rig.out->wait([&] { return sim.rig.out->waiting == 1; }));
-    REQUIRE(sim.rig.out->wait([&] { return sim.dev->stats().sink.dropped >= 20; }));
+    REQUIRE(poll_until([&] { return sim.dev->stats().sink.dropped >= 20; }));
     // Cycles keep coming while the records are held up (their carriers are held).
     std::size_t cycles = 0;
     {

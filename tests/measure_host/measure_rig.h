@@ -18,6 +18,7 @@
 #include <mutex>
 #include <optional>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <cstdlib>
@@ -49,6 +50,19 @@ using std::chrono::milliseconds;
 
 
 inline const milliseconds kWait{30'000 * YANTRA_TEST_TIME_SCALE};
+
+// Waits (at most kWait) for a condition read from the radio host, such as
+// device stats, holding no test lock: the host emits into the Collector
+// under its own lock, so asking the host inside Collector::wait would
+// invert the lock order (TSan).
+inline bool poll_until(const std::function<bool()>& pred) {
+    const auto end = std::chrono::steady_clock::now() + kWait;
+    while (!pred()) {
+        if (std::chrono::steady_clock::now() > end) return false;
+        std::this_thread::sleep_for(milliseconds(2));
+    }
+    return true;
+}
 inline constexpr std::int64_t kSecond = 1'000'000'000;
 inline constexpr std::uint64_t kHz = 390'012'500;
 
