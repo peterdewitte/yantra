@@ -199,8 +199,9 @@ gen::Scenario base_scenario(const Settings& s, const PlanContext& plan)
 void scenario_span(const gen::Scenario& s, double& first_hz, double& last_hz)
 {
     const double c = gen::centre_frequency_hz(s);
-    first_hz = c - 0.4 * s.sample_rate_hz;
-    last_hz = c + 0.4 * s.sample_rate_hz;
+    const double h = receiver::tetra::usable_half_width(s.sample_rate_hz, kUsableFraction);
+    first_hz = c - h;
+    last_hz = c + h;
 }
 
 double true_offset_db(const gen::Scenario& s)
@@ -395,6 +396,7 @@ void Stream::build()
         plan.search = true; // nothing of the plan is on the air here: follow the cells
     plugins::apply_plan(plan, cfg);
     cfg.simulated = true;
+    cfg.search_config.usable_fraction = kUsableFraction; // the span plans were checked against
     cfg.playback_speed = s_.playback_speed;
     cfg.threads = static_cast<unsigned>(s_.threads);
     cfg.ms_max_power_dbm = s_.ms_max_power_dbm;

@@ -855,6 +855,17 @@ records carry no `sim_position`. `SCENE_CHANGED` reloads the scene,
 interval (within 1 s), `PLAN_CHANGED` rebuilds the scenario. The context
 events only set a flag; the stream thread asks the host again.
 
+What it measures. The capture is the scenario's: its sample rate
+(setting `receiver_rate`) around the middle of its cells, and the plugin
+cannot retune. Plans (RAD-32) are checked against the span the carrier
+search holds (`plan_ranges`): the generated I/Q has no analogue
+anti-alias roll-off, so the search uses 90 % of the rate (as `decode-iq`;
+an SDR plugin 80 %), less half a channel at each edge. Every cell in that
+span is found and measured each interval (failed_site's cells at
++/-200 kHz of its 500 kHz capture included), the strongest one serving;
+a SERVING plan with a given carrier follows that one, the others as its
+neighbours.
+
 Levels and calibration. The plugin is not SELF_CALIBRATED: levels are
 dBFS, as from a real radio, and dBm = dBFS + offset. The true offset is
 the scenario receiver's reference level minus the setting `gain_db`
@@ -900,7 +911,10 @@ formula at each record's `sim_position`, a cursor move followed within
 ground truth (identity, neighbours, C1), each example id's scenario,
 seeds, real-time pacing within 1 % and the cursor latency (both in
 `test_simulator_timing`, label timing), the practice calibration, the
-slow sink and pause/resume.
+slow sink, pause/resume, and for every bundled scenario with two or more
+decodable cells each cell measured within 0.5 dB of the ground truth,
+with the strongest or the given serving cell (weak_signal is left out:
+its second cell is below the noise by design).
 
 ## The SoapySDR plugins (RAD-54, RAD-62)
 

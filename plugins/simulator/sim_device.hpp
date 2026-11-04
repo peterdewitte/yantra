@@ -141,7 +141,13 @@ PlanContext read_plan(const yr_host_api& host);
 /// The scenario the settings and plan select (gen::ScenarioError when
 /// none): its id, with the device settings applied.
 gen::Scenario base_scenario(const Settings& s, const PlanContext& plan);
-/// The usable span of a scenario: centre +- 40 % of its sample rate.
+/// Share of the capture the simulator's receiver searches (RAD-61, RAD-102):
+/// the generated I/Q has no analogue anti-alias roll-off, so, as decode-iq
+/// on yantra-gen's I/Q of the same scenarios, more than an SDR's 0.8.
+inline constexpr double kUsableFraction = 0.9;
+/// The span of a scenario its receiver measures (RAD-32): the carrier
+/// centres the carrier search holds around the scenario's centre
+/// (receiver::tetra::usable_half_width at kUsableFraction).
 void scenario_span(const gen::Scenario& s, double& first_hz, double& last_hz);
 /// The true calibration: dBm = dBFS + this, for the settings.
 double true_offset_db(const gen::Scenario& s);

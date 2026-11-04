@@ -239,6 +239,13 @@ private:
     ParallelFor executor_;
 };
 
+/// Half-width of the carrier centres a capture of `rate_hz` holds around
+/// its centre: the usable part (usable_fraction of the rate) less half a
+/// channel at each edge, and at most the rate's half less the
+/// channelizer's passband (+/-15 kHz). CarrierSearch::span() is the centre
+/// plus and minus this; a plugin that offers a span to plans (RAD-32)
+/// offers this one, so every carrier it accepts is one the search holds.
+double usable_half_width(double rate_hz, double usable_fraction = 0.8);
 /// Retune plan of a scanner sweep (RF-04): capture centres whose usable
 /// parts (usable_fraction of the rate, minus half a channel at each edge)
 /// together hold every raster channel from first_hz to last_hz once.

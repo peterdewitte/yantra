@@ -30,7 +30,7 @@ double db(double linear) { return linear > 0.0 ? 10.0 * std::log10(linear) : -30
 /// (+/-15 kHz) inside the capture.
 double usable_half(double rate_hz, double usable_fraction)
 {
-    return std::max(0.0, std::min(rate_hz / 2.0 * usable_fraction - kHalfChannelHz, rate_hz / 2.0 - 15000.0));
+    return usable_half_width(rate_hz, usable_fraction);
 }
 
 class DecoderHandler final : public CarrierHandler {
@@ -525,6 +525,11 @@ std::optional<double> CarrierSearch::level_at(double frequency_hz) const
     if (last_.dbfs.empty() || frequency_hz < low || frequency_hz > high)
         return std::nullopt;
     return db(band_power(last_, frequency_hz - kHalfChannelHz, frequency_hz + kHalfChannelHz));
+}
+
+double usable_half_width(double rate_hz, double usable_fraction)
+{
+    return std::max(0.0, std::min(rate_hz / 2.0 * usable_fraction - kHalfChannelHz, rate_hz / 2.0 - 15000.0));
 }
 
 std::vector<double> sweep_centres(double first_hz, double last_hz, double rate_hz, double usable_fraction)

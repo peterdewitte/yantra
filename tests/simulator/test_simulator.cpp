@@ -6,8 +6,9 @@
 // (RAD-73) at each record's sim_position, a cursor move followed within
 // 1 s, scene reload, the scenario of each example id, the fallback without
 // plan or position, ground truth (identity, neighbours, C1), seeds,
-// pacing, the practice calibration, a slow sink (RAD-24, RAD-25) and
-// pause/resume.
+// pacing, the practice calibration, a slow sink (RAD-24, RAD-25),
+// pause/resume, and every cell of each bundled scenario measured with a
+// given or the strongest serving cell (RAD-102, RAD-112).
 #include <doctest/doctest.h>
 
 #include <yantra/gen/multiwall.hpp>
@@ -16,9 +17,11 @@
 
 #include "host.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <cmath>
 #include <map>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -148,13 +151,15 @@ struct Sim {
 
     // Streams with a serving plan until `done` says so (or `seconds` times
     // YANTRA_TEST_TIME_SCALE pass).
+    // `serving_hz` 0: the strongest carrier.
     StreamResult stream(const std::function<bool(const Record&)>& on_record, double seconds,
                         const std::function<void(const radios::Event&)>& on_event = {},
-                        const SinkOptions& sink = {})
+                        const SinkOptions& sink = {}, uint64_t serving_hz = 0)
     {
         yr_plan plan{};
         plan.struct_size = sizeof plan;
         plan.type = YR_PLAN_SERVING;
+        plan.serving_hz = serving_hz;
         std::atomic<bool> stop{false};
         StreamLimits limits;
         // A hang guard only (the sanitizer trees run 4-13x slower).
@@ -469,6 +474,247 @@ TEST_CASE("simulator: records match the ground truth: identity, neighbours, C1 (
             30.0);
         CHECK(cell);
         CHECK(neighbour);
+    }
+}
+
+namespace {
+
+// What a stream of a scenario delivered, per record interval.
+struct CellRecord {
+    int64_t t_ns = 0;
+    uint64_t hz = 0;
+    uint64_t role = 0;
+    double level_dbm = 0.0; ///< decoded level, dBm (true offset)
+    std::optional<double> truth_dbm; ///< level_inst_dbm of its interval
+};
+
+gen::Scenario scenario_file(const std::string& id)
+{
+    return gen::load_scenario_file(std::string(YANTRA_SOURCE_DIR) + "/data/scenarios/" + id + ".json");
+}
+
+// The span plan_ranges offers.
+std::pair<uint64_t, uint64_t> offered_span(Sim& sim)
+{
+    std::pair<uint64_t, uint64_t> span{0, 0};
+    const auto cb = [](void* user, const yr_plan_ranges* r) {
+        REQUIRE(r->range_count == 1);
+        *static_cast<std::pair<uint64_t, uint64_t>*>(user) = {r->ranges[0].first_hz, r->ranges[0].last_hz};
+    };
+    REQUIRE(sim.host->descriptor().stream->plan_ranges(sim.device, cb, &span) == YR_OK);
+    return span;
+}
+
+// Streams `sim` until every carrier of `want` has `per_cell` synchronised
+// records with a ground truth; the synchronised tetra_cell records of the
+// scenario's carriers (others: the search's NO_SYNC candidates).
+std::vector<CellRecord> stream_cells(Sim& sim, const std::set<uint64_t>& want, int per_cell,
+                                     uint64_t serving_hz = 0)
+{
+    std::vector<CellRecord> out;
+    std::map<uint64_t, int> synced;
+    sim.stream(
+        [&](const Record& r) {
+            if (r.schema_index != 0 || (r.flags & YR_RECORD_NO_SYNC) != 0)
+                return false;
+            const uint64_t hz = r.values[YR_CORE_FREQUENCY_HZ].u64;
+            CellRecord c;
+            c.t_ns = r.time.monotonic_ns;
+            c.hz = hz;
+            c.role = static_cast<uint64_t>(r.values[YR_CORE_ROLE].i64);
+            c.level_dbm = sim.v(r, YR_FIELD_LEVEL).f64; // dBFS until the stream ends
+            if (const radios::Value& v = sim.v(r, "level_inst_dbm"); v.type == YR_TYPE_DOUBLE)
+                c.truth_dbm = v.f64;
+            out.push_back(c);
+            if (want.count(hz) != 0 && c.truth_dbm)
+                ++synced[hz];
+            for (uint64_t f : want)
+                if (synced[f] < per_cell)
+                    return false;
+            return true;
+        },
+        60.0, {}, {}, serving_hz);
+    const double offset = sim.offset(); // known once the stream ran
+    for (CellRecord& c : out)
+        c.level_dbm += offset;
+    for (uint64_t f : want) {
+        CAPTURE(f);
+        CHECK(synced[f] >= per_cell);
+    }
+    return out;
+}
+
+// The serving record of each of the last `n` intervals in which every
+// carrier of `want` was measured: {interval time, its records}.
+std::vector<std::vector<CellRecord>> last_full_intervals(const std::vector<CellRecord>& recs,
+                                                         const std::set<uint64_t>& want, std::size_t n)
+{
+    std::map<int64_t, std::vector<CellRecord>> by_t;
+    for (const CellRecord& c : recs)
+        if (want.count(c.hz) != 0 && c.truth_dbm)
+            by_t[c.t_ns].push_back(c);
+    std::vector<std::vector<CellRecord>> out;
+    for (auto it = by_t.rbegin(); it != by_t.rend() && out.size() < n; ++it)
+        if (it->second.size() == want.size())
+            out.push_back(it->second);
+    return out;
+}
+
+// Every cell of a bundled scenario the capture holds is measured, with
+// its level within 0.5 dB of the ground truth (as decode-iq, RAD-63), and
+// the serving cell is the strongest (RAD-61, RAD-102, RAD-112).
+void check_every_cell(const std::string& id)
+{
+    CAPTURE(id);
+    const gen::Scenario s = scenario_file(id);
+    Sim sim;
+    sim.set_enum("scenario", id);
+    const auto [first, last] = offered_span(sim);
+    const double centre = gen::centre_frequency_hz(s);
+    std::set<uint64_t> want;
+    std::map<uint64_t, std::string> cell_of;
+    for (const gen::ScenarioCell& c : s.cells) {
+        const double hz = gen::cell_frequency_hz(c);
+        const auto f = static_cast<uint64_t>(std::llround(hz));
+        CAPTURE(c.id);
+        // Every cell the capture holds is in the span plans may use.
+        if (std::abs(hz - centre) + 15e3 <= s.sample_rate_hz / 2.0)
+            CHECK((f >= first && f <= last));
+        bool on = c.on_air;
+        for (const gen::ScenarioEvent& e : s.events)
+            if (e.cell == c.id && e.type == gen::EventType::cell_on)
+                on = true;
+        if (on && f >= first && f <= last)
+            want.insert(f);
+        cell_of[f] = c.id;
+    }
+    REQUIRE(want.size() >= 2);
+    const std::vector<CellRecord> recs = stream_cells(sim, want, 12);
+
+    // Levels: each record against its interval's truth, the truth at the
+    // start of this and the next interval of the carrier (a moving
+    // receiver changes the level within an interval).
+    for (uint64_t f : want) {
+        CAPTURE(cell_of[f]);
+        std::vector<CellRecord> mine;
+        for (const CellRecord& c : recs)
+            if (c.hz == f && c.truth_dbm)
+                mine.push_back(c);
+        int checked = 0, inside = 0;
+        for (std::size_t i = 0; i + 1 < mine.size(); ++i) {
+            const double lo = std::min(*mine[i].truth_dbm, *mine[i + 1].truth_dbm);
+            const double hi = std::max(*mine[i].truth_dbm, *mine[i + 1].truth_dbm);
+            const double err = std::max({lo - mine[i].level_dbm, mine[i].level_dbm - hi, 0.0});
+            ++checked;
+            inside += err <= 0.5 ? 1 : 0;
+            // A receiver walking through a shadowing field: the level in
+            // the interval need not lie between the two samples of the truth.
+            CHECK_MESSAGE(err <= 2.0, mine[i].level_dbm << " dBm, truth " << lo << " to " << hi);
+        }
+        CHECK(checked >= 10);
+        CHECK(inside * 10 >= checked * 9);
+    }
+    // Only the scenario's carriers synchronise, and a cell off the air
+    // throughout (failed_site's N3) never.
+    for (const CellRecord& c : recs) {
+        CAPTURE(c.hz);
+        CHECK(cell_of.count(c.hz) == 1);
+        CHECK((want.count(c.hz) == 1 || !c.truth_dbm));
+    }
+
+    // Serving: one per interval; the strongest decoded level within the
+    // engine's 3 dB hysteresis, and the strongest cell of the truth where
+    // the levels do not move (no path, no fading).
+    const bool fixed = s.path.points.empty() && s.channel.fading == gen::FadingModel::none;
+    const auto intervals = last_full_intervals(recs, want, 5);
+    CHECK(intervals.size() == 5);
+    for (const auto& iv : intervals) {
+        const CellRecord* serving = nullptr;
+        const CellRecord* strongest = nullptr;
+        double best = -1e9;
+        for (const CellRecord& c : iv) {
+            if (c.role == YR_ROLE_SERVING) {
+                CHECK(serving == nullptr);
+                serving = &c;
+            }
+            best = std::max(best, c.level_dbm);
+            if (strongest == nullptr || *c.truth_dbm > *strongest->truth_dbm)
+                strongest = &c;
+        }
+        REQUIRE(serving != nullptr);
+        CHECK(serving->level_dbm >= best - 3.0 - 1e-6);
+        if (fixed)
+            CHECK(cell_of[serving->hz] == cell_of[strongest->hz]);
+    }
+}
+
+} // namespace
+
+// One case per bundled multi-cell scenario (RAD-61, RAD-74). weak_signal
+// is left out: its second cell is 0.6 dB under the noise in 18 kHz by
+// design (below the search's margin and the decoder's sensitivity).
+TEST_CASE("simulator: every cell of failed_site is measured (RAD-61, RAD-102, RAD-112)")
+{
+    check_every_cell("failed_site");
+}
+TEST_CASE("simulator: every cell of floor_change is measured (RAD-61, RAD-102, RAD-112)")
+{
+    check_every_cell("floor_change");
+}
+TEST_CASE("simulator: every cell of fraunces is measured (RAD-61, RAD-102, RAD-112)")
+{
+    check_every_cell("fraunces");
+}
+TEST_CASE("simulator: every cell of indoor_good_das is measured (RAD-61, RAD-102, RAD-112)")
+{
+    check_every_cell("indoor_good_das");
+}
+TEST_CASE("simulator: every cell of indoor_weak_das is measured (RAD-61, RAD-102, RAD-112)")
+{
+    check_every_cell("indoor_weak_das");
+}
+TEST_CASE("simulator: every cell of mak_beer_house is measured (RAD-61, RAD-102, RAD-112)")
+{
+    check_every_cell("mak_beer_house");
+}
+TEST_CASE("simulator: every cell of mak_haus_claeson is measured (RAD-61, RAD-102, RAD-112)")
+{
+    check_every_cell("mak_haus_claeson");
+}
+TEST_CASE("simulator: every cell of mak_villa_bunzl is measured (RAD-61, RAD-102, RAD-112)")
+{
+    check_every_cell("mak_villa_bunzl");
+}
+
+TEST_CASE("simulator: a given serving carrier is followed, the other measured (RAD-32, RAD-61)")
+{
+    // failed_site: N1 (390.0 MHz, -72 dBm) at the span's edge, N2 (390.2
+    // MHz, -85 dBm) at its centre. Each one asked for is the serving
+    // cell, even the weaker; the other is its announced neighbour; one
+    // decoder per carrier (a given serving carrier is pinned once).
+    constexpr uint64_t kN1 = 390'000'000, kN2 = 390'200'000;
+    for (uint64_t serving : {kN1, kN2}) {
+        CAPTURE(serving);
+        Sim sim;
+        sim.set_enum("scenario", "failed_site");
+        const std::set<uint64_t> want{kN1, kN2};
+        const std::vector<CellRecord> recs = stream_cells(sim, want, 12, serving);
+        std::map<int64_t, std::map<uint64_t, int>> per_interval;
+        for (const CellRecord& c : recs)
+            ++per_interval[c.t_ns][c.hz];
+        for (const auto& [t, counts] : per_interval)
+            for (const auto& [hz, n] : counts) {
+                CAPTURE(hz);
+                CHECK(n == 1);
+            }
+        const auto intervals = last_full_intervals(recs, want, 5);
+        CHECK(intervals.size() == 5);
+        for (const auto& iv : intervals)
+            for (const CellRecord& c : iv) {
+                CAPTURE(c.hz);
+                CHECK(c.role == (c.hz == serving ? YR_ROLE_SERVING : YR_ROLE_NEIGHBOUR));
+                CHECK(std::abs(c.level_dbm - *c.truth_dbm) <= 0.5);
+            }
     }
 }
 
