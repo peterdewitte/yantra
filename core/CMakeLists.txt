@@ -22,7 +22,8 @@ add_library(yantra_core STATIC
   src/plugin/loader.cpp
   src/plugin/record.cpp
   src/plugin/schema.cpp
-  src/plugin/state_store.cpp)
+  src/plugin/state_store.cpp
+  src/radio/radio_host.cpp)
 add_library(yantra::core ALIAS yantra_core)
 
 target_include_directories(yantra_core
