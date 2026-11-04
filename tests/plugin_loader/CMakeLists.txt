@@ -35,3 +35,9 @@ yantra_add_test_dir(plugin_loader LIBS yantra::core)
 add_dependencies(test_plugin_loader ${_deps})
 target_compile_definitions(test_plugin_loader PRIVATE ${_defs}
   LOADER_TMP_DIR="${CMAKE_CURRENT_BINARY_DIR}/tmp")
+
+# The example technology plugin (PLG-15) and the radio plugin it belongs to.
+add_dependencies(test_plugin_loader yantra_example_beacon)
+target_compile_definitions(test_plugin_loader PRIVATE
+  EXAMPLE_BEACON_PATH="$<TARGET_FILE:yantra_example_beacon>"
+  RADIO_TEST_PLUGIN_DIR="${YANTRA_RADIO_TEST_PLUGIN_DIR}")
