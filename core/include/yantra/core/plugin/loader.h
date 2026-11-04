@@ -91,6 +91,23 @@ struct PluginLoaderConfig {
         notify;
 };
 
+// Marks the calling thread as a measurement thread while the scope lives
+// (PLG-07): the measurement pipeline (and the plugin test kit) runs a
+// radio's records on such a thread. Host services that are not allowed
+// there (settings_set) return YANTRA_ERR_BUSY and are logged as a warning
+// containing "(PLG-07)". Scopes nest.
+class MeasurementThreadScope {
+public:
+    MeasurementThreadScope() noexcept;
+    ~MeasurementThreadScope();
+    MeasurementThreadScope(const MeasurementThreadScope&) = delete;
+    MeasurementThreadScope& operator=(const MeasurementThreadScope&) = delete;
+
+private:
+    bool previous_;
+};
+bool on_measurement_thread() noexcept;
+
 // Owns the plugin.h plugins. The constructing thread is the main thread:
 // load, enable, disable, unload and poll must be called on it (else
 // YANTRA_ERR_BUSY); list, entry, report_failure and the host services are

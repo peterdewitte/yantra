@@ -14,6 +14,8 @@ add_library(yantra_core STATIC
   src/build_info.cpp
   src/context/context.cpp
   src/measure/pipeline.cpp
+  src/measure/record_file.cpp
+  src/measure/technology_map.cpp
   src/platform/dynlib.cpp
   src/plugin/abi.cpp
   src/plugin/descriptor.cpp
@@ -31,4 +33,4 @@ target_include_directories(yantra_core
   PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
 target_link_libraries(yantra_core
   PUBLIC yantra::plugin_api yantra::radio_api Threads::Threads ${CMAKE_DL_LIBS}
-  PRIVATE yantra::warnings)
+  PRIVATE yantra::warnings yantra::json)

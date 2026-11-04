@@ -218,3 +218,34 @@ TEST_CASE("loader: load_all tries every plugin file of the folders") {
     REQUIRE(list.size() == 2);
     CHECK(loader.entry("org.example.ctest")->status == yp::PluginStatus::Enabled);
 }
+
+TEST_CASE("loader: settings_set is refused on a measurement thread (PLG-07)") {
+    Log log;
+    yp::PluginLoader loader(config(log));
+    REQUIRE(loader.load_file(CTEST_OK_PATH).status == yp::PluginStatus::Enabled);
+    // The C test plugin's instance starts with its host table (header_c.c).
+    struct CtestInstance {
+        const yantra_host_api* host;
+    };
+    const auto* instance =
+        reinterpret_cast<const CtestInstance*>(loader.instance("org.example.ctest"));
+    REQUIRE(instance != nullptr);
+    const yantra_host_api* host = instance->host;
+    CHECK_FALSE(yp::on_measurement_thread());
+    CHECK(host->settings_set(host->host, "a.key", "main") == YANTRA_OK);
+    yantra_status on_worker = YANTRA_OK;
+    yantra_status in_scope = YANTRA_OK;
+    bool flagged = false;
+    std::thread([&] {
+        on_worker = host->settings_set(host->host, "a.key", "worker");
+        const yp::MeasurementThreadScope scope;
+        flagged = yp::on_measurement_thread();
+        in_scope = host->settings_set(host->host, "a.key", "measurement");
+    }).join();
+    CHECK(on_worker == YANTRA_OK);  // any other thread may store settings
+    CHECK(flagged);
+    CHECK(in_scope == YANTRA_ERR_BUSY);
+    CHECK_FALSE(yp::on_measurement_thread());
+    CHECK(loader.state().setting("org.example.ctest", "a.key") == "worker");
+    CHECK(log.has("settings_set refused on a measurement thread (PLG-07)"));
+}

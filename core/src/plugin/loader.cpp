@@ -32,6 +32,16 @@ struct yantra_host {
 
 namespace yantra::plugin {
 
+namespace {
+thread_local bool t_measurement_thread = false;
+}  // namespace
+
+MeasurementThreadScope::MeasurementThreadScope() noexcept : previous_(t_measurement_thread) {
+    t_measurement_thread = true;
+}
+MeasurementThreadScope::~MeasurementThreadScope() { t_measurement_thread = previous_; }
+bool on_measurement_thread() noexcept { return t_measurement_thread; }
+
 const char* status_text(PluginStatus status) noexcept {
     switch (status) {
     case PluginStatus::Enabled: return "enabled";
@@ -329,6 +339,14 @@ yantra_status host_settings_get(yantra_host* h, const char* key, char* buffer,
 yantra_status host_settings_set(yantra_host* h, const char* key, const char* value) {
     Runtime* rt = rt_of(h);
     if (rt == nullptr || !valid_setting_key(key)) return YANTRA_ERR_INVALID_ARGUMENT;
+    if (on_measurement_thread()) {
+        try {
+            rt->m->log(rt->info.id, YANTRA_LOG_WARNING,
+                       "settings_set refused on a measurement thread (PLG-07)");
+        } catch (...) {
+        }
+        return YANTRA_ERR_BUSY;
+    }
     return plugin_api::guarded([&] {
         rt->m->state->set_setting(rt->info.id, key,
                                   value != nullptr ? std::optional<std::string>{value}
