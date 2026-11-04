@@ -70,6 +70,7 @@ if(YANTRA_BUILD_APP)
 endif()
 add_subdirectory(tools)
 add_subdirectory(plugins)
+add_subdirectory(docs)
 
 if(YANTRA_BUILD_TESTS)
   add_subdirectory(tests)
