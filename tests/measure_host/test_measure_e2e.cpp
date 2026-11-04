@@ -21,6 +21,7 @@
 
 #include <cstdio>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <numbers>
 #include <set>
@@ -571,43 +572,68 @@ TEST_CASE("TST-10 simulator: a scenario through RadioHost, pipeline and TETRA pl
     SimRun sim;
     if (!sim.open("failed_site", 4.0)) return;
     sim.calibrate();
-    // The cell the simulator follows: without a carrier asked for, the one
-    // at the scenario's capture centre (N2 here; see BUILD_LOG open
-    // questions: the simulator decodes no other carrier of failed_site).
-    std::uint64_t followed = 0;
+    // The ground truth's serving cell: the strongest on the air at the
+    // start (N1); every other cell on the air is measured too (N2, RF-03).
+    std::string strongest;
+    for (const auto& [id, c] : truth.cells) {
+        const auto row = truth.rows.find({0, id});
+        if (!c.on_air || row == truth.rows.end() || !row->second.on_air) continue;
+        if (strongest.empty() || row->second.level_dbm > truth.rows.at({0, strongest}).level_dbm) strongest = id;
+    }
+    REQUIRE(strongest == "N1");
+    const std::uint64_t serving_hz = truth.cells.at(strongest).frequency_hz;
+    std::set<std::uint64_t> on_air;
+    for (const auto& [id, c] : truth.cells)
+        if (c.on_air) on_air.insert(c.frequency_hz);
+    REQUIRE(on_air.size() == 2);
+    // Synchronised tetra_cell records per carrier.
+    auto synced = [&](std::uint64_t hz) {
+        std::size_t n = 0;
+        for (const ym::MappedRecord& m : sim.rig.out->records)
+            if (m.schema->id == "tetra_cell" && m.frequency_hz == hz && (m.flags & sf::kNoSync) == 0) ++n;
+        return n;
+    };
     std::size_t first_cycles = 0;
     {
         ym::CycleRunner runner(*sim.rig.pipeline);
         REQUIRE(sim.dev->start(serving(0)) == YR_OK);
-        auto fresh_cycles = [&] {
+        auto serving_cycles = [&] {
             std::size_t n = 0;
             for (const auto& c : sim.rig.out->cycles) {
                 const ym::CarrierSample* s = c.serving(sim.key);
-                if (s == nullptr || (s->flags & sf::kHeld) != 0) continue;
-                followed = s->latest.frequency_hz;
-                ++n;
+                if (s != nullptr && (s->flags & sf::kHeld) == 0 && s->latest.frequency_hz == serving_hz) ++n;
             }
             return n;
         };
-        // The followed cell's whole neighbour list (RF-03).
+        // The serving cell's whole neighbour list (RF-03).
         auto list_seen = [&] {
-            if (followed == 0 || truth.by_frequency.count(followed) == 0) return false;
             const auto lists = neighbour_lists(sim.rig.out->records);
-            return lists.count(followed) == 1 &&
-                   lists.at(followed).size() >= truth.cells.at(truth.by_frequency.at(followed)).neighbours.size();
+            return lists.count(serving_hz) == 1 &&
+                   lists.at(serving_hz).size() >= truth.cells.at(strongest).neighbours.size();
         };
-        REQUIRE(sim.rig.out->wait([&] { return fresh_cycles() >= 4 && list_seen(); }));
+        REQUIRE(sim.rig.out->wait([&] {
+            if (serving_cycles() < 4 || !list_seen()) return false;
+            for (std::uint64_t hz : on_air)
+                if (synced(hz) < 4) return false;
+            return true;
+        }));
         CHECK(sim.dev->stop() == YR_OK);
         first_cycles = sim.cycles().size();
     }
-    REQUIRE(truth.by_frequency.count(followed) == 1);
-    const Truth::Cell& serving_cell = truth.cells.at(truth.by_frequency.at(followed));
-    CHECK(serving_cell.on_air);
+    const Truth::Cell& serving_cell = truth.cells.at(strongest);
     const ym::PipelineStats st = sim.rig.pipeline->stats();
     CHECK(st.generic == 0);
     CHECK(st.schema_mismatch == 0);
     CHECK(st.skipped_cycles == 0);
-    std::size_t compared = 0;
+    std::map<std::uint64_t, std::size_t> compared;
+    // A record per carrier and record interval (one decoder per carrier).
+    std::set<std::pair<std::int64_t, std::uint64_t>> intervals;
+    bool serving_seen = false;
+    // Neighbour roles come with the serving cell's D-NWRK-BROADCAST.
+    std::int64_t list_from = std::numeric_limits<std::int64_t>::max();
+    for (const ym::MappedRecord& m : sim.records())
+        if (m.schema->id == "tetra_neighbour" && m.frequency_hz == serving_hz)
+            list_from = std::min(list_from, m.record.time.monotonic_ns);
     for (const ym::MappedRecord& m : sim.records()) {
         CHECK((m.flags & sf::kSimulated) != 0);
         if (m.schema->id != "tetra_cell" || !std::isfinite(m.radio_level)) continue;
@@ -615,6 +641,7 @@ TEST_CASE("TST-10 simulator: a scenario through RadioHost, pipeline and TETRA pl
         CHECK((m.flags & sf::kUncalibrated) == 0);
         CHECK(m.level == doctest::Approx(m.radio_level - 20.0).epsilon(1e-12));
         if ((m.flags & sf::kNoSync) != 0) continue;
+        CHECK(intervals.insert({m.record.time.monotonic_ns, m.frequency_hz}).second);
         const std::string cell = text(m, "cell_id");
         REQUIRE_MESSAGE(truth.cells.count(cell) == 1, cell);
         const Truth::Cell& c = truth.cells.at(cell);
@@ -627,33 +654,82 @@ TEST_CASE("TST-10 simulator: a scenario through RadioHost, pipeline and TETRA pl
         // The calibrated level against the simulator's true level (its
         // estimate within 1 dB at these SNRs, RAD-112/RAD-125).
         CHECK(std::fabs(m.level - *num(m, "level_inst_dbm")) <= 1.0);
-        ++compared;
+        ++compared[m.frequency_hz];
+        // Roles: once the strongest cell serves and its list came, the
+        // other is its neighbour.
+        if (m.frequency_hz == serving_hz && num(m, "role") == static_cast<double>(YR_ROLE_SERVING)) serving_seen = true;
+        if (serving_seen && m.record.time.monotonic_ns >= list_from) {
+            CAPTURE(cell);
+            CHECK(num(m, "role") == static_cast<double>(m.frequency_hz == serving_hz ? YR_ROLE_SERVING : YR_ROLE_NEIGHBOUR));
+        }
         // C1 delivered by the radio, the same as the plugin's for the level.
         CHECK(m.c1_source == ym::C1Source::Radio);
         const auto mine = sim.tetra.c1(m, m.level);
         REQUIRE(mine);
         CHECK(*mine == doctest::Approx(*num(m, "c1_db")).epsilon(1e-9));
     }
-    CHECK(compared >= 4);
+    CHECK(serving_seen);
+    for (std::uint64_t hz : on_air) {
+        CAPTURE(hz);
+        CHECK(compared[hz] >= 4);
+    }
     // RF-03: the serving cell's list as broadcast.
     const auto lists = neighbour_lists(sim.records());
-    REQUIRE(lists.count(followed) == 1);
+    REQUIRE(lists.count(serving_hz) == 1);
     std::set<std::uint64_t> want;
     for (const std::string& n : serving_cell.neighbours) want.insert(truth.cells.at(n).frequency_hz);
-    CHECK(lists.at(followed) == want);
-    // TST-31: every cycle from the first serving sample on has it, on the grid.
+    CHECK(lists.at(serving_hz) == want);
+    // TST-31: every cycle from the first with the strongest cell serving
+    // has it (until the stop), on the grid; before it the receiver may
+    // follow the first carrier it locked to.
     const auto cs = sim.cycles();
     REQUIRE(cs.size() == first_cycles);
     std::size_t i = 0;
-    while (i < cs.size() && cs[i].serving(sim.key) == nullptr) ++i;
+    while (i < cs.size() &&
+           (cs[i].serving(sim.key) == nullptr || cs[i].serving(sim.key)->latest.frequency_hz != serving_hz))
+        ++i;
     REQUIRE(i < cs.size());
     for (; i < cs.size(); ++i) {
         const ym::CarrierSample* s = cs[i].serving(sim.key);
         if (s == nullptr) break;  // after the stop
-        CHECK(s->latest.frequency_hz == followed);
+        CHECK(s->latest.frequency_hz == serving_hz);
     }
     for (; i < cs.size(); ++i) CHECK(cs[i].serving(sim.key) == nullptr);
     check_cadence(cs);
+}
+
+TEST_CASE("TST-10 simulator: a serving carrier asked for is followed, the strongest measured as its neighbour (RF-01, RF-03)") {
+    if (!have_records("(ground truth)")) return;
+    const Truth truth("failed_site");
+    SimRun sim;
+    if (!sim.open("failed_site", 4.0)) return;
+    sim.calibrate();
+    const std::uint64_t n1 = truth.cells.at("N1").frequency_hz, n2 = truth.cells.at("N2").frequency_hz;
+    // N2, the weaker cell, at the capture centre; N1 at its edge.
+    auto records_of = [&](std::uint64_t hz, double role) {
+        std::size_t n = 0;
+        for (const ym::MappedRecord& m : sim.rig.out->records)
+            if (m.schema->id == "tetra_cell" && m.frequency_hz == hz && (m.flags & sf::kNoSync) == 0 &&
+                num(m, "role") == role)
+                ++n;
+        return n;
+    };
+    {
+        ym::CycleRunner runner(*sim.rig.pipeline);
+        REQUIRE(sim.dev->start(serving(n2)) == YR_OK);
+        REQUIRE(sim.rig.out->wait([&] {
+            return records_of(n2, YR_ROLE_SERVING) >= 4 && records_of(n1, YR_ROLE_NEIGHBOUR) >= 4;
+        }));
+        CHECK(sim.dev->stop() == YR_OK);
+    }
+    for (const ym::MappedRecord& m : sim.records()) {
+        if (m.schema->id != "tetra_cell" || (m.flags & sf::kNoSync) != 0) continue;
+        CAPTURE(m.frequency_hz);
+        CHECK((num(m, "role") != static_cast<double>(YR_ROLE_SERVING) || m.frequency_hz == n2));
+        CHECK(std::fabs(m.level - *num(m, "level_inst_dbm")) <= 1.0);
+    }
+    for (const auto& c : sim.cycles())
+        if (const ym::CarrierSample* s = c.serving(sim.key)) CHECK(s->latest.frequency_hz == n2);
 }
 
 namespace {

@@ -28,6 +28,11 @@ own changes are in its CHANGELOG.md.
 
 ### Radio plugins (yantra-radios)
 
+- 2026-11-04: pinned to yantra-radios **v0.2.1** (commit f359ee1): the
+  simulator plugin measures every cell of its scenario's capture, not only
+  the carrier at the capture centre, and a carrier pinned twice (a given
+  serving carrier) gets one decoder, so one record per carrier and
+  interval; radio API 1.0 unchanged.
 - 2026-11-04: pinned to yantra-radios **v0.2.0** (commit 205ca7a): scene
   format 1.1 (per-band wall attenuation, storeys with their own height and
   slab attenuation, wall polylines whose vertex is crossed once); radio API
