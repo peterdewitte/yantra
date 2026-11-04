@@ -43,6 +43,8 @@ its own IQ samples and gives Yantra measurement records only. Feature
 plugins (for example the remote probe API and terminal mode) use Yantra's
 public plugin API (`include/yantra/plugin.h`). How to write and test a
 plugin: [docs/PLUGINS.md](docs/PLUGINS.md).
+The building model (floors, scale, walls, antennas, cells) and its
+scene export for the simulator: [docs/BUILDING_MODEL.md](docs/BUILDING_MODEL.md).
 
 Out of scope, by design: short data messages, subscriber addresses, voice
 and decryption. Yantra only handles broadcast and system information,
