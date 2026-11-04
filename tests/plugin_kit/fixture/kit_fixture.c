@@ -14,6 +14,7 @@
  *                        measurement thread (PLG-07)
  */
 #define _POSIX_C_SOURCE 200809L /* nanosleep */
+#include <stdatomic.h>
 #include <time.h>
 
 #include <yantra/plugin.h>
@@ -34,15 +35,16 @@ static yantra_status broken_c1(yantra_plugin_instance* instance, const yantra_c1
 {
     const yantra_status status = compute_c1(instance, input, out_c1_db);
 #if defined(KIT_BROKEN_IMPURE)
-    static double drift; /* state: every call answers a little more */
-    drift += 0.5;
+    /* State: every call answers a little more. Atomic, so the bug the kit
+     * must find is the impurity, not a data race (TSan). */
+    static atomic_uint calls;
+    const unsigned n = atomic_fetch_add(&calls, 1u) + 1u;
     if (status == YANTRA_OK)
-        *out_c1_db += drift;
+        *out_c1_db += 0.5 * (double)n;
 #elif defined(KIT_BROKEN_SLOW)
-    static int slept;
-    if (!slept) {
+    static atomic_flag slept = ATOMIC_FLAG_INIT;
+    if (!atomic_flag_test_and_set(&slept)) {
         struct timespec t = {0, 300000000L};
-        slept = 1;
         nanosleep(&t, NULL);
     }
 #else
