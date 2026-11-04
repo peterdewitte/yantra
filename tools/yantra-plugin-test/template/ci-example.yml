@@ -1,0 +1,48 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# CI example (PLG-13) for a plugin repository made from the CMake template:
+# builds yantra-plugin-test from the Yantra sources, then builds the plugin
+# and runs the plugin test kit on it. Save it as .github/workflows/plugin.yml
+# in the plugin's repository and set YANTRA_REPOSITORY to the clone URL of
+# the Yantra sources (and YANTRA_REF to the release the plugin targets).
+name: plugin
+
+on:
+  push:
+  pull_request:
+
+env:
+  YANTRA_REPOSITORY: ""   # clone URL of the Yantra source repository
+  YANTRA_REF: master
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build g++
+      - name: Build the plugin test kit
+        run: |
+          git clone --depth 1 --recurse-submodules --branch "$YANTRA_REF" \
+            "$YANTRA_REPOSITORY" yantra-sdk
+          cmake -S yantra-sdk -B yantra-sdk/build -G Ninja \
+            -DYANTRA_BUILD_APP=OFF -DYANTRA_BUILD_TESTS=OFF
+          cmake --build yantra-sdk/build --target yantra-plugin-test
+      - name: Build the plugin
+        run: |
+          cmake -S . -B build -G Ninja \
+            -DYANTRA_SDK_DIR="$PWD/yantra-sdk" \
+            -DYANTRA_PLUGIN_TEST="$PWD/yantra-sdk/build/bin/yantra-plugin-test"
+          cmake --build build
+      - name: Plugin test kit
+        run: ctest --test-dir build --output-on-failure
+      - name: Keep the kit's reports and the plugin's output for review
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-kit
+          path: build/plugin-kit/

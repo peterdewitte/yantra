@@ -50,9 +50,10 @@ precedence = "override"
 SPDX-FileCopyrightText = "2013-2025 Niels Lohmann"
 SPDX-License-Identifier = "MIT"
 
-# Record files (RAD-65, JSON Lines without a comment syntax): recorded
-# from the radio plugins of yantra-radios or written for the tests.
+# Record files (RAD-65, JSON Lines without a comment syntax), recorded
+# from the radio plugins of yantra-radios or written for the tests, and
+# golden outputs of the plugin test kit (PLG-13).
 [[annotations]]
-path = ["plugins/**/testdata/*.jsonl", "tests/**/*.jsonl", "tests/**/*.golden.json"]
+path = ["plugins/**/testdata/*.jsonl", "plugins/**/testdata/*.golden.json", "tests/**/*.jsonl", "tests/**/*.golden.json"]
 SPDX-FileCopyrightText = "2026 The Yantra contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"

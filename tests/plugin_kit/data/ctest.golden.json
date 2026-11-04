@@ -1,0 +1,449 @@
+{
+  "bands": [
+    {
+      "channels": 40,
+      "first_channel": 100,
+      "first_hz": 430000000,
+      "id": "ctest_430",
+      "last_hz": 430975000,
+      "raster_hz": 25000
+    }
+  ],
+  "exports": [
+    {
+      "bytes": null,
+      "format": "ctest_rows",
+      "status": "ok"
+    }
+  ],
+  "feature": {
+    "emitted": [],
+    "records_delivered": 15
+  },
+  "inputs": [
+    {
+      "events": 1,
+      "records": 15,
+      "source": "ctest.records.jsonl",
+      "technology_id": "ctest"
+    }
+  ],
+  "neighbours": [
+    {
+      "cell": "mcc=901;mnc=70;la=21",
+      "entry": "frequency_hz=430100000;entry_index=0",
+      "seen": true
+    },
+    {
+      "cell": "mcc=901;mnc=70;la=22",
+      "entry": "frequency_hz=430100000;entry_index=1",
+      "seen": true
+    },
+    {
+      "cell": "mcc=901;mnc=70;la=21",
+      "entry": "frequency_hz=430100000;entry_index=0",
+      "seen": true
+    },
+    {
+      "cell": "mcc=901;mnc=70;la=22",
+      "entry": "frequency_hz=430100000;entry_index=1",
+      "seen": true
+    },
+    {
+      "cell": "mcc=901;mnc=70;la=21",
+      "entry": "frequency_hz=430100000;entry_index=0",
+      "seen": true
+    },
+    {
+      "cell": "mcc=901;mnc=70;la=22",
+      "entry": "frequency_hz=430100000;entry_index=1",
+      "seen": true
+    }
+  ],
+  "plugin": {
+    "api_version": "1.0",
+    "author": "The Yantra contributors",
+    "data_categories": [
+      "system_info",
+      "level",
+      "quality",
+      "device"
+    ],
+    "id": "org.example.ctest",
+    "kinds": [
+      "technology",
+      "feature",
+      "exporter"
+    ],
+    "licence": "GPL-3.0-or-later",
+    "name": "C test plugin",
+    "version": "1.0.0"
+  },
+  "records": [
+    {
+      "c1_db": 68.5,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mcc=901;mnc=70;la=20",
+      "schema": "ctest_cell",
+      "values": {
+        "channel": 104,
+        "colour_code": 1,
+        "frequency_hz": 430100000,
+        "la": 20,
+        "level": -41.5,
+        "mcc": 901,
+        "mer_pct": 0.0,
+        "mnc": 70,
+        "role": 1,
+        "rx_level_min": -110.0
+      }
+    },
+    {
+      "c1_db": 50.0,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mcc=901;mnc=70;la=21",
+      "schema": "ctest_cell",
+      "values": {
+        "channel": 110,
+        "colour_code": 1,
+        "frequency_hz": 430250000,
+        "la": 21,
+        "level": -58.0,
+        "mcc": 901,
+        "mnc": 70,
+        "role": 2,
+        "rx_level_min": -108.0
+      }
+    },
+    {
+      "c1_db": 28.75,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mcc=901;mnc=70;la=22",
+      "schema": "ctest_cell",
+      "values": {
+        "channel": 120,
+        "colour_code": 1,
+        "frequency_hz": 430500000,
+        "la": 22,
+        "level": -77.25,
+        "mcc": 901,
+        "mer_pct": 0.0,
+        "mnc": 70,
+        "role": 3,
+        "rx_level_min": -106.0
+      }
+    },
+    {
+      "flags": [
+        "simulated"
+      ],
+      "key": "frequency_hz=430100000;entry_index=0",
+      "schema": "ctest_neighbour",
+      "values": {
+        "entry_count": 2,
+        "entry_index": 0,
+        "frequency_hz": 430100000,
+        "nb_la": 21
+      }
+    },
+    {
+      "flags": [
+        "simulated"
+      ],
+      "key": "frequency_hz=430100000;entry_index=1",
+      "schema": "ctest_neighbour",
+      "values": {
+        "entry_count": 2,
+        "entry_index": 1,
+        "frequency_hz": 430100000,
+        "nb_la": 22
+      }
+    },
+    {
+      "c1_db": 67.0,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mcc=901;mnc=70;la=20",
+      "schema": "ctest_cell",
+      "values": {
+        "channel": 104,
+        "colour_code": 1,
+        "frequency_hz": 430100000,
+        "la": 20,
+        "level": -43.0,
+        "mcc": 901,
+        "mer_pct": 1.0,
+        "mnc": 70,
+        "role": 1,
+        "rx_level_min": -110.0
+      }
+    },
+    {
+      "c1_db": 48.5,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mcc=901;mnc=70;la=21",
+      "schema": "ctest_cell",
+      "values": {
+        "channel": 110,
+        "colour_code": 1,
+        "frequency_hz": 430250000,
+        "la": 21,
+        "level": -59.5,
+        "mcc": 901,
+        "mnc": 70,
+        "role": 2,
+        "rx_level_min": -108.0
+      }
+    },
+    {
+      "c1_db": 27.25,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mcc=901;mnc=70;la=22",
+      "schema": "ctest_cell",
+      "values": {
+        "channel": 120,
+        "colour_code": 1,
+        "frequency_hz": 430500000,
+        "la": 22,
+        "level": -78.75,
+        "mcc": 901,
+        "mer_pct": 1.0,
+        "mnc": 70,
+        "role": 3,
+        "rx_level_min": -106.0
+      }
+    },
+    {
+      "flags": [
+        "simulated"
+      ],
+      "key": "frequency_hz=430100000;entry_index=0",
+      "schema": "ctest_neighbour",
+      "values": {
+        "entry_count": 2,
+        "entry_index": 0,
+        "frequency_hz": 430100000,
+        "nb_la": 21
+      }
+    },
+    {
+      "flags": [
+        "simulated"
+      ],
+      "key": "frequency_hz=430100000;entry_index=1",
+      "schema": "ctest_neighbour",
+      "values": {
+        "entry_count": 2,
+        "entry_index": 1,
+        "frequency_hz": 430100000,
+        "nb_la": 22
+      }
+    },
+    {
+      "c1_db": 65.5,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mcc=901;mnc=70;la=20",
+      "schema": "ctest_cell",
+      "values": {
+        "channel": 104,
+        "colour_code": 1,
+        "frequency_hz": 430100000,
+        "la": 20,
+        "level": -44.5,
+        "mcc": 901,
+        "mer_pct": 2.0,
+        "mnc": 70,
+        "role": 1,
+        "rx_level_min": -110.0
+      }
+    },
+    {
+      "c1_db": 47.0,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mcc=901;mnc=70;la=21",
+      "schema": "ctest_cell",
+      "values": {
+        "channel": 110,
+        "colour_code": 1,
+        "frequency_hz": 430250000,
+        "la": 21,
+        "level": -61.0,
+        "mcc": 901,
+        "mnc": 70,
+        "role": 2,
+        "rx_level_min": -108.0
+      }
+    },
+    {
+      "c1_db": 25.75,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mcc=901;mnc=70;la=22",
+      "schema": "ctest_cell",
+      "values": {
+        "channel": 120,
+        "colour_code": 1,
+        "frequency_hz": 430500000,
+        "la": 22,
+        "level": -80.25,
+        "mcc": 901,
+        "mer_pct": 2.0,
+        "mnc": 70,
+        "role": 3,
+        "rx_level_min": -106.0
+      }
+    },
+    {
+      "flags": [
+        "simulated"
+      ],
+      "key": "frequency_hz=430100000;entry_index=0",
+      "schema": "ctest_neighbour",
+      "values": {
+        "entry_count": 2,
+        "entry_index": 0,
+        "frequency_hz": 430100000,
+        "nb_la": 21
+      }
+    },
+    {
+      "flags": [
+        "simulated"
+      ],
+      "key": "frequency_hz=430100000;entry_index=1",
+      "schema": "ctest_neighbour",
+      "values": {
+        "entry_count": 2,
+        "entry_index": 1,
+        "frequency_hz": 430100000,
+        "nb_la": 22
+      }
+    }
+  ],
+  "reselection": [
+    {
+      "chosen": null,
+      "neighbours": 0,
+      "reason": "no neighbour is 3 dB better",
+      "serving": "mcc=901;mnc=70;la=20",
+      "state": "usable"
+    },
+    {
+      "chosen": null,
+      "neighbours": 2,
+      "reason": "no neighbour is 3 dB better",
+      "serving": "mcc=901;mnc=70;la=20",
+      "state": "usable"
+    },
+    {
+      "chosen": null,
+      "neighbours": 2,
+      "reason": "no neighbour is 3 dB better",
+      "serving": "mcc=901;mnc=70;la=20",
+      "state": "usable"
+    }
+  ],
+  "technology": {
+    "cell_schema": "ctest_cell",
+    "channel_bandwidth_hz": 25000.0,
+    "id": "ctest",
+    "label": "C test technology",
+    "links": [
+      {
+        "cell_field": "la",
+        "neighbour_field": "nb_la"
+      }
+    ],
+    "schemas": [
+      {
+        "fields": [
+          "frequency_hz",
+          "channel",
+          "role",
+          "level",
+          "mcc",
+          "mnc",
+          "la",
+          "colour_code",
+          "rx_level_min",
+          "mer_pct"
+        ],
+        "id": "ctest_cell",
+        "kind": "measurement",
+        "version": 1
+      },
+      {
+        "fields": [
+          "frequency_hz",
+          "entry_index",
+          "entry_count",
+          "nb_la"
+        ],
+        "id": "ctest_neighbour",
+        "kind": "neighbour",
+        "version": 1
+      }
+    ],
+    "serving_states": [
+      "usable",
+      "relinquishable"
+    ]
+  },
+  "ui": {
+    "menu": [
+      {
+        "id": "ctest_show",
+        "label": "C test panel",
+        "menu": 2,
+        "window": "ctest_panel"
+      }
+    ],
+    "windows": [
+      {
+        "frame": [
+          {
+            "call": "heading",
+            "text": "Records"
+          },
+          {
+            "call": "value",
+            "id": "records",
+            "unit": "",
+            "value": "15"
+          },
+          {
+            "call": "button",
+            "id": "reset"
+          }
+        ],
+        "id": "ctest_panel",
+        "title": "C test panel"
+      }
+    ]
+  }
+}

@@ -1,0 +1,888 @@
+{
+  "bands": [
+    {
+      "channels": 8,
+      "first_channel": 1,
+      "first_hz": 430025000,
+      "id": "beacon_430",
+      "last_hz": 430200000,
+      "raster_hz": 25000
+    }
+  ],
+  "inputs": [
+    {
+      "events": 1,
+      "records": 30,
+      "source": "beacon.records.jsonl",
+      "technology_id": "beacon"
+    }
+  ],
+  "neighbours": [
+    {
+      "cell": "mnc=7;la=102",
+      "entry": "frequency_hz=430025000;entry_index=0",
+      "seen": true
+    },
+    {
+      "cell": "mnc=7;la=103",
+      "entry": "frequency_hz=430025000;entry_index=1",
+      "seen": true
+    },
+    {
+      "cell": "mnc=7;la=102",
+      "entry": "frequency_hz=430025000;entry_index=0",
+      "seen": true
+    },
+    {
+      "cell": "mnc=7;la=103",
+      "entry": "frequency_hz=430025000;entry_index=1",
+      "seen": true
+    },
+    {
+      "cell": "mnc=7;la=102",
+      "entry": "frequency_hz=430025000;entry_index=0",
+      "seen": true
+    },
+    {
+      "cell": "mnc=7;la=103",
+      "entry": "frequency_hz=430025000;entry_index=1",
+      "seen": true
+    },
+    {
+      "cell": "mnc=7;la=102",
+      "entry": "frequency_hz=430025000;entry_index=0",
+      "seen": true
+    },
+    {
+      "cell": "mnc=7;la=103",
+      "entry": "frequency_hz=430025000;entry_index=1",
+      "seen": true
+    },
+    {
+      "cell": "mnc=7;la=102",
+      "entry": "frequency_hz=430025000;entry_index=0",
+      "seen": true
+    },
+    {
+      "cell": "mnc=7;la=103",
+      "entry": "frequency_hz=430025000;entry_index=1",
+      "seen": true
+    },
+    {
+      "cell": "mnc=7;la=102",
+      "entry": "frequency_hz=430025000;entry_index=0",
+      "seen": true
+    },
+    {
+      "cell": "mnc=7;la=103",
+      "entry": "frequency_hz=430025000;entry_index=1",
+      "seen": true
+    }
+  ],
+  "plugin": {
+    "api_version": "1.0",
+    "author": "The Yantra contributors",
+    "data_categories": [
+      "system_info",
+      "level",
+      "quality"
+    ],
+    "id": "yantra.example.beacon",
+    "kinds": [
+      "technology"
+    ],
+    "licence": "GPL-3.0-or-later",
+    "name": "Beacon technology (example)",
+    "version": "1.0.0"
+  },
+  "records": [
+    {
+      "c1_db": 59.99979155354072,
+      "channel": 1,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mnc=7;la=101",
+      "schema": "beacon",
+      "values": {
+        "beacon_class": 0,
+        "channel": 1,
+        "colour_code": 0,
+        "freq_error_hz": 119.98219248267854,
+        "frequency_hz": 430025000,
+        "la": 101,
+        "level": -30.00020844645929,
+        "mcc": 901,
+        "mnc": 7,
+        "role": 1,
+        "sequence": 0,
+        "tx_power_dbm": 20
+      }
+    },
+    {
+      "channel": 1,
+      "flags": [
+        "simulated"
+      ],
+      "key": "frequency_hz=430025000;entry_index=0",
+      "schema": "beacon_neighbour",
+      "values": {
+        "entry_count": 2,
+        "entry_index": 0,
+        "frequency_hz": 430025000,
+        "neighbour_id": 102
+      }
+    },
+    {
+      "channel": 1,
+      "flags": [
+        "simulated"
+      ],
+      "key": "frequency_hz=430025000;entry_index=1",
+      "schema": "beacon_neighbour",
+      "values": {
+        "entry_count": 2,
+        "entry_index": 1,
+        "frequency_hz": 430025000,
+        "neighbour_id": 103
+      }
+    },
+    {
+      "c1_db": 45.00095452906494,
+      "channel": 2,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mnc=7;la=102",
+      "schema": "beacon",
+      "values": {
+        "beacon_class": 0,
+        "channel": 2,
+        "colour_code": 0,
+        "freq_error_hz": -79.96577804554666,
+        "frequency_hz": 430050000,
+        "la": 102,
+        "level": -41.99904547093506,
+        "mcc": 901,
+        "mnc": 7,
+        "role": 2,
+        "sequence": 0,
+        "tx_power_dbm": 17
+      }
+    },
+    {
+      "c1_db": 45.00086228513928,
+      "channel": 3,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mnc=7;la=103",
+      "schema": "beacon",
+      "values": {
+        "beacon_class": 1,
+        "channel": 3,
+        "colour_code": 0,
+        "freq_error_hz": 0.045039216024448804,
+        "frequency_hz": 430075000,
+        "la": 103,
+        "level": -54.99913771486072,
+        "mcc": 901,
+        "mnc": 7,
+        "role": 2,
+        "sequence": 0,
+        "tx_power_dbm": 30
+      }
+    },
+    {
+      "c1_db": 60.00012299167719,
+      "channel": 1,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mnc=7;la=101",
+      "schema": "beacon",
+      "values": {
+        "beacon_class": 0,
+        "channel": 1,
+        "colour_code": 0,
+        "freq_error_hz": 119.97396589927823,
+        "frequency_hz": 430025000,
+        "la": 101,
+        "level": -29.999877008322805,
+        "mcc": 901,
+        "mnc": 7,
+        "role": 1,
+        "sequence": 1,
+        "snr_db": 50.04770951374183,
+        "tx_power_dbm": 20
+      }
+    },
+    {
+      "channel": 1,
+      "flags": [
+        "simulated"
+      ],
+      "key": "frequency_hz=430025000;entry_index=0",
+      "schema": "beacon_neighbour",
+      "values": {
+        "entry_count": 2,
+        "entry_index": 0,
+        "frequency_hz": 430025000,
+        "neighbour_id": 102
+      }
+    },
+    {
+      "channel": 1,
+      "flags": [
+        "simulated"
+      ],
+      "key": "frequency_hz=430025000;entry_index=1",
+      "schema": "beacon_neighbour",
+      "values": {
+        "entry_count": 2,
+        "entry_index": 1,
+        "frequency_hz": 430025000,
+        "neighbour_id": 103
+      }
+    },
+    {
+      "c1_db": 45.00088906481852,
+      "channel": 2,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mnc=7;la=102",
+      "schema": "beacon",
+      "values": {
+        "beacon_class": 0,
+        "channel": 2,
+        "colour_code": 0,
+        "freq_error_hz": -80.03592940069204,
+        "frequency_hz": 430050000,
+        "la": 102,
+        "level": -41.99911093518148,
+        "mcc": 901,
+        "mnc": 7,
+        "role": 2,
+        "sequence": 1,
+        "snr_db": 38.30391063241572,
+        "tx_power_dbm": 17
+      }
+    },
+    {
+      "c1_db": 45.001045414739394,
+      "channel": 3,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mnc=7;la=103",
+      "schema": "beacon",
+      "values": {
+        "beacon_class": 1,
+        "channel": 3,
+        "colour_code": 0,
+        "freq_error_hz": 0.08749662054263278,
+        "frequency_hz": 430075000,
+        "la": 103,
+        "level": -54.998954585260606,
+        "mcc": 901,
+        "mnc": 7,
+        "role": 2,
+        "sequence": 1,
+        "snr_db": 24.953942731063094,
+        "tx_power_dbm": 30
+      }
+    },
+    {
+      "c1_db": 60.00010665193642,
+      "channel": 1,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mnc=7;la=101",
+      "schema": "beacon",
+      "values": {
+        "beacon_class": 0,
+        "channel": 1,
+        "colour_code": 0,
+        "freq_error_hz": 119.98498565059415,
+        "frequency_hz": 430025000,
+        "la": 101,
+        "level": -29.999893348063583,
+        "mcc": 901,
+        "mnc": 7,
+        "role": 1,
+        "sequence": 2,
+        "snr_db": 50.055496749882444,
+        "tx_power_dbm": 20
+      }
+    },
+    {
+      "channel": 1,
+      "flags": [
+        "simulated"
+      ],
+      "key": "frequency_hz=430025000;entry_index=0",
+      "schema": "beacon_neighbour",
+      "values": {
+        "entry_count": 2,
+        "entry_index": 0,
+        "frequency_hz": 430025000,
+        "neighbour_id": 102
+      }
+    },
+    {
+      "channel": 1,
+      "flags": [
+        "simulated"
+      ],
+      "key": "frequency_hz=430025000;entry_index=1",
+      "schema": "beacon_neighbour",
+      "values": {
+        "entry_count": 2,
+        "entry_index": 1,
+        "frequency_hz": 430025000,
+        "neighbour_id": 103
+      }
+    },
+    {
+      "c1_db": 45.00171993770227,
+      "channel": 2,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mnc=7;la=102",
+      "schema": "beacon",
+      "values": {
+        "beacon_class": 0,
+        "channel": 2,
+        "colour_code": 0,
+        "freq_error_hz": -79.82747961632232,
+        "frequency_hz": 430050000,
+        "la": 102,
+        "level": -41.99828006229773,
+        "mcc": 901,
+        "mnc": 7,
+        "role": 2,
+        "sequence": 2,
+        "snr_db": 38.052898223908834,
+        "tx_power_dbm": 17
+      }
+    },
+    {
+      "c1_db": 45.00710310983794,
+      "channel": 3,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mnc=7;la=103",
+      "schema": "beacon",
+      "values": {
+        "beacon_class": 1,
+        "channel": 3,
+        "colour_code": 0,
+        "freq_error_hz": -0.4873212855394545,
+        "frequency_hz": 430075000,
+        "la": 103,
+        "level": -54.99289689016206,
+        "mcc": 901,
+        "mnc": 7,
+        "role": 2,
+        "sequence": 2,
+        "snr_db": 24.933479211880417,
+        "tx_power_dbm": 30
+      }
+    },
+    {
+      "c1_db": 60.00005870454518,
+      "channel": 1,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mnc=7;la=101",
+      "schema": "beacon",
+      "values": {
+        "beacon_class": 0,
+        "channel": 1,
+        "colour_code": 0,
+        "freq_error_hz": 119.97624680300603,
+        "frequency_hz": 430025000,
+        "la": 101,
+        "level": -29.999941295454825,
+        "mcc": 901,
+        "mnc": 7,
+        "role": 1,
+        "sequence": 3,
+        "snr_db": 50.1282451768375,
+        "tx_power_dbm": 20
+      }
+    },
+    {
+      "channel": 1,
+      "flags": [
+        "simulated"
+      ],
+      "key": "frequency_hz=430025000;entry_index=0",
+      "schema": "beacon_neighbour",
+      "values": {
+        "entry_count": 2,
+        "entry_index": 0,
+        "frequency_hz": 430025000,
+        "neighbour_id": 102
+      }
+    },
+    {
+      "channel": 1,
+      "flags": [
+        "simulated"
+      ],
+      "key": "frequency_hz=430025000;entry_index=1",
+      "schema": "beacon_neighbour",
+      "values": {
+        "entry_count": 2,
+        "entry_index": 1,
+        "frequency_hz": 430025000,
+        "neighbour_id": 103
+      }
+    },
+    {
+      "c1_db": 44.99952720274865,
+      "channel": 2,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mnc=7;la=102",
+      "schema": "beacon",
+      "values": {
+        "beacon_class": 0,
+        "channel": 2,
+        "colour_code": 0,
+        "freq_error_hz": -79.88018628887254,
+        "frequency_hz": 430050000,
+        "la": 102,
+        "level": -42.00047279725135,
+        "mcc": 901,
+        "mnc": 7,
+        "role": 2,
+        "sequence": 3,
+        "snr_db": 38.212300737507036,
+        "tx_power_dbm": 17
+      }
+    },
+    {
+      "c1_db": 45.01255395074488,
+      "channel": 3,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mnc=7;la=103",
+      "schema": "beacon",
+      "values": {
+        "beacon_class": 1,
+        "channel": 3,
+        "colour_code": 0,
+        "freq_error_hz": 0.48528019734248234,
+        "frequency_hz": 430075000,
+        "la": 103,
+        "level": -54.98744604925512,
+        "mcc": 901,
+        "mnc": 7,
+        "role": 2,
+        "sequence": 3,
+        "snr_db": 24.937410673461066,
+        "tx_power_dbm": 30
+      }
+    },
+    {
+      "c1_db": 60.000445622322886,
+      "channel": 1,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mnc=7;la=101",
+      "schema": "beacon",
+      "values": {
+        "beacon_class": 0,
+        "channel": 1,
+        "colour_code": 0,
+        "freq_error_hz": 119.97565485327799,
+        "frequency_hz": 430025000,
+        "la": 101,
+        "level": -29.999554377677118,
+        "mcc": 901,
+        "mnc": 7,
+        "role": 1,
+        "sequence": 4,
+        "snr_db": 49.8966403582208,
+        "tx_power_dbm": 20
+      }
+    },
+    {
+      "channel": 1,
+      "flags": [
+        "simulated"
+      ],
+      "key": "frequency_hz=430025000;entry_index=0",
+      "schema": "beacon_neighbour",
+      "values": {
+        "entry_count": 2,
+        "entry_index": 0,
+        "frequency_hz": 430025000,
+        "neighbour_id": 102
+      }
+    },
+    {
+      "channel": 1,
+      "flags": [
+        "simulated"
+      ],
+      "key": "frequency_hz=430025000;entry_index=1",
+      "schema": "beacon_neighbour",
+      "values": {
+        "entry_count": 2,
+        "entry_index": 1,
+        "frequency_hz": 430025000,
+        "neighbour_id": 103
+      }
+    },
+    {
+      "c1_db": 45.0045410857261,
+      "channel": 2,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mnc=7;la=102",
+      "schema": "beacon",
+      "values": {
+        "beacon_class": 0,
+        "channel": 2,
+        "colour_code": 0,
+        "freq_error_hz": -79.93264441842797,
+        "frequency_hz": 430050000,
+        "la": 102,
+        "level": -41.9954589142739,
+        "mcc": 901,
+        "mnc": 7,
+        "role": 2,
+        "sequence": 4,
+        "snr_db": 37.84611005039444,
+        "tx_power_dbm": 17
+      }
+    },
+    {
+      "c1_db": 45.01146891177945,
+      "channel": 3,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mnc=7;la=103",
+      "schema": "beacon",
+      "values": {
+        "beacon_class": 1,
+        "channel": 3,
+        "colour_code": 0,
+        "freq_error_hz": 0.20160783209612804,
+        "frequency_hz": 430075000,
+        "la": 103,
+        "level": -54.98853108822055,
+        "mcc": 901,
+        "mnc": 7,
+        "role": 2,
+        "sequence": 4,
+        "snr_db": 24.860181104515743,
+        "tx_power_dbm": 30
+      }
+    },
+    {
+      "c1_db": 60.00031048653506,
+      "channel": 1,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mnc=7;la=101",
+      "schema": "beacon",
+      "values": {
+        "beacon_class": 0,
+        "channel": 1,
+        "colour_code": 0,
+        "freq_error_hz": 119.97435559951587,
+        "frequency_hz": 430025000,
+        "la": 101,
+        "level": -29.999689513464936,
+        "mcc": 901,
+        "mnc": 7,
+        "role": 1,
+        "sequence": 5,
+        "snr_db": 50.009205512023925,
+        "tx_power_dbm": 20
+      }
+    },
+    {
+      "channel": 1,
+      "flags": [
+        "simulated"
+      ],
+      "key": "frequency_hz=430025000;entry_index=0",
+      "schema": "beacon_neighbour",
+      "values": {
+        "entry_count": 2,
+        "entry_index": 0,
+        "frequency_hz": 430025000,
+        "neighbour_id": 102
+      }
+    },
+    {
+      "channel": 1,
+      "flags": [
+        "simulated"
+      ],
+      "key": "frequency_hz=430025000;entry_index=1",
+      "schema": "beacon_neighbour",
+      "values": {
+        "entry_count": 2,
+        "entry_index": 1,
+        "frequency_hz": 430025000,
+        "neighbour_id": 103
+      }
+    },
+    {
+      "c1_db": 45.00080530667145,
+      "channel": 2,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mnc=7;la=102",
+      "schema": "beacon",
+      "values": {
+        "beacon_class": 0,
+        "channel": 2,
+        "colour_code": 0,
+        "freq_error_hz": -80.08712128906632,
+        "frequency_hz": 430050000,
+        "la": 102,
+        "level": -41.99919469332855,
+        "mcc": 901,
+        "mnc": 7,
+        "role": 2,
+        "sequence": 5,
+        "snr_db": 37.957128644595514,
+        "tx_power_dbm": 17
+      }
+    },
+    {
+      "c1_db": 45.00874595713771,
+      "channel": 3,
+      "flags": [
+        "uncalibrated",
+        "simulated"
+      ],
+      "key": "mnc=7;la=103",
+      "schema": "beacon",
+      "values": {
+        "beacon_class": 1,
+        "channel": 3,
+        "colour_code": 0,
+        "freq_error_hz": -0.3559987561874349,
+        "frequency_hz": 430075000,
+        "la": 103,
+        "level": -54.99125404286229,
+        "mcc": 901,
+        "mnc": 7,
+        "role": 2,
+        "sequence": 5,
+        "snr_db": 24.955930572009493,
+        "tx_power_dbm": 30
+      }
+    }
+  ],
+  "reselection": [
+    {
+      "chosen": null,
+      "neighbours": 0,
+      "reason": "no neighbour beats the serving C1 60.0 dB by 4 dB",
+      "serving": "mnc=7;la=101",
+      "state": "usable"
+    },
+    {
+      "chosen": null,
+      "neighbours": 2,
+      "reason": "no neighbour beats the serving C1 60.0 dB by 4 dB",
+      "serving": "mnc=7;la=101",
+      "state": "usable"
+    },
+    {
+      "chosen": null,
+      "neighbours": 2,
+      "reason": "no neighbour beats the serving C1 60.0 dB by 4 dB",
+      "serving": "mnc=7;la=101",
+      "state": "usable"
+    },
+    {
+      "chosen": null,
+      "neighbours": 2,
+      "reason": "no neighbour beats the serving C1 60.0 dB by 4 dB",
+      "serving": "mnc=7;la=101",
+      "state": "usable"
+    },
+    {
+      "chosen": null,
+      "neighbours": 2,
+      "reason": "no neighbour beats the serving C1 60.0 dB by 4 dB",
+      "serving": "mnc=7;la=101",
+      "state": "usable"
+    },
+    {
+      "chosen": null,
+      "neighbours": 2,
+      "reason": "no neighbour beats the serving C1 60.0 dB by 4 dB",
+      "serving": "mnc=7;la=101",
+      "state": "usable"
+    }
+  ],
+  "technology": {
+    "cell_schema": "beacon",
+    "channel_bandwidth_hz": 12500.0,
+    "id": "beacon",
+    "label": "Beacon (example)",
+    "links": [
+      {
+        "cell_field": "la",
+        "neighbour_field": "neighbour_id"
+      }
+    ],
+    "schemas": [
+      {
+        "fields": [
+          "frequency_hz",
+          "channel",
+          "role",
+          "level",
+          "mcc",
+          "mnc",
+          "la",
+          "colour_code",
+          "snr_db",
+          "freq_error_hz",
+          "beacon_class",
+          "tx_power_dbm",
+          "sequence"
+        ],
+        "id": "beacon",
+        "kind": "measurement",
+        "version": 1
+      },
+      {
+        "fields": [
+          "frequency_hz",
+          "entry_index",
+          "entry_count",
+          "neighbour_id"
+        ],
+        "id": "beacon_neighbour",
+        "kind": "neighbour",
+        "version": 1
+      }
+    ],
+    "serving_states": [
+      "usable",
+      "weak",
+      "lost"
+    ]
+  },
+  "ui": {
+    "menu": [
+      {
+        "id": "beacon_channels_open",
+        "label": "Beacon channels",
+        "menu": 4,
+        "window": "beacon_channels"
+      }
+    ],
+    "windows": [
+      {
+        "frame": [
+          {
+            "call": "heading",
+            "text": "Channel calculator"
+          },
+          {
+            "call": "number",
+            "id": "channel",
+            "unit": "",
+            "value": 1.0
+          },
+          {
+            "call": "value",
+            "id": "frequency",
+            "unit": "MHz",
+            "value": "430.025"
+          },
+          {
+            "call": "separator"
+          },
+          {
+            "call": "table",
+            "headers": [
+              "Channel",
+              "Frequency (MHz)"
+            ],
+            "id": "band_plan",
+            "rows": [
+              [
+                "1",
+                "430.025"
+              ],
+              [
+                "2",
+                "430.050"
+              ],
+              [
+                "3",
+                "430.075"
+              ],
+              [
+                "4",
+                "430.100"
+              ],
+              [
+                "5",
+                "430.125"
+              ],
+              [
+                "6",
+                "430.150"
+              ],
+              [
+                "7",
+                "430.175"
+              ],
+              [
+                "8",
+                "430.200"
+              ]
+            ]
+          }
+        ],
+        "id": "beacon_channels",
+        "title": "Beacon channels"
+      }
+    ]
+  }
+}
