@@ -15,6 +15,15 @@ directly or as a folder that is scanned (not recursively):
            libraries never clash between plugins or with Yantra.
   rpath    (Linux) no RPATH/RUNPATH: a plugin never looks for libraries
            next to itself or in the build tree.
+  static_tls  (Linux) no DF_STATIC_TLS: thread-local data uses the dynamic
+           TLS model, so a host can dlopen any number of plugins after
+           start-up without running out of the static TLS block.
+  textrel  (Linux) no text relocations (position-independent code only).
+  execstack  (Linux) the GNU_STACK segment is not executable.
+  unique   (Linux) no STB_GNU_UNIQUE symbols: they cannot be hidden, bind
+           across plugins and keep a plugin from unloading.
+  missing  with --require NAME[,NAME...]: every named plugin is there, so
+           a plugin that stopped building cannot pass by its absence.
 
 The third RAD-133 check, the conformance kit in a clean environment, is
 run by CI with the radio test host (RAD-91) once it exists.
@@ -97,6 +106,40 @@ def parse_readelf_dynsyms(text: str) -> list[str]:
     return sorted(set(out))
 
 
+def parse_readelf_flags(text: str) -> set[str]:
+    """FLAGS and FLAGS_1 words of `readelf -d -W`, plus TEXTREL for a
+    DT_TEXTREL entry."""
+    out: set[str] = set()
+    for line in text.splitlines():
+        m = re.search(r"\((FLAGS|FLAGS_1)\)\s+(?:Flags:)?\s*(.*)$", line)
+        if m:
+            out.update(w for w in m.group(2).split() if w)
+        if re.search(r"\(TEXTREL\)", line):
+            out.add("TEXTREL")
+    return out
+
+
+def parse_readelf_unique(text: str) -> list[str]:
+    """Defined STB_GNU_UNIQUE symbols from `readelf --dyn-syms -W`."""
+    out = []
+    for line in text.splitlines():
+        f = line.split()
+        if len(f) >= 8 and f[0].endswith(":") and f[0][:-1].isdigit() and f[4] == "UNIQUE" and f[6] != "UND":
+            out.append(f[7].split("@")[0])
+    return sorted(set(out))
+
+
+def parse_readelf_stack(text: str) -> str | None:
+    """Flags of the GNU_STACK program header of `readelf -l -W` (e.g. "RW",
+    "RWE"); None without one."""
+    for line in text.splitlines():
+        f = line.split()
+        if f and f[0] == "GNU_STACK":
+            # Type Offset VirtAddr PhysAddr FileSiz MemSiz Flg Align
+            return "".join(x for x in f[6:-1])
+    return None
+
+
 def parse_objdump_pe(text: str) -> tuple[list[str], list[str]]:
     """DLL imports and exported names from `objdump -p` of a PE file."""
     imports = re.findall(r"^\s*DLL Name:\s*(\S+)", text, re.MULTILINE)
@@ -132,7 +175,21 @@ def check_linux(path: str, extra: list[str], tools: dict) -> list[tuple[str, str
             findings.append(("needed", f"NEEDED {n} is not an allowed system library (RAD-132)"))
     for r in rpath:
         findings.append(("rpath", f"RPATH/RUNPATH {r} set"))
-    syms = parse_readelf_dynsyms(_run([tools["readelf"], "--dyn-syms", "-W", path]))
+    dynamic = _run([tools["readelf"], "-d", "-W", path])
+    flags = parse_readelf_flags(dynamic)
+    if "STATIC_TLS" in flags:
+        findings.append(("static_tls", "DF_STATIC_TLS set: thread-local data in the initial-exec model"))
+    if "TEXTREL" in flags:
+        findings.append(("textrel", "text relocations: not position-independent code"))
+    stack = parse_readelf_stack(_run([tools["readelf"], "-l", "-W", path]))
+    if stack is None or "E" in stack:
+        findings.append(("execstack", f"GNU_STACK {stack or 'missing'}: the stack must not be executable"))
+    dynsyms = _run([tools["readelf"], "--dyn-syms", "-W", path])
+    unique = parse_readelf_unique(dynsyms)
+    if unique:
+        findings.append(("unique", f"STB_GNU_UNIQUE symbols [{', '.join(unique[:5])}]: build with "
+                                   "-fno-gnu-unique"))
+    syms = parse_readelf_dynsyms(dynsyms)
     if syms != [ENTRY]:
         shown = ", ".join(syms[:10]) + (" ..." if len(syms) > 10 else "")
         findings.append(("exports", f"exports {len(syms)} symbol(s) [{shown}], expected only {ENTRY}"))
@@ -201,6 +258,27 @@ The Export Tables (interpreted .edata section contents)
     assert _matches("ld-linux-x86-64.so.2", LINUX_ALLOWED, [], False)
     assert _matches("ld-linux-aarch64.so.1", LINUX_ALLOWED, [], False)
     assert not _matches("libSoapySDR.so.0.8", LINUX_ALLOWED, [], False)
+    flags = """
+ 0x000000000000001e (FLAGS)              BIND_NOW STATIC_TLS
+ 0x000000006ffffffb (FLAGS_1)            Flags: NOW NODELETE
+ 0x0000000000000016 (TEXTREL)            0x0
+"""
+    assert parse_readelf_flags(flags) == {"BIND_NOW", "STATIC_TLS", "NOW", "NODELETE", "TEXTREL"}
+    assert parse_readelf_flags(" 0x000000006ffffffb (FLAGS_1)            Flags: NOW\n") == {"NOW"}
+    uniq = """
+     5: 0000000000004010     8 OBJECT  UNIQUE DEFAULT   24 _ZZ1fvE1x
+     6: 0000000000000000     0 OBJECT  UNIQUE DEFAULT  UND _ZZ1gvE1y
+"""
+    assert parse_readelf_unique(uniq) == ["_ZZ1fvE1x"]
+    seg = """
+  Type           Offset   VirtAddr           PhysAddr           FileSiz  MemSiz   Flg Align
+  LOAD           0x000000 0x0000000000000000 0x0000000000000000 0x0005a8 0x0005a8 R   0x1000
+  TLS            0x002df0 0x0000000000003df0 0x0000000000003df0 0x000000 0x000004 R   0x4
+  GNU_STACK      0x000000 0x0000000000000000 0x0000000000000000 0x000000 0x000000 RW  0x10
+"""
+    assert parse_readelf_stack(seg) == "RW"
+    assert parse_readelf_stack(seg.replace(" RW  0x10", " RWE 0x10")) == "RWE"
+    assert parse_readelf_stack("  LOAD 0x0 0x0 0x0 0x5 0x5 R 0x1000\n") is None
     print("check_completeness: self-test OK")
     return 0
 
@@ -214,6 +292,8 @@ def main() -> int:
                     help="extra allowed library (e.g. sanitizer runtimes in sanitizer builds)")
     ap.add_argument("--expect", default="", metavar="KINDS",
                     help="negative test: pass only if the findings are exactly these kinds")
+    ap.add_argument("--require", default="", metavar="NAMES",
+                    help="plugins (file names without suffix) that must be among the files")
     ap.add_argument("--readelf", default=os.environ.get("READELF", "readelf"))
     ap.add_argument("--objdump", default=os.environ.get("OBJDUMP", "objdump"))
     ap.add_argument("--self-test", action="store_true", help="test the output parsers and exit")
@@ -235,6 +315,11 @@ def main() -> int:
             print(f"{f}: OK")
     if not files:
         print(f"check_completeness: no {suffix} plugins found, nothing to check")
+    present = {os.path.basename(f)[: -len(suffix)] for f in files}
+    for name in [n for n in a.require.split(",") if n]:
+        if name not in present:
+            kinds.add("missing")
+            print(f"check_completeness: missing: required plugin {name}{suffix} not found")
 
     if a.expect:
         want = set(a.expect.split(","))

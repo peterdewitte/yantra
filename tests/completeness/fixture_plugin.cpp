@@ -29,8 +29,25 @@ int count_names(const std::vector<std::string> &names)
 }
 } // namespace
 
+#ifdef YANTRA_FIXTURE_SURPRISES
+// completeness_surprises: initial-exec thread-local data (DF_STATIC_TLS),
+// which RAD-133 must catch, and a function-local static of an exported
+// inline function (STB_GNU_UNIQUE by default), which the plugin version
+// script must still hide (no "unique" finding).
+thread_local int g_calls = 0;
+YR_EXPORT inline int &shared_counter()
+{
+    static int n = 0;
+    return n;
+}
+#endif
+
 extern "C" YR_EXPORT const yr_descriptor *yantra_radio_entry(void)
 {
+#ifdef YANTRA_FIXTURE_SURPRISES
+    ++g_calls;
+    shared_counter() += g_calls;
+#endif
     static yr_descriptor descriptor{};
     try {
         descriptor.struct_size =
