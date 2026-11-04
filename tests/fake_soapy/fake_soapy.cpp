@@ -268,6 +268,10 @@ private:
 };
 
 struct FakeStream {
+    // activateStream/deactivateStream may run on another thread than
+    // readStream (SoapyRemote's server reads on its own thread from
+    // setupStream on); SoapyHackRF locks too.
+    std::mutex mutex;
     std::string format;
     bool active = false;
     Clock::time_point t0;
@@ -492,13 +496,16 @@ public:
     int activateStream(SoapySDR::Stream* stream, const int, const long long, const size_t) override
     {
         auto* s = reinterpret_cast<FakeStream*>(stream);
+        std::lock_guard lock(s->mutex);
         restart(*s);
         s->active = true;
         return 0;
     }
     int deactivateStream(SoapySDR::Stream* stream, const int, const long long) override
     {
-        reinterpret_cast<FakeStream*>(stream)->active = false;
+        auto* s = reinterpret_cast<FakeStream*>(stream);
+        std::lock_guard lock(s->mutex);
+        s->active = false;
         return 0;
     }
     int readStream(SoapySDR::Stream* stream, void* const* buffs, const size_t numElems, int& flags,
@@ -547,7 +554,9 @@ int FakeDevice::readStream(SoapySDR::Stream* stream, void* const* buffs, const s
     flags = 0;
     timeNs = 0;
     const auto deadline = Clock::now() + std::chrono::microseconds(std::max(timeoutUs, 0L));
+    std::unique_lock stream_lock(s->mutex);
     if (!s->active) {
+        stream_lock.unlock();
         // As SoapyHackRF: no samples before activateStream, a timeout
         // (SoapyRemote's server reads from setupStream on).
         std::this_thread::sleep_until(deadline);
