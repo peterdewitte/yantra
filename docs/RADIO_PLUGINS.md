@@ -902,6 +902,83 @@ seeds, real-time pacing within 1 % and the cursor latency (both in
 `test_simulator_timing`, label timing), the practice calibration, the
 slow sink and pause/resume.
 
+## The SoapySDR plugins (RAD-54, RAD-62)
+
+Every SDR plugin is the shared SoapySDR layer `plugins/soapy_common`
+(`yantra::soapy_plugin`, header `yantra/plugins/soapy_plugin.hpp`) plus
+an `Options` block: name, label, version, the table of the modules
+compiled in and a driver filter. SoapySDR 0.8.1 and its modules are
+built statically into each plugin (RAD-132, RAD-136, `tools/deps/sdr.cmake`):
+the module loader is replaced, so no system SoapySDR or module is ever
+loaded, and the modules register their drivers when the plugin loads.
+Built in now: SoapyHackRF (libhackrf), SoapyRTLSDR (osmocom librtlsdr,
+RTL-SDR Blog V4) and SoapyAirspy (libairspy), on libusb without libudev.
+
+`plugins/soapysdr` builds `soapysdr.so`, "SDR receiver (SoapySDR)": every
+built-in driver except `hackrf`, which has its own plugin (RAD-60). What
+the layer does:
+
+- Devices: the modules' find functions are asked directly (no SoapySDR
+  cache); the key is `<driver>:<serial>`, stable across replugs (RAD-30);
+  `device_info` names the module and version and lists the hardware
+  information. Without a device, enumerate returns `YR_ERR_NO_DEVICE`
+  with a diagnostic: the modules and versions, and the usual reasons
+  (device not plugged in, udev rules, the DVB-T driver of an RTL-SDR)
+  (RAD-52). The diagnostic is also logged at load.
+- Settings, generated from what the module reports for the opened device
+  (RAD-51): `receiver_rate` (the module's rates from 0.2 to 10 Msps;
+  80 % of the rate is the span measured at once), `bandwidth` (the
+  baseband filters, or automatic), one `gain_<element>` per gain element
+  with the module's range and step, `agc`, `antenna`, `ppm` (the module's
+  correction, else the tuning is offset), `clock_source` (internal or an
+  external 10 MHz reference, RAD-53), `tune_mhz` (the centre when the plan
+  names no carrier), the module's own settings as `arg_<key>` (a bias tee
+  needs confirmation: `YR_SETTING_WARNING`), records per second, receiver
+  threads, `ms_max_power_dbm` and GSMTAP. A control the module lacks is
+  `UNAVAILABLE` with the reason, not hidden. Gains, AGC and the antenna
+  port are `CALIBRATION` settings: levels are dBFS and Yantra calibrates
+  per combination. Sensors: the module, the hardware information, the
+  overflow count and the module's sensors as `sensor_<key>`.
+- Stream: CF32 samples into the measurement engine (docs/MEASUREMENT.md).
+  An overflow reported by the module gives `YR_EVENT_OVERFLOW`; a gap in
+  the module's sample time stamps gives `YR_EVENT_DROPPED` with the
+  samples lost; both tell the receiver of the discontinuity (RAD-24,
+  RAD-25). Gains and the antenna port change live; rate, filter, clock
+  and threads only while stopped (`YR_SETTING_RESTART`).
+- Hot-plug (`YR_CAP_HOTPLUG`, RAD-35): a watcher thread scans every
+  0.5 s and calls `devices_changed` when the list changes. An open device
+  that is no longer found is `LOST` once its samples have stopped for
+  1 s (streaming) or after two scans (open): `YR_EVENT_DEVICE_LOST` on its
+  sink, `start_stream` and `set_setting` return `YR_ERR_DEVICE_LOST`. When
+  it is found again the plugin opens it anew (a replugged USB device is a
+  new handle) and sends `YR_EVENT_DEVICE_BACK`; Yantra restarts the
+  stream. The watcher is joined at shutdown.
+
+The fake SoapySDR module (`tests/fake_soapy`, RAD-92) is what the tests
+run against. It imitates SoapyHackRF for a HackRF One (gain elements LNA,
+VGA and AMP with their ranges, 1-20 Msps, the baseband filters, native
+CS8, `bias_tx`, the hardware information) and streams the IQ of a
+yantra-gen scenario at the frequency and rate it is tuned to, paced in
+real time, its level following the gain. `YANTRA_FAKE_SOAPY` holds its
+configuration (inline JSON or a file: devices with serial, scenario,
+seed, device buffer, optional clock sources, sensors, frequency
+correction, gain elements, rates, an open error); in its control folder
+the file `<serial>.unplugged` unplugs a device and `<serial>.overflow`
+(holding n) makes the next n reads overflow. `yantra_fake_soapy_library(
+<target> DRIVER <name>)` (cmake/YantraSoapy.cmake) builds it under any
+driver name for a plugin's test build; `soapysdr_fake` (build/tests/plugins,
+never installed) is the generic plugin with the fake only. Its tests:
+the conformance kit with `--unplug`/`--replug` (`conformance_soapysdr_fake`),
+the completeness check, and `test_soapysdr`: generated settings, records
+against the generator's truth (levels within 1.5 dB, identity),
+gain-following levels, overflow and drop events, hot-plug of an open
+device and a refused open.
+
+`yantra-radio-host capture-iq` (RAD-63) records IQ of an SDR through the
+same layer and modules to SigMF (cf32, cs16, cs8 or cu8; `--rolling S`
+keeps the last S seconds); decode-iq reads the recordings back. IQ stays
+in the host tool: it never crosses the radio API.
+
 ## The conformance kit
 
 `yantra-radio-host conformance --plugin FILE` (RAD-91) runs every check of

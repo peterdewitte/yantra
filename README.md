@@ -32,7 +32,7 @@ speech, short data or subscriber identities, and never decrypt anything.
 | Folder | Contents |
 |--------|----------|
 | `include/yantra/radio.h` | the radio API, the only interface between Yantra and a radio plugin |
-| `common/` | shared code: record files (RAD-65), scene JSON (RAD-36), later the SoapySDR layer |
+| `common/` | shared code: record files (RAD-65), scene JSON (RAD-36) |
 | `receiver/` | DSP, carrier search, TETRA decoder, level and quality meters; `receiver/rust/` the protocol crate |
 | `gen/` | TETRA test-signal generator library |
 | `plugins/` | one folder per plugin: hackrf, simulator, soapy, pei, and `beacon`, the example |
@@ -85,8 +85,9 @@ TETRA plugins, docs/MEASUREMENT.md) into a record file (RAD-63), e.g.
 `yantra-radio-host decode-iq --iq failed_site.sigmf-meta --format sigmf
 --out decoded.jsonl`; raw files need `--rate` and `--center`. The records
 compare field by field with yantra-gen's ground truth
-(docs/TETRA_RECORDS.md). `capture-iq` is a hook until the plugins' device
-layer exists.
+(docs/TETRA_RECORDS.md). `yantra-radio-host capture-iq --out
+capture.sigmf-data` records IQ of an SDR through the built-in SoapySDR
+modules to SigMF (RAD-63), for receiver development.
 
 ## TETRA test-signal generator
 

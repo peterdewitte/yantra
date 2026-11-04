@@ -234,3 +234,16 @@ The first version (tag v0.1.0 when released).
   the real-time checks carry the label timing, which the sanitizer
   presets and the ci-full sanitizer jobs leave out; their hang guards
   scale with YANTRA_TEST_TIME_SCALE (5).
+- SDR dependencies (RAD-132, RAD-136): SoapySDR 0.8.1 with SoapyHackRF
+  0.3.6/libhackrf 2026.01.3, SoapyRTLSDR 0.3.4/librtlsdr 2.0.3 and
+  SoapyAirspy 0.2.1/libairspy 1.0.10 on libusb 1.0.30, vendored from
+  their release archives and built statically into the plugins; the
+  module loader is replaced so nothing is loaded from the system.
+- Shared SoapySDR layer `yantra::soapy_plugin` (RAD-54) and the generic
+  plugin `soapysdr` (RAD-62): enumeration with stable keys, settings and
+  sensors generated from the module (RAD-51), external reference
+  (RAD-53), diagnostics (RAD-52), overflow and drop events, hot-plug
+  (RAD-35). A fake SoapySDR module for the tests (RAD-92); the conformance
+  kit runs against it, unplug and replug included.
+- `yantra-radio-host capture-iq` (RAD-63): SDR capture to SigMF in four
+  formats with a rolling buffer and capture segments at drops.
