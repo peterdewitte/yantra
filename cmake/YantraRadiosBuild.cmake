@@ -9,7 +9,10 @@
 #   <build>/lib/yantra/plugins/radios/  hackrf.so, simulator.so,
 #                                       soapysdr.so, pei.so (shipped)
 #   <build>/tests/radio-plugins/        beacon.so, the radio API example
-#                                       (RAD-64), for the tests only
+#                                       (RAD-64), and soapysdr_fake.so,
+#                                       the generic SoapySDR plugin with
+#                                       the fake SoapySDR module (RAD-92),
+#                                       for the tests only
 #
 # Options:
 #   YANTRA_RADIOS_PREBUILT   "" (default: build from the submodule) or a
@@ -19,6 +22,9 @@
 #                            no beacon plugin then.
 #   YANTRA_BUILD_RADIOS      ON: build or copy the radio plugins; OFF: no
 #                            radio plugins (the radio plugin tests skip).
+#   YANTRA_RADIOS_FAKE_SDR   ON: also build soapysdr_fake from the
+#                            submodule (tests only; not with a prebuilt
+#                            package, whose test then skips).
 #   YANTRA_RADIOS_CACHE_DIR  where the bundled libraries of the radio
 #                            plugins are built once (tools/deps/
 #                            build_deps.sh of the submodule), in
@@ -44,6 +50,8 @@ set(YANTRA_RADIOS_PREBUILT "" CACHE PATH
     "Prebuilt yantra-radios install tree or release package (.tar.gz); empty = build the submodule")
 set(YANTRA_RADIOS_CACHE_DIR ${PROJECT_BINARY_DIR}/radios-cache CACHE PATH
     "Cache of the radio plugins' bundled libraries (deps-<submodule commit>)")
+option(YANTRA_RADIOS_FAKE_SDR
+  "Build yantra-radios' test plugin soapysdr_fake (fake SoapySDR module) for the unplug/replug test (NFR-04)" ON)
 
 set(YANTRA_RADIO_PLUGIN_DIR ${PROJECT_BINARY_DIR}/lib/yantra/plugins/radios)
 set(YANTRA_RADIO_TEST_PLUGIN_DIR ${PROJECT_BINARY_DIR}/tests/radio-plugins)
@@ -182,5 +190,36 @@ ExternalProject_Add_Step(yantra_radios copy_plugins
   DEPENDEES install
   ALWAYS ON
   COMMENT "Radio plugins into ${YANTRA_RADIO_PLUGIN_DIR} (PLG-26)")
-add_custom_target(yantra_radio_plugins ALL DEPENDS yantra_radios)
+
+# Test only: the generic SoapySDR plugin built with yantra-radios' fake
+# SoapySDR module in place of the real modules (soapysdr_fake, RAD-92),
+# for the radio host's unplug/replug test (NFR-04): the fake module unplugs
+# a device when a control file appears. A build of its own with the
+# submodule's tests switched on, of that one target only (its closure:
+# about half a minute); after the main radios build, with the same
+# bundled libraries. Never installed or shipped.
+set(_yr_fake_target)
+if(YANTRA_RADIOS_FAKE_SDR)
+  set(_yr_fake_args ${_yr_args})
+  list(TRANSFORM _yr_fake_args REPLACE "^-DYANTRA_RADIOS_BUILD_TESTS=OFF$" "-DYANTRA_RADIOS_BUILD_TESTS=ON")
+  ExternalProject_Add(yantra_radios_fake_sdr
+    SOURCE_DIR ${YANTRA_RADIOS_DIR}
+    BINARY_DIR ${PROJECT_BINARY_DIR}/radios/build-fake-sdr
+    DOWNLOAD_COMMAND ""
+    UPDATE_COMMAND ""
+    CMAKE_ARGS ${_yr_fake_args}
+    BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --target soapysdr_fake
+    INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    <BINARY_DIR>/tests/plugins/soapysdr_fake.so
+                    ${YANTRA_RADIO_TEST_PLUGIN_DIR}/soapysdr_fake.so
+    DEPENDS yantra_radios
+    BUILD_ALWAYS ON
+    LOG_CONFIGURE ON
+    LOG_BUILD ON
+    LOG_INSTALL ON
+    LOG_OUTPUT_ON_FAILURE ON)
+  set(_yr_fake_target yantra_radios_fake_sdr)
+  set(YANTRA_RADIOS_FAKE_SDR_SCENARIO ${YANTRA_RADIOS_DIR}/tests/fixtures/soapy/fake_two_cells.json)
+endif()
+add_custom_target(yantra_radio_plugins ALL DEPENDS yantra_radios ${_yr_fake_target})
 message(STATUS "Radio plugins: built from ${YANTRA_RADIOS_DIR} (${_yr_commit})")

@@ -41,8 +41,9 @@ Options:
 | Option | Default | Meaning |
 |---|---|---|
 | `YANTRA_BUILD_RADIOS` | `ON` | `OFF`: no radio plugins; the tests that need them skip. |
-| `YANTRA_RADIOS_PREBUILT` | empty | Use a prebuilt yantra-radios package instead of building the submodule: an install tree, a release package (`.tar.gz`) or a release folder holding one. No beacon plugin then (its tests skip). |
+| `YANTRA_RADIOS_PREBUILT` | empty | Use a prebuilt yantra-radios package instead of building the submodule: an install tree, a release package (`.tar.gz`) or a release folder holding one. No beacon or soapysdr_fake test plugin then (their tests skip). |
 | `YANTRA_RADIOS_CACHE_DIR` | `build/radios-cache` | Where the bundled libraries are cached; point several build trees at one folder to share it. |
+| `YANTRA_RADIOS_FAKE_SDR` | `ON` | Also build yantra-radios' test plugin `soapysdr_fake` (the generic SoapySDR plugin with its fake SoapySDR module, about half a minute) into `build/tests/radio-plugins` for the unplug/replug test (NFR-04); never installed. |
 
 Example with a yantra-radios release built next to yantra:
 
@@ -52,7 +53,11 @@ Example with a yantra-radios release built next to yantra:
 `ninja -C build install` installs `bin/yantra`, the radio plugins in
 `lib/yantra/plugins/radios`, yantra-radios' licence bundle in
 `share/licenses/yantra-radios` and its udev rules and RTL-SDR blacklist in
-`lib/udev/rules.d` and `lib/modprobe.d` (packages: later).
+`lib/udev/rules.d` and `lib/modprobe.d` (packages: later). The ctest
+`install_destdir` (tests/install) installs into a DESTDIR in the build tree
+and checks that layout (nothing outside the prefix, no test plugin, the
+licence bundle complete, the installed plugins self-contained and
+loadable).
 
 ## Plugin folders (PLG-09)
 

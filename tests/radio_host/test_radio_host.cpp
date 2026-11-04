@@ -9,12 +9,16 @@
 
 #include <doctest/doctest.h>
 
+#include <cstdlib>
 #include <filesystem>
+#include <fstream>
 #include <memory>
 #include <mutex>
 #include <string>
 #include <thread>
 #include <vector>
+
+#include <unistd.h>
 
 #include <yantra/core/context/context.h>
 #include <yantra/core/measure/pipeline.h>
@@ -590,4 +594,96 @@ TEST_CASE("radio host: the beacon example plugin streams through the host") {
     CHECK(dev->stop() == YR_OK);
     CHECK(dev->stats().sink.invalid == 0);
     CHECK(s.queue->records().front().device_key == en.devices.front().key);
+}
+
+// NFR-04 end to end with a real radio plugin: the generic SoapySDR plugin
+// of yantra-radios built with its fake SoapySDR module (soapysdr_fake,
+// RAD-92), streaming a generated two-cell scenario. The fake module
+// unplugs the device while <control>/<serial>.unplugged exists; the
+// plugin's hot-plug watcher reports DEVICE_LOST and, once the file is
+// gone, DEVICE_BACK; the host reopens, re-applies the stored settings and
+// restarts, and the records resume.
+TEST_CASE("radio host: an SDR unplugged and plugged in again is reopened and its records resume (NFR-04)") {
+    const fs::path path = fs::path(RADIO_TEST_PLUGIN_DIR) / "soapysdr_fake.so";
+    if (!fs::exists(path) || std::string(FAKE_SDR_SCENARIO).empty()) {
+        MESSAGE("no soapysdr_fake plugin (YANTRA_RADIOS_FAKE_SDR off or prebuilt radio plugins): skipped");
+        return;
+    }
+    const std::string serial = "0000000000000000a1b2c3d4e5f60001";
+    const fs::path control = fs::path(FAKE_SDR_CONTROL_DIR) / std::to_string(getpid());
+    fs::remove_all(control);
+    fs::create_directories(control);
+    // Unpaced: samples as fast as they are read (records, not timing).
+    const std::string config = R"({"control":")" + control.string() + R"(","devices":[{"serial":")" + serial +
+                               R"(","scenario":")" + FAKE_SDR_SCENARIO + R"(","paced":false}]})";
+    REQUIRE(setenv("YANTRA_FAKE_SOAPY", config.c_str(), 1) == 0);
+    struct Cleanup {
+        fs::path dir;
+        ~Cleanup() {
+            unsetenv("YANTRA_FAKE_SOAPY");
+            std::error_code ec;
+            fs::remove_all(dir, ec);
+        }
+    } cleanup{control};
+    const fs::path unplugged = control / (serial + ".unplugged");
+
+    Setup s;
+    yr::RadioHost host(s.config());
+    const yr::RadioPluginEntry e = host.load_file(path);
+    INFO(e.message);
+    REQUIRE(e.status == yr::RadioPluginStatus::Enabled);
+    const yr::EnumerateResult en = host.enumerate(e.id);
+    REQUIRE(en.status == YR_OK);
+    REQUIRE(en.devices.size() == 1);
+    const std::string key = en.devices.front().key;
+    CHECK(key.find(serial) != std::string::npos);
+    // Stored settings, re-applied at every open: an LNA gain that is not
+    // the plugin's default (16 dB, the middle of 0..40 on its 8 dB raster)
+    // and the record rate.
+    s.state->set_device_setting(e.id, key, "gain_lna", 24.0);
+    s.state->set_device_setting(e.id, key, "record_rate_hz", 10.0);
+    std::string error;
+    auto dev = host.open(e.id, key, error);
+    REQUIRE_MESSAGE(dev, error);
+    yantra::plugin::Value gain;
+    REQUIRE(dev->get_setting("gain_lna", gain) == YR_OK);
+    CHECK(std::get<double>(gain) == 24.0);
+    REQUIRE(dev->start(serving(0)) == YR_OK);
+    const std::uint64_t first = dev->stream_id();
+    REQUIRE(s.queue->wait_records(3, kWait));
+
+    // Unplug: DEVICE_LOST, the device waits.
+    {
+        std::ofstream(control / (serial + ".unplugged.tmp")) << "";
+        fs::rename(control / (serial + ".unplugged.tmp"), unplugged);  // atomic for the module's poll
+    }
+    REQUIRE(s.queue->wait_event(Kind::Lost, 1, kWait));
+    CHECK(dev->state() == yr::DeviceState::Lost);
+    const std::size_t before = s.queue->records().size();
+
+    // Replug: DEVICE_BACK, reopen, settings re-applied, restart.
+    fs::remove(unplugged);
+    REQUIRE(s.queue->wait_event(Kind::Reopened, 1, kWait));
+    REQUIRE(s.queue->wait_event(Kind::Started, 2, kWait));
+    CHECK(dev->state() == yr::DeviceState::Streaming);
+    CHECK(dev->stream_id() != first);
+    REQUIRE(dev->get_setting("gain_lna", gain) == YR_OK);
+    CHECK(std::get<double>(gain) == 24.0);
+
+    // The records resume on the new stream.
+    std::size_t resumed = 0;
+    const auto until = std::chrono::steady_clock::now() + kWait;
+    for (std::size_t seen = before; resumed < 3 && std::chrono::steady_clock::now() < until;) {
+        s.queue->wait_records(seen + 1, milliseconds(500));
+        const auto recs = s.queue->records();
+        for (; seen < recs.size(); ++seen) resumed += recs[seen].stream_id == dev->stream_id() ? 1 : 0;
+    }
+    CHECK(resumed >= 3);
+    CHECK(dev->stop() == YR_OK);
+    const yr::DeviceStats st = dev->stats();
+    CHECK(st.reopens == 1);
+    CHECK(st.streams == 2);
+    CHECK(st.sink.invalid == 0);
+    CHECK(s.log.has("device back"));
+    dev->close();
 }

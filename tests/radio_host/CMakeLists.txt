@@ -3,10 +3,11 @@
 #
 # Radio host tests (PLG-25, PLG-27, PLG-26, NFR-04): a fake radio plugin
 # (fake_radio.cpp, radio API of the submodule; again with API major 2 for
-# the version refusal) driven by the tests, and the simulator and beacon
-# plugins built from yantra-radios (YantraRadiosBuild.cmake; those cases
-# skip when YANTRA_BUILD_RADIOS is OFF or a prebuilt package has no
-# beacon). One ctest per test case.
+# the version refusal) driven by the tests, and the simulator, beacon and
+# soapysdr_fake (fake SoapySDR module, unplug/replug) plugins built from
+# yantra-radios (YantraRadiosBuild.cmake; those cases skip when
+# YANTRA_BUILD_RADIOS is OFF or a prebuilt package has no test plugins).
+# One ctest per test case.
 foreach(_v IN ITEMS 1 2)
   set(_t fake_radio_v${_v})
   add_library(${_t} MODULE fake_radio.cpp)
@@ -26,6 +27,8 @@ target_compile_definitions(test_radio_host PRIVATE
   FAKE_RADIO_PATH="$<TARGET_FILE:fake_radio_v1>"
   FAKE_RADIO_V2_PATH="$<TARGET_FILE:fake_radio_v2>"
   RADIO_PLUGIN_DIR="${YANTRA_RADIO_PLUGIN_DIR}"
-  RADIO_TEST_PLUGIN_DIR="${YANTRA_RADIO_TEST_PLUGIN_DIR}")
+  RADIO_TEST_PLUGIN_DIR="${YANTRA_RADIO_TEST_PLUGIN_DIR}"
+  FAKE_SDR_SCENARIO="${YANTRA_RADIOS_FAKE_SDR_SCENARIO}"
+  FAKE_SDR_CONTROL_DIR="${CMAKE_CURRENT_BINARY_DIR}/fake_sdr_control")
 yantra_doctest_tests(test_radio_host GROUP test_radio_host LABELS fast TIMEOUT 600
   WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
