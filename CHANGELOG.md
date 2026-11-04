@@ -30,6 +30,46 @@ marked:
 Record file (RAD-65) and scene JSON (RAD-36) versions are listed here as
 well; they change independently of the radio API version.
 
+## [0.2.0] - 2026-11-04
+
+Scene format 1.1 for Yantra's building model (tag v0.2.0, RAD-98). A new
+minor release because a format changes (scene 1.1); the radio API stays
+1.0, so plugins and hosts of 0.1.0 load unchanged.
+
+### Radio API
+
+- **Radio API 1.0**: no change. `include/yantra/radio.h` only gains
+  documentation of scene 1.1 next to `YR_SCENE_FORMAT`
+  (`YR_SCENE_VERSION` stays 1, the major version).
+
+### Formats
+
+- Scene JSON `yantra-radio-scene` **1.1** (compatible, RAD-36,
+  docs/SCENE_FORMAT.md): `minor_version`; floor `storeys` (level and slab
+  sum per other floor); wall `polyline` (segments of one wall polyline);
+  wall `bands` (attenuation per frequency). 1.0 scenes are read as before
+  and give the same levels; 1.0 readers read 1.1 scenes and ignore the new
+  members. Readers read any minor of version 1 and refuse version 2. Not
+  in 1.1: "EIRP unknown" and outdoor donor directions (the scenario's
+  antenna EIRPs and outdoor site cover them, RAD-61, RAD-74).
+
+### Changed
+
+- Multi-wall model (RAD-73, docs/CHANNEL_MODEL.md): per-band wall
+  attenuation at the cell's carrier; per-floor levels and slabs from the
+  scene's storeys.
+- Simulator plugin 0.2.0 and `yantra-radio-host` 0.2.0 read scene 1.1
+  (conformance kit run on the simulator with a 1.1 scene).
+
+### Fixed
+
+- Multi-wall model: a path exactly through a vertex of a wall polyline at
+  an angle counted the wall twice; with polyline ids (scene 1.1) it counts
+  once per crossing point, as Yantra's building model does. Scenes without
+  polyline ids keep the 1.0 rule, so all golden results are unchanged.
+- Tests: the fake SoapySDR control files are written atomically (a rare
+  overflow-count race under `ctest -j`).
+
 ## [0.1.0] - 2026-11-04
 
 The first version, tag v0.1.0 (RAD-98). Linux x86-64 `.so` plugins
