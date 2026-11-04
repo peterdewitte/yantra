@@ -105,3 +105,18 @@ target_compile_definitions(test_plugin_kit PRIVATE
   KIT_CTEST_PATH="${_ctest}/ctest_ok/ctest.so"
   KIT_IMPURE_PATH="$<TARGET_FILE:kit_broken_impure>")
 add_dependencies(test_plugin_kit yantra_example_beacon kit_broken_impure ctest_ok)
+
+# The TETRA technology plugin (PLG-11): golden record files (yantra-gen
+# scenario fraunces, dBm levels; the simulator radio through
+# yantra-radio-host, dBFS levels with its C1) and the live simulator.
+set(_tetra $<TARGET_FILE:yantra_tetra>)
+set(_tetra_data ${PROJECT_SOURCE_DIR}/plugins/tetra/testdata)
+yantra_kit_test(conformance_tetra EXIT 0 MATCH "pass  neighbours: [0-9]+ entries, [1-9][0-9]* resolved.*PASS .*tetra"
+  ARGS check --plugin ${_tetra} --records ${_tetra_data}/tetra_gen.records.jsonl
+       --records ${_tetra_data}/tetra_sim.records.jsonl
+       --golden ${_tetra_data}/tetra.golden.json --strict-translations
+       --output ${_out}/tetra.out.json)
+yantra_kit_test(conformance_tetra_live EXIT 0 MATCH "pass  radio_schema: radio simulator.*PASS .*tetra"
+  LABELS slow REQUIRE_FILE ${YANTRA_RADIO_PLUGIN_DIR}/simulator.so
+  ARGS check --plugin ${_tetra} --radio ${YANTRA_RADIO_PLUGIN_DIR}/simulator.so --count 40
+       --strict-translations)

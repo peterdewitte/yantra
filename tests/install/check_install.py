@@ -34,6 +34,8 @@ EXPECTED = [
     f"{LICENCES}/osmo-tetra/COPYING",
     f"{LICENCES}/libusb/COPYING",
     f"{LICENCES}/hackrf/COPYRIGHT.txt",
+    # The TETRA technology plugin in the application's plugin folder (PLG-09, PLG-11).
+    "usr/lib/yantra/plugins/tetra.so",
 ] + [f"{PLUGIN_DIR}/{p}" for p in SHIPPED]
 
 

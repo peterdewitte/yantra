@@ -15,12 +15,14 @@
 
 #include <doctest/doctest.h>
 
+#include <algorithm>
 #include <cmath>
 #include <condition_variable>
 #include <filesystem>
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -620,5 +622,149 @@ TEST_CASE("measurement host: the simulator's practice calibration gives the gene
     real.calibration_key = cal_key.get();
     real.frequency_hz = raw.back().frequency_hz;
     CHECK_FALSE(ycal::TableCorrector(table).correction(real).calibrated);
+    dev->close();
+}
+
+namespace {
+
+// The TETRA technology plugin, enabled, in the rig's catalog with its rules.
+struct TetraPlugin {
+    yp::PluginLoader loader{yp::PluginLoaderConfig{}};
+    const yp::PluginInfo* info = nullptr;
+    explicit TetraPlugin(Rig& rig) {
+        const yp::PluginEntry e = loader.load_file(TETRA_PLUGIN_PATH);
+        INFO(e.message);
+        REQUIRE(e.status == yp::PluginStatus::Enabled);
+        info = loader.info("yantra.tetra");
+        REQUIRE(info != nullptr);
+        REQUIRE(rig.catalog->add(*info, loader.descriptor("yantra.tetra"), loader.instance("yantra.tetra")));
+    }
+    // compute_c1 of the plugin on a mapped record.
+    std::optional<double> c1(const ym::MappedRecord& r, double level_dbm, double ms_dbm = 30.0) const {
+        const ym::RecordView view(r.record, r.schema_index);
+        yantra_c1_input in{};
+        in.struct_size = sizeof in;
+        in.record = view.get();
+        in.level_dbm = level_dbm;
+        in.ms_power_dbm = ms_dbm;
+        double out = 0.0;
+        const auto* api = loader.descriptor("yantra.tetra")->technology;
+        if (api->compute_c1(loader.instance("yantra.tetra"), &in, &out) != YANTRA_OK) return std::nullopt;
+        return out;
+    }
+};
+
+
+}  // namespace
+
+TEST_CASE("measurement host: simulator records map onto the TETRA plugin with the radio's C1 (PLG-11, RF-06)") {
+    const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator.so";
+    if (!fs::exists(path)) {
+        MESSAGE("no simulator plugin built: skipped");
+        return;
+    }
+    Rig rig(true);
+    const TetraPlugin tetra(rig);
+    const yr::RadioPluginEntry e = rig.host->load_file(path);
+    REQUIRE(e.status == yr::RadioPluginStatus::Enabled);
+    const yr::EnumerateResult en = rig.host->enumerate(e.id);
+    REQUIRE(!en.devices.empty());
+    const std::string key = en.devices.front().key;
+    rig.state->set_device_setting(e.id, key, "record_rate_hz", 10.0);
+    rig.state->set_device_setting(e.id, key, "gain_db", 0.0);
+    std::string error;
+    auto dev = rig.host->open(e.id, key, error);
+    REQUIRE_MESSAGE(dev, error);
+    REQUIRE(dev->start(serving(0)) == YR_OK);
+    auto with_c1 = [&] {
+        std::vector<ym::MappedRecord> got;
+        for (const ym::MappedRecord& r : rig.out->records)
+            if (r.c1_source == ym::C1Source::Radio && r.role == ym::CarrierRole::Serving) got.push_back(r);
+        return got;
+    };
+    REQUIRE(rig.out->wait([&] { return with_c1().size() >= 3; }));
+    CHECK(dev->stop() == YR_OK);
+    const ym::PipelineStats st = rig.pipeline->stats();
+    CHECK(st.schema_mismatch == 0);
+    CHECK(st.generic == 0);
+    CHECK(st.c1_estimated == 0);  // uncalibrated dBFS levels: no estimate
+    const std::lock_guard lock(rig.out->m);
+    for (const ym::MappedRecord& r : with_c1()) {
+        CHECK_FALSE(r.generic);
+        CHECK(r.provenance.plugin_id == "yantra.tetra");
+        CHECK(r.schema->id == "tetra_cell");
+        CHECK((r.flags & sf::kC1Estimated) == 0);
+        const double radio_c1 = std::get<double>(r.record.values[*r.schema->field_index("c1_db")]);
+        // The same number from the plugin for the same inputs: the
+        // simulator's true offset at gain 0 is -20 dB (RAD-61), MS 30 dBm.
+        const auto mine = tetra.c1(r, r.radio_level - 20.0);
+        REQUIRE(mine);
+        CHECK(*mine == doctest::Approx(radio_c1).epsilon(1e-12));
+        const ym::RecordView view(r.record, r.schema_index);
+        CHECK(yp::parse_record(view.get(), *r.schema).parsed.ok());
+    }
+    dev->close();
+}
+
+TEST_CASE("measurement host: without a radio C1 Yantra estimates it from the calibrated level (RF-06, TST-30)") {
+    const fs::path path = fs::path(RADIO_TEST_PLUGIN_DIR) / "soapysdr_fake.so";
+    if (!fs::exists(path) || std::string(FAKE_SDR_SCENARIO).empty()) {
+        MESSAGE("no soapysdr_fake plugin (YANTRA_RADIOS_FAKE_SDR off or prebuilt radio plugins): skipped");
+        return;
+    }
+    const std::string serial = "0000000000000000a1b2c3d4e5f60002";
+    const fs::path control = fs::path(FAKE_SDR_CONTROL_DIR) / (std::to_string(getpid()) + "_c1");
+    fs::remove_all(control);
+    fs::create_directories(control);
+    const std::string config = R"({"control":")" + control.string() + R"(","devices":[{"serial":")" + serial +
+                               R"(","scenario":")" + FAKE_SDR_SCENARIO + R"(","paced":false}]})";
+    REQUIRE(setenv("YANTRA_FAKE_SOAPY", config.c_str(), 1) == 0);
+    struct Cleanup {
+        fs::path dir;
+        ~Cleanup() {
+            unsetenv("YANTRA_FAKE_SOAPY");
+            std::error_code ec;
+            fs::remove_all(dir, ec);
+        }
+    } cleanup{control};
+
+    Rig rig(true);
+    const TetraPlugin tetra(rig);
+    const yr::RadioPluginEntry e = rig.host->load_file(path);
+    REQUIRE(e.status == yr::RadioPluginStatus::Enabled);
+    const yr::EnumerateResult en = rig.host->enumerate(e.id);
+    REQUIRE(en.devices.size() == 1);
+    const std::string key = en.devices.front().key;
+    rig.state->set_device_setting(e.id, key, "record_rate_hz", 10.0);
+    std::string error;
+    auto dev = rig.host->open(e.id, key, error);
+    REQUIRE_MESSAGE(dev, error);
+    auto table = std::make_shared<ycal::Table>();
+    table->put(flat_entry(*dev->calibration_key(), -50.0));
+    rig.pipeline->set_corrector(std::make_shared<ycal::TableCorrector>(table));
+    REQUIRE(dev->start(serving(0)) == YR_OK);
+    auto estimated = [&] {
+        std::vector<ym::MappedRecord> got;
+        for (const ym::MappedRecord& r : rig.out->records)
+            if (r.c1_source == ym::C1Source::Estimated) got.push_back(r);
+        return got;
+    };
+    REQUIRE(rig.out->wait([&] { return estimated().size() >= 3; }));
+    CHECK(dev->stop() == YR_OK);
+    CHECK(rig.pipeline->stats().c1_radio == 0);
+    const std::lock_guard lock(rig.out->m);
+    for (const ym::MappedRecord& r : estimated()) {
+        CHECK(r.correction.calibrated);
+        CHECK((r.flags & sf::kC1Estimated) != 0);
+        CHECK(r.level == doctest::Approx(r.radio_level - 50.0));
+        const auto& v = r.record.values;
+        const auto num = [&](const char* n) {
+            return static_cast<double>(std::get<std::int64_t>(v[*r.schema->field_index(n)]));
+        };
+        // By hand: level - RXLEV_ACCESS_MIN - max(0, MS_TXPWR_MAX_CELL - 30 dBm).
+        const double by_hand =
+            r.level - num("rxlev_access_min_dbm") - std::max(0.0, num("ms_txpwr_max_cell_dbm") - 30.0);
+        CHECK(std::get<double>(v[*r.schema->field_index("c1_db")]) == doctest::Approx(by_hand).epsilon(1e-12));
+    }
     dev->close();
 }
