@@ -68,6 +68,80 @@ std::vector<Found> find_devices(const DriverFilter& filter, std::string* problem
 /// kernel driver).
 std::string diagnostics(const DriverFilter& filter);
 
+/// A gain element the plugin knows by its module name (RAD-51: a
+/// device-specific plugin may use the names its module documents): its
+/// setting key, label and help; as_switch offers a stage with one on step
+/// (e.g. the HackRF's 14 dB amplifier) as an on/off setting. A listed
+/// element the module does not report is shown UNAVAILABLE with
+/// `missing` as the reason.
+struct GainControl {
+    const char* module_name;
+    const char* key;
+    const char* label;
+    const char* help;
+    bool as_switch = false;
+    const char* missing = "the module does not report this gain element";
+};
+
+/// A module setting the plugin offers under its own key and label.
+/// `power` marks antenna port power (bias tee): a bool with the WARNING
+/// flag, off by default, switched off at every open and replug, never
+/// part of a preset.
+struct ArgControl {
+    const char* module_key;
+    const char* key;
+    const char* label;
+    const char* help;
+    const char* group;
+    bool power = false;
+    const char* missing = "the module does not offer this setting";
+};
+
+/// A sensor read from the module's hardware information (`info_key` ""
+/// = the hardware key, e.g. "HackRF One"); `fallback_serial` takes the
+/// enumeration's serial when the module reports none.
+struct InfoSensor {
+    const char* info_key;
+    const char* key;
+    const char* label;
+    const char* help;
+    bool fallback_serial = false;
+};
+
+/// A preset (RAD-43): setting key and value pairs (bools as 0/1); the
+/// values of UNAVAILABLE settings are skipped.
+struct PresetValue {
+    const char* key;
+    double value;
+};
+struct Preset {
+    const char* id;
+    const char* label;
+    const char* help;
+    std::vector<PresetValue> values;
+};
+
+/// What a device-specific plugin adds to the layer (RAD-60). The
+/// defaults are the generic plugin's (RAD-62).
+struct Profile {
+    double min_rate_hz = 200e3;     ///< rates offered: the module's within this range
+    double max_rate_hz = 10e6;
+    double default_rate_hz = 2e6;
+    /// > 0: offset tuning keeps the carriers this far from the tuned
+    /// frequency (the DC spike); the setting offset_khz.
+    double offset_tuning_hz = 0.0;
+    bool scan = false; ///< SCAN plans (RAD-23): a sweep with retuning
+    /// The settings c1_enabled and c1_level_offset_db: C1 (RAD-22) from the
+    /// dBFS level plus a calibration offset (the levels stay dBFS).
+    bool c1 = false;
+    std::vector<GainControl> gains;
+    std::vector<ArgControl> args;
+    std::vector<InfoSensor> info_sensors;
+    std::vector<Preset> presets;
+    /// Shown by the overload sensor while the samples clip.
+    const char* saturation_remedy = "reduce the gain";
+};
+
 /// What a plugin built on the layer is.
 struct Options {
     const char* name;        ///< plugin name ("soapysdr")
@@ -77,6 +151,7 @@ struct Options {
     const char* source_url;  ///< RAD-12
     const char* modules;     ///< the module table (see module_table())
     DriverFilter filter;
+    Profile profile = {};
 };
 
 /// The plugin's descriptor; `options` must outlive the plugin (a static).

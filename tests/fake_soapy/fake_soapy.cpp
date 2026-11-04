@@ -223,6 +223,13 @@ public:
                     kept.push_back(c);
             if (kept.empty())
                 return;
+            // Neighbour entries of cells outside the span go too (they
+            // would name an unknown cell); a band scan tunes such spans.
+            for (gen::ScenarioCell& c : kept)
+                std::erase_if(c.neighbours, [&](const gen::ScenarioNeighbour& n) {
+                    return std::none_of(kept.begin(), kept.end(),
+                                        [&](const gen::ScenarioCell& k) { return k.id == n.cell; });
+                });
             s.cells = kept;
             engine_ = std::make_unique<gen::ScenarioEngine>(std::move(s));
         } catch (const std::exception&) {

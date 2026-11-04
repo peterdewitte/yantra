@@ -28,13 +28,25 @@ constexpr const char* kGroupGain = "Gain";
 constexpr const char* kGroupReceiver = "Receiver";
 constexpr const char* kGroupModule = "Module";
 
-// The receiver's useful range (the channelizer takes any rate; below
-// 200 kHz no TETRA span is left, above 10 Msps one core does not keep up).
-constexpr double kMinRate = 200e3;
-constexpr double kMaxRate = 10e6;
-constexpr double kCandidateRates[] = {250e3, 500e3,  1e6,    1.024e6, 1.2e6, 1.4e6, 1.8e6,
-                                      2e6,   2.048e6, 2.4e6, 2.5e6,  3e6,   3.2e6, 4e6,
-                                      5e6,   6e6,    8e6,    10e6};
+// Rates tried on a module with a continuous range; the profile's range
+// (Profile::min_rate_hz..max_rate_hz) picks from them. The generic range
+// is 0.2-10 Msps: below 200 kHz no TETRA span is left, above 10 Msps one
+// core does not keep up with a band search.
+constexpr double kCandidateRates[] = {250e3, 500e3, 1e6,  1.024e6, 1.2e6, 1.4e6, 1.8e6, 2e6,
+                                      2.048e6, 2.4e6, 2.5e6, 3e6, 3.2e6, 4e6, 5e6, 6e6,
+                                      8e6,   10e6,  12.5e6, 16e6, 20e6};
+
+const Profile& profile_of(const Device& d) { return d.plugin->options->profile; }
+
+bool same_name(const std::string& a, const char* b)
+{
+    if (a.size() != std::strlen(b))
+        return false;
+    for (std::size_t i = 0; i < a.size(); ++i)
+        if (std::tolower(static_cast<unsigned char>(a[i])) != std::tolower(static_cast<unsigned char>(b[i])))
+            return false;
+    return true;
+}
 
 std::string mhz_text(double hz)
 {
@@ -117,7 +129,7 @@ double gain_default(const GainElement& g)
 {
     // An amplifier stage (a single on step) starts off; the others in the
     // middle of their range, on their raster.
-    if (lower(g.name).find("amp") != std::string::npos)
+    if (g.as_switch || lower(g.name).find("amp") != std::string::npos)
         return g.min;
     double v = (g.min + g.max) / 2.0;
     if (g.step > 0.0)
@@ -125,11 +137,11 @@ double gain_default(const GainElement& g)
     return v;
 }
 
-uint32_t default_rate(const Caps& c)
+uint32_t default_rate(const Caps& c, double want)
 {
     uint32_t best = 0;
     for (uint32_t i = 0; i < c.rates.size(); ++i)
-        if (std::fabs(c.rates[i] - 2e6) < std::fabs(c.rates[best] - 2e6))
+        if (std::fabs(c.rates[i] - want) < std::fabs(c.rates[best] - want))
             best = i;
     return best;
 }
@@ -152,6 +164,7 @@ double total_gain_db(const Settings& s)
 void read_caps(Device& d)
 {
     SoapySDR::Device& sdr = *d.sdr;
+    const Profile& pr = profile_of(d);
     Caps c;
     const int rx = SOAPY_SDR_RX;
     std::vector<double> listed = sdr.listSampleRates(rx, 0);
@@ -166,14 +179,25 @@ void read_caps(Device& d)
     std::sort(listed.begin(), listed.end());
     listed.erase(std::unique(listed.begin(), listed.end()), listed.end());
     for (double x : listed)
-        if (x >= kMinRate && x <= kMaxRate)
+        if (x >= pr.min_rate_hz - 1.0 && x <= pr.max_rate_hz + 1.0)
             c.rates.push_back(x);
     if (c.rates.empty())
-        throw std::runtime_error("the module offers no sample rate from 0.2 to 10 Msps");
+        throw std::runtime_error("the module offers no sample rate from " +
+                                 radio::number_text(pr.min_rate_hz / 1e6) + " to " +
+                                 radio::number_text(pr.max_rate_hz / 1e6) + " Msps");
     c.bandwidths = sdr.listBandwidths(rx, 0);
     for (const std::string& g : sdr.listGains(rx, 0)) {
         const SoapySDR::Range r = sdr.getGainRange(rx, 0, g);
-        c.gains.push_back({g, r.minimum(), r.maximum(), r.step()});
+        GainElement e{g, r.minimum(), r.maximum(), r.step(), "", false};
+        e.key = "gain_" + item_name(g, c.gains.size());
+        if (radio::is_out_of_scope_name(e.key))
+            e.key = "gain_" + std::to_string(c.gains.size());
+        for (const GainControl& gc : pr.gains)
+            if (same_name(g, gc.module_name)) {
+                e.key = gc.key;
+                e.as_switch = gc.as_switch;
+            }
+        c.gains.push_back(std::move(e));
     }
     c.agc = sdr.hasGainMode(rx, 0);
     c.antennas = sdr.listAntennas(rx, 0);
@@ -186,6 +210,13 @@ void read_caps(Device& d)
         if (m.key.empty())
             continue;
         m.default_text = text_of_arg(a);
+        m.power = lower(a.key).find("bias") != std::string::npos;
+        for (const ArgControl& ac : pr.args)
+            if (a.key == ac.module_key) {
+                m.control = &ac;
+                m.key = ac.key;
+                m.power = ac.power;
+            }
         if (!a.options.empty()) {
             m.type = YR_TYPE_ENUM;
             m.options = a.options;
@@ -219,19 +250,25 @@ void read_caps(Device& d)
     for (const auto& [k, v] : sdr.getHardwareInfo())
         hw << '\n' << k << '=' << v;
     c.hardware_info = hw.str();
+    c.hardware_key = sdr.getHardwareKey();
+    for (const auto& [k, v] : sdr.getHardwareInfo())
+        c.hardware[k] = v;
     d.caps = std::move(c);
 }
 
-Settings default_settings(const Caps& c)
+Settings default_settings(const Options& o, const Caps& c)
 {
     Settings s;
-    s.rate = default_rate(c);
+    s.rate = default_rate(c, o.profile.default_rate_hz);
+    s.offset_khz = o.profile.offset_tuning_hz / 1e3;
     for (const GainElement& g : c.gains)
         s.gains.push_back(gain_default(g));
     for (const ModuleArg& a : c.args) {
         std::string v = a.default_text;
         if (a.type == YR_TYPE_ENUM && std::find(a.options.begin(), a.options.end(), v) == a.options.end())
             v = a.options.front();
+        if (a.power)
+            v = "false"; // antenna port power starts off, whatever the module says
         s.args.push_back(v);
     }
     for (uint32_t i = 0; i < c.antennas.size(); ++i)
@@ -246,7 +283,8 @@ void build_table(Device& d)
 {
     const Caps& c = d.caps;
     SettingTable& t = d.table;
-    const Settings def = default_settings(c);
+    const Profile& pr = profile_of(d);
+    const Settings def = default_settings(*d.plugin->options, c);
     std::vector<yr_setting_def>& out = t.defs;
 
     // RF
@@ -260,8 +298,11 @@ void build_table(Device& d)
     for (double r : c.rates)
         rates.push_back(radio::number_text(r / 1e6) + " Msps");
     yr_setting_def rate = enum_of(t, "receiver_rate", "Sample rate", kGroupRf,
-                                  "Sample rate of the receiver; 80 % of it is the span measured at "
-                                  "once. Higher rates take more processor time.",
+                                  t.keep("Sample rate of the receiver (" +
+                                         radio::number_text(pr.min_rate_hz / 1e6) + " to " +
+                                         radio::number_text(pr.max_rate_hz / 1e6) +
+                                         " Msps); 80 % of it is the span measured at once. "
+                                         "Higher rates take more processor time."),
                                   2, rates, def.rate);
     rate.flags |= YR_SETTING_RESTART;
     out.push_back(rate);
@@ -301,6 +342,15 @@ void build_table(Device& d)
     if (c.clock_sources.size() < 2)
         unavailable(clk, "the module offers no external reference for this device");
     out.push_back(clk);
+    if (pr.offset_tuning_hz > 0.0) {
+        yr_setting_def off = number("offset_khz", YR_TYPE_DOUBLE, "Offset tuning", "kHz", kGroupRf,
+                                    "The receiver tunes this far beside the carriers so that "
+                                    "none sits on the DC spike in the middle of the span. 0 "
+                                    "tunes to their middle.",
+                                    7, 0.0, 2000.0, 5.0, pr.offset_tuning_hz / 1e3);
+        off.flags |= YR_SETTING_RESTART | YR_SETTING_ADVANCED;
+        out.push_back(off);
+    }
 
     // Gain
     yr_setting_def agc = make_setting("agc", YR_TYPE_BOOL, "Automatic gain", "", kGroupGain,
@@ -314,35 +364,59 @@ void build_table(Device& d)
     out.push_back(agc);
     for (std::size_t i = 0; i < c.gains.size(); ++i) {
         const GainElement& g = c.gains[i];
-        std::string key = "gain_" + item_name(g.name, i);
-        if (radio::is_out_of_scope_name(key))
-            key = "gain_" + std::to_string(i);
-        yr_setting_def s = number(t.keep(key), YR_TYPE_DOUBLE, t.keep(g.name + " gain"), "dB",
-                                  kGroupGain,
-                                  t.keep("Gain element " + g.name + " of the device, " +
-                                         radio::number_text(g.min) + " to " + radio::number_text(g.max) +
-                                         " dB."),
-                                  static_cast<int32_t>(2 + i), g.min, g.max, g.step, def.gains[i]);
+        const GainControl* gc = nullptr;
+        for (const GainControl& x : pr.gains)
+            if (same_name(g.name, x.module_name))
+                gc = &x;
+        const std::string range = radio::number_text(g.min) + " to " + radio::number_text(g.max) + " dB";
+        const char* label = gc != nullptr ? gc->label : t.keep(g.name + " gain");
+        const char* help = gc != nullptr ? t.keep(std::string(gc->help) + " (" + range + ")")
+                                         : t.keep("Gain element " + g.name + " of the device, " + range + ".");
+        yr_setting_def s;
+        if (g.as_switch) {
+            s = make_setting(t.keep(g.key), YR_TYPE_BOOL, label, "", kGroupGain, help,
+                             static_cast<int32_t>(2 + i));
+            s.default_value = yr_value_bool(0);
+        } else {
+            s = number(t.keep(g.key), YR_TYPE_DOUBLE, label, "dB", kGroupGain, help,
+                       static_cast<int32_t>(2 + i), g.min, g.max, g.step, def.gains[i]);
+        }
         s.flags |= YR_SETTING_CALIBRATION;
+        out.push_back(s);
+    }
+    // Gain elements the profile names but the module does not report.
+    for (const GainControl& gc : pr.gains) {
+        if (std::any_of(c.gains.begin(), c.gains.end(),
+                        [&](const GainElement& g) { return same_name(g.name, gc.module_name); }))
+            continue;
+        yr_setting_def s = make_setting(gc.key, gc.as_switch ? YR_TYPE_BOOL : YR_TYPE_DOUBLE, gc.label,
+                                        gc.as_switch ? "" : "dB", kGroupGain, gc.help, 20);
+        s.default_value = gc.as_switch ? yr_value_bool(0) : yr_value_double(0.0);
+        s.flags |= YR_SETTING_CALIBRATION;
+        unavailable(s, gc.missing);
         out.push_back(s);
     }
 
     // Module settings (RAD-51): the module's own list.
     int32_t order = 1;
     for (const ModuleArg& a : c.args) {
-        const bool power = lower(a.module_key).find("bias") != std::string::npos;
+        const bool power = a.power;
         const char* key = t.keep(a.key);
-        const char* label = t.keep(power ? "Antenna port power (" + a.module_key + ")" : a.module_key);
-        const char* help = t.keep("Setting " + a.module_key + " of the module.");
+        const char* label = a.control != nullptr
+                                ? a.control->label
+                                : t.keep(power ? "Antenna port power (" + a.module_key + ")" : a.module_key);
+        const char* help = a.control != nullptr ? a.control->help
+                                                : t.keep("Setting " + a.module_key + " of the module.");
+        const char* group = a.control != nullptr ? a.control->group : kGroupModule;
         yr_setting_def s;
         if (a.type == YR_TYPE_ENUM) {
             const auto it = std::find(a.options.begin(), a.options.end(), a.default_text);
-            s = enum_of(t, key, label, kGroupModule, help, order, a.options,
+            s = enum_of(t, key, label, group, help, order, a.options,
                         static_cast<uint32_t>(it == a.options.end() ? 0 : it - a.options.begin()));
         } else {
-            s = make_setting(key, a.type, label, "", kGroupModule, help, order);
+            s = make_setting(key, a.type, label, "", group, help, order);
             if (a.type == YR_TYPE_BOOL)
-                s.default_value = yr_value_bool(a.default_text == "true" ? 1 : 0);
+                s.default_value = yr_value_bool(!power && a.default_text == "true" ? 1 : 0);
             else if (a.type == YR_TYPE_INT)
                 s.default_value = yr_value_int(std::strtoll(a.default_text.c_str(), nullptr, 10));
             else if (a.type == YR_TYPE_DOUBLE)
@@ -359,6 +433,15 @@ void build_table(Device& d)
         out.push_back(s);
         ++order;
     }
+    for (const ArgControl& ac : pr.args) {
+        if (std::any_of(c.args.begin(), c.args.end(), [&](const ModuleArg& a) { return a.control == &ac; }))
+            continue;
+        yr_setting_def s = make_setting(ac.key, YR_TYPE_BOOL, ac.label, "", ac.group, ac.help, order++);
+        s.default_value = yr_value_bool(0);
+        s.flags |= YR_SETTING_ADVANCED;
+        unavailable(s, ac.missing);
+        out.push_back(s);
+    }
 
     // Receiver
     out.push_back(number("record_rate_hz", YR_TYPE_DOUBLE, "Records per second", "1/s",
@@ -369,6 +452,27 @@ void build_table(Device& d)
     th.flags |= YR_SETTING_RESTART | YR_SETTING_ADVANCED;
     out.push_back(th);
     out.push_back(plugins::ms_max_power_setting(kGroupReceiver, 3));
+    if (pr.c1) {
+        yr_setting_def on = make_setting(
+            "c1_enabled", YR_TYPE_BOOL, "C1 from a level offset", "", kGroupReceiver,
+            "Adds C1 (EN 300 392-2 clause 23.3) to the cell records, from the dBFS level plus the "
+            "level offset below. The levels themselves stay in dBFS. Off: no C1 (Yantra "
+            "calculates it from its own calibration).",
+            4);
+        on.default_value = yr_value_bool(0);
+        out.push_back(on);
+        out.push_back(number("c1_level_offset_db", YR_TYPE_DOUBLE, "Level offset for C1", "dB",
+                             kGroupReceiver,
+                             "dBm at the antenna connector = dBFS + this offset, for the gains in "
+                             "use (from a calibration against a signal generator). Only used "
+                             "for C1.",
+                             5, -200.0, 50.0, 0.1, 0.0));
+    }
+    if (pr.scan)
+        out.push_back(number("scan_dwell_s", YR_TYPE_DOUBLE, "Scan dwell time", "s", kGroupReceiver,
+                             "A band scan wider than the span retunes in steps and measures "
+                             "this long at each step.",
+                             6, 0.2, 10.0, 0.1, 1.0));
     plugins::add_gsmtap_settings(out, kGroupReceiver, 10);
 
     // Sensors
@@ -378,6 +482,30 @@ void build_table(Device& d)
                                     "What the module reports about the device.", 2));
     t.sensors.push_back(make_sensor("overflow_count", YR_TYPE_UINT, "Overflows", "", kGroupReceiver,
                                     "Device buffer overflows of the current stream (RAD-24).", 3));
+    t.sensors.push_back(make_sensor("gain_state", YR_TYPE_STRING, "Gains", "", kGroupGain,
+                                    "The gains and amplifier state in use.", 4));
+    t.sensors.push_back(make_sensor("clipped_percent", YR_TYPE_DOUBLE, "Clipping", "%", kGroupReceiver,
+                                    "Share of the values at full scale in the last second of the "
+                                    "stream (OVERLOAD).",
+                                    5));
+    t.sensors.push_back(make_sensor("overload", YR_TYPE_STRING, "Saturation warning", "", kGroupReceiver,
+                                    "What to do when the receiver clips or saturates.", 6));
+    t.sensors.push_back(make_sensor("noise_floor_dbfs", YR_TYPE_DOUBLE, "Noise floor", "dBFS",
+                                    kGroupReceiver,
+                                    "Level of the quietest channels (25 kHz) of the span, "
+                                    "while streaming.",
+                                    7));
+    t.sensors.push_back(make_sensor("receiver_load", YR_TYPE_DOUBLE, "Receiver load", "", kGroupReceiver,
+                                    "Processor time of the receiver per second of signal (0..1; "
+                                    "above 1 it cannot keep up and drops).",
+                                    8));
+    t.sensors.push_back(make_sensor("tuned_mhz", YR_TYPE_DOUBLE, "Tuned frequency", "MHz", kGroupReceiver,
+                                    "Where the device is tuned while streaming (with offset "
+                                    "tuning beside the carriers).",
+                                    9));
+    int32_t io = 1;
+    for (const InfoSensor& is : pr.info_sensors)
+        t.sensors.push_back(make_sensor(is.key, YR_TYPE_STRING, is.label, "", kGroupModule, is.help, 100 + io++));
     int32_t so = 10;
     for (const auto& [module_key, key] : c.sensors)
         t.sensors.push_back(make_sensor(t.keep(key), YR_TYPE_STRING, t.keep(module_key), "",
@@ -409,14 +537,24 @@ yr_status get_setting(const Device& d, const char* key, yr_value* out, char* tex
         *out = yr_value_uint(s.threads);
     else if (is(plugins::kMsMaxPowerKey))
         *out = yr_value_double(s.ms_max_power_dbm);
+    else if (is("offset_khz") && profile_of(d).offset_tuning_hz > 0.0)
+        *out = yr_value_double(s.offset_khz);
+    else if (is("c1_enabled") && profile_of(d).c1)
+        *out = yr_value_bool(s.c1_enabled ? 1 : 0);
+    else if (is("c1_level_offset_db") && profile_of(d).c1)
+        *out = yr_value_double(s.c1_offset_db);
+    else if (is("scan_dwell_s") && profile_of(d).scan)
+        *out = yr_value_double(s.scan_dwell_s);
     else if (auto g = plugins::gsmtap_get(s.gsmtap, key, out, text, size))
         return *g;
     else {
-        for (std::size_t i = 0; i < d.caps.gains.size(); ++i)
-            if (is(d.table.defs.at(7 + i).key)) {
-                *out = yr_value_double(s.gains[i]);
-                return YR_OK;
-            }
+        for (std::size_t i = 0; i < d.caps.gains.size(); ++i) {
+            const GainElement& e = d.caps.gains[i];
+            if (!is(e.key.c_str()))
+                continue;
+            *out = e.as_switch ? yr_value_bool(s.gains[i] > e.min + 0.5 ? 1 : 0) : yr_value_double(s.gains[i]);
+            return YR_OK;
+        }
         for (std::size_t i = 0; i < d.caps.args.size(); ++i) {
             const ModuleArg& a = d.caps.args[i];
             if (!is(a.key.c_str()))
@@ -440,6 +578,12 @@ yr_status get_setting(const Device& d, const char* key, yr_value* out, char* tex
             default:
                 return plugins::string_value(v, out, text, size);
             }
+        }
+        // A setting the profile names but the module lacks (UNAVAILABLE).
+        if (const yr_setting_def* def = plugins::find_setting(d.table.defs, key);
+            def != nullptr && (def->flags & YR_SETTING_UNAVAILABLE) != 0) {
+            *out = def->default_value;
+            return YR_OK;
         }
         return YR_ERR_NOT_FOUND;
     }
@@ -470,14 +614,27 @@ void store_setting(Device& d, const yr_setting_def& def, const yr_value& v)
         s.threads = v.u.u64;
     else if (is(plugins::kMsMaxPowerKey))
         s.ms_max_power_dbm = plugins::on_raster(def, v.u.f64);
+    else if (is("offset_khz"))
+        s.offset_khz = plugins::on_raster(def, v.u.f64);
+    else if (is("c1_enabled"))
+        s.c1_enabled = v.u.i64 != 0;
+    else if (is("c1_level_offset_db"))
+        s.c1_offset_db = plugins::on_raster(def, v.u.f64);
+    else if (is("scan_dwell_s"))
+        s.scan_dwell_s = plugins::on_raster(def, v.u.f64);
     else if (plugins::gsmtap_set(s.gsmtap, def.key, v))
         return;
     else {
-        for (std::size_t i = 0; i < d.caps.gains.size(); ++i)
-            if (is(d.table.defs.at(7 + i).key)) {
+        for (std::size_t i = 0; i < d.caps.gains.size(); ++i) {
+            const GainElement& g = d.caps.gains[i];
+            if (!is(g.key.c_str()))
+                continue;
+            if (g.as_switch)
+                s.gains[i] = v.u.i64 != 0 ? g.max : g.min;
+            else
                 s.gains[i] = plugins::on_raster(def, v.u.f64);
-                return;
-            }
+            return;
+        }
         for (std::size_t i = 0; i < d.caps.args.size(); ++i) {
             const ModuleArg& a = d.caps.args[i];
             if (!is(a.key.c_str()))
@@ -513,6 +670,57 @@ yr_status read_sensor(Device& d, const char* key, yr_value* out, char* text, uin
         *out = yr_value_uint(d.overflows.load());
         return YR_OK;
     }
+    if (std::strcmp(key, "gain_state") == 0) {
+        std::string v;
+        if (d.settings.agc) {
+            v = "automatic";
+        } else {
+            for (std::size_t i = 0; i < d.caps.gains.size(); ++i) {
+                const GainElement& g = d.caps.gains[i];
+                v += (v.empty() ? "" : ", ") + g.name + " ";
+                v += g.as_switch ? (d.settings.gains[i] > g.min + 0.5 ? std::string("on") : std::string("off"))
+                                 : radio::number_text(d.settings.gains[i]) + " dB";
+            }
+        }
+        return plugins::string_value(v.empty() ? "no gain elements" : v, out, text, size);
+    }
+    if (std::strcmp(key, "clipped_percent") == 0) {
+        *out = yr_value_double(d.clipped_percent.load());
+        return YR_OK;
+    }
+    if (std::strcmp(key, "overload") == 0) {
+        const double p = d.clipped_percent.load();
+        const std::string v = p >= 0.01 ? "clipping (" + radio::number_text(std::round(p * 100.0) / 100.0) +
+                                              " % of the values): " + profile_of(d).saturation_remedy
+                                        : "none";
+        return plugins::string_value(v, out, text, size);
+    }
+    if (std::strcmp(key, "noise_floor_dbfs") == 0) {
+        const double n = d.noise_floor_dbfs.load();
+        *out = n > -1e8 ? yr_value_double(n) : yr_value_none();
+        return YR_OK;
+    }
+    if (std::strcmp(key, "tuned_mhz") == 0) {
+        const double hz = d.tuned_hz.load();
+        *out = hz > 0.0 ? yr_value_double(hz / 1e6) : yr_value_none();
+        return YR_OK;
+    }
+    if (std::strcmp(key, "receiver_load") == 0) {
+        *out = yr_value_double(d.load.load());
+        return YR_OK;
+    }
+    for (const InfoSensor& is : profile_of(d).info_sensors)
+        if (std::strcmp(key, is.key) == 0) {
+            std::string v;
+            if (*is.info_key == '\0') {
+                v = d.caps.hardware_key;
+            } else if (const auto it = d.caps.hardware.find(is.info_key); it != d.caps.hardware.end()) {
+                v = it->second;
+            }
+            if (v.empty() && is.fallback_serial)
+                v = d.found.serial;
+            return plugins::string_value(v.empty() ? "not reported by the module" : v, out, text, size);
+        }
     for (const auto& [module_key, k] : d.caps.sensors)
         if (k == key) {
             std::string v;
@@ -550,6 +758,114 @@ void apply_settings(Device& d, const Settings& s, bool all)
         sdr.setFrequencyCorrection(rx, 0, s.ppm);
     for (std::size_t i = 0; i < c.args.size(); ++i)
         sdr.writeSetting(c.args[i].module_key, s.args[i]);
+}
+
+} // namespace yantra::soapy
+
+namespace yantra::soapy {
+
+void power_off(Device& d)
+{
+    for (std::size_t i = 0; i < d.caps.args.size(); ++i)
+        if (d.caps.args[i].power) {
+            d.settings.args[i] = "false";
+            if (d.sdr != nullptr)
+                d.sdr->writeSetting(d.caps.args[i].module_key, "false");
+        }
+}
+
+bool apply_preset(Device& d, const char* id)
+{
+    const Profile& pr = profile_of(d);
+    const auto it = std::find_if(pr.presets.begin(), pr.presets.end(),
+                                 [id](const Preset& p) { return std::strcmp(p.id, id) == 0; });
+    if (it == pr.presets.end()) {
+        d.error = std::string("unknown preset ") + id;
+        return false;
+    }
+    for (const PresetValue& v : it->values) {
+        const yr_setting_def* def = plugins::find_setting(d.table.defs, v.key);
+        if (def == nullptr || (def->flags & YR_SETTING_UNAVAILABLE) != 0)
+            continue;
+        yr_value x = def->type == YR_TYPE_BOOL ? yr_value_bool(v.value != 0.0 ? 1 : 0) : yr_value_double(v.value);
+        if (def->type == YR_TYPE_DOUBLE)
+            x.u.f64 = std::clamp(v.value, def->minimum, def->maximum);
+        store_setting(d, *def, x);
+    }
+    return true;
+}
+
+void profile_self_test(Device& d, const std::function<void(uint32_t, const std::string&, const std::string&,
+                                                           const std::string&, const std::string&)>& item)
+{
+    const Profile& pr = profile_of(d);
+    const Caps& c = d.caps;
+    // Rates: the module must offer the profile's range ends.
+    const bool lo = !c.rates.empty() && c.rates.front() <= pr.min_rate_hz + 1.0;
+    const bool hi = !c.rates.empty() && c.rates.back() >= pr.max_rate_hz - 1.0;
+    std::string rates;
+    for (double r : c.rates)
+        rates += (rates.empty() ? "" : ", ") + radio::number_text(r / 1e6);
+    item(lo && hi ? YR_TEST_PASS : YR_TEST_WARN, "rates", "Sample rates", rates + " Msps",
+         lo && hi ? "" : "the module does not offer the full range; update the firmware and the plugin");
+    if (!pr.gains.empty()) {
+        std::string missing;
+        for (const GainControl& gc : pr.gains)
+            if (std::none_of(c.gains.begin(), c.gains.end(),
+                             [&](const GainElement& g) { return same_name(g.name, gc.module_name); }))
+                missing += (missing.empty() ? "" : ", ") + std::string(gc.module_name);
+        std::string all;
+        for (const GainElement& g : c.gains)
+            all += (all.empty() ? "" : ", ") + g.name;
+        item(missing.empty() ? YR_TEST_PASS : YR_TEST_WARN, "gains", "Gain elements",
+             missing.empty() ? all : "missing: " + missing,
+             missing.empty() ? "" : "the module does not report every gain element; check the module version");
+    }
+    for (const InfoSensor& is : pr.info_sensors) {
+        if (*is.info_key == '\0')
+            continue;
+        const auto it = c.hardware.find(is.info_key);
+        const bool ok = it != c.hardware.end() && !it->second.empty();
+        item(ok || is.fallback_serial ? YR_TEST_PASS : YR_TEST_WARN, std::string("info_") + is.key, is.label,
+             ok ? it->second : (is.fallback_serial ? d.found.serial : "not reported by the module"),
+             ok || is.fallback_serial ? "" : "update the device firmware");
+    }
+    for (std::size_t i = 0; i < c.args.size(); ++i) {
+        if (!c.args[i].power)
+            continue;
+        const bool on = d.settings.args[i] == "true";
+        item(on ? YR_TEST_WARN : YR_TEST_PASS, "antenna_power", "Antenna port power", on ? "on" : "off",
+             on ? "switch it off unless an active antenna or amplifier needs it" : "");
+    }
+}
+
+double choose_lo(const std::vector<double>& carriers, double centre, double rate, double offset_hz)
+{
+    if (offset_hz <= 0.0)
+        return centre;
+    // Carriers must stay inside the usable part, half a channel from its edges.
+    const double half = 0.4 * rate - 12.5e3 - 1e3;
+    double lo_min = -1e300, hi_max = 1e300;
+    for (double f : carriers) {
+        lo_min = std::max(lo_min, f - half);
+        hi_max = std::min(hi_max, f + half);
+    }
+    double best = centre, best_gap = -1.0;
+    for (double cand : {centre - offset_hz, centre + offset_hz, centre}) {
+        const double lo = carriers.empty() ? cand : std::clamp(cand, std::min(lo_min, hi_max), hi_max);
+        double gap = 1e300;
+        for (double f : carriers)
+            gap = std::min(gap, std::fabs(f - lo));
+        if (carriers.empty())
+            gap = offset_hz;
+        if (gap >= 25e3)
+            return lo;
+        if (gap > best_gap) {
+            best_gap = gap;
+            best = lo;
+        }
+    }
+    return best;
 }
 
 } // namespace yantra::soapy

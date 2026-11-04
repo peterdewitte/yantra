@@ -20,6 +20,7 @@
 #include <cmath>
 #include <complex>
 #include <cstring>
+#include <map>
 #include <set>
 #include <sstream>
 
@@ -46,9 +47,13 @@ constexpr long kReadTimeoutUs = 100'000;
 Plugin* P(yr_plugin* p) { return reinterpret_cast<Plugin*>(p); }
 Device* D(yr_device* d) { return reinterpret_cast<Device*>(d); }
 
+const Options* g_options = nullptr;
+
+// Built at the first descriptor() call, after g_options is set.
 const plugins::TetraSchemaTable& schema_table()
 {
-    static const plugins::TetraSchemaTable t(radios::TetraSchemaOptions{false, false, false});
+    static const plugins::TetraSchemaTable t(
+        radios::TetraSchemaOptions{false, false, g_options != nullptr && g_options->profile.scan});
     return t;
 }
 
@@ -124,25 +129,49 @@ void report(const Found& f, yr_device_cb cb, void* user)
 
 class Stream {
 public:
-    explicit Stream(Device* d) : d_(d), p_(*d->plugin) {}
+    explicit Stream(Device* d) : d_(d), p_(*d->plugin), pr_(d->plugin->options->profile) {}
     void run();
 
 private:
     void build(const Settings& s);
+    void tune(double lo_hz);
+    void annotate(EngineOutput& out);
     void deliver(EngineOutput& out)
     {
+        annotate(out);
         plugins::push_output(*p_.host, d_->sink, out, d_->counters);
         out.clear();
     }
     void event(uint32_t e, int64_t v) { p_.host->stream_event(d_->sink, e, v); }
+    /// Applies changed settings (true: the engine was rebuilt).
+    bool poll_settings(EngineOutput& out);
+    /// One read into buf_ through the engine; false: stop.
+    bool step(EngineOutput& out);
+    void measure_floor();
+    void run_scan(EngineOutput& out);
 
     Device* d_;
     const Plugin& p_;
+    const Profile& pr_;
+    Settings s_;
+    SoapySDR::Device* sdr_ = nullptr;
+    SoapySDR::Stream* st_ = nullptr;
     std::unique_ptr<MeasurementEngine> eng_;
+    std::unique_ptr<radios::RecordFiller> cell_;
+    std::vector<std::complex<float>> buf_;
     double rate_ = 0.0;
     double centre_ = 0.0; ///< true centre frequency of the samples
+    double lo_factor_ = 1.0;
     uint64_t version_ = 0;
     plugins::PlanSetup plan_;
+    bool discontinuity_ = false;
+    bool need_base_ = true;
+    long long expected_ns_ = -1;
+    double busy_s_ = 0.0, signal_s_ = 0.0;
+    uint64_t clipped_ = 0, values_ = 0;
+    double floor_s_ = 0.0;
+    int errors_ = 0;
+    uint64_t last_samples_ = 0; ///< samples of the last step (0: none)
 };
 
 void Stream::build(const Settings& s)
@@ -157,34 +186,232 @@ void Stream::build(const Settings& s)
     if (!warning.empty())
         log(p_, d_, YR_LOG_WARNING, "GSMTAP output off: " + warning);
     eng_ = std::make_unique<MeasurementEngine>(cfg);
+    cell_ = std::make_unique<radios::RecordFiller>(eng_->schemas().at(0), 0);
+}
+
+void Stream::tune(double lo_hz)
+{
+    // Without a correction in the module, tune off by the oscillator error.
+    sdr_->setFrequency(SOAPY_SDR_RX, 0, lo_hz / lo_factor_);
+    centre_ = sdr_->getFrequency(SOAPY_SDR_RX, 0) * lo_factor_;
+    d_->tuned_hz = centre_;
+}
+
+// C1 from the dBFS level and the calibration offset (Profile::c1).
+void Stream::annotate(EngineOutput& out)
+{
+    if (!pr_.c1 || !s_.c1_enabled)
+        return;
+    for (radios::Record& r : out.records)
+        if (r.schema_index == 0)
+            plugins::set_c1(r, *cell_, s_.c1_offset_db, s_.ms_max_power_dbm);
+}
+
+bool Stream::poll_settings(EngineOutput& out)
+{
+    std::lock_guard lock(d_->mutex);
+    if (d_->settings_version == version_)
+        return false;
+    version_ = d_->settings_version;
+    const Settings now = d_->settings;
+    const bool rebuild = now.record_rate_hz != s_.record_rate_hz || now.ms_max_power_dbm != s_.ms_max_power_dbm;
+    s_ = now;
+    apply_settings(*d_, s_, false);
+    discontinuity_ = true; // gains or port changed: the levels start over
+    if (rebuild) {
+        eng_->finish(out);
+        deliver(out);
+        build(s_);
+    }
+    return rebuild;
+}
+
+void Stream::measure_floor()
+{
+    std::vector<double> levels;
+    for (const receiver::tetra::ChannelLevel& c : eng_->search().channel_levels())
+        if (!c.carrier && c.level_dbfs > -250.0)
+            levels.push_back(c.level_dbfs);
+    if (levels.empty())
+        return;
+    // The 20 % quietest channels: the noise floor without the carriers.
+    const std::size_t k = levels.size() / 5;
+    std::nth_element(levels.begin(), levels.begin() + static_cast<std::ptrdiff_t>(k), levels.end());
+    d_->noise_floor_dbfs = levels[k];
+}
+
+bool Stream::step(EngineOutput& out)
+{
+    last_samples_ = 0;
+    {
+        std::lock_guard lock(d_->mutex);
+        if (d_->stop)
+            return false;
+    }
+    poll_settings(out);
+    void* buffs[] = {buf_.data()};
+    int flags = 0;
+    long long time_ns = 0;
+    const int n = sdr_->readStream(st_, buffs, buf_.size(), flags, time_ns, kReadTimeoutUs);
+    if (n == SOAPY_SDR_TIMEOUT)
+        return true;
+    if (n == SOAPY_SDR_OVERFLOW) {
+        const uint64_t count = ++d_->overflows;
+        event(YR_EVENT_OVERFLOW, static_cast<int64_t>(count));
+        discontinuity_ = true;
+        need_base_ = true;
+        return true;
+    }
+    if (n < 0) {
+        // Unplugged or failing: the hot-plug watcher decides (RAD-35).
+        if (++errors_ == 50)
+            log(p_, d_, YR_LOG_WARNING, std::string("the module keeps failing to read: ") + SoapySDR::errToStr(n));
+        std::unique_lock lock(d_->mutex);
+        d_->wake.wait_for(lock, std::chrono::milliseconds(20), [this] { return d_->stop; });
+        return true;
+    }
+    errors_ = 0;
+    if (n == 0)
+        return true;
+    const int64_t t_now = now_ns(p_);
+    d_->last_data_ns = t_now;
+    const bool timed = (flags & SOAPY_SDR_HAS_TIME) != 0;
+    if (timed && expected_ns_ >= 0) {
+        const double gap = static_cast<double>(time_ns - expected_ns_) * 1e-9 * rate_;
+        if (gap >= 1.0) {
+            const auto lost = static_cast<uint64_t>(std::llround(gap));
+            d_->samples_dropped += lost;
+            event(YR_EVENT_DROPPED, static_cast<int64_t>(lost));
+            discontinuity_ = true;
+            need_base_ = true;
+        }
+    } else if (discontinuity_ && !timed) {
+        event(YR_EVENT_DROPPED, 0); // lost samples, count unknown
+    }
+    expected_ns_ = timed ? time_ns + static_cast<long long>(std::llround(n / rate_ * 1e9)) : -1;
+    const auto t0 = std::chrono::steady_clock::now();
+    BlockInfo bi;
+    bi.discontinuity = discontinuity_;
+    if (need_base_) {
+        bi.monotonic_ns = t_now - static_cast<int64_t>(std::llround(n / rate_ * 1e9));
+        bi.utc_ns = p_.host->utc_now_ns(p_.host->host) + (bi.monotonic_ns - t_now);
+        bi.utc_source = YR_TIME_SOURCE_SYSTEM;
+    }
+    uint64_t clipped = 0;
+    for (int i = 0; i < n; ++i)
+        if (std::fabs(buf_[i].real()) >= 0.999f || std::fabs(buf_[i].imag()) >= 0.999f)
+            ++clipped;
+    bi.overload = clipped > 0;
+    clipped_ += clipped;
+    values_ += static_cast<uint64_t>(n);
+    eng_->process(buf_.data(), static_cast<std::size_t>(n), centre_, rate_, bi, out);
+    discontinuity_ = false;
+    need_base_ = false;
+    busy_s_ += std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
+    signal_s_ += n / rate_;
+    floor_s_ += n / rate_;
+    d_->clipped_percent = 100.0 * static_cast<double>(clipped_) / static_cast<double>(values_);
+    if (signal_s_ >= 1.0) {
+        d_->load = busy_s_ / signal_s_;
+        busy_s_ = signal_s_ = 0.0;
+        clipped_ = values_ = 0;
+    }
+    if (floor_s_ >= 0.5) {
+        measure_floor();
+        floor_s_ = 0.0;
+    }
+    last_samples_ = static_cast<uint64_t>(n);
+    return true;
+}
+
+// Band scan (RAD-23): the sweep's centres one after the other, each for
+// the dwell time; per pass one scan record per raster channel of the
+// band (with the cell identity where a carrier was decoded there), then
+// SCAN_DONE. Cell records do not go out during a scan.
+void Stream::run_scan(EngineOutput& out)
+{
+    const double first = d_->plan.scan_first_hz, last = d_->plan.scan_last_hz;
+    std::vector<double> centres = receiver::tetra::sweep_centres(first, last, rate_, kSpanFraction);
+    if (centres.empty())
+        centres.push_back((first + last) / 2.0);
+    const bool retune = centres.size() > 1;
+    std::size_t at = 0;
+    int64_t pass_count = 0;
+    std::set<uint64_t> sent; // channels of this pass already out
+    for (;;) {
+        std::map<uint64_t, radios::Record> scan, cells;
+        if (retune || eng_ == nullptr) {
+            tune(centres[at]);
+            build(s_);
+            discontinuity_ = true;
+            need_base_ = true;
+            expected_ns_ = -1;
+        }
+        double dwell = 0.0;
+        while (dwell < s_.scan_dwell_s) {
+            if (!step(out))
+                return;
+            dwell += static_cast<double>(last_samples_) / rate_;
+            for (radios::Record& r : out.records) {
+                const uint64_t hz = r.values.at(YR_CORE_FREQUENCY_HZ).u64;
+                if (r.schema_index == 2)
+                    scan[hz] = std::move(r);
+                else if (r.schema_index == 0 && r.values.at(YR_CORE_LA).type == YR_TYPE_UINT)
+                    cells[hz] = std::move(r);
+            }
+            out.records.clear();
+            std::erase_if(out.events, [](const radios::Event& e) { return e.event == YR_EVENT_SCAN_DONE; });
+            plugins::push_output(*p_.host, d_->sink, out, d_->counters);
+            out.clear();
+        }
+        // The channels this centre holds: inside the band, not yet sent.
+        for (auto& [hz, r] : scan) {
+            const double f = static_cast<double>(hz);
+            if (f < first - 1.0 || f > last + 1.0 || !sent.insert(hz).second)
+                continue;
+            if (retune && (f < centres[at] - (0.4 * rate_ - 12.5e3) || f > centres[at] + (0.4 * rate_ - 12.5e3)))
+                continue;
+            // A decoded carrier within 3 kHz: its identity (RAD-23).
+            for (const auto& [chz, c] : cells)
+                if (std::fabs(static_cast<double>(chz) - f) <= 3e3) {
+                    for (unsigned k : {YR_CORE_CHANNEL, YR_CORE_MCC, YR_CORE_MNC, YR_CORE_LA, YR_CORE_COLOUR_CODE})
+                        r.values.at(static_cast<std::size_t>(k)) = c.values.at(static_cast<std::size_t>(k));
+                    r.flags &= ~YR_RECORD_NO_SYNC;
+                    break;
+                }
+            out.records.push_back(std::move(r));
+        }
+        pass_count += static_cast<int64_t>(out.records.size());
+        plugins::push_output(*p_.host, d_->sink, out, d_->counters);
+        out.clear();
+        at = (at + 1) % centres.size();
+        if (at == 0 && pass_count > 0) {
+            event(YR_EVENT_SCAN_DONE, pass_count);
+            pass_count = 0;
+            sent.clear();
+        }
+    }
 }
 
 void Stream::run()
 {
-    Settings s;
     {
         std::lock_guard lock(d_->mutex);
-        s = d_->settings;
+        s_ = d_->settings;
         version_ = d_->settings_version;
         plan_ = d_->plan_setup;
     }
-    SoapySDR::Device& sdr = *d_->sdr;
-    apply_settings(*d_, s, true);
-    double centre = s.tune_mhz * 1e6;
-    if (plan_.serving_hz)
-        centre = *plan_.serving_hz;
-    else if (!plan_.carriers.empty())
-        centre = (*std::min_element(plan_.carriers.begin(), plan_.carriers.end()) +
-                  *std::max_element(plan_.carriers.begin(), plan_.carriers.end())) / 2.0;
-    // Without a correction in the module, tune off by the oscillator error.
-    const double lo_factor = d_->caps.frequency_correction ? 1.0 : 1.0 + s.ppm * 1e-6;
-    sdr.setFrequency(SOAPY_SDR_RX, 0, centre / lo_factor);
-    centre_ = sdr.getFrequency(SOAPY_SDR_RX, 0) * lo_factor;
+    sdr_ = d_->sdr;
+    SoapySDR::Device& sdr = *sdr_;
+    apply_settings(*d_, s_, true);
     rate_ = sdr.getSampleRate(SOAPY_SDR_RX, 0);
     d_->rate_hz = rate_;
-    build(s);
+    lo_factor_ = d_->caps.frequency_correction ? 1.0 : 1.0 + s_.ppm * 1e-6;
+    d_->noise_floor_dbfs = -1e9;
+    d_->clipped_percent = 0.0;
 
     SoapySDR::Stream* st = sdr.setupStream(SOAPY_SDR_RX, SOAPY_SDR_CF32, {0});
+    st_ = st;
     struct Closer {
         SoapySDR::Device& sdr;
         SoapySDR::Stream* st;
@@ -197,102 +424,37 @@ void Stream::run()
             }
         }
     } closer{sdr, st};
-    if (const int r = sdr.activateStream(st); r != 0)
-        throw std::runtime_error(std::string("the module could not start the stream: ") +
-                                 SoapySDR::errToStr(r));
-    const std::size_t mtu = std::max<std::size_t>(sdr.getStreamMTU(st), 1024);
-    std::vector<std::complex<float>> buf(std::max<std::size_t>(mtu, 16384));
-    EngineOutput out;
-    bool discontinuity = false;
-    bool need_base = true;
-    long long expected_ns = -1;
-    double busy_s = 0.0, signal_s = 0.0;
-    d_->last_data_ns = now_ns(p_);
-    int errors = 0;
-    for (;;) {
-        {
-            std::lock_guard lock(d_->mutex);
-            if (d_->stop)
-                break;
-            if (d_->settings_version != version_) {
-                version_ = d_->settings_version;
-                const Settings now = d_->settings;
-                const bool rebuild = now.record_rate_hz != s.record_rate_hz ||
-                                     now.ms_max_power_dbm != s.ms_max_power_dbm;
-                s = now;
-                apply_settings(*d_, s, false);
-                if (rebuild) {
-                    eng_->finish(out);
-                    deliver(out);
-                    build(s);
-                }
-                discontinuity = true; // gains or port changed: the levels start over
-            }
-        }
-        void* buffs[] = {buf.data()};
-        int flags = 0;
-        long long time_ns = 0;
-        const int n = sdr.readStream(st, buffs, buf.size(), flags, time_ns, kReadTimeoutUs);
-        if (n == SOAPY_SDR_TIMEOUT)
-            continue;
-        if (n == SOAPY_SDR_OVERFLOW) {
-            const uint64_t count = ++d_->overflows;
-            event(YR_EVENT_OVERFLOW, static_cast<int64_t>(count));
-            discontinuity = true;
-            need_base = true;
-            continue;
-        }
-        if (n < 0) {
-            // Unplugged or failing: the hot-plug watcher decides (RAD-35).
-            if (++errors == 50)
-                log(p_, d_, YR_LOG_WARNING,
-                    std::string("the module keeps failing to read: ") + SoapySDR::errToStr(n));
-            std::unique_lock lock(d_->mutex);
-            d_->wake.wait_for(lock, std::chrono::milliseconds(20), [this] { return d_->stop; });
-            continue;
-        }
-        errors = 0;
-        if (n == 0)
-            continue;
-        const int64_t t_now = now_ns(p_);
-        d_->last_data_ns = t_now;
-        const bool timed = (flags & SOAPY_SDR_HAS_TIME) != 0;
-        if (timed && expected_ns >= 0) {
-            const double gap = static_cast<double>(time_ns - expected_ns) * 1e-9 * rate_;
-            if (gap >= 1.0) {
-                const auto lost = static_cast<uint64_t>(std::llround(gap));
-                d_->samples_dropped += lost;
-                event(YR_EVENT_DROPPED, static_cast<int64_t>(lost));
-                discontinuity = true;
-                need_base = true;
-            }
-        } else if (discontinuity && !timed) {
-            event(YR_EVENT_DROPPED, 0); // lost samples, count unknown
-        }
-        expected_ns = timed ? time_ns + static_cast<long long>(std::llround(n / rate_ * 1e9)) : -1;
-        const auto t0 = std::chrono::steady_clock::now();
-        BlockInfo bi;
-        bi.discontinuity = discontinuity;
-        if (need_base) {
-            bi.monotonic_ns = t_now - static_cast<int64_t>(std::llround(n / rate_ * 1e9));
-            bi.utc_ns = p_.host->utc_now_ns(p_.host->host) + (bi.monotonic_ns - t_now);
-            bi.utc_source = YR_TIME_SOURCE_SYSTEM;
-        }
-        for (int i = 0; i < n && !bi.overload; ++i)
-            bi.overload = std::fabs(buf[i].real()) >= 0.999f || std::fabs(buf[i].imag()) >= 0.999f;
-        eng_->process(buf.data(), static_cast<std::size_t>(n), centre_, rate_, bi, out);
-        discontinuity = false;
-        need_base = false;
-        busy_s += std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
-        signal_s += n / rate_;
-        if (signal_s >= 1.0) {
-            d_->load = busy_s / signal_s;
-            busy_s = signal_s = 0.0;
-        }
-        deliver(out);
+    if (plan_.type != YR_PLAN_SCAN) {
+        double centre = s_.tune_mhz * 1e6;
+        if (plan_.serving_hz)
+            centre = *plan_.serving_hz;
+        else if (!plan_.carriers.empty())
+            centre = (*std::min_element(plan_.carriers.begin(), plan_.carriers.end()) +
+                      *std::max_element(plan_.carriers.begin(), plan_.carriers.end())) / 2.0;
+        const double offset = pr_.offset_tuning_hz > 0.0 ? s_.offset_khz * 1e3 : 0.0;
+        tune(choose_lo(plan_.carriers, centre, rate_, offset));
+        build(s_);
     }
-    eng_->finish(out);
-    deliver(out);
+    if (const int r = sdr.activateStream(st); r != 0)
+        throw std::runtime_error(std::string("the module could not start the stream: ") + SoapySDR::errToStr(r));
+    const std::size_t mtu = std::max<std::size_t>(sdr.getStreamMTU(st), 1024);
+    buf_.resize(std::max<std::size_t>(mtu, 16384));
+    EngineOutput out;
+    d_->last_data_ns = now_ns(p_);
+    if (plan_.type == YR_PLAN_SCAN) {
+        run_scan(out);
+    } else {
+        while (step(out))
+            deliver(out);
+    }
+    if (eng_) {
+        if (plan_.type == YR_PLAN_SCAN) {
+            out.clear();
+        } else {
+            eng_->finish(out);
+            deliver(out);
+        }
+    }
 }
 
 void stream_main(Device* d)
@@ -331,6 +493,7 @@ void watch(Plugin* p)
                 return;
         }
         std::vector<Found> found = find_devices(p->options->filter);
+        std::vector<Device*> back;
         std::set<std::string> keys;
         for (const Found& f : found)
             keys.insert(f.key);
@@ -366,6 +529,14 @@ void watch(Plugin* p)
                     d->sdr = fresh;
                     d->state = YR_DEVICE_OPEN;
                     d->absent_scans = 0;
+                    // A replugged device starts with the antenna port unpowered (RAD-60).
+                    try {
+                        power_off(*d);
+                    } catch (const std::exception& e) {
+                        log(*p, d, YR_LOG_WARNING, std::string("antenna port power off failed: ") + e.what());
+                    }
+                    ++d->settings_version;
+                    back.push_back(d);
                     if (d->sink != nullptr)
                         events.emplace_back(d->sink, YR_EVENT_DEVICE_BACK);
                     d->sink = nullptr;
@@ -403,14 +574,14 @@ void watch(Plugin* p)
         }
         for (const auto& [sink, e] : events)
             p->host->stream_event(sink, e, 0);
+        for (Device* d : back)
+            p->host->settings_changed(p->host->host, reinterpret_cast<yr_device*>(d));
         if (changed)
             p->host->devices_changed(p->host->host);
     }
 }
 
 // --- the radio API ------------------------------------------------------------------
-
-const Options* g_options = nullptr;
 
 yr_status sp_init(const yr_host_api* host, yr_plugin** out)
 {
@@ -498,6 +669,7 @@ yr_status sp_open(yr_plugin* plugin, const char* key, yr_device** out)
             d->sdr = make_device(*it);
             read_caps(*d);
             build_table(*d);
+            power_off(*d); // antenna port power is never left on from an earlier user (RAD-60)
         } catch (const std::exception& e) {
             delete d->sdr;
             std::lock_guard lock(p->mutex);
@@ -527,8 +699,21 @@ yr_status check_plan(Device* d, const yr_plan* plan, plugins::PlanSetup& setup)
     if (plan->type == YR_PLAN_CARRIERS)
         carriers.assign(plan->carriers_hz, plan->carriers_hz + plan->carrier_count);
     std::string why;
+    const bool scan = d->plugin->options->profile.scan;
     yr_status st = plugins::plan_setup(*plan, carriers, d->caps.first_hz, d->caps.last_hz,
-                                       kMaxCarriers, false, setup, why);
+                                       kMaxCarriers, scan, setup, why);
+    if (st == YR_OK && plan->type == YR_PLAN_SCAN) {
+        const double first = static_cast<double>(plan->scan_first_hz);
+        const double last = static_cast<double>(plan->scan_last_hz);
+        if (first > last || first < d->caps.first_hz || last > d->caps.last_hz) {
+            why = "the scan band " + radio::number_text(first / 1e6) + " to " + radio::number_text(last / 1e6) +
+                  " MHz is empty or outside the device's range";
+            st = YR_ERR_INVALID_ARGUMENT;
+        } else if (plan->scan_step_hz != 0 && plan->scan_step_hz != 25'000) {
+            why = "the scan raster is 25 kHz (TETRA channels)";
+            st = YR_ERR_INVALID_ARGUMENT;
+        }
+    }
     if (st == YR_OK && !carriers.empty()) {
         double rate = 0.0;
         {
@@ -641,8 +826,9 @@ yr_status sp_plan_ranges(yr_device* device, yr_plan_ranges_cb cb, void* user)
     }
     const yr_freq_range range = {static_cast<uint64_t>(std::ceil(d->caps.first_hz)),
                                  static_cast<uint64_t>(std::floor(d->caps.last_hz))};
-    const yr_plan_ranges r = {sizeof r, (1u << YR_PLAN_SERVING) | (1u << YR_PLAN_CARRIERS), 1,
-                              kMaxCarriers, &range, kSpanFraction * rate};
+    const uint32_t types = (1u << YR_PLAN_SERVING) | (1u << YR_PLAN_CARRIERS) |
+                           (d->plugin->options->profile.scan ? (1u << YR_PLAN_SCAN) : 0u);
+    const yr_plan_ranges r = {sizeof r, types, 1, kMaxCarriers, &range, kSpanFraction * rate};
     cb(user, &r);
     return YR_OK;
 }
@@ -735,13 +921,13 @@ yr_status sp_set(yr_device* device, const char* key, const yr_value* value)
             return YR_ERR_DEVICE_LOST;
         }
         std::string why;
-        if (radio::check_setting_value(*def, *value, &why) != YR_OK) {
-            d->error = why;
-            return YR_ERR_INVALID_ARGUMENT;
-        }
         if ((def->flags & YR_SETTING_UNAVAILABLE) != 0) {
             d->error = std::string(def->label) + ": " + def->unavailable_reason;
             return YR_ERR_UNSUPPORTED;
+        }
+        if (radio::check_setting_value(*def, *value, &why) != YR_OK) {
+            d->error = why;
+            return YR_ERR_INVALID_ARGUMENT;
         }
         if ((def->flags & YR_SETTING_RESTART) != 0 && d->state == YR_DEVICE_STREAMING) {
             d->error = std::string(def->label) + " changes only while stopped";
@@ -759,12 +945,35 @@ yr_status sp_action(yr_device* device, const char*, char*, uint32_t)
     return YR_ERR_NOT_FOUND;
 }
 
-yr_status sp_list_presets(yr_device*, yr_preset_cb, void*) { return YR_OK; }
-
-yr_status sp_apply_preset(yr_device* device, const char*)
+yr_status sp_list_presets(yr_device* device, yr_preset_cb cb, void* user)
 {
-    set_device_error(D(device), "unknown preset");
-    return YR_ERR_NOT_FOUND;
+    for (const Preset& p : D(device)->plugin->options->profile.presets) {
+        const yr_preset x = {sizeof(yr_preset), 0, p.id, p.label, p.help};
+        cb(user, &x);
+    }
+    return YR_OK;
+}
+
+yr_status sp_apply_preset(yr_device* device, const char* id)
+{
+    YANTRA_PLUGIN_GUARD({
+        Device* d = D(device);
+        if (id == nullptr)
+            return YR_ERR_INVALID_ARGUMENT;
+        {
+            std::lock_guard lock(d->mutex);
+            if (d->state == YR_DEVICE_LOST) {
+                d->error = "the device was unplugged; plug it in again";
+                return YR_ERR_DEVICE_LOST;
+            }
+            if (!apply_preset(*d, id))
+                return YR_ERR_NOT_FOUND;
+            ++d->settings_version; // a running stream applies the gains
+        }
+        // Several settings changed at once (RAD-44).
+        d->plugin->host->settings_changed(d->plugin->host->host, device);
+        return YR_OK;
+    })
 }
 
 yr_status sp_list_sensors(yr_device* device, yr_setting_cb cb, void* user)
@@ -807,6 +1016,15 @@ yr_status sp_self_test(yr_device* device, yr_selftest_cb cb, void* user)
         const yr_selftest_item a =
             selftest_item(YR_TEST_PASS, "module", "SoapySDR module", d->module_text.c_str(), "");
         cb(user, &a);
+        {
+            std::lock_guard lock(d->mutex);
+            profile_self_test(*d, [&](uint32_t result, const std::string& name, const std::string& label,
+                                      const std::string& detail, const std::string& remedy) {
+                const yr_selftest_item x =
+                    selftest_item(result, name.c_str(), label.c_str(), detail.c_str(), remedy.c_str());
+                cb(user, &x);
+            });
+        }
         // A short read: the module streams and the samples arrive.
         std::string detail;
         bool ok = false;
@@ -875,7 +1093,7 @@ const yr_descriptor* descriptor(const Options& o)
     static const yr_descriptor desc = {
         sizeof(yr_descriptor),
         yr_api_version_compiled(),
-        YR_CAP_HOTPLUG,
+        YR_CAP_HOTPLUG | (o.profile.scan ? YR_CAP_SCAN : 0u),
         o.name,
         o.label,
         o.version,
