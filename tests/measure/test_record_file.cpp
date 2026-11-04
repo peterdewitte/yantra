@@ -192,9 +192,28 @@ TEST_CASE("technology map: radio records become technology records by field name
         CHECK(yp::record_key(*check.parsed.value, tech) == "frequency_hz=430025000");
     }
     SUBCASE("calibrated: dBm = dBFS + offset") {
-        const yp::Record r = map.value->map(rr.record, {true, -60.0});
+        const yp::Record r = map.value->map(rr.record, {true, -60.0, 0.0});
         CHECK(std::get<double>(r.values[0]) == doctest::Approx(-100.0));
         CHECK((r.flags & YANTRA_RECORD_UNCALIBRATED) == 0);
+    }
+    SUBCASE("the antenna correction is added to every level (HW-09)") {
+        const yp::Record r = map.value->map(rr.record, {true, -60.0, 2.25});
+        CHECK(std::get<double>(r.values[0]) == doctest::Approx(-97.75));
+        const yp::Record u = map.value->map(rr.record, {false, 0.0, -1.5});
+        CHECK(std::get<double>(u.values[0]) == doctest::Approx(-41.5));
+        CHECK((u.flags & YANTRA_RECORD_UNCALIBRATED) != 0);
+    }
+    SUBCASE("the generic schema of a radio schema describes it (PLG-12 generic views)") {
+        const yp::Schema g = ym::generic_schema(radio.get());
+        CHECK(g.id == "cell");
+        CHECK(yp::check_radio_schema(g, radio.get()).empty());
+        const auto level = g.field_index("level");
+        REQUIRE(level);
+        CHECK(g.fields[*level].unit == "dBm");
+        CHECK(g.fields[*level].category == yp::Category::Level);
+        CHECK_FALSE(g.fields[*level].optional);
+        const auto gm = ym::SchemaMap::make(g, 0, radio.get());
+        CHECK(gm.ok());
     }
 }
 

@@ -8,10 +8,11 @@
 // fields into dBm (plugin.h "Radio records and technology schemas"). The
 // rule is generic: the core knows no technology (PLG-01).
 //
-// Calibration proper (RF-01..03: the dBFS -> dBm table per device, gain
-// and frequency, HW-09 antenna correction) comes with the pipeline in a
-// later phase; until then a Calibration is one offset, and a dBFS level
-// mapped without one is flagged YANTRA_RECORD_UNCALIBRATED.
+// The measurement pipeline (measure/measurement_pipeline.h) gets the
+// numbers of a Calibration from its level-correction stage
+// (measure/correction.h: the RF-02 calibration table keyed per HW-01b and
+// the HW-09 antenna correction); a dBFS level mapped without a
+// calibration is flagged YANTRA_RECORD_UNCALIBRATED.
 #pragma once
 
 #include <cstddef>
@@ -27,11 +28,24 @@
 
 namespace yantra::measure {
 
-// dBm = dBFS + offset_db for radio levels in dBFS (RF-02 placeholder).
+// What is added to the LEVEL fields (technology unit "dBm") of a record:
+// offset_db to radio levels in dBFS (RF-02: dBm = dBFS + offset_db), and
+// correction_db to every such level, dBFS or dBm (HW-09 antenna gain,
+// cable loss, attenuator).
 struct Calibration {
-    bool calibrated = false;  // false: the level is flagged UNCALIBRATED
+    bool calibrated = false;  // false: a dBFS level is flagged UNCALIBRATED
     double offset_db = 0.0;
+    double correction_db = 0.0;
 };
+
+// A technology schema derived from a radio schema for a radio whose
+// technology has no technology plugin loaded (generic views, PLG-12):
+// same id, kind, version and fields; the field `level` of the core layout
+// (RAD-21) is a LEVEL field in "dBm", fields of the QUALITY group are
+// QUALITY, of the SIM_POSITION group PLAN_POSITION, of the C1 group LEVEL
+// ("dB"), the rest SYSTEM_INFO; every field except frequency_hz, role and
+// level is OPTIONAL. Technology-neutral: it follows the radio API only.
+plugin::Schema generic_schema(const yr_schema& radio);
 
 // The field mapping of one radio schema onto the technology schema of the
 // same id; built once per (radio schema, technology schema) pair.
@@ -46,8 +60,9 @@ public:
     // A record of the technology schema from a radio record (values in the
     // radio schema's field order; record.schema_id is the shared id).
     // Fields the radio does not deliver stay absent; dBFS levels get the
-    // calibration offset (UNCALIBRATED when there is none); the time and
-    // the validity flags are kept.
+    // calibration offset (UNCALIBRATED when there is none), every dBm
+    // level field the correction; the time and the validity flags are
+    // kept.
     plugin::Record map(const plugin::Record& radio, const Calibration& calibration) const;
 
     std::uint32_t tech_index() const noexcept { return tech_index_; }
@@ -60,6 +75,7 @@ private:
     std::size_t tech_field_count_ = 0;
     std::vector<std::size_t> target_;  // per radio field: technology field index
     std::vector<bool> dbfs_level_;     // per radio field: a dBFS level to convert
+    std::vector<bool> level_;          // per radio field: a LEVEL field in dBm (corrected)
 };
 
 // A C view of a host-side record for calls into a plugin (PLG-03): the

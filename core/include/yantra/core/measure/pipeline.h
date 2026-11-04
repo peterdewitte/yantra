@@ -5,8 +5,8 @@
 // (PLG-25) hands on after its record sink checked and copied a radio
 // record. The pipeline proper (calibration RF-02, antenna correction
 // HW-09, the 1 Hz cycle per carrier, views, recording, walk test) comes in
-// later phases and implements MeasurementInput; RecordQueue is the simple
-// observer used now (tests, tools).
+// measure/measurement_pipeline.h and implements MeasurementInput;
+// RecordQueue is the simple observer for tests and tools.
 //
 // Threading: the radio host calls a MeasurementInput from its delivery
 // thread of each stream, never from a plugin thread; a slow input makes
@@ -25,6 +25,8 @@
 
 #include "yantra/core/plugin/record.h"
 
+struct yr_schema;
+
 namespace yantra::measure {
 
 // One checked radio record with where it came from (PLG-12).
@@ -41,6 +43,10 @@ struct RadioRecord {
     plugin::Record record;          // schema id/version, time, flags, one value per field
     // The schema's field names in value order (shared by all records of it).
     std::shared_ptr<const std::vector<std::string>> field_names;
+    // The radio schema itself (the plugin's descriptor, or a record file's
+    // RadioSchemaView): valid during on_radio_record only; nullptr when
+    // unknown. Copies of the record must not use it later.
+    const yr_schema* radio_schema = nullptr;
 };
 
 // A stream event (RAD-25) or a radio host status change.

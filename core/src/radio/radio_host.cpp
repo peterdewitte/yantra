@@ -287,6 +287,7 @@ struct Sink {
         r.present = record->present;
         r.capabilities = rt->d->capabilities;
         r.field_names = rt->field_names[record->schema_index];
+        r.radio_schema = &s;  // the plugin's descriptor: valid while it is loaded
         r.record.schema_id = text(s.id);
         r.record.schema_version = s.version;
         r.record.time.monotonic_ns = record->time.monotonic_ns;

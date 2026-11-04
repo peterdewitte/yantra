@@ -739,7 +739,7 @@ void Run::inputs() {
             rs.messages.push_back(s.name + ": radio schema '" + id + "' matches");
             maps[i] = std::move(*m.value);
         }
-        const ym::Calibration cal{opt_.calibrated, opt_.level_offset_db};
+        const ym::Calibration cal{opt_.calibrated, opt_.level_offset_db, 0.0};
         std::size_t refused = 0;
         for (const ym::RadioRecord& r : s.records) {
             if (r.schema_index >= maps.size() || !maps[r.schema_index]) continue;

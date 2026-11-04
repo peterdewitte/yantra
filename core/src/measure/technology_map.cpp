@@ -8,6 +8,46 @@
 
 namespace yantra::measure {
 
+plugin::Schema generic_schema(const yr_schema& radio) {
+    plugin::Schema s;
+    s.id = plugin::text_of(radio.id);
+    s.label = plugin::text_of(radio.label);
+    s.kind = static_cast<plugin::SchemaKind>(radio.kind);
+    s.version = radio.version;
+    for (std::uint32_t i = 0; i < radio.field_count && radio.fields != nullptr; ++i) {
+        const yr_field_def* rf = radio.fields[i];
+        if (rf == nullptr) continue;
+        plugin::Field f;
+        f.name = plugin::text_of(rf->name);
+        f.label = plugin::text_of(rf->label);
+        f.help = plugin::text_of(rf->help);
+        f.unit = plugin::text_of(rf->unit);
+        f.type = static_cast<plugin::FieldType>(rf->type);
+        f.key = (rf->flags & YR_FIELD_KEY) != 0;
+        f.shown_by_default = (rf->flags & YR_FIELD_DEFAULT) != 0;
+        f.optional = f.name != YR_FIELD_FREQUENCY_HZ && f.name != YR_FIELD_ROLE &&
+                     f.name != YR_FIELD_LEVEL;
+        if (f.name == YR_FIELD_LEVEL && (f.unit == "dBFS" || f.unit == "dBm")) {
+            f.category = plugin::Category::Level;
+            f.unit = "dBm";
+        } else if (rf->group == YR_GROUP_QUALITY) {
+            f.category = plugin::Category::Quality;
+        } else if (rf->group == YR_GROUP_SIM_POSITION) {
+            f.category = plugin::Category::PlanPosition;
+        } else if (rf->group == YR_GROUP_C1) {
+            f.category = plugin::Category::Level;
+        } else {
+            f.category = plugin::Category::SystemInfo;
+        }
+        for (std::uint32_t k = 0; k < rf->enum_count && rf->enum_items != nullptr; ++k) {
+            f.enum_items.push_back({rf->enum_items[k].value, plugin::text_of(rf->enum_items[k].name),
+                                    plugin::text_of(rf->enum_items[k].label)});
+        }
+        s.fields.push_back(std::move(f));
+    }
+    return s;
+}
+
 plugin::Parsed<SchemaMap> SchemaMap::make(const plugin::Schema& tech, std::uint32_t tech_index,
                                           const yr_schema& radio) {
     plugin::Parsed<SchemaMap> out;
@@ -23,8 +63,9 @@ plugin::Parsed<SchemaMap> SchemaMap::make(const plugin::Schema& tech, std::uint3
         const std::size_t ti = *tech.field_index(plugin::text_of(rf.name));
         const plugin::Field& tf = tech.fields[ti];
         m.target_.push_back(ti);
-        m.dbfs_level_.push_back(tf.category == plugin::Category::Level && tf.unit == "dBm" &&
-                                plugin::text_of(rf.unit) == "dBFS");
+        const bool level = tf.category == plugin::Category::Level && tf.unit == "dBm";
+        m.level_.push_back(level);
+        m.dbfs_level_.push_back(level && plugin::text_of(rf.unit) == "dBFS");
     }
     out.value = std::move(m);
     return out;
@@ -39,10 +80,14 @@ plugin::Record SchemaMap::map(const plugin::Record& radio, const Calibration& ca
     out.values.resize(tech_field_count_);
     for (std::size_t i = 0; i < target_.size() && i < radio.values.size(); ++i) {
         plugin::Value v = radio.values[i];
-        if (dbfs_level_[i]) {
+        if (level_[i]) {
             if (const double* d = std::get_if<double>(&v)) {
-                v = *d + calibration.offset_db;
-                if (!calibration.calibrated) out.flags |= YANTRA_RECORD_UNCALIBRATED;
+                double dbm = *d + calibration.correction_db;
+                if (dbfs_level_[i]) {
+                    dbm += calibration.offset_db;
+                    if (!calibration.calibrated) out.flags |= YANTRA_RECORD_UNCALIBRATED;
+                }
+                v = dbm;
             }
         }
         out.values[target_[i]] = std::move(v);
