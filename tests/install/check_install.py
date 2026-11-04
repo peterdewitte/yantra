@@ -19,6 +19,7 @@ import sys
 
 EXPECTED = [
     "usr/lib/yantra-radios/plugins/hackrf.so",
+    "usr/lib/yantra-radios/plugins/pei.so",
     "usr/lib/yantra-radios/plugins/simulator.so",
     "usr/lib/yantra-radios/plugins/soapysdr.so",
     "usr/bin/yantra-radio-host",

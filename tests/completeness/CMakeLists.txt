@@ -42,7 +42,7 @@ add_test(NAME completeness_fixture
          COMMAND Python3::Interpreter ${_check} ${_allow} $<TARGET_FILE:completeness_good>)
 # Every plugin that this configuration builds must be there (RAD-133).
 set(_required "")
-foreach(_p beacon simulator soapysdr hackrf)
+foreach(_p beacon simulator soapysdr hackrf pei)
   if(TARGET ${_p})
     list(APPEND _required ${_p})
   endif()
