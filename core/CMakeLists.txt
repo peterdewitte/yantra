@@ -17,8 +17,11 @@ add_library(yantra_core STATIC
   src/building/model_json.cpp
   src/context/building_context.cpp
   src/context/context.cpp
+  src/measure/catalog.cpp
+  src/measure/measurement_pipeline.cpp
   src/measure/pipeline.cpp
   src/measure/record_file.cpp
+  src/measure/sample.cpp
   src/measure/technology_map.cpp
   src/platform/dynlib.cpp
   src/plugin/abi.cpp

@@ -14,7 +14,7 @@
 
 include(YantraTests)
 
-set(YANTRA_PER_CASE_TESTS)
+set(YANTRA_PER_CASE_TESTS measure)
 
 add_library(yantra_doctest INTERFACE)
 target_include_directories(yantra_doctest SYSTEM INTERFACE ${PROJECT_SOURCE_DIR}/third_party/doctest)
