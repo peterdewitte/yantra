@@ -1,0 +1,30 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# REUSE annotations (NFR-01, DOC-14) for files that cannot carry an SPDX
+# header themselves. Every file that can hold a comment carries its own
+# header instead. Keep this file and THIRD_PARTY.md in step.
+# The yantra-radios submodule (third_party/yantra-radios, PLG-26) carries
+# its own REUSE.toml; reuse lint does not look into submodules.
+version = 1
+
+[[annotations]]
+path = ["LICENSE"]
+SPDX-FileCopyrightText = "2007 Free Software Foundation, Inc."
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# curtat.be logo: trademark of Curtat BV, not GPL (BRD-04). The files are
+# the owner's and are kept byte-for-byte, so they are annotated here.
+[[annotations]]
+path = ["data/branding/curtat_logo.svg", "data/branding/curtat_logo_*.png"]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 Curtat BV"
+SPDX-License-Identifier = "LicenseRef-Curtat-Trademark"
+
+# Yantra logo (BRD-05..07): part of Yantra, GPL-3.0-or-later; used as
+# supplied (no header comment added to the SVGs).
+[[annotations]]
+path = ["data/logo/*.svg", "data/logo/png/*.png"]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 The Yantra contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"

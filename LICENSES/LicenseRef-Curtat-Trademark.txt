@@ -1,0 +1,13 @@
+curtat.be logo - trademark notice
+
+The curtat.be logo (the files data/branding/curtat_logo*) is a trademark
+of Curtat BV. All rights reserved.
+
+The logo is not covered by the GNU General Public License or by any other
+licence that applies to Yantra. It is distributed with Yantra by Curtat BV
+only to identify Yantra as a curtat.be reference project in the About
+dialog and in reports. No right to use, modify or redistribute the logo
+apart from unmodified copies of Yantra is granted.
+
+Forks and modified versions of Yantra must remove the logo or replace it
+with their own.

@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="curtat.be">
+  <title>curtat.be</title>
+  <desc>Six steps climbing through one full turn, ending at the crank knob.</desc>
+  <style>
+    svg { --ink: #17191c; --accent: #0f5f61; }
+    @media (prefers-color-scheme: dark) { svg { --ink: #e7e5e1; --accent: #5cb8b0; } }
+    .s { stroke: var(--ink); }
+    .h { fill: var(--ink); }
+    .k { fill: var(--accent); }
+  </style>
+  <path class="s" stroke="#17191c" fill="none" stroke-width="3.1" stroke-linecap="round" d="M 35.51 24.81 A 8.00 8.00 0 0 1 38.93 28.00"/>
+  <path class="s" stroke="#17191c" fill="none" stroke-width="3.1" stroke-linecap="round" d="M 43.57 31.19 A 11.60 11.60 0 0 1 42.05 37.80"/>
+  <path class="s" stroke="#17191c" fill="none" stroke-width="3.1" stroke-linecap="round" d="M 40.50 44.60 A 15.20 15.20 0 0 1 32.00 47.20"/>
+  <path class="s" stroke="#17191c" fill="none" stroke-width="3.1" stroke-linecap="round" d="M 23.76 48.90 A 18.80 18.80 0 0 1 15.72 41.40"/>
+  <path class="s" stroke="#17191c" fill="none" stroke-width="3.1" stroke-linecap="round" d="M 9.65 33.56 A 22.40 22.40 0 0 1 12.60 20.80"/>
+  <path class="s" stroke="#17191c" fill="none" stroke-width="3.1" stroke-linecap="round" d="M 17.46 10.45 A 26.00 26.00 0 0 1 32.00 6.00"/>
+  <circle class="h" fill="#17191c" cx="32" cy="32" r="2.6"/>
+  <circle class="k" fill="#0f5f61" cx="32.00" cy="6.00" r="4.4"/>
+</svg>

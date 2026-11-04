@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="Yantra">
+<title>Yantra</title>
+<desc>A floor plan with a walk-test route coloured by signal level, a map pin and a radio transmitter.</desc>
+<rect width="512" height="512" rx="0" fill="#0f5f61"/>
+<rect x="96" y="96" width="320" height="320" rx="12" fill="none" stroke="#f6f4f0" stroke-width="14"/>
+<path d="M 256 96 V 220 M 96 300 H 200 M 300 300 H 416" fill="none" stroke="#f6f4f0" stroke-width="14" stroke-linecap="round"/>
+<path d="M 140 380 L 140 250 L 230 250 L 230 140 L 330 140 L 330 250 L 370 250" fill="none" stroke="#5cb8b0" stroke-width="10" stroke-dasharray="2 22" stroke-linecap="round" stroke-linejoin="round"/>
+<circle cx="140" cy="380" r="12" fill="#2e9e5b"/>
+<circle cx="140" cy="250" r="12" fill="#2e9e5b"/>
+<circle cx="230" cy="250" r="12" fill="#8cbf3f"/>
+<circle cx="230" cy="140" r="12" fill="#e3b23c"/>
+<circle cx="330" cy="140" r="12" fill="#8cbf3f"/>
+<circle cx="330" cy="250" r="12" fill="#e07a2f"/>
+<circle cx="370" cy="250" r="12" fill="#c8423b"/>
+<path d="M 370 250 m 0 -26 c -16 -26 -40 -38 -40 -62 a 40 40 0 0 1 80 0 c 0 24 -24 36 -40 62 z" fill="#f6f4f0"/>
+<circle cx="370" cy="162" r="14" fill="#0f5f61"/>
+<path d="M 346.00 362.62 A 20 20 0 0 1 368.94 362.62" fill="none" stroke="#f6f4f0" stroke-width="8" stroke-linecap="round" opacity="1.0"/>
+<path d="M 337.97 351.15 A 34 34 0 0 1 376.97 351.15" fill="none" stroke="#f6f4f0" stroke-width="8" stroke-linecap="round" opacity="0.75"/>
+<path d="M 329.94 339.68 A 48 48 0 0 1 385.00 339.68" fill="none" stroke="#f6f4f0" stroke-width="8" stroke-linecap="round" opacity="0.5"/>
+<circle cx="357.47" cy="379.00" r="10" fill="#f6f4f0"/>
+</svg>
