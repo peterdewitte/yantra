@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Real-world robustness checklist (RAD-124; the list and where each item
-// is tested: docs/ROBUSTNESS.md) and level linearity (RAD-125). Each case
+// is tested: REAL_WORLD_CHECKLIST.md) and level linearity (RAD-125). Each case
 // builds a capture with the generator (RAD-70, RAD-72: cells, channel and
 // receiver front-end impairments), feeds it to the measurement engine as
 // a plugin would (spectrum search on unless a carrier is pinned) and

@@ -60,7 +60,7 @@ thread count.
   about 70 dB (RAD-124: a neighbour 40 dB stronger changes the level by
   less than 0.1 dB). Noise alone reads as the power in the filter's
   19.7 kHz noise bandwidth. Linearity: +/-0.5 dB from -5 to -100 dBFS
-  (RAD-125, [ROBUSTNESS.md](ROBUSTNESS.md)).
+  (RAD-125, [REAL_WORLD_CHECKLIST.md](../REAL_WORLD_CHECKLIST.md)).
   With a calibration the offset is added and the unit is dBm. The step
   response is one interval plus the channel filters' delay (a few ms).
 - **Quality** (RAD-113): the decoder's last quality window (its length is

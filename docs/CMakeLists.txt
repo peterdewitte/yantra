@@ -60,3 +60,31 @@ if(YANTRA_RADIOS_BUILD_TESTS)
     set_tests_properties(doc_snippets PROPERTIES LABELS "fast;lint;docs" SKIP_RETURN_CODE 77)
   endif()
 endif()
+
+# Links between the Markdown files (RAD-135 docs job; offline: web links
+# are not fetched).
+if(YANTRA_RADIOS_BUILD_TESTS AND Python3_Interpreter_FOUND)
+  add_test(NAME doc_links
+           COMMAND ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/ci/check_doc_links.py
+                   ${PROJECT_SOURCE_DIR})
+  set_tests_properties(doc_links PROPERTIES LABELS "fast;lint;docs")
+endif()
+
+# The plugin pages docs/plugins/*.md (settings, presets, sensors, self-test
+# items) and the record schema tables of docs/TETRA_RECORDS.md against what
+# the built plugins report (RAD-97, RAD-135). `ninja update-plugin-docs`
+# rewrites the generated blocks of the plugin pages. Not in the sanitizer
+# trees: there the self-test stream items can time out differently.
+if(YANTRA_RADIOS_BUILD_TESTS AND Python3_Interpreter_FOUND AND YANTRA_SANITIZER STREQUAL ""
+   AND TARGET hackrf_fake AND TARGET soapysdr_fake AND TARGET pei AND TARGET yantra-pei-sim
+   AND TARGET simulator)
+  set(_plugin_docs ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/ci/plugin_docs.py
+                   ${PROJECT_SOURCE_DIR} ${PROJECT_BINARY_DIR})
+  add_test(NAME plugin_docs COMMAND ${_plugin_docs})
+  set_tests_properties(plugin_docs PROPERTIES LABELS "fast;docs" TIMEOUT 300)
+  add_custom_target(update-plugin-docs
+    COMMAND ${_plugin_docs} --update
+    DEPENDS yantra-radio-host yantra-pei-sim hackrf_fake soapysdr_fake pei simulator hackrf soapysdr
+    COMMENT "Rewriting the generated blocks of docs/plugins/*.md"
+    VERBATIM)
+endif()

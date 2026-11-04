@@ -8,7 +8,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 Short, anonymised recordings of real TETRA cells, one sub-folder per
 radio type (`rtlsdr/`, `hackrf/`, `airspy/`, ...), each recording as
 `NAME.sigmf-data`, `NAME.sigmf-meta` and `NAME.expected.json`. Format,
-anonymisation and how to add one: [docs/ROBUSTNESS.md](../../../docs/ROBUSTNESS.md),
+anonymisation and how to add one: [REAL_WORLD_CHECKLIST.md](../../../REAL_WORLD_CHECKLIST.md),
 section "Real-signal fixtures". The ctest `real_fixtures` checks every
 recording here.
 

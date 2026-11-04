@@ -95,7 +95,7 @@ add_subdirectory(udev)
 #   share/licenses/yantra-radios  the licence bundle (RAD-137): LICENSE,
 #                              LICENSES/, THIRD_PARTY.md and the licence
 #                              texts of every bundled library
-#   share/doc/yantra-radios    README, CHANGELOG and docs/
+#   share/doc/yantra-radios    README, CHANGELOG, the top-level docs and docs/
 include(GNUInstallDirs)
 install(DIRECTORY data/scenarios DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra-radios)
 set(_licences ${CMAKE_INSTALL_DATADIR}/licenses/yantra-radios)
@@ -116,4 +116,7 @@ foreach(_comp ${_third_party})
   install(FILES ${_texts} DESTINATION ${_licences}/${_comp})
 endforeach()
 file(GLOB _docs ${PROJECT_SOURCE_DIR}/docs/*.md)
-install(FILES README.md CHANGELOG.md ${_docs} DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/yantra-radios)
+install(FILES README.md CHANGELOG.md ARCHITECTURE.md BUILD.md CONTRIBUTING.md CONTRIBUTORS.md
+              DEVICES.md REAL_WORLD_CHECKLIST.md ${_docs}
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/yantra-radios)
+install(DIRECTORY docs/plugins DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/yantra-radios)

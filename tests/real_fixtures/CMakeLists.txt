@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 The Yantra contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Real-signal fixtures (RAD-121, docs/ROBUSTNESS.md): real_fixtures decodes
+# Real-signal fixtures (RAD-121, REAL_WORLD_CHECKLIST.md): real_fixtures decodes
 # every recording in tests/fixtures/real with decode-iq and compares the
 # cells with its NAME.expected.json (passes with a message while there are
 # none); real_fixtures_selftest checks the checker on a yantra-gen

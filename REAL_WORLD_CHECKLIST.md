@@ -43,7 +43,7 @@ run, `YANTRA_TESTS_OPT_IN=1 ctest -L opt_in` runs them; CONTRIBUTING.md). Other 
 
 | Item | Test |
 |---|---|
-| AWGN down to the decode threshold | robustness "AWGN down to the decode threshold" (Es/N0 30, 15, 10 dB decode; at -3 dB levels only, never a wrong identity); `receiver_tetra/test_demod.cpp` "BER vs Eb/N0 stays within 1 dB of the theory" and "MER follows Es/N0; noise alone never locks"; `tetra_decoder/test_lower_mac.cpp` "Blocks with bit errors pass their CRC"; the sensitivity sweep (RAD-126, [SENSITIVITY.md](SENSITIVITY.md)) |
+| AWGN down to the decode threshold | robustness "AWGN down to the decode threshold" (Es/N0 30, 15, 10 dB decode; at -3 dB levels only, never a wrong identity); `receiver_tetra/test_demod.cpp` "BER vs Eb/N0 stays within 1 dB of the theory" and "MER follows Es/N0; noise alone never locks"; `tetra_decoder/test_lower_mac.cpp` "Blocks with bit errors pass their CRC"; the sensitivity sweep (RAD-126, [SENSITIVITY.md](docs/SENSITIVITY.md)) |
 | Multipath and fading (TU50, HT200) | robustness "multipath and fading (TU50, HT200) with Doppler shift" (EN 300 392-2 profiles, Rayleigh taps, 25 dB); `gen_sim/test_channel.cpp` "TETRA propagation conditions"; sensitivity sweep scenarios tu50, ht200, combined; the 10 minute TU50 run (below) |
 | Doppler shift | same robustness test (74 Hz: 200 km/h at 400 MHz; 18.5 Hz with TU50) |
 | Strong adjacent carriers 25 kHz away | robustness "a strong adjacent carrier 25 kHz away with the same colour code" (40 dB stronger: both decode, the weak one's level within 1 dB; this found the level meter's filter letting the neighbour through, fixed); `receiver_tetra/test_chain.cpp` (coarse offset not pulled, adjacent-channel rejection); `tetra_engine/test_carrier_search.cpp` "three adjacent carriers 20 dB apart" |
@@ -53,7 +53,7 @@ run, `YANTRA_TESTS_OPT_IN=1 ctest -L opt_in` runs them; CONTRIBUTING.md). Other 
 
 | Item | Test |
 |---|---|
-| Every option of the broadcast PDUs: bands, offsets, duplex spacings, reverse operation, MCCH sharing modes, extended services, reserved bits | `tetra_decoder/test_lower_mac.cpp` "SYNC and SYSINFO parsers give back every generator field" and "Serving-cell parameter set, duplex spacing and security class"; `tetra_decoder/test_upper_layers.cpp` "Frequency helpers of the protocol crate equal broadcast.hpp's"; `gen/test_pdu.cpp` "BS service details and extended services"; fuzz target `tetra_pdu` (random bits, reserved ones included: osmo-tetra's and the crate's SYSINFO must agree, [FUZZING.md](FUZZING.md)); `receiver/rust/tests/golden_digest.rs` (RAD-120) |
+| Every option of the broadcast PDUs: bands, offsets, duplex spacings, reverse operation, MCCH sharing modes, extended services, reserved bits | `tetra_decoder/test_lower_mac.cpp` "SYNC and SYSINFO parsers give back every generator field" and "Serving-cell parameter set, duplex spacing and security class"; `tetra_decoder/test_upper_layers.cpp` "Frequency helpers of the protocol crate equal broadcast.hpp's"; `gen/test_pdu.cpp` "BS service details and extended services"; fuzz target `tetra_pdu` (random bits, reserved ones included: osmo-tetra's and the crate's SYSINFO must agree, [FUZZING.md](docs/FUZZING.md)); `receiver/rust/tests/golden_digest.rs` (RAD-120) |
 | Counters that wrap (frame 18, multiframe 60, hyperframe) | robustness "the hyperframe counter wraps; reception starts mid-multiframe" (65535 to 0); `tetra_decoder/test_decode.cpp` "Frame numbering runs on continuously across multiframes and hyperframes" |
 | Parameters changing during reception | robustness "the cell on a carrier changes during reception" (another LA and colour code on the same carrier); `tetra_decoder/test_decode.cpp` "A new cell on the carrier is reported as changed" |
 
@@ -70,7 +70,7 @@ run, `YANTRA_TESTS_OPT_IN=1 ctest -L opt_in` runs them; CONTRIBUTING.md). Other 
 | HackRF: overflow, unplug, antenna port power | `hackrf/test_hackrf.cpp` "overflows give OVERFLOW and DROPPED events", "unplugged while streaming, then replugged" and "antenna port power is off at every open and replug" (RAD-24, RAD-35, RAD-60); `conformance_hackrf_fake` with `--unplug`/`--replug`; `yantra-hackrf throughput` and `replug` against the fake (RAD-66) |
 | Receiver clipping (gain too high) | `hackrf/test_hackrf.cpp` "clipping is flagged with the HackRF remedy" (records carry OVERLOAD, the clipping sensor and the saturation warning name the remedy) |
 | Overflow during an IQ capture | `capture_iq/test_capture_iq.cpp` "an overflow starts a new capture segment" (RAD-63) |
-| A CPU too slow for real time | `bench/perf_engine.cpp` (RAD-114: four carriers at 1 Msps below half of real time) and the benchmarks (RAD-127, [BENCHMARKS.md](BENCHMARKS.md)); the engine reports its load (`EngineStats::load`); a plugin that falls behind drops whole blocks and flags the next as a discontinuity (robustness drops test); the simulator plugin runs slower instead of dropping samples (its time base follows the host clock per record interval, RAD-61) |
+| A CPU too slow for real time | `bench/perf_engine.cpp` (RAD-114: four carriers at 1 Msps below half of real time) and the benchmarks (RAD-127, [BENCHMARKS.md](docs/BENCHMARKS.md)); the engine reports its load (`EngineStats::load`); a plugin that falls behind drops whole blocks and flags the next as a discontinuity (robustness drops test); the simulator plugin runs slower instead of dropping samples (its time base follows the host clock per record interval, RAD-61) |
 | NaN/Inf samples, zero-length blocks | robustness "NaN/Inf samples and zero-length blocks" (counted, replaced, never in a record); `tetra_engine/test_measurement_engine.cpp`; fuzz target `iq` |
 | Truncated and corrupted files | `decode_iq/test_decode_iq.cpp` "file and option errors"; fuzz targets `iq`, `sigmf`, `record_file`, `scenario`, `scene`, `pei` (RAD-96) |
 | TETRA terminal: no reply, ERROR replies, line noise, unplugged cable | `pei/test_pei.cpp` "a terminal that stops answering times out and recovers", "a terminal that never answers", "a command answered with ERROR is not sent again", "garbage and unsolicited lines do not disturb the readings", "unplug and replug during a stream" (RAD-35, RAD-80); `conformance_pei` with `--unplug`/`--replug` |
@@ -83,8 +83,10 @@ the search": float samples from -5 to -100 dBFS, 16-bit samples to
 robustness "level records at 1 Hz for every carrier without gaps over a
 60 s run" (three carriers) and, slow, over a 10 minute TU50 run with a
 tuning error. With a real radio and a calibrated signal generator, Yantra
-NFR-03 is checked per radio type in DEVICES.md (RAD-95) once the radio
-plugins exist (phase 5).
+NFR-03 is checked per radio type in [DEVICES.md](DEVICES.md) (RAD-95):
+`yantra-hackrf level` measures it on a HackRF One (tested against the fake
+module in `yantra_hackrf/test_yantra_hackrf.cpp`); no real radio has been
+measured yet.
 
 ## Real-signal fixtures (RAD-121)
 

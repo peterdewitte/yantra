@@ -126,3 +126,50 @@ request. Build steps follow in BUILD.md once the CMake project exists.
 - Python tools use the standard library (the CI lint also uses PyYAML);
   bash scripts use `set -euo pipefail`, POSIX sh scripts `set -eu`, and
   all pass `tools/ci/lint.sh`.
+
+## Adding a plugin
+
+1. Copy the example: `plugins/example` (C++, the tutorial
+   [docs/RADIO_PLUGINS.md](docs/RADIO_PLUGINS.md)) or `plugins/pei` (plain
+   C). A TETRA SDR plugin is the SoapySDR layer plus an `Options` block, as
+   `plugins/hackrf/hackrf_plugin.cpp` (driver filter, device profile with
+   presets, gain stages, rates).
+2. `plugins/<name>/CMakeLists.txt`: `yantra_add_radio_plugin(<name>
+   SOURCES ... [LIBS ...])`, which builds `bin/plugins/<name>.so` with the
+   export map and adds the ctests `completeness_<name>` and
+   `conformance_<name>`; add the folder in `plugins/CMakeLists.txt`, the
+   plugin to the list of `completeness_plugins` (`tests/completeness/CMakeLists.txt`)
+   and the installed file
+   to `tests/install/check_install.py`.
+3. Tests in `tests/<name>/` against a fake device (`yantra_doctest_tests`
+   for per-case ctests); real-time checks in `TEST_SUITE("timing")`.
+4. A page `docs/plugins/<name>.md` with the generated block (add the
+   plugin to `tools/ci/plugin_docs.py`, then `ninja update-plugin-docs`),
+   its schemas in docs/TETRA_RECORDS.md (or its own schema page), a row
+   in DEVICES.md, and a CHANGELOG entry.
+
+## Adding a SoapySDR module or a bundled library
+
+1. Only libraries whose licence is GPL-3.0 compatible, from RAD-04's
+   list (ask before adding another). Pin the release archive: add a row
+   to `tools/deps/manifest.tsv` (name, version, SPDX, folder, URL,
+   SHA-256), vendor the files the build needs unchanged under
+   `third_party/<folder>/` with the licence file, and run
+   `tools/deps/verify_sources.py`.
+2. Build it statically with hidden symbols in `tools/deps/sdr.cmake` (or
+   `deps.cmake`); a SoapySDR module joins `yantra::soapy_modules` and the
+   module table of `cmake/YantraSoapy.cmake`.
+3. Add its row to THIRD_PARTY.md (version, licence, source URL, what is
+   built in, local replacements) and a REUSE.toml annotation; the ctest
+   `licence_bundle` checks that manifest, folder, licence text and
+   THIRD_PARTY.md agree, and the licence bundle picks it up.
+4. A device needs udev rules (`udev/60-yantra-sdr.rules`) and a DEVICES.md
+   row; the fake module (`tests/fake_soapy`) can imitate its profile.
+
+## Releases
+
+Version in `CMakeLists.txt` (`project(... VERSION x.y.z)`), the CHANGELOG
+section `## [x.y.z] - <date>` with real dates, the full test set of
+"Building and testing" plus `reuse lint` and `tools/deps/verify_sources.py`,
+then `ninja -C build release` and an annotated tag `vx.y.z`
+([BUILD.md](BUILD.md#release)).

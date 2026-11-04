@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 The Yantra contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Real-world robustness checklist (RAD-124, docs/ROBUSTNESS.md) and level
+# Real-world robustness checklist (RAD-124, REAL_WORLD_CHECKLIST.md) and level
 # linearity (RAD-125): generator captures with radio, air and program
 # impairments through the whole measurement engine (search, channelizer,
 # demodulator, decoder, level meter, records). One binary, two tests:

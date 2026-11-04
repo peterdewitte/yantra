@@ -27,7 +27,7 @@ station broadcasts in the clear (synchronisation, system information,
 neighbour lists) and measure levels and quality. They do not decode
 speech, short data or subscriber identities, and never decrypt anything.
 
-## Layout (planned, RAD-02)
+## Layout (RAD-02)
 
 | Folder | Contents |
 |--------|----------|
@@ -35,16 +35,46 @@ speech, short data or subscriber identities, and never decrypt anything.
 | `common/` | shared code: record files (RAD-65), scene JSON (RAD-36) |
 | `receiver/` | DSP, carrier search, TETRA decoder, level and quality meters; `receiver/rust/` the protocol crate |
 | `gen/` | TETRA test-signal generator library |
-| `plugins/` | one folder per plugin: hackrf, simulator, soapy, pei, and `beacon`, the example |
-| `tools/` | `yantra-gen`, `yantra-radio-host`, `yantra-hackrf`; `tools/deps/` static dependency builds |
+| `plugins/` | one folder per plugin: `hackrf`, `simulator`, `soapy` (soapysdr.so), `pei`, and `example` (beacon.so, the example); shared code in `soapy_common` and `tetra_common` |
+| `tools/` | `yantra-gen`, `yantra-radio-host`, `yantra-hackrf`, the test tools `yantra-pei-sim` and `yantra-sens`; `tools/deps/` static dependency builds; `tools/ci/` CI and release scripts |
 | `udev/` | udev rules and the RTL-SDR DVB-T driver blacklist (RAD-99) |
 | `third_party/` | pinned sources of every bundled library, incl. osmo-tetra |
 | `tests/`, `docs/` | tests and documentation |
 
+## Plugins and platforms
+
+| Plugin | Radio | Page |
+|---|---|---|
+| `hackrf.so` | HackRF One (SoapyHackRF, libhackrf) | [docs/plugins/hackrf.md](docs/plugins/hackrf.md) |
+| `soapysdr.so` | RTL-SDR (incl. Blog V4), Airspy, network radios (SoapyRemote) | [docs/plugins/soapysdr.md](docs/plugins/soapysdr.md) |
+| `pei.so` | a TETRA terminal over its PEI (AT commands) | [docs/plugins/pei.md](docs/plugins/pei.md) |
+| `simulator.so` | a simulated TETRA network (demo, training, tests) | [docs/plugins/simulator.md](docs/plugins/simulator.md) |
+
+Every plugin is one self-contained `.so` (SoapySDR, its modules, the
+vendor libraries and libusb built in; RAD-132), so it needs no SoapySDR
+or vendor package on the target system. Which radios have been checked,
+and how: [DEVICES.md](DEVICES.md) (none on real hardware yet).
+
 ## Status
 
-Work in progress. The project started on 2026-11-03. Linux is built and
-tested first; the Windows build (MSYS2 UCRT64) is planned.
+Release 0.1.0 (2026-11-04, tag v0.1.0; [CHANGELOG.md](CHANGELOG.md)).
+Linux x86-64 is built and tested; Linux arm64 is in the nightly CI; the
+Windows build (MSYS2 UCRT64, `.dll`) is written and not yet run. The
+screenshots of the radio windows Yantra generates from the plugins'
+settings follow with the Yantra build that pins this release.
+
+## Quick start
+
+    git submodule update --init
+    cmake -S . -B build -G Ninja && ninja -C build
+    build/bin/yantra-radio-host info --plugin build/bin/plugins/simulator.so
+    build/bin/yantra-radio-host stream --plugin build/bin/plugins/simulator.so \
+        --duration 10 --out demo.jsonl
+
+The second command lists the simulator's record schemas; the third
+streams ten seconds of records of the simulated network into a record
+file (docs/RECORD_FILES.md). With a HackRF One plugged in:
+`build/bin/yantra-hackrf list` and `yantra-hackrf measure --plan serving`.
 
 ## Build (Linux)
 
@@ -111,24 +141,36 @@ as root. `yantra-hackrf` tests a HackRF One through the HackRF plugin
 
 ## Documentation
 
+- [ARCHITECTURE.md](ARCHITECTURE.md): layers, data flow from the antenna
+  to a record, threads.
+- [BUILD.md](BUILD.md): building on Linux and MSYS2 UCRT64, the static
+  dependency builds, the completeness checks, install and release.
+- [CONTRIBUTING.md](CONTRIBUTING.md): tests, code style, licence rules,
+  adding a plugin or a SoapySDR module. [CONTRIBUTORS.md](CONTRIBUTORS.md).
 - [docs/RADIO_PLUGINS.md](docs/RADIO_PLUGINS.md): writing a radio plugin,
-  a tutorial with the example plugin `plugins/example` (RAD-64), settings
-  as data, the record schemas, the conformance kit and the simulator
-  plugin (RAD-61).
-- The radio API reference: `ninja -C build docs-radio-api` (Doxygen) into
-  `build/docs/radio-api/html`.
-- [docs/YANTRA_GEN.md](docs/YANTRA_GEN.md) the yantra-gen command and its
-  output files.
-- [docs/YANTRA_HACKRF.md](docs/YANTRA_HACKRF.md) the HackRF One test tool.
-- [docs/RECORD_FILES.md](docs/RECORD_FILES.md) record files,
+  a tutorial with the example plugin `plugins/example` (RAD-64), stream
+  control, settings as data and how Yantra turns them into windows, the
+  conformance kit. The radio API reference: `ninja -C build
+  docs-radio-api` (Doxygen) into `build/docs/radio-api/html`.
+- One page per plugin: [docs/plugins/](docs/plugins/).
+- [docs/TETRA_RECORDS.md](docs/TETRA_RECORDS.md): every record field
+  with its unit and source (broadcast message and EN 300 392-2 clause, or
+  how it is measured).
+- File formats: [docs/RECORD_FILES.md](docs/RECORD_FILES.md) record files,
   [docs/SCENE_FORMAT.md](docs/SCENE_FORMAT.md) scene JSON,
   [docs/SCENARIO_FORMAT.md](docs/SCENARIO_FORMAT.md) scenario files,
-  [docs/CHANNEL_MODEL.md](docs/CHANNEL_MODEL.md) channel and multi-wall
-  model.
-- [docs/MEASUREMENT.md](docs/MEASUREMENT.md) the TETRA measurement engine
-  (carrier search, level, quality, records).
-- [docs/TETRA_RECORDS.md](docs/TETRA_RECORDS.md) the TETRA record schemas
-  shared by the measurement engine, the plugins and yantra-gen.
+  [docs/IQ-FORMATS.md](docs/IQ-FORMATS.md) IQ files and SigMF.
+- Receiver: [docs/RECEIVER_DSP.md](docs/RECEIVER_DSP.md),
+  [docs/TETRA_DECODER.md](docs/TETRA_DECODER.md),
+  [docs/MEASUREMENT.md](docs/MEASUREMENT.md); generator:
+  [docs/YANTRA_GEN.md](docs/YANTRA_GEN.md),
+  [docs/CHANNEL_MODEL.md](docs/CHANNEL_MODEL.md); tools:
+  [docs/YANTRA_HACKRF.md](docs/YANTRA_HACKRF.md).
+- Quality: [REAL_WORLD_CHECKLIST.md](REAL_WORLD_CHECKLIST.md) (every
+  RAD-124 item with its test), [docs/SENSITIVITY.md](docs/SENSITIVITY.md),
+  [docs/BENCHMARKS.md](docs/BENCHMARKS.md),
+  [docs/FUZZING.md](docs/FUZZING.md), [DEVICES.md](DEVICES.md).
+- [THIRD_PARTY.md](THIRD_PARTY.md): every bundled library and tool.
 - [CHANGELOG.md](CHANGELOG.md): releases and the radio API changelog
   (RAD-11).
 

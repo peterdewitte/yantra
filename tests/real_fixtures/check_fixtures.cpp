@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // yantra-check-fixtures ROOT WORK: the real-signal fixture check (RAD-121,
-// docs/ROBUSTNESS.md). Every ROOT/<radio>/NAME.expected.json names a
+// REAL_WORLD_CHECKLIST.md). Every ROOT/<radio>/NAME.expected.json names a
 // recording NAME.sigmf-meta/-data next to it; the recording is decoded
 // with decode-iq (the TETRA measurement engine) into WORK/ and the
 // decoded cells are compared with the expected ones: every expected cell
