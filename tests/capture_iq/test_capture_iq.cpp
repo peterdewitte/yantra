@@ -19,8 +19,6 @@
 #include <fstream>
 #include <iterator>
 #include <string>
-#include <thread>
-#include <chrono>
 #include <vector>
 
 #include <unistd.h>
@@ -42,7 +40,7 @@ struct Setup {
         fs::remove_all(dir);
         fs::create_directories(dir);
         const std::string json = "{\"control\":\"" + dir.string() + "\",\"devices\":[{\"serial\":\"" + kSerial +
-                                 "\",\"buffer_s\":10,\"scenario\":\"" + YANTRA_TEST_DATA_DIR +
+                                 "\",\"paced\":false,\"scenario\":\"" + YANTRA_TEST_DATA_DIR +
                                  "/soapy/fake_two_cells.json\"" + extra + "}]}";
         setenv("YANTRA_FAKE_SOAPY", json.c_str(), 1);
         yantra::soapy::module_table() = "yantrafake|yantra fake module (test)|0.3.6-fake|yantra-gen";
@@ -123,17 +121,12 @@ TEST_CASE("capture-iq: the rolling buffer keeps the last seconds (RAD-63)")
 
 TEST_CASE("capture-iq: an overflow starts a new capture segment (RAD-63, RAD-24)")
 {
-    Setup s;
+    Setup s(R"(,"overflow_at":200000)");
     CaptureOptions o = s.options(IqFormat::cs16, 0.3);
     CaptureResult r;
     std::string error;
-    // The overflow comes once the capture runs.
-    std::thread later([&s] {
-        std::this_thread::sleep_for(std::chrono::milliseconds(100));
-        std::ofstream(s.dir / (std::string(kSerial) + ".overflow")) << 1;
-    });
+    // The fake overflows once, after 0.1 s of samples.
     const bool ok = capture_iq(o, r, error);
-    later.join();
     REQUIRE_MESSAGE(ok, error);
     CHECK(r.overflows == 1);
     CHECK(r.lost >= 20000); // the fake loses 10 ms

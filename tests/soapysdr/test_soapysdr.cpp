@@ -245,7 +245,7 @@ TEST_CASE("soapysdr: settings come from the module (RAD-51, RAD-53)")
 TEST_CASE("soapysdr: records of the fake device match the generator's truth (RAD-62, RAD-92)")
 {
     // A device buffer the loaded test machine never overruns.
-    Fake f(R"(,"buffer_s":10)");
+    Fake f(R"(,"paced":false)"); // values, not timing: no natural overflow
     f.open();
     // Total gain 40 dB: the fake's reference gain, so dBFS = dBm + 20.
     f.set_double("gain_lna", 16.0);
@@ -283,7 +283,7 @@ TEST_CASE("soapysdr: records of the fake device match the generator's truth (RAD
 
 TEST_CASE("soapysdr: gain changes move the dBFS levels (RAD-51)")
 {
-    Fake f(R"(,"buffer_s":10)"); // no overflow on a loaded machine
+    Fake f(R"(,"paced":false)"); // no overflow on a loaded machine
     f.open();
     f.set_double("gain_lna", 16.0);
     f.set_double("gain_vga", 14.0);
@@ -313,7 +313,7 @@ TEST_CASE("soapysdr: gain changes move the dBFS levels (RAD-51)")
 
 TEST_CASE("soapysdr: overflows give OVERFLOW and DROPPED events (RAD-24, RAD-25)")
 {
-    Fake f(R"(,"buffer_s":10)"); // only the injected overflows
+    Fake f(R"(,"paced":false)"); // only the injected overflows
     f.open();
     std::atomic<int> overflow{0}, dropped{0};
     std::atomic<int64_t> lost{0};
@@ -348,7 +348,7 @@ TEST_CASE("soapysdr: hot-plug of an open device and a refused open (RAD-35, RAD-
 {
     SUBCASE("unplug and replug while open")
     {
-        Fake f;
+        Fake f(R"(,"paced":false)"); // the records after the replug, not timing
         f.open();
         const uint64_t changes = f.host->devices_changed_count();
         touch(f.unplugged());

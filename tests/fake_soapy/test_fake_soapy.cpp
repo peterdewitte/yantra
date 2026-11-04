@@ -35,7 +35,7 @@ struct Config {
         fs::create_directories(control);
         const std::string json = "{\"control\":\"" + control.string() + "\",\"devices\":[{\"serial\":\"" +
                                  kSerial + "\",\"scenario\":\"" + YANTRA_TEST_DATA_DIR +
-                                 "/soapy/fake_two_cells.json\"}]}";
+                                 "/soapy/fake_two_cells.json\",\"buffer_s\":10}]}";
         setenv("YANTRA_FAKE_SOAPY", json.c_str(), 1);
     }
     ~Config()

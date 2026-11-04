@@ -962,7 +962,10 @@ yantra-gen scenario at the frequency and rate it is tuned to, paced in
 real time, its level following the gain. `YANTRA_FAKE_SOAPY` holds its
 configuration (inline JSON or a file: devices with serial, scenario,
 seed, device buffer, optional clock sources, sensors, frequency
-correction, gain elements, rates, an open error); in its control folder
+correction, gain elements, rates, an open error, `"paced": false` for
+samples as fast as they are read, `overflow_at` for one overflow after n
+samples); tests that check values rather than timing run it unpaced, so
+a slow machine (sanitizers) gives no natural overflows; in its control folder
 the file `<serial>.unplugged` unplugs a device and `<serial>.overflow`
 (holding n) makes the next n reads overflow. `yantra_fake_soapy_library(
 <target> DRIVER <name>)` (cmake/YantraSoapy.cmake) builds it under any

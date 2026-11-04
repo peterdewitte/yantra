@@ -23,6 +23,12 @@
 //                                       carry the scenario's levels
 //       "buffer_s": 0.5,                device buffer: a reader further
 //                                       behind loses samples (OVERFLOW)
+//       "paced": true,                  false: samples as fast as they are
+//                                       read (no real time, no natural
+//                                       overflow; for tests that check
+//                                       values, not timing)
+//       "overflow_at": n,               one overflow once n samples of a
+//                                       stream are out (deterministic)
 //       "unplug_mode": "timeout"|"error", what reads of an unplugged
 //                                       device return (SoapyHackRF: timeout)
 //       "clock_sources": [...], "sensors": {k: v}, "frequency_correction": bool,
@@ -88,6 +94,8 @@ struct Spec {
     std::optional<uint64_t> seed;
     double reference_gain_db = 40.0;
     double buffer_s = 0.5;
+    bool paced = true;
+    uint64_t overflow_at = 0;
     bool unplug_error = false;
     std::vector<double> rates;
     std::vector<double> bandwidths{1.75e6, 2.5e6, 3.5e6, 5e6, 5.5e6, 6e6,  7e6,  8e6,
@@ -135,6 +143,8 @@ Config read_config()
             s.seed = d["seed"].get<uint64_t>();
         s.reference_gain_db = d.value("reference_gain_db", s.reference_gain_db);
         s.buffer_s = d.value("buffer_s", s.buffer_s);
+        s.paced = d.value("paced", s.paced);
+        s.overflow_at = d.value("overflow_at", s.overflow_at);
         s.unplug_error = d.value("unplug_mode", "timeout") == "error";
         if (d.contains("rates"))
             s.rates = d["rates"].get<std::vector<double>>();
@@ -243,6 +253,7 @@ struct FakeStream {
     bool active = false;
     Clock::time_point t0;
     uint64_t produced = 0; ///< samples handed out (or lost) since t0
+    bool scheduled_overflow_done = false;
     double rate = 0.0;
     double centre = 0.0;
     std::unique_ptr<Signal> signal;
@@ -494,6 +505,7 @@ private:
         s.signal = std::make_unique<Signal>(spec_, s.centre, s.rate);
         s.t0 = Clock::now();
         s.produced = 0;
+        s.scheduled_overflow_done = false;
     }
 
     Spec spec_;
@@ -541,22 +553,23 @@ int FakeDevice::readStream(SoapySDR::Stream* stream, void* const* buffs, const s
         return static_cast<int64_t>(elapsed * s->rate) - static_cast<int64_t>(s->produced);
     };
     const auto lose = [&](int64_t n) {
-        // The device buffer overflowed: samples are lost.
-        s->buffer.resize(4096);
-        while (n > 0) {
-            const auto m = static_cast<std::size_t>(std::min<int64_t>(n, 4096));
-            s->signal->read(s->buffer.data(), m);
-            n -= static_cast<int64_t>(m);
-            s->produced += m;
-        }
+        // The device buffer overflowed: the time stamps skip the lost
+        // samples. The signal is not generated for them: on a slow machine
+        // (sanitizers) generating what was lost would take longer than the
+        // loss itself and a reader would never catch up.
+        s->produced += static_cast<uint64_t>(n);
     };
+    if (spec_.overflow_at > 0 && !s->scheduled_overflow_done && s->produced >= spec_.overflow_at) {
+        s->scheduled_overflow_done = true;
+        ++overflows_;
+    }
     if (overflows_ > 0) {
         --overflows_;
         lose(static_cast<int64_t>(0.01 * s->rate));
         return SOAPY_SDR_OVERFLOW;
     }
-    int64_t avail = available();
-    if (avail > static_cast<int64_t>(spec_.buffer_s * s->rate)) {
+    int64_t avail = spec_.paced ? available() : static_cast<int64_t>(numElems);
+    if (spec_.paced && avail > static_cast<int64_t>(spec_.buffer_s * s->rate)) {
         lose(avail - static_cast<int64_t>(0.01 * s->rate));
         return SOAPY_SDR_OVERFLOW;
     }
