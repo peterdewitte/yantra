@@ -26,6 +26,7 @@
 #include <yantra/core/measure/pipeline.h>
 #include <yantra/core/plugin/state_store.h>
 #include <yantra/core/radio/radio_host.h>
+#include <yantra/core/radio/scene_export.h>
 #include <yantra/radio.h>
 
 namespace fs = std::filesystem;
@@ -113,11 +114,13 @@ struct Sim {
     std::shared_ptr<ym::RecordQueue> queue = std::make_shared<ym::RecordQueue>();
     std::shared_ptr<yantra::plugin::MemoryStateStore> state = std::make_shared<yantra::plugin::MemoryStateStore>();
     std::shared_ptr<yc::ContextPublisher> publisher = std::make_shared<yc::ContextPublisher>();
-    yc::BuildingContext context{publisher};
+    yc::BuildingContext context;
     std::unique_ptr<yr::RadioHost> host;
     std::shared_ptr<yr::RadioDevice> device;
     std::string id;
     std::size_t seen = 0;  // records already looked at
+
+    explicit Sim(const yantra::radio::SceneExportOptions& options = {}) : context(publisher, options) {}
 
     bool start() {
         const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator.so";
@@ -174,6 +177,28 @@ double mean_level(const std::vector<Sample>& s) {
     double sum = 0.0;
     for (const Sample& x : s) sum += x.level;
     return s.empty() ? 0.0 : sum / static_cast<double>(s.size());
+}
+
+// Free-space path loss at T1's carrier over a 3D distance (yantra-radios
+// docs/CHANNEL_MODEL.md).
+double fspl_db(double d_m) {
+    return 20.0 * std::log10(4.0 * std::numbers::pi * d_m * static_cast<double>(kT1Hz) / 299'792'458.0);
+}
+
+// The Fraunces scenario's levels are dBFS = dBm + 20 (reference level
+// -20 dBm, gain 0: the simulator's true_offset_db sensor).
+constexpr double kDbfsOffset = 20.0;
+// The receiver is 1.5 m above its floor (CHANNEL_MODEL.md).
+constexpr double kRxHeightM = 1.5;
+
+// The mean level of 10 T1 records at plan metres (x, y) after 10 more
+// that let the filters settle (after a lock or a scene reload).
+double settled_level_at(Sim& sim, double x, double y) {
+    auto at = [&](const Sample& s) { return s.x == x && s.y == y; };
+    sim.next(10, at);
+    const auto got = sim.next(10, at);
+    REQUIRE(got.size() == 10);
+    return mean_level(got);
 }
 
 }  // namespace
@@ -240,4 +265,107 @@ TEST_CASE("a wall added to the model lowers the simulated level by its attenuati
     // (yantra-radios RAD-94); a difference of two levels within 1 dB.
     CHECK(before - after == doctest::Approx(wall_db).epsilon(1.0 / wall_db));
     CHECK(sim.host->context_calls(sim.id)["get_scene:OK"] >= 2);
+}
+
+// Scene format 1.1 end to end (yantra-radios v0.2.0): the simulator's
+// levels follow the model's per-floor slabs and heights, the class table
+// at the simulated carrier, and a polyline crossed at a vertex once. Each
+// within the simulator's 0.5 dB of its multi-wall model (RAD-94); the 1.0
+// reading of the same scene would be off by 10 dB or more.
+
+TEST_CASE("an antenna on the floor above reaches the receiver through that storey's own slab (IND-44, scene 1.1)") {
+    yb::Building b = building(false);
+    yb::Floor& g = b.floors[0];
+    g.height_m = 3.6;
+    g.reference_point = yb::Point2{0, 0};
+    g.slab_attenuation_db = 25.0;  // the scene's uniform slab stays 15 dB (floor_attenuation_db)
+    g.antennas.clear();
+    yb::Floor up;
+    up.id = "sim-first";
+    up.name = "First floor";
+    up.level = 1;
+    up.plan_width = 400;
+    up.plan_height = 200;
+    up.scale.method = yb::Scale::Method::Shared;
+    up.scale.shared_floor = "sim-ground";
+    up.reference_point = yb::Point2{0, 0};
+    yb::Antenna a;
+    a.id = "a-up";
+    a.position = {60, 100};  // (3, 5) m
+    a.height_m = 2.8;
+    a.eirp_dbm = 10.0;
+    a.cell = "T1";
+    up.antennas.push_back(a);
+    b.floors.push_back(up);
+    REQUIRE(b.validate().empty());
+
+    Sim sim;
+    sim.context.set_building(b);
+    sim.context.show_floor("sim-ground");
+    sim.context.set_cursor(yb::Point2{120.0, 100.0});  // (6, 5) m: 3 m beside the antenna
+    if (!sim.start()) {
+        MESSAGE("no simulator plugin built: skipped");
+        return;
+    }
+    const double level = settled_level_at(sim, 6.0, 5.0);
+    const double d = std::hypot(3.0, 3.6 + 2.8 - kRxHeightM);
+    const double expected = 10.0 - fspl_db(d) - b.inter_floor_attenuation_db(0, 1) + kDbfsOffset;
+    MESSAGE("level " << level << " dBFS, model " << expected << " dBFS");
+    CHECK(b.inter_floor_attenuation_db(0, 1) == 25.0);
+    CHECK(std::abs(level - expected) <= 0.5);
+}
+
+TEST_CASE("a wall of the class table attenuates at the simulated carrier, not at the scene frequency (IND-11, scene 1.1)") {
+    // The scene frequency 900 MHz makes attenuation_db the concrete 900 MHz
+    // value (23 dB, what a 1.0 reader takes); the bands give 12 dB at T1's
+    // 390 MHz, which the simulator must use.
+    yantra::radio::SceneExportOptions options;
+    options.frequency_hz = 900e6;
+    Sim sim(options);
+    const yb::Building b = building(true);
+    sim.context.set_building(b);
+    sim.context.show_floor("sim-ground");
+    sim.context.set_cursor(yb::Point2{240.0, 100.0});  // (12, 5) m, behind the wall at x = 8 m
+    if (!sim.start()) {
+        MESSAGE("no simulator plugin built: skipped");
+        return;
+    }
+    const double at_carrier = *b.wall_attenuation_db(b.floors[0].walls[0], kT1Hz / 1e6);
+    CHECK(at_carrier == 12.0);
+    CHECK(*b.wall_attenuation_db(b.floors[0].walls[0], 900.0) == 23.0);
+    const double level = settled_level_at(sim, 12.0, 5.0);
+    const double expected = 10.0 - fspl_db(std::hypot(9.0, 2.8 - kRxHeightM)) - at_carrier + kDbfsOffset;
+    MESSAGE("level " << level << " dBFS, model " << expected << " dBFS");
+    CHECK(std::abs(level - expected) <= 0.5);
+}
+
+TEST_CASE("a path through a vertex of a wall polyline crosses it once; the edit reloads the scene (IND-11, scene 1.1)") {
+    Sim sim;
+    yb::Building b = building(false);
+    sim.context.set_building(b);
+    sim.context.show_floor("sim-ground");
+    sim.context.set_cursor(yb::Point2{240.0, 100.0});  // (12, 5) m
+    if (!sim.start()) {
+        MESSAGE("no simulator plugin built: skipped");
+        return;
+    }
+    const double free_space = 10.0 - fspl_db(std::hypot(9.0, 2.8 - kRxHeightM)) + kDbfsOffset;
+    const double open = settled_level_at(sim, 12.0, 5.0);
+    CHECK(std::abs(open - free_space) <= 0.5);
+
+    // A concrete ">" whose vertex (8, 5) m lies on the path from the
+    // antenna (3, 5) m to the receiver: two segments, one wall.
+    b.floors[0].walls.push_back(yb::Wall{"v1", "concrete", {{120, 40}, {160, 100}, {120, 160}}, std::nullopt});
+    const auto calls = sim.host->context_calls(sim.id)["get_scene:OK"];
+    CHECK(sim.context.set_building(b) == yc::kSceneChanged);
+    const double wall_db = *b.wall_attenuation_db(b.floors[0].walls[0], kT1Hz / 1e6);
+    const auto dropped = sim.next(1, [&](const Sample& s) {
+        return s.x == 12.0 && s.y == 5.0 && s.level < open - wall_db / 2;
+    });
+    REQUIRE_MESSAGE(dropped.size() == 1, "the level did not follow the new wall");
+    CHECK(sim.host->context_calls(sim.id)["get_scene:OK"] > calls);  // the simulator reloaded
+    const double behind = settled_level_at(sim, 12.0, 5.0);
+    MESSAGE("level without the wall " << open << " dBFS, through its vertex " << behind << " dBFS");
+    // Once (12 dB), not once per segment (24 dB).
+    CHECK(std::abs(behind - (free_space - wall_db)) <= 0.5);
 }
