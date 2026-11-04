@@ -408,13 +408,16 @@ std::size_t replay(const RecordFile& file, MeasurementInput& input, const Replay
     std::size_t n = 0;
     for (const RecordFileLine& line : file.lines) {
         if (const auto* r = std::get_if<RadioRecord>(&line)) {
+            if (options.advance) options.advance(r->record.time.monotonic_ns);
             RadioRecord copy = *r;
             copy.radio_schema = r->schema_index < views.size() ? &views[r->schema_index]->get() : nullptr;
             copy.calibration_key = key;
             input.on_radio_record(copy);
             ++n;
         } else {
-            input.on_radio_event(std::get<RadioEvent>(line));
+            const RadioEvent& e = std::get<RadioEvent>(line);
+            if (options.advance) options.advance(e.monotonic_ns);
+            input.on_radio_event(e);
         }
     }
     return n;

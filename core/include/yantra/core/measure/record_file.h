@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <filesystem>
+#include <functional>
 #include <iosfwd>
 #include <memory>
 #include <string>
@@ -111,6 +112,11 @@ struct ReplayOptions {
     // settings, docs/RECORD_FILES.md of yantra-radios), see
     // device_calibration_key. false: no key, the levels stay uncalibrated.
     bool key_from_device = true;
+    // Called before each line with its monotonic time (a record's
+    // measurement time, an event's time), in file order: e.g. to move a
+    // ManualClock there and tick() the pipeline, so cycles follow the
+    // recorded time as they followed the live one (TST-31).
+    std::function<void(std::int64_t monotonic_ns)> advance;
 };
 
 // The calibration key of the header's device: driver + serial, no
