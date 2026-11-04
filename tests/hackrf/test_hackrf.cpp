@@ -381,8 +381,25 @@ TEST_CASE("hackrf: sensors and self-test (RAD-60, RAD-45, RAD-46)")
     for (const char* k : {"module", "rates", "gains", "info_firmware_version", "info_serial_number",
                           "antenna_power", "stream"})
         CHECK_MESSAGE(result.count(k) == 1, k);
+    // The receive stream item reads 100000 values in at most 2 s: real
+    // time, checked in the timing case below.
     for (const auto& [k, r] : result)
-        CHECK_MESSAGE(r == YR_TEST_PASS, k);
+        if (k != "stream")
+            CHECK_MESSAGE(r == YR_TEST_PASS, k);
+}
+
+TEST_SUITE("timing")
+{
+TEST_CASE("hackrf: every self-test item passes, the receive stream included (RAD-46)")
+{
+    Fake f(R"(,"paced":false)");
+    f.open();
+    std::vector<SelfTestItem> items;
+    REQUIRE(run_self_test(*f.host, f.device, items) == YR_OK);
+    REQUIRE(!items.empty());
+    for (const SelfTestItem& it : items)
+        CHECK_MESSAGE(it.result == YR_TEST_PASS, it.name << ": " << it.detail);
+}
 }
 
 TEST_CASE("hackrf: clipping is flagged with the HackRF remedy (RAD-60, RAD-21)")

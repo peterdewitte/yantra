@@ -89,6 +89,9 @@ TEST_CASE("fake soapy: a HackRF-like device of the configuration (RAD-92)")
     CHECK(d->readSetting("bias_tx") == "true");
 }
 
+// Paced in real time: label timing (left out of the sanitizer trees).
+TEST_SUITE("timing")
+{
 TEST_CASE("fake soapy: paced scenario IQ, gain-following level, overflow and unplug (RAD-92)")
 {
     Config c;
@@ -136,4 +139,5 @@ TEST_CASE("fake soapy: paced scenario IQ, gain-following level, overflow and unp
     CHECK(d->readStream(st, b, buf.size(), flags, t, 50000) == SOAPY_SDR_TIMEOUT);
     d->deactivateStream(st);
     d->closeStream(st);
+}
 }

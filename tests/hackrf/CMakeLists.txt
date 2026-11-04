@@ -13,8 +13,12 @@ target_link_libraries(test_hackrf PRIVATE yantra_test_main yantra_warnings
   yantra::radio_host yantra::gen)
 target_compile_definitions(test_hackrf PRIVATE HACKRF_FAKE_PLUGIN="$<TARGET_FILE:hackrf_fake>")
 add_dependencies(test_hackrf hackrf_fake)
-yantra_doctest_tests(test_hackrf GROUP test_hackrf LABELS fast TIMEOUT 300
-  WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+# Real-time checks are TEST_SUITE("timing"): label timing, left out of the
+# sanitizer trees.
+yantra_doctest_tests(test_hackrf GROUP test_hackrf FILTERS --test-suite-exclude=timing
+  LABELS fast TIMEOUT 300 WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+yantra_doctest_tests(test_hackrf GROUP test_hackrf_timing FILTERS --test-suite=timing
+  LABELS timing TIMEOUT 120 RUN_SERIAL WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 set(_allow "")
