@@ -114,6 +114,15 @@ execute_process(COMMAND git -C ${YANTRA_RADIOS_DIR} rev-parse --short=12 HEAD
 if(NOT _yr_git EQUAL 0 OR _yr_commit STREQUAL "")
   file(SHA256 ${YANTRA_RADIOS_DIR}/tools/deps/manifest.tsv _yr_commit)
   string(SUBSTRING ${_yr_commit} 0 12 _yr_commit)
+else()
+  # A moved pin (checkout of another submodule commit) reconfigures, so
+  # the cache key follows the commit.
+  execute_process(COMMAND git -C ${YANTRA_RADIOS_DIR} rev-parse --path-format=absolute --git-path HEAD
+                  OUTPUT_VARIABLE _yr_head OUTPUT_STRIP_TRAILING_WHITESPACE
+                  RESULT_VARIABLE _yr_head_git ERROR_QUIET)
+  if(_yr_head_git EQUAL 0 AND EXISTS "${_yr_head}")
+    set_property(DIRECTORY ${PROJECT_SOURCE_DIR} APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_yr_head})
+  endif()
 endif()
 
 set(_yr_args

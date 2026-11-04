@@ -47,7 +47,7 @@ Options:
 Example with a yantra-radios release built next to yantra:
 
     cmake -S . -B build -G Ninja \
-      -DYANTRA_RADIOS_PREBUILT=$HOME/yantra-radios/build/release/v0.1.0
+      -DYANTRA_RADIOS_PREBUILT=$HOME/yantra-radios/build/release/v0.2.0
 
 `ninja -C build install` installs `bin/yantra`, the radio plugins in
 `lib/yantra/plugins/radios`, yantra-radios' licence bundle in
