@@ -11,11 +11,15 @@
 
 #include <cmath>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
 
+#include <yantra/core/measure/catalog.h>
+#include <yantra/core/measure/measurement_pipeline.h>
 #include <yantra/core/measure/record_file.h>
+#include <yantra/core/platform/clock.h>
 #include <yantra/core/measure/technology_map.h>
 #include <yantra/core/platform/dynlib.h>
 #include <yantra/core/plugin/loader.h>
@@ -154,33 +158,152 @@ TEST_CASE("tetra raster: duplex spacing and uplink (TS 100 392-15)") {
     CHECK_FALSE(yt::uplink_hz({3, 3600, 0}, 7, false));
 }
 
-TEST_CASE("tetra raster: the plugin's bands and channel numbers (PLG-02)") {
+TEST_CASE("tetra raster: the plugin's bands cover the radios' tuning range, one channel per frequency (PLG-02, RAD-110)") {
     const auto& bands = tetra().info->technology->bands;
-    REQUIRE(bands.size() == 3);
-    CHECK(bands[0].id == "tetra_380");
-    CHECK(bands[0].first_hz == 380 * MHz);
-    CHECK(bands[0].last_hz == 399'975'000);
-    CHECK(bands[0].first_channel == 3200);
-    CHECK(bands[1].first_hz == 410 * MHz);
-    CHECK(bands[1].first_channel == 400);
-    CHECK(bands[2].first_hz == 450 * MHz);
-    CHECK(bands[2].last_hz == 469'975'000);
-    CHECK(bands[2].first_channel == 2000);
-    for (const auto& b : bands) CHECK(b.raster_hz == 25'000);
+    REQUIRE(bands.size() == 5);
+    struct Want {
+        const char* id;
+        std::uint64_t first_hz, last_hz, first_channel;
+    };
+    const Want want[] = {
+        {"tetra_350", 350 * MHz, 399'975'000, 32000},  // band 3, carriers 2000-3999
+        {"tetra_400", 400 * MHz, 469'975'000, 40000},  // band 4, carriers 0-2799
+        {"tetra_790", 790 * MHz, 799'975'000, 73600},  // band 7, carriers 3600-3999
+        {"tetra_800", 800 * MHz, 899'975'000, 80000},  // band 8, carriers 0-3999
+        {"tetra_900", 900 * MHz, 919'975'000, 90000},  // band 9, carriers 0-799
+    };
+    for (std::size_t i = 0; i < 5; ++i) {
+        CAPTURE(want[i].id);
+        CHECK(bands[i].id == want[i].id);
+        CHECK(bands[i].first_hz == want[i].first_hz);
+        CHECK(bands[i].last_hz == want[i].last_hz);
+        CHECK(bands[i].first_channel == want[i].first_channel);
+        CHECK(bands[i].raster_hz == 25'000);
+        if (i > 0) CHECK(bands[i].first_hz > bands[i - 1].last_hz);  // no overlap
+    }
+    // RAD-110: 350-470 MHz and 790-920 MHz without a hole, on the 25 kHz raster.
+    for (std::uint64_t hz = 350 * MHz; hz < 920 * MHz; hz += 25'000) {
+        if (hz >= 470 * MHz && hz < 790 * MHz) continue;
+        const auto ch = yt::channel_of(hz);
+        REQUIRE_MESSAGE(ch, hz);
+        REQUIRE(yt::frequency_of(*ch) == hz);  // the channel number names this frequency only
+    }
+
     std::uint64_t ch = 0;
     std::uint64_t hz = 0;
-    // The channel is the carrier number (the radio records' `channel`), at any offset.
-    CHECK(tetra().api->frequency_to_channel(tetra().instance, 390'012'500, &ch) == YANTRA_OK);
-    CHECK(ch == 3600);
-    CHECK(tetra().api->frequency_to_channel(tetra().instance, 389'993'750, &ch) == YANTRA_OK);
-    CHECK(ch == 3600);
-    CHECK(tetra().api->channel_to_frequency(tetra().instance, 2000, &hz) == YANTRA_OK);
-    CHECK(hz == 450 * MHz);
-    // 350-370 MHz and 400-410 MHz are not bands of the plugin.
-    CHECK(tetra().api->frequency_to_channel(tetra().instance, 360 * MHz, &ch) == YANTRA_ERR_NOT_FOUND);
-    CHECK(tetra().api->frequency_to_channel(tetra().instance, 405 * MHz, &ch) == YANTRA_ERR_NOT_FOUND);
-    CHECK(tetra().api->channel_to_frequency(tetra().instance, 1500, &hz) == YANTRA_ERR_NOT_FOUND);
+    const auto f2c = [&](std::uint64_t f) {
+        const yantra_status st = tetra().api->frequency_to_channel(tetra().instance, f, &ch);
+        return st == YANTRA_OK ? ch : std::uint64_t{0};
+    };
+    const auto c2f = [&](std::uint64_t c) {
+        const yantra_status st = tetra().api->channel_to_frequency(tetra().instance, c, &hz);
+        return st == YANTRA_OK ? hz : std::uint64_t{0};
+    };
+    // One frequency per band, at every offset; the former collision:
+    // carrier 2000 is 350 MHz in band 3 and 450 MHz in band 4.
+    CHECK(f2c(350 * MHz) == 32000);
+    CHECK(f2c(450 * MHz) == 42000);
+    CHECK(c2f(32000) == 350 * MHz);
+    CHECK(c2f(42000) == 450 * MHz);
+    CHECK(f2c(360'500'000) == 32420);
+    CHECK(f2c(390'012'500) == 33600);
+    CHECK(f2c(389'993'750) == 33600);
+    CHECK(f2c(415'006'250) == 40600);
+    CHECK(f2c(790 * MHz) == 73600);
+    CHECK(f2c(806'012'500) == 80240);   // 800 MHz TETRA (806-824 / 851-869 MHz)
+    CHECK(f2c(851 * MHz) == 82040);
+    CHECK(f2c(916'012'500) == 90640);   // 870-876 / 915-921 MHz
+    CHECK(c2f(80240) == 806 * MHz);
+    CHECK(c2f(90000) == 900 * MHz);
+    // Outside the bands and unknown numbers.
+    CHECK(tetra().api->frequency_to_channel(tetra().instance, 349'975'000, &ch) == YANTRA_ERR_NOT_FOUND);
+    CHECK(tetra().api->frequency_to_channel(tetra().instance, 470 * MHz, &ch) == YANTRA_ERR_NOT_FOUND);
+    CHECK(tetra().api->frequency_to_channel(tetra().instance, 600 * MHz, &ch) == YANTRA_ERR_NOT_FOUND);
+    CHECK(tetra().api->frequency_to_channel(tetra().instance, 920 * MHz, &ch) == YANTRA_ERR_NOT_FOUND);
+    CHECK(tetra().api->frequency_to_channel(tetra().instance, 390'001'000, &ch) == YANTRA_ERR_NOT_FOUND);
+    CHECK(tetra().api->channel_to_frequency(tetra().instance, 2000, &hz) == YANTRA_ERR_NOT_FOUND);  // no band code
+    CHECK(tetra().api->channel_to_frequency(tetra().instance, 31999, &hz) == YANTRA_ERR_NOT_FOUND);
+    CHECK(tetra().api->channel_to_frequency(tetra().instance, 42800, &hz) == YANTRA_ERR_NOT_FOUND);
     CHECK(tetra().api->channel_to_frequency(tetra().instance, 99999, &hz) == YANTRA_ERR_NOT_FOUND);
+    // The label for the user names carrier, band and offset.
+    CHECK(yt::channel_label(350 * MHz) == "2000 (band 3)");
+    CHECK(yt::channel_label(450 * MHz) == "2000 (band 4)");
+    CHECK(yt::channel_label(390'068'750) == "3603 (band 3, -6.25 kHz)");
+    CHECK(yt::channel_label(851'012'500) == "2040 (band 8, +12.5 kHz)");
+    CHECK(yt::channel_label(600 * MHz).empty());
+    CHECK(yt::band_of(455 * MHz)->id == std::string("tetra_400"));
+    CHECK(yt::band_of(470 * MHz) == nullptr);
+}
+
+// What the pipeline gave out.
+struct Mapped final : ym::MeasurementObserver {
+    std::vector<ym::MappedRecord> records;
+    void on_record(const ym::MappedRecord& r) override { records.push_back(r); }
+    void on_cycle(const ym::MeasurementCycle&) override {}
+    void on_event(const ym::RadioEvent&) override {}
+};
+
+TEST_CASE("tetra raster: records of every band of the radios map, get a channel and an estimated C1 (RAD-110, RF-06)") {
+    // The yantra-gen fixture (390.0 and 390.2 MHz, dBm, SELF_CALIBRATED)
+    // moved into each band, its C1 removed so Yantra estimates it.
+    const auto file = ym::read_record_file(fs::path(TETRA_TESTDATA) / "tetra_gen.records.jsonl");
+    REQUIRE(file.ok());
+    const std::int64_t shifts[] = {-40'000'000, +60'000'000, +400'000'000, +461'000'000, +526'000'000};
+    const char* band_ids[] = {"tetra_350", "tetra_400", "tetra_790", "tetra_800", "tetra_900"};
+    std::map<std::uint64_t, std::uint64_t> channel_of_frequency;
+    for (std::size_t b = 0; b < 5; ++b) {
+        CAPTURE(band_ids[b]);
+        auto catalog = std::make_shared<ym::TechnologyCatalog>();
+        REQUIRE(catalog->add(*tetra().info, tetra().loader.descriptor("yantra.tetra"), tetra().instance));
+        ym::MeasurementPipeline::Options o;
+        o.catalog = catalog;
+        o.clock = std::make_shared<yantra::platform::ManualClock>(0);
+        ym::MeasurementPipeline pipeline(std::move(o));
+        auto out = std::make_shared<Mapped>();
+        pipeline.add_observer(out);
+        ym::RecordFile moved = *file.value;
+        for (ym::RecordFileLine& line : moved.lines) {
+            auto* r = std::get_if<ym::RadioRecord>(&line);
+            if (r == nullptr) continue;
+            for (std::size_t i = 0; i < r->field_names->size(); ++i) {
+                const std::string& n = (*r->field_names)[i];
+                auto& v = r->record.values[i];
+                if ((n == "frequency_hz" || n == "neighbour_frequency_hz") && std::holds_alternative<std::uint64_t>(v))
+                    v = std::get<std::uint64_t>(v) + static_cast<std::uint64_t>(shifts[b]);
+                if (n == "c1_db") v = std::monostate{};
+            }
+        }
+        REQUIRE(ym::replay(moved, pipeline) == moved.record_count);
+        const ym::PipelineStats st = pipeline.stats();
+        CHECK(st.schema_mismatch == 0);
+        CHECK(st.generic == 0);
+        CHECK(st.c1_radio == 0);
+        std::size_t cells = 0;
+        for (const ym::MappedRecord& m : out->records) {
+            CHECK_FALSE(m.generic);
+            const yt::BandDef* band = yt::band_of(m.frequency_hz);
+            REQUIRE_MESSAGE(band != nullptr, m.frequency_hz);
+            CHECK(band->id == std::string(band_ids[b]));
+            std::uint64_t ch = 0;
+            REQUIRE(tetra().api->frequency_to_channel(tetra().instance, m.frequency_hz, &ch) == YANTRA_OK);
+            const auto [it, fresh] = channel_of_frequency.emplace(ch, m.frequency_hz);
+            CHECK_MESSAGE(it->second == m.frequency_hz, "channel " << ch << " names two frequencies");
+            CHECK_FALSE(yt::channel_label(m.frequency_hz).empty());
+            if (m.schema->id != "tetra_cell" || m.role == ym::CarrierRole::Other) continue;
+            ++cells;
+            CHECK(m.c1_source == ym::C1Source::Estimated);
+            const auto num = [&](const char* n) {
+                return static_cast<double>(std::get<std::int64_t>(m.record.values[*m.schema->field_index(n)]));
+            };
+            // C1 = level - RXLEV_ACCESS_MIN - max(0, MS_TXPWR_MAX_CELL - 30 dBm)
+            CHECK(std::get<double>(m.record.values[*m.schema->field_index("c1_db")]) ==
+                  doctest::Approx(m.level - num("rxlev_access_min_dbm") -
+                                  std::max(0.0, num("ms_txpwr_max_cell_dbm") - 30.0)));
+        }
+        CHECK(cells > 0);
+        CHECK(st.c1_estimated == cells);
+    }
+    CHECK(channel_of_frequency.size() == 10);  // 2 carriers x 5 bands, all different
 }
 
 TEST_CASE("tetra C1: hand-calculated values and yantra-radios' formula give the same number (RF-06)") {

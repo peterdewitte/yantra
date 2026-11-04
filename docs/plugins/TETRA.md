@@ -61,17 +61,29 @@ the cell database (DB-04).
 downlink minus the duplex spacing (plus with reverse operation) of the
 TS 100 392-15 table, the same table yantra-radios decodes with.
 
-| Band | Downlink | Band code | Carriers (channels) |
-|------|----------|-----------|---------------------|
-| `tetra_380` | 380.000-399.975 MHz | 3 | 3200-3999 |
-| `tetra_410` | 410.000-429.975 MHz | 4 | 400-1199 |
-| `tetra_450` | 450.000-469.975 MHz | 4 | 2000-2799 |
+The bands cover the whole tuning range of the TETRA radios (yantra-radios
+RAD-110: 350-470 MHz and 790-920 MHz for 800 MHz TETRA), cut where the
+band code changes, so every record a radio can deliver maps onto a band.
+The TS 100 392-15 allocations (380-400 MHz public safety, 410-430,
+450-470, 806-870, 870-921 MHz) lie inside them.
 
-The channel number is the carrier number of the radio records' `channel`
-field. `frequency_to_channel` accepts every offset;
-`channel_to_frequency` gives the offset-0 frequency. 350-370 MHz is not a
-band of the plugin: its carriers (band 3, 2000-2799) have the numbers of
-450-470 MHz (band 4), and a channel number alone must name one frequency.
+| Band | Downlink | Band code | Carriers | Channel numbers |
+|------|----------|-----------|----------|-----------------|
+| `tetra_350` | 350.000-399.975 MHz | 3 | 2000-3999 | 32000-33999 |
+| `tetra_400` | 400.000-469.975 MHz | 4 | 0-2799 | 40000-42799 |
+| `tetra_790` | 790.000-799.975 MHz | 7 | 3600-3999 | 73600-73999 |
+| `tetra_800` | 800.000-899.975 MHz | 8 | 0-3999 | 80000-83999 |
+| `tetra_900` | 900.000-919.975 MHz | 9 | 0-799 | 90000-90799 |
+
+Carrier numbers repeat between band codes (carrier 2000 is 350 MHz in
+band 3 and 450 MHz in band 4), so the plugin's channel number is
+band-qualified: band code x 10000 + carrier number (33600 = band 3,
+carrier 3600 = 390 MHz). `frequency_to_channel` accepts every offset;
+`channel_to_frequency` gives the offset-0 frequency. The radio records'
+`channel` field stays the bare carrier number of MAC-SYSINFO, and the
+identity of a carrier is its frequency (`frequency_hz`, a cell KEY
+field). `tetra_raster.h` also gives `band_of` and `channel_label`, the
+text for the user ("3600 (band 3)", "3603 (band 3, -6.25 kHz)").
 
 ## C1 (RF-06)
 

@@ -57,7 +57,7 @@ constexpr yantra_field_link kLinks[] = {
 // 2. Bands and channel raster (tetra_raster.h)
 // ---------------------------------------------------------------------------
 
-constexpr yantra_band band_of(const yt::BandDef& b)
+constexpr yantra_band yantra_band_of(const yt::BandDef& b)
 {
     return {sizeof(yantra_band),
             0,
@@ -66,12 +66,14 @@ constexpr yantra_band band_of(const yt::BandDef& b)
             b.band * yt::kBandHz + b.first_carrier * yt::kRasterHz,
             b.band * yt::kBandHz + b.last_carrier * yt::kRasterHz,
             yt::kRasterHz,
-            b.first_carrier};
+            yt::channel_number(b.band, b.first_carrier)};
 }
-constexpr yantra_band kBand0 = band_of(yt::kBands[0]);
-constexpr yantra_band kBand1 = band_of(yt::kBands[1]);
-constexpr yantra_band kBand2 = band_of(yt::kBands[2]);
-constexpr const yantra_band* kBandList[] = {&kBand0, &kBand1, &kBand2};
+constexpr yantra_band kBand0 = yantra_band_of(yt::kBands[0]);
+constexpr yantra_band kBand1 = yantra_band_of(yt::kBands[1]);
+constexpr yantra_band kBand2 = yantra_band_of(yt::kBands[2]);
+constexpr yantra_band kBand3 = yantra_band_of(yt::kBands[3]);
+constexpr yantra_band kBand4 = yantra_band_of(yt::kBands[4]);
+constexpr const yantra_band* kBandList[] = {&kBand0, &kBand1, &kBand2, &kBand3, &kBand4};
 static_assert(sizeof kBandList / sizeof kBandList[0] == yt::kBandCount);
 
 yantra_status frequency_to_channel(yantra_plugin_instance*, std::uint64_t hz, std::uint64_t* out) noexcept
@@ -89,8 +91,7 @@ yantra_status channel_to_frequency(yantra_plugin_instance*, std::uint64_t channe
 {
     if (out == nullptr)
         return YANTRA_ERR_INVALID_ARGUMENT;
-    const auto hz = channel <= yt::kMaxCarrier ? yt::frequency_of(static_cast<std::uint32_t>(channel))
-                                               : std::nullopt;
+    const auto hz = yt::frequency_of(channel);
     if (!hz)
         return YANTRA_ERR_NOT_FOUND;
     *out = *hz;

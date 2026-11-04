@@ -79,23 +79,45 @@ std::optional<std::uint64_t> uplink_hz(const Carrier& c, std::uint32_t duplex, b
     return *dl - *spacing;
 }
 
-std::optional<std::uint32_t> channel_of(std::uint64_t f) noexcept
+const BandDef* band_of(std::uint64_t f) noexcept
 {
     const auto c = carrier_of(f);
     if (!c)
-        return std::nullopt;
+        return nullptr;
     for (const BandDef& b : kBands)
         if (c->band == b.band && c->carrier >= b.first_carrier && c->carrier <= b.last_carrier)
-            return c->carrier;
+            return &b;
+    return nullptr;
+}
+
+std::optional<std::uint64_t> channel_of(std::uint64_t f) noexcept
+{
+    const BandDef* b = band_of(f);
+    if (b == nullptr)
+        return std::nullopt;
+    return channel_number(b->band, carrier_of(f)->carrier);
+}
+
+std::optional<std::uint64_t> frequency_of(std::uint64_t channel) noexcept
+{
+    const std::uint64_t band = channel / kChannelBandFactor;
+    const std::uint64_t carrier = channel % kChannelBandFactor;
+    for (const BandDef& b : kBands)
+        if (band == b.band && carrier >= b.first_carrier && carrier <= b.last_carrier)
+            return downlink_hz({b.band, static_cast<std::uint32_t>(carrier), 0});
     return std::nullopt;
 }
 
-std::optional<std::uint64_t> frequency_of(std::uint32_t channel) noexcept
+std::string channel_label(std::uint64_t f)
 {
-    for (const BandDef& b : kBands)
-        if (channel >= b.first_carrier && channel <= b.last_carrier)
-            return downlink_hz({b.band, channel, 0});
-    return std::nullopt;
+    if (band_of(f) == nullptr)
+        return {};
+    const Carrier c = *carrier_of(f);
+    std::string label = std::to_string(c.carrier) + " (band " + std::to_string(c.band);
+    static constexpr const char* kOffsetText[4] = {"", ", +6.25 kHz", ", -6.25 kHz", ", +12.5 kHz"};
+    label += kOffsetText[c.offset];
+    label += ")";
+    return label;
 }
 
 }  // namespace yantra::tetra

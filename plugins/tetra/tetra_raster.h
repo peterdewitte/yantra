@@ -21,6 +21,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <string>
 
 namespace yantra::tetra {
 
@@ -59,8 +60,7 @@ std::optional<std::uint64_t> duplex_spacing_hz(std::uint32_t band, std::uint32_t
 std::optional<std::uint64_t> uplink_hz(const Carrier& c, std::uint32_t duplex, bool reverse) noexcept;
 
 // One downlink band of the plugin (yantra_band): carriers first..last of
-// a band code, offset 0, 25 kHz apart. The carrier ranges of the bands do
-// not overlap, so a carrier number alone names a frequency.
+// one band code, offset 0, 25 kHz apart.
 struct BandDef {
     const char* id;
     const char* label;
@@ -69,24 +69,47 @@ struct BandDef {
     std::uint32_t last_carrier;
 };
 
-// The TETRA downlink bands of the plugin (RAD-110 tuning range 350-470 MHz,
-// the 25 kHz allocations of TS 100 392-15): 380-400, 410-430 and
-// 450-470 MHz. 350-370 MHz is left out: its carrier numbers (band 3,
-// 2000-2799) are those of 450-470 MHz (band 4), so a channel number would
-// name two frequencies.
+// The TETRA downlink bands of the plugin: the whole tuning range of the
+// TETRA radios (yantra-radios RAD-110: 350-470 MHz and 790-920 MHz for
+// 800 MHz TETRA), cut where the band code changes (every 100 MHz), so a
+// band's carriers are consecutive. The TS 100 392-15 allocations (e.g.
+// 380-400 MHz public safety, 410-430, 450-470, 806-870 and 870-921 MHz)
+// all lie inside them. Carrier numbers repeat between band codes (carrier
+// 2000 is 350 MHz in band 3 and 450 MHz in band 4), so the channel number
+// of the plugin is band-qualified (channel_number below).
 inline constexpr BandDef kBands[] = {
-    {"tetra_380", "TETRA 380-400 MHz", 3, 3200, 3999},
-    {"tetra_410", "TETRA 410-430 MHz", 4, 400, 1199},
-    {"tetra_450", "TETRA 450-470 MHz", 4, 2000, 2799},
+    {"tetra_350", "TETRA 350-400 MHz", 3, 2000, 3999},
+    {"tetra_400", "TETRA 400-470 MHz", 4, 0, 2799},
+    {"tetra_790", "TETRA 790-800 MHz", 7, 3600, 3999},
+    {"tetra_800", "TETRA 800-900 MHz", 8, 0, 3999},
+    {"tetra_900", "TETRA 900-920 MHz", 9, 0, 799},
 };
 inline constexpr std::uint32_t kBandCount = sizeof kBands / sizeof kBands[0];
 
-// Channel (= carrier number, the radio records' `channel`) of a downlink
-// frequency inside one of kBands, at any of the four offsets; empty
+// The plugin's channel number: band code x 10000 + carrier number, e.g.
+// 33600 = band 3, carrier 3600 (390 MHz) and 42000 = band 4, carrier 2000
+// (450 MHz). One number names one frequency in every band; the radio
+// records' `channel` field stays the bare carrier number of MAC-SYSINFO.
+inline constexpr std::uint64_t kChannelBandFactor = 10'000;
+constexpr std::uint64_t channel_number(std::uint32_t band, std::uint32_t carrier) noexcept
+{
+    return band * kChannelBandFactor + carrier;
+}
+
+// Channel number of a downlink frequency inside one of kBands, at any of
+// the four offsets; empty outside every band.
+std::optional<std::uint64_t> channel_of(std::uint64_t downlink_hz) noexcept;
+// Downlink frequency (offset 0) of a channel number of kBands; empty for a
+// number outside every band.
+std::optional<std::uint64_t> frequency_of(std::uint64_t channel) noexcept;
+// The band of kBands a downlink frequency lies in (at any offset); nullptr
 // outside every band.
-std::optional<std::uint32_t> channel_of(std::uint64_t downlink_hz) noexcept;
-// Downlink frequency (offset 0) of a channel of kBands; empty for a
-// carrier number outside every band.
-std::optional<std::uint64_t> frequency_of(std::uint32_t channel) noexcept;
+const BandDef* band_of(std::uint64_t downlink_hz) noexcept;
+
+// Display label of a downlink frequency's channel for the user: the
+// carrier number with its band code and, when not 0, the offset, e.g.
+// "3600 (band 3)" or "3603 (band 3, -6.25 kHz)"; "" outside every band.
+// The frequency itself (the cell KEY frequency_hz) is the identity.
+std::string channel_label(std::uint64_t downlink_hz);
 
 }  // namespace yantra::tetra

@@ -21,6 +21,10 @@ own changes are in its CHANGELOG.md.
   380/410/450 MHz channel raster, C1 (MS power 30 dBm portable, 35 dBm
   mobile) and cell reselection states. A C1 the radio does not deliver is
   calculated from the calibrated level and marked estimated.
+- 2026-11-04: the TETRA channel raster covers every band the radios tune
+  (350-470 MHz and 790-920 MHz, including 350-370 MHz and 800 MHz TETRA);
+  channel numbers are band-qualified (band code x 10000 + carrier number)
+  so one number names one frequency.
 
 ### Radio plugins (yantra-radios)
 
