@@ -26,7 +26,7 @@ permissions:
 
 env:
   # Static dependency builds (RAD-136), cached per script version.
-  DEPS_KEY: deps-${{ hashFiles('tools/deps/**', 'third_party/talloc/**', 'third_party/libosmocore/**') }}
+  DEPS_KEY: deps-${{ hashFiles('tools/deps/**', 'third_party/**') }}
 
 jobs:
   lint:

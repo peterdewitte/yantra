@@ -35,7 +35,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build/deps
-          key: deps-${{ hashFiles('tools/deps/**', 'third_party/talloc/**', 'third_party/libosmocore/**') }}-${{ runner.os }}-${{ runner.arch }}
+          key: deps-${{ hashFiles('tools/deps/**', 'third_party/**') }}-${{ runner.os }}-${{ runner.arch }}
       - name: Static dependency builds (RAD-136)
         run: tools/deps/build_deps.sh build/deps
       - name: Configure and build

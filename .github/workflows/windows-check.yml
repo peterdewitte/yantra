@@ -41,7 +41,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: build/deps
-          key: deps-${{ hashFiles('tools/deps/**', 'third_party/talloc/**', 'third_party/libosmocore/**') }}-windows-ucrt64
+          key: deps-${{ hashFiles('tools/deps/**', 'third_party/**') }}-windows-ucrt64
       - name: Static dependency builds (RAD-136)
         run: tools/deps/build_deps.sh build/deps
       - name: Configure and build (warnings are errors)
