@@ -8,7 +8,7 @@
 // the plugin (RAD-20..26). Control functions here; the stream thread in
 // sim_stream.cpp, settings in sim_settings.cpp.
 //
-// Structure after plugins/beacon (RAD-64); behaviour after yantra 68ea20a
+// Structure after plugins/example (RAD-64); behaviour after yantra 68ea20a
 // plugins/demo_radio (settings, presets, practice calibration) and
 // yantra-v1 c24e8f5 (the simulated receiver).
 #include "sim_device.hpp"

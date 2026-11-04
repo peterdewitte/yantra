@@ -8,7 +8,7 @@ copied from yantra 68ea20a ci/check_doc_snippets.py).
 A Markdown file marks a quoted block with an HTML comment right before
 its fenced code block:
 
-    <!-- snippet: plugins/beacon/beacon_plugin.cpp#stream_main -->
+    <!-- snippet: plugins/example/beacon_plugin.cpp#stream_main -->
     ```c
     ...
     ```

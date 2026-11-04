@@ -5,7 +5,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 # Writing a radio plugin
 
 This guide explains the radio API (RAD-10..49) and builds the example
-plugin `beacon` (RAD-64, `plugins/beacon/`) step by step. Read it with
+plugin `beacon` (RAD-64, `plugins/example/`) step by step. Read it with
 `include/yantra/radio.h` (the reference: `ninja -C build docs-radio-api`
 writes it to `build/docs/radio-api/html`) and the plugin source next to
 you. The code blocks below are the compiled code of the beacon plugin:
@@ -103,7 +103,7 @@ text: Yantra shows them as column titles and tooltips (Yantra DOC-07).
 The neighbour list of a beacon goes into a second schema of kind
 NEIGHBOUR, one record per list entry.
 
-<!-- snippet: plugins/beacon/beacon_plugin.cpp#schema -->
+<!-- snippet: plugins/example/beacon_plugin.cpp#schema -->
 ```cpp
 const yr_enum_item kRoles[] = {{YR_ROLE_SERVING, "serving", "Serving"},
                                {YR_ROLE_NEIGHBOUR, "neighbour", "Neighbour"},
@@ -205,7 +205,7 @@ bits tell Yantra what to expect: the beacon has only `YR_CAP_SIMULATED`,
 so every record carries `YR_RECORD_SIMULATED` and Yantra marks it as
 simulated (Yantra DEMO-07).
 
-<!-- snippet: plugins/beacon/beacon_plugin.cpp#entry -->
+<!-- snippet: plugins/example/beacon_plugin.cpp#entry -->
 ```cpp
 extern "C" YR_EXPORT const yr_descriptor* yantra_radio_entry(void)
 {
@@ -248,7 +248,7 @@ key and returns the device in state OPEN with its default settings: the
 plugin keeps no settings of its own; Yantra stores and applies them
 (RAD-47).
 
-<!-- snippet: plugins/beacon/beacon_plugin.cpp#enumerate -->
+<!-- snippet: plugins/example/beacon_plugin.cpp#enumerate -->
 ```cpp
 const yr_device_info kDeviceInfo = {sizeof(yr_device_info), YR_DEVICE_SIMULATED, "beacon:0",
                                     "Beacon generator", "beacon", "0", "1.0",
@@ -296,7 +296,7 @@ stops a running stream first. A plugin that cannot change its plan while
 streaming returns `YR_ERR_BUSY` from `set_plan`; one with
 `YR_CAP_RETUNE_LIVE` applies it and reports `YR_EVENT_PLAN_APPLIED`.
 
-<!-- snippet: plugins/beacon/beacon_plugin.cpp#start_stop -->
+<!-- snippet: plugins/example/beacon_plugin.cpp#start_stop -->
 ```cpp
 yr_status beacon_start(yr_device* device, const yr_plan* plan, yr_stream* sink)
 {
@@ -369,7 +369,7 @@ level-only record with `YR_RECORD_NO_SYNC` when nothing is decoded, so a
 carrier is reported at least once per second while it is measured
 (RAD-21).
 
-<!-- snippet: plugins/beacon/beacon_plugin.cpp#stream_main -->
+<!-- snippet: plugins/example/beacon_plugin.cpp#stream_main -->
 ```cpp
 void stream_main(Device* d)
 {
@@ -438,7 +438,7 @@ present and one `yr_value` per field (absent values are
 by Yantra during the call. A decoded serving beacon also gives its
 neighbour list as NEIGHBOUR records (RAD-22).
 
-<!-- snippet: plugins/beacon/beacon_plugin.cpp#record -->
+<!-- snippet: plugins/example/beacon_plugin.cpp#record -->
 ```cpp
 // Pushes the record of one frame (or, without a frame, of the channel's
 // noise) and, for a serving beacon, its neighbour list (RAD-20..22).
@@ -517,7 +517,7 @@ enum item), rounds it to the device's step and returns
 unavailable) the plugin calls `settings_changed` and Yantra lists and
 reads them again (RAD-44).
 
-<!-- snippet: plugins/beacon/beacon_plugin.cpp#settings -->
+<!-- snippet: plugins/example/beacon_plugin.cpp#settings -->
 ```cpp
 // The gain the receiver really uses: the setting, or 30 dB with AGC.
 double effective_gain(const Settings& s) { return s.agc ? 30.0 : s.gain_db; }
@@ -585,7 +585,7 @@ std::vector<yr_setting_def> settings_of(const Settings& now)
 }
 ```
 
-<!-- snippet: plugins/beacon/beacon_plugin.cpp#set_setting -->
+<!-- snippet: plugins/example/beacon_plugin.cpp#set_setting -->
 ```cpp
 yr_status beacon_set(yr_device* device, const char* key, const yr_value* value)
 {
@@ -637,7 +637,7 @@ items with pass, warn, fail or skipped and a remedy (RAD-46). The six
 optional functions come in pairs: a plugin without presets leaves both
 `list_presets` and `apply_preset` NULL.
 
-<!-- snippet: plugins/beacon/beacon_plugin.cpp#preset_sensor -->
+<!-- snippet: plugins/example/beacon_plugin.cpp#preset_sensor -->
 ```cpp
 const yr_preset kQuietRoom = {sizeof(yr_preset), 0, "quiet_room", "Quiet room",
                               "Gain 30 dB without automatic gain, noise -100 dBFS."};
@@ -694,7 +694,7 @@ only `yantra_radio_entry`, hides every bundled symbol and links the GCC
 runtime statically (RAD-131..133). The same call gives the plugin two
 ctests: `completeness_<name>` (tools/ci/check_completeness.py: allowed
 NEEDED libraries, one exported symbol) and `conformance_<name>` (the
-conformance kit below). The beacon's `plugins/beacon/CMakeLists.txt` is
+conformance kit below). The beacon's `plugins/example/CMakeLists.txt` is
 the whole build:
 
 ```cmake
@@ -921,7 +921,7 @@ comma-separated; port 55132 by default), listed by the generic plugin as
 diagnostic says so. The module's own discovery (SSDP multicast with a
 thread that stays) never runs inside a plugin.
 
-`plugins/soapysdr` builds `soapysdr.so`, "SDR receiver (SoapySDR)": every
+`plugins/soapy` builds `soapysdr.so`, "SDR receiver (SoapySDR)": every
 built-in driver except `hackrf`, which has its own plugin (RAD-60). What
 the layer does:
 

@@ -112,7 +112,7 @@ as root. `yantra-hackrf` tests a HackRF One through the HackRF plugin
 ## Documentation
 
 - [docs/RADIO_PLUGINS.md](docs/RADIO_PLUGINS.md): writing a radio plugin,
-  a tutorial with the example plugin `plugins/beacon` (RAD-64), settings
+  a tutorial with the example plugin `plugins/example` (RAD-64), settings
   as data, the record schemas, the conformance kit and the simulator
   plugin (RAD-61).
 - The radio API reference: `ninja -C build docs-radio-api` (Doxygen) into
