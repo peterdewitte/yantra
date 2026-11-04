@@ -28,7 +28,7 @@ beacon example).
 |---|-------|--------------|--------------|
 | 1 | Input | The radio host's record sink checks every record against its radio schema, copies it into a bounded queue (drops and counts when full, never blocks the plugin) and hands it on from a delivery thread per stream (`MeasurementInput::on_radio_record`). Stream and host events arrive the same way (`on_radio_event`). | RAD-24, PLG-25 |
 | 2 | Schema mapping | The radio record becomes a record of the technology plugin's schema with the same id and technology id (`TechnologyCatalog`, filled from the enabled technology plugins), field by field by name. Without a technology plugin, or when its schema does not describe the radio schema (logged once, counted), the generic schema derived from the radio schema is used (`generic_schema`); such records are marked `generic`. | PLG-05, PLG-12 |
-| 3 | Level correction | The `LevelCorrector` is asked once per record for its device and carrier frequency and its answer is added to every LEVEL field in dBm: `dBm = dBFS + offset_db + correction_db` for dBFS radios, `dBm + correction_db` for SELF_CALIBRATED radios. Without a calibration a dBFS level keeps its value and is flagged uncalibrated. The answer is kept with the record. | RF-02, HW-01b, HW-09 (step 6.2 fills it in; `IdentityCorrector` now) |
+| 3 | Level correction | The `LevelCorrector` is asked once per record, with the record's device, carrier frequency and calibration key (the radio host attaches the key that was valid when the record was measured). Its answer is added to every LEVEL reading: `dBm = dBFS + offset_db + correction_db` for dBFS radios and `dBm + correction_db` for SELF_CALIBRATED radios. Only DOUBLE fields in the unit of the radio's own level are readings; broadcast thresholds are SYSTEM_INFO and are never corrected. Without a calibration a dBFS level keeps its value and is flagged uncalibrated. The answer is kept with the record. The table and antenna correction are described in [CALIBRATION.md](CALIBRATION.md) (`calibration::TableCorrector`). | RF-02, HW-01b, HW-09 |
 | 4 | Checks and carrier state | A level that is not finite or outside [`min_level`, `max_level`] is refused; a record older than the newest of its carrier is ignored (out of order), one equal to it is ignored (duplicate); one that arrived more than `late_after_ns` after it was measured is used and flagged late. Each carrier keeps its newest record. | TST-23 |
 | 5 | Observers | `on_record` for every accepted record (recording, feature plugins' `on_record`), on the delivery thread; `on_event` for every event. | REC, PLG-02 |
 | 6 | Cycle | `tick()` closes every period that has ended on the clock and gives `on_cycle` one `MeasurementCycle` per period with a `CarrierSample` per carrier: the newest record, its age, the records since the previous cycle and the flags. | OA-13, RF-01, RF-03, RF-04, RF-05, RF-07, TST-31 |
@@ -110,14 +110,14 @@ level corrector is called on the delivery threads, several at once.
 
 ## Hooks for the next steps
 
-- Calibration and antenna correction (6.2): implement `LevelCorrector`
-  (calibration table keyed per HW-01b, antenna correction per HW-09) and set
-  it with `set_corrector`; `LevelCorrection::source` names the entry used,
-  for the recording (RF-02).
+- Calibration and antenna correction (6.2, done): `calibration::TableCorrector`
+  with the user's table and `AntennaSettings`, set with `set_corrector`;
+  set a new one when the table or antenna settings change.
+  [CALIBRATION.md](CALIBRATION.md).
 - TETRA technology plugin (6.3): add its plugin info to the
   `TechnologyCatalog`; records then map onto its schemas instead of the
-  generic one. Broadcast thresholds in dBm must be SYSTEM_INFO fields: the
-  correction applies to every LEVEL field in dBm.
+  generic one. Broadcast thresholds in dBm must be SYSTEM_INFO fields; the
+  plugin host refuses a schema that declares a broadcast field as LEVEL.
 - Record files and simulator tests (6.4): replay a record file by building
   `RadioRecord`s with `radio_schema` set from a `RadioSchemaView` and
   driving a `ManualClock` from the record times.

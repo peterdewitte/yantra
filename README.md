@@ -47,6 +47,8 @@ The building model (floors, scale, walls, antennas, cells) and its
 scene export for the simulator: [docs/BUILDING_MODEL.md](docs/BUILDING_MODEL.md).
 How measurement records become calibrated, flagged samples once per
 second: [docs/MEASUREMENT_PIPELINE.md](docs/MEASUREMENT_PIPELINE.md).
+The calibration table and antenna correction:
+[docs/CALIBRATION.md](docs/CALIBRATION.md).
 
 Out of scope, by design: short data messages, subscriber addresses, voice
 and decryption. Yantra only handles broadcast and system information,
