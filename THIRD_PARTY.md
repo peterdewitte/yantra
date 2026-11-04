@@ -38,6 +38,7 @@ These tools are never linked into Yantra and do not affect its licence.
 | Tool | Licence | Used for |
 |---|---|---|
 | reuse | Apache-2.0, CC0-1.0, CC-BY-SA-4.0, GPL-3.0-or-later | REUSE compliance check (NFR-01) |
+| PyYAML | MIT | YAML syntax check of the CI workflows in `tools/ci/lint.sh` (TST-02); CI only, as in yantra-radios |
 
 ## Fonts
 
