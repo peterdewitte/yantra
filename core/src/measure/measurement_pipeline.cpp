@@ -220,7 +220,14 @@ void MeasurementPipeline::on_radio_record(const RadioRecord& rr) {
             const std::lock_guard lock(corrector_mutex_);
             corrector = corrector_;
         }
-        c = corrector->correction({rr.plugin_id, rr.device_key, *freq, !e->radio_dbfs});
+        LevelContext lc;
+        lc.radio_plugin_id = rr.plugin_id;
+        lc.device_key = rr.device_key;
+        lc.frequency_hz = *freq;
+        lc.radio_dbm = !e->radio_dbfs;
+        lc.simulated = (rr.capabilities & YR_CAP_SIMULATED) != 0;
+        lc.calibration_key = rr.calibration_key.get();
+        c = corrector->correction(lc);
         if (!std::isfinite(c.offset_db) || !std::isfinite(c.correction_db)) c = {};
     }
 

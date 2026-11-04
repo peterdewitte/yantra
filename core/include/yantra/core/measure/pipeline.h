@@ -23,6 +23,7 @@
 #include <string>
 #include <vector>
 
+#include "yantra/core/calibration/key.h"
 #include "yantra/core/plugin/record.h"
 
 struct yr_schema;
@@ -47,6 +48,10 @@ struct RadioRecord {
     // RadioSchemaView): valid during on_radio_record only; nullptr when
     // unknown. Copies of the record must not use it later.
     const yr_schema* radio_schema = nullptr;
+    // The device's calibration key (HW-01b: driver, serial, CALIBRATION
+    // settings) valid at the record's time, kept current by the radio
+    // host; nullptr when unknown (the level stays uncalibrated).
+    std::shared_ptr<const calibration::Key> calibration_key;
 };
 
 // A stream event (RAD-25) or a radio host status change.

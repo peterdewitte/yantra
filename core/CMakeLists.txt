@@ -12,6 +12,10 @@ configure_file(src/build_config.h.in
 
 add_library(yantra_core STATIC
   src/build_info.cpp
+  src/calibration/antenna.cpp
+  src/calibration/corrector.cpp
+  src/calibration/table.cpp
+  src/calibration/wizard.cpp
   src/building/geometry.cpp
   src/building/model.cpp
   src/building/model_json.cpp

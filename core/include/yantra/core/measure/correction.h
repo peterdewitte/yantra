@@ -12,14 +12,21 @@
 // Without a calibration (calibrated == false) a dBFS level keeps its dBFS
 // value (plus correction_db) and is flagged UNCALIBRATED (HW-01b).
 //
-// This header is the hook of step 6.2: IdentityCorrector (no calibration,
-// no antenna correction) is what the pipeline uses until the calibration
-// table and the antenna settings exist. Technology-neutral (PLG-01).
+// The calibration table's corrector is calibration::TableCorrector
+// (calibration/corrector.h); IdentityCorrector (no calibration, no antenna
+// correction) is the default. The calibration key (HW-01b: driver, serial,
+// CALIBRATION settings) is resolved by the radio host, which knows the
+// device and its settings, and comes with each record (RadioRecord::
+// calibration_key): the corrector itself never calls a plugin, so it can
+// answer on the delivery threads without blocking. Technology-neutral
+// (PLG-01).
 #pragma once
 
 #include <cstdint>
 #include <string>
 #include <string_view>
+
+#include "yantra/core/calibration/key.h"
 
 namespace yantra::measure {
 
@@ -29,6 +36,10 @@ struct LevelContext {
     std::string_view device_key;       // yr_device_info::key
     std::uint64_t frequency_hz = 0;    // carrier of the record (core field frequency_hz)
     bool radio_dbm = false;            // the radio reports dBm (SELF_CALIBRATED), not dBFS
+    bool simulated = false;            // the radio is SIMULATED (practice entries apply only there)
+    // The device's calibration key at the record's time (HW-01b), from the
+    // radio host; nullptr when unknown (e.g. a record file without one).
+    const calibration::Key* calibration_key = nullptr;
 };
 
 // Its answer, kept with every mapped record and sample (RF-02: stored with
@@ -37,7 +48,13 @@ struct LevelCorrection {
     bool calibrated = false;     // a calibration entry was applied to dBFS levels
     double offset_db = 0.0;      // dBFS -> dBm offset (RF-02), dBFS levels only
     double correction_db = 0.0;  // antenna gain / cable loss / attenuator (HW-09), every level
-    std::string source;          // what was applied, e.g. calibration entry id and date; "" none
+    // Where the level scale came from: "table" (a calibration entry),
+    // "radio" (SELF_CALIBRATED, dBm from the radio), "" (uncalibrated dBFS).
+    std::string source;
+    std::string key;                       // calibration key id used (Key::id()), "" none
+    std::int64_t calibration_date_unix = 0;  // the entry's date (RF-02), 0 none
+    bool expired = false;       // the entry is past its validity (value still used)
+    bool extrapolated = false;  // the frequency is outside the entry's points (nearest used)
     bool operator==(const LevelCorrection&) const = default;
 };
 

@@ -16,6 +16,7 @@
 #include <thread>
 #include <vector>
 
+#include <yantra/core/calibration/corrector.h>
 #include <yantra/core/measure/measurement_pipeline.h>
 #include <yantra/core/plugin/loader.h>
 #include <yantra/radio.h>
@@ -64,6 +65,13 @@ const yr_schema kCellDbm = {sizeof(yr_schema), YR_SCHEMA_MEASUREMENT, "x_cell", 
 const yr_field_def* const kScanFields[] = {&f_freq, &f_chan, &f_role, &f_level,
                                            &f_mcc,  &f_mnc,  &f_la,   &f_cc};
 const yr_schema kScan = {sizeof(yr_schema), YR_SCHEMA_SCAN, "x_scan", "Scan", 1, 8, kScanFields, 0, 0};
+FIELD(f_rxmin, "rx_min_dbm", YR_TYPE_DOUBLE, YR_GROUP_BROADCAST, 0, "dBm", nullptr, 0);
+FIELD(f_txmax, "tx_max_dbm", YR_TYPE_INT, YR_GROUP_BROADCAST, 0, "dBm", nullptr, 0);
+FIELD(f_truth, "truth_dbm", YR_TYPE_DOUBLE, YR_GROUP_OTHER, 0, "dBm", nullptr, 0);
+const yr_field_def* const kThrFields[] = {&f_freq, &f_chan, &f_role, &f_level, &f_mcc, &f_mnc,
+                                          &f_la,   &f_cc,   &f_rxmin, &f_txmax, &f_truth};
+const yr_schema kThr = {sizeof(yr_schema), YR_SCHEMA_MEASUREMENT, "x_thr", "Cell", 1, 11, kThrFields,
+                        YR_GROUP_BROADCAST | YR_GROUP_OTHER, 0};
 const yr_field_def* const kNbFields[] = {&f_freq, &f_entry, &f_count, &f_ncell};
 const yr_schema kNeighbour = {sizeof(yr_schema), YR_SCHEMA_NEIGHBOUR, "x_neighbour", "Neighbour", 1, 4,
                               kNbFields, YR_GROUP_NEIGHBOURS, 0};
@@ -575,4 +583,143 @@ TEST_CASE("pipeline: records from several threads while cycles run (TSan)") {
     std::lock_guard lock(f.out->m);
     for (std::size_t i = 1; i < f.out->cycles.size(); ++i)
         CHECK(f.out->cycles[i].sequence == f.out->cycles[i - 1].sequence + 1);
+}
+
+namespace {
+
+yantra::calibration::Key cal_key(const std::string& gain) {
+    yantra::calibration::Key k;
+    k.driver = "xdriver";
+    k.serial = "x-0001";
+    k.settings = {{"gain", gain}};
+    return k;
+}
+
+std::shared_ptr<const yantra::calibration::Table> cal_table() {
+    auto t = std::make_shared<yantra::calibration::Table>();
+    for (const auto& [gain, offset] : {std::pair{"10", -60.0}, std::pair{"20", -70.0}}) {
+        yantra::calibration::Entry e;
+        e.key = cal_key(gain);
+        e.created_unix = yantra::calibration::now_unix();
+        yantra::calibration::Point a, b;
+        a.frequency_hz = 390e6;
+        a.offset_db = offset;
+        b.frequency_hz = 400e6;
+        b.offset_db = offset + 2.0;
+        e.points = {a, b};
+        t->put(e);
+    }
+    return t;
+}
+
+}  // namespace
+
+TEST_CASE("pipeline: the calibration table converts dBFS by the record's calibration key (RF-02, HW-01b, TST-30)") {
+    yantra::calibration::AntennaSettings antenna;
+    antenna.all.antenna_gain_dbi = 5.0;  // offset -5 dB
+    antenna.all.cable_loss_db = 1.25;    // +1.25 dB
+    Fixture f({}, nullptr, std::make_shared<yantra::calibration::TableCorrector>(cal_table(), antenna));
+    auto rec = [&](std::int64_t dt, std::uint64_t hz, double level, const std::string& gain) {
+        ym::RadioRecord r = cell(f.now() + dt, hz, level);
+        if (!gain.empty()) r.calibration_key = std::make_shared<const yantra::calibration::Key>(cal_key(gain));
+        f.p->on_radio_record(r);
+        REQUIRE(!f.out->records.empty());
+        return f.out->records.back();
+    };
+    // Gain 10 at 395 MHz: offset -59 (interpolated), antenna -3.75: exactly to 0.01 dB.
+    ym::MappedRecord a = rec(0, 395'000'000, -40.0, "10");
+    CHECK(std::fabs(a.level - (-40.0 - 59.0 - 3.75)) < 0.01);
+    CHECK(a.flags == 0);
+    CHECK(a.correction.calibrated);
+    CHECK(a.correction.key == cal_key("10").id());
+    CHECK(a.correction.correction_db == doctest::Approx(-3.75));
+    // The CALIBRATION setting changed (radio host: new key): the other entry.
+    ym::MappedRecord b = rec(1, 395'000'000, -40.0, "20");
+    CHECK(std::fabs(b.level - (-40.0 - 69.0 - 3.75)) < 0.01);
+    CHECK(b.correction.key == cal_key("20").id());
+    // A combination without an entry: dBFS (with the antenna correction), flagged.
+    ym::MappedRecord c = rec(2, 395'000'000, -40.0, "30");
+    CHECK(c.level == doctest::Approx(-43.75));
+    CHECK(c.flags == sf::kUncalibrated);
+    CHECK_FALSE(c.correction.calibrated);
+    // No key at all (unknown device configuration): the same.
+    ym::MappedRecord d = rec(3, 395'000'000, -40.0, "");
+    CHECK(d.flags == sf::kUncalibrated);
+    // Over the frequency range, every record exactly (TST-30).
+    for (int i = 0; i <= 10; ++i) {
+        const std::uint64_t hz = 390'000'000 + static_cast<std::uint64_t>(i) * 1'000'000;
+        const ym::MappedRecord r = rec(10 + i, hz, -50.0, "20");
+        CHECK(std::fabs(r.level - (-50.0 - 70.0 + 0.2 * i - 3.75)) < 0.01);
+    }
+}
+
+TEST_CASE("pipeline: the antenna correction is applied once to level readings and never to thresholds (HW-09)") {
+    // A technology schema for x_thr: the level is LEVEL, the broadcast
+    // thresholds SYSTEM_INFO, the radio's ground truth in dBm a LEVEL too.
+    yp::Schema tech = ym::generic_schema(kThr);
+    for (yp::Field& fld : tech.fields)
+        if (fld.name == "truth_dbm") fld.category = yp::Category::Level;
+    auto catalog = std::make_shared<ym::TechnologyCatalog>();
+    catalog->add("xtech", "org.example.xtech", "1.0.0", {tech});
+    yantra::calibration::AntennaSettings antenna;
+    antenna.all.attenuator_db = 10.0;
+    Fixture f({}, catalog, std::make_shared<yantra::calibration::TableCorrector>(cal_table(), antenna));
+    ym::RadioRecord r = base(kThr, 0, f.now(), 0);
+    auto& v = r.record.values;
+    v[0] = std::uint64_t{390'000'000};
+    v[1] = std::uint64_t{3600};
+    v[2] = yp::EnumValue{YR_ROLE_SERVING};
+    v[3] = -40.0;
+    v[4] = v[5] = v[6] = v[7] = std::uint64_t{1};
+    v[8] = -110.0;
+    v[9] = std::int64_t{30};
+    v[10] = -97.5;
+    r.present = YR_GROUP_BROADCAST | YR_GROUP_OTHER;
+    r.calibration_key = std::make_shared<const yantra::calibration::Key>(cal_key("10"));
+    f.p->on_radio_record(r);
+    REQUIRE(f.out->records.size() == 1);
+    const ym::MappedRecord& m = f.out->records[0];
+    CHECK_FALSE(m.generic);
+    const auto value = [&](const char* name) { return m.record.values[*tech.field_index(name)]; };
+    CHECK(std::get<double>(value("level")) == doctest::Approx(-40.0 - 60.0 + 10.0));  // once
+    CHECK(m.level == doctest::Approx(-90.0));
+    CHECK(std::get<double>(value("rx_min_dbm")) == -110.0);       // threshold untouched
+    CHECK(std::get<std::int64_t>(value("tx_max_dbm")) == 30);     // threshold untouched
+    CHECK(std::get<double>(value("truth_dbm")) == -97.5);         // not a reading of this radio
+
+    SUBCASE("a technology schema with a broadcast threshold as LEVEL is refused") {
+        yp::Schema bad = ym::generic_schema(kThr);
+        for (yp::Field& fld : bad.fields)
+            if (fld.name == "rx_min_dbm") {
+                fld.category = yp::Category::Level;
+            }
+        const auto problems = yp::check_radio_schema(bad, kThr);
+        REQUIRE(problems.size() == 1);
+        CHECK(problems[0].find("rx_min_dbm") != std::string::npos);
+        CHECK(problems[0].find("SYSTEM_INFO") != std::string::npos);
+        // The generic schema keeps them SYSTEM_INFO.
+        const yp::Schema g = ym::generic_schema(kThr);
+        CHECK(g.fields[*g.field_index("rx_min_dbm")].category == yp::Category::SystemInfo);
+    }
+}
+
+TEST_CASE("pipeline: a SELF_CALIBRATED radio's dBm levels get no table and no UNCALIBRATED flag (RAD-21, HW-09)") {
+    yantra::calibration::AntennaSettings antenna;
+    antenna.all.cable_loss_db = 3.0;
+    Fixture f({}, nullptr, std::make_shared<yantra::calibration::TableCorrector>(cal_table(), antenna));
+    ym::RadioRecord d = base(kCellDbm, 1, f.now(), 0);
+    d.record.values[0] = std::uint64_t{390'000'000};
+    d.record.values[2] = yp::EnumValue{YR_ROLE_SERVING};
+    d.record.values[3] = -71.0;
+    d.record.values[1] = d.record.values[4] = d.record.values[5] = d.record.values[6] = d.record.values[7] =
+        std::uint64_t{1};
+    d.capabilities = YR_CAP_SELF_CALIBRATED;
+    d.calibration_key = std::make_shared<const yantra::calibration::Key>(cal_key("10"));  // ignored
+    f.p->on_radio_record(d);
+    REQUIRE(f.out->records.size() == 1);
+    const ym::MappedRecord& m = f.out->records[0];
+    CHECK(m.level == doctest::Approx(-68.0));
+    CHECK(m.flags == 0);
+    CHECK(m.correction.source == "radio");
+    CHECK_FALSE(m.correction.calibrated);
 }
