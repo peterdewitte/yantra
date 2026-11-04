@@ -1,0 +1,43 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The HackRF plugin against the fake module registered as driver
+# "hackrf" (RAD-60, RAD-92): per-case doctests, the conformance kit with
+# unplug/replug, and the completeness check of the test build.
+if(NOT TARGET hackrf_fake)
+  message(STATUS "test_hackrf: left out (no hackrf plugin)")
+  return()
+endif()
+add_executable(test_hackrf test_hackrf.cpp)
+target_link_libraries(test_hackrf PRIVATE yantra_test_main yantra_warnings
+  yantra::radio_host yantra::gen)
+target_compile_definitions(test_hackrf PRIVATE HACKRF_FAKE_PLUGIN="$<TARGET_FILE:hackrf_fake>")
+add_dependencies(test_hackrf hackrf_fake)
+yantra_doctest_tests(test_hackrf GROUP test_hackrf LABELS fast TIMEOUT 300
+  WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+set(_allow "")
+if(NOT YANTRA_SANITIZER STREQUAL "")
+  set(_allow --allow "lib(asan|ubsan|tsan|lsan)\\.so\\.[0-9]+" --allow "libstdc\\+\\+\\.so\\.6"
+             --allow "libgcc_s\\.so\\.1")
+endif()
+add_test(NAME completeness_hackrf_fake
+         COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/ci/check_completeness.py
+                 ${_allow} $<TARGET_FILE:hackrf_fake>)
+set_tests_properties(completeness_hackrf_fake PROPERTIES LABELS fast)
+
+# Conformance with a fake HackRF One, unplugged and replugged by a
+# control file (RAD-35).
+set(_ctl ${CMAKE_BINARY_DIR}/tests/hackrf_control/conformance)
+set(_serial 0000000000000000a1b2c3d4e5f60001)
+set(_fake "{\"control\":\"${_ctl}\",\"devices\":[{\"serial\":\"${_serial}\",\"scenario\":\"${PROJECT_SOURCE_DIR}/tests/fixtures/soapy/fake_two_cells.json\"}]}")
+add_test(NAME conformance_hackrf_fake
+         COMMAND sh -c "mkdir -p \"$1\" && rm -f \"$1/$2.unplugged\" && shift 2 && exec \"$@\""
+                 conformance ${_ctl} ${_serial}
+                 $<TARGET_FILE:yantra-radio-host> conformance --plugin $<TARGET_FILE:hackrf_fake>
+                 --report ${CMAKE_BINARY_DIR}/conformance/hackrf_fake.json
+                 --unplug "touch ${_ctl}/${_serial}.unplugged"
+                 --replug "rm -f ${_ctl}/${_serial}.unplugged")
+set_tests_properties(conformance_hackrf_fake PROPERTIES LABELS "fast;timing" TIMEOUT 300
+  ENVIRONMENT "YANTRA_FAKE_SOAPY=${_fake}")
