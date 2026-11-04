@@ -261,3 +261,14 @@ The first version (tag v0.1.0 when released).
 - Install rules (RAD-99): plugins, tools, udev rules and the RTL-SDR
   DVB-T blacklist (udev/), the licence bundle (RAD-137) and the docs,
   tested by an install into a DESTDIR.
+- TETRA terminal plugin `pei` (RAD-80, TRM-01, TRM-04), in plain C11: a
+  terminal in TMO read over its PEI (AT commands, EN 300 392-5) on a
+  serial port (POSIX termios; Windows DEFERRED): serving and neighbour
+  cell records in dBm with C1 from the terminal's cell lists (vendor
+  commands set as settings, the documented example format by default),
+  AT+CSQ and AT+CREG, the radio info (AT+GMI/GMM/GMR/GSN) as sensors, the
+  AT command log, hot-plug of the port (RAD-35) and only reading commands
+  (RAD-17). Tested against `yantra-pei-sim`, a simulated terminal on a
+  pseudo-terminal answering from a generator scenario (errors, timeouts,
+  garbage, unplug/replug), with the conformance kit and the fuzz target
+  `pei` for the AT parser (RAD-96).

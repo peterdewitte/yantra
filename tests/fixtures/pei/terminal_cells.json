@@ -1,0 +1,69 @@
+{
+  "format": "yantra-radios-scenario",
+  "version": 1,
+  "id": "pei_terminal_cells",
+  "name": "Cells seen by a terminal",
+  "description": "Test scenario of the terminal plugin (RAD-80): serving cell T1 with neighbours T2 and T3 on air and T4 announced but off the air. T1 goes off the air at 100 s, so T2 becomes the serving cell.",
+  "seed": 1080,
+  "duration_s": 1000.0,
+  "truth_interval_s": 1.0,
+  "sample_rate_hz": 500000,
+  "network": {
+    "mcc": 901,
+    "mnc": 7
+  },
+  "cells": [
+    {
+      "id": "T1",
+      "label": "Terminal cell 1",
+      "cell_number": 1,
+      "la": 410,
+      "colour_code": 5,
+      "main_carrier": 3600,
+      "frequency_band": 3,
+      "rxlev_access_min": 3,
+      "ms_txpwr_max_cell": 5,
+      "level_dbm": -71.0,
+      "neighbours": [{"cell": "T2"}, {"cell": "T3"}, {"cell": "T4"}]
+    },
+    {
+      "id": "T2",
+      "label": "Terminal cell 2",
+      "cell_number": 2,
+      "la": 410,
+      "colour_code": 6,
+      "main_carrier": 3604,
+      "frequency_band": 3,
+      "offset": 1,
+      "level_dbm": -86.0,
+      "neighbours": [{"cell": "T1"}, {"cell": "T3"}]
+    },
+    {
+      "id": "T3",
+      "label": "Terminal cell 3",
+      "cell_number": 3,
+      "la": 411,
+      "colour_code": 7,
+      "main_carrier": 3608,
+      "frequency_band": 3,
+      "level_dbm": -97.0,
+      "neighbours": [{"cell": "T1"}, {"cell": "T2"}]
+    },
+    {
+      "id": "T4",
+      "label": "Terminal cell 4 (off the air)",
+      "cell_number": 4,
+      "la": 411,
+      "colour_code": 8,
+      "main_carrier": 3612,
+      "frequency_band": 3,
+      "level_dbm": -80.0,
+      "on_air": false,
+      "neighbours": [{"cell": "T1"}]
+    }
+  ],
+  "channel": {"fading": {"model": "none"}},
+  "receiver": {"noise_figure_db": 7.0},
+  "events": [{"t": 100.0, "type": "cell_off", "cell": "T1"}],
+  "planted": ["T4 announced as neighbour but not on air", "T1 off from 100 s"]
+}

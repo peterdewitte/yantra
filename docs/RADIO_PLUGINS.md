@@ -1054,6 +1054,87 @@ the completeness check. The fake's `<serial>.level_offset` control file
 `yantra-hackrf` (RAD-66, docs/YANTRA_HACKRF.md) tests a real HackRF One
 through this plugin.
 
+## The TETRA terminal plugin (RAD-80)
+
+`plugins/pei` builds `pei.so`, "TETRA terminal (PEI)", in plain C11
+against `radio.h` alone (no C++, POSIX termios and threads). It reads a
+TETRA terminal in TMO over its Peripheral Equipment Interface: AT commands
+(EN 300 392-5) on a serial port, 8N1 without flow control. The terminal
+measures; the plugin turns its readings into records (TRM-01). Capabilities
+SELF_CALIBRATED (levels in dBm as the terminal reports them) and HOTPLUG.
+
+Devices are the serial ports: `/dev/serial/by-id/*`, then `/dev/ttyUSB*`
+and `/dev/ttyACM*` not reached through a by-id name, then the
+`:`-separated list in `$YANTRA_PEI_PORTS` (a pseudo-terminal in the
+tests). The key is `pei:<path>`; a port without read/write access is
+listed as NO_PERMISSION with the remedy (the `dialout` group). Open does
+no I/O; `start_stream` opens the port (a wrong port fails with IO).
+
+One poll per second: AT+CSQ, AT+CREG? and, with the default command
+profile, the vendor serving and neighbour cell commands. Before the first
+poll the terminal is woken with ATE0 and its radio info read once per
+connection (TRM-04): AT+GMI, AT+GMM, AT+GMR, AT+GSN (the TEI, equipment
+identity, not a subscriber address).
+
+| Setting | Key | Values |
+|---|---|---|
+| Port, baud rate | `port`, `baud` | the key's port; 9600-460800 (default 38400) |
+| Command profile | `command_profile` | `cell_list` (EN 300 392-5 + vendor cell lists, default) or `etsi` (EN 300 392-5 only: sensors, no records, because the standard has no carrier or cell command) |
+| Cell commands | `serving_command`, `neighbour_command` | default `AT+YCELL?` and `AT+YNCELL?` (the example format below) |
+| Their values | `serving_fields`, `neighbour_fields` | comma list of `carrier`, `band`, `offset`, `freq_hz`, `freq_mhz`, `mcc`, `mnc`, `la`, `cc`, `rssi` (dBm), `csq`, `c1` (dB), `state`, `-` (skip) |
+| AT+CREG form | `creg_with_mode` | TS 27.007 form `+CREG: <n>,<stat>,...` instead of the TETRA one |
+| Reply timeout | `reply_timeout_ms` | 100-10000 ms (default 1000) |
+| Band, offset | `band`, `offset` | for carrier numbers without them in the reply (default band 3, no offset) |
+| Command log | `log_commands` | every command and reply line to the device log at debug level (default on, RAD-14) |
+
+Terminal makers each have their own cell-list commands; set the command
+and its value list from the terminal's PEI manual. The example format,
+which the simulated terminal speaks:
+
+    AT+YCELL?
+    +YCELL: 3600,3,0,901,7,410,5,-71,34,"camped"
+    OK
+    AT+YNCELL?
+    +YNCELL: 3604,3,1,901,7,410,6,-86,19
+    +YNCELL: 3608,3,0,901,7,411,7,-97,8
+    OK
+
+Only reading commands are sent (RAD-17): a configured command must be
+`AT+NAME` or `AT+NAME?` (also `$`, `%`, `^`) and not one of the call, SDS
+or number commands (`+CMG*`, `+CMS*`, `+CTS*`, `+CTX*`, `+CTC*`, `+CTG*`,
+`+CTD*`, `+CUTX*`, `+CNUM`); anything else is not sent and shown as the
+`problem` sensor. TRM-02/TRM-03 (calls) are out of scope.
+
+Records use the schema `tetra_terminal_cell`: the core fields, `c1_db`
+(group C1) when the terminal gives C1, and for the serving cell
+`registration`, `csq_code` and `cell_state` (group OTHER). The serving
+level falls back to AT+CSQ, its MCC, MNC and LA to AT+CREG; neighbours
+without MCC/MNC take the serving cell's. A record without a full identity
+(carrier, MCC, MNC, LA, colour code) is NO_SYNC (frequency and level
+only). Events: SYNC_FOUND and SYNC_LOST of the serving cell,
+SERVING_CHANGED at a reselection. Plans: SERVING only, with the
+terminal's own choice (`serving_hz` 0); MEASURE_NEIGHBOURS adds the
+neighbour command.
+
+Sensors: terminal state (closed, connecting, no reply, ready, lost), the
+radio info, registration and its LA, the AT+CSQ code, the last serving
+cell, polls, timeouts, neighbour count, the commands the terminal refused
+(ERROR: not sent again until it reconnects) and the last problem. A
+timeout wakes the terminal again (ATE0); an I/O error reopens the port; a
+port that disappears makes the device LOST (DEVICE_LOST, then DEVICE_BACK
+when it is back). The self-test checks the port, the AT reply, the radio
+info, AT+CSQ, AT+CREG and both cell commands.
+
+`tools/yantra-pei-sim` (a test tool, not installed) is the simulated
+terminal: a pseudo-terminal behind a symlink, answering from a generator
+scenario (`levels_at`: the strongest cell on air is the serving cell, its
+scenario neighbours on air the neighbours; integer dB like real
+terminals), with ERROR replies, silent commands, line noise, a reply delay
+and unplug/replug (`<link>.unplugged`). `tests/pei` compares the records
+with its truth and covers errors, timeouts, noise, unplug/replug, the
+profiles, the self-test and the command whitelist; `conformance_pei` runs
+the kit through it with `--unplug`/`--replug`.
+
 ## The conformance kit
 
 `yantra-radio-host conformance --plugin FILE` (RAD-91) runs every check of
