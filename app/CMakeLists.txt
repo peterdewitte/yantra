@@ -9,3 +9,4 @@
 
 add_executable(yantra src/main.cpp)
 target_link_libraries(yantra PRIVATE yantra::core yantra::warnings)
+install(TARGETS yantra RUNTIME DESTINATION bin)

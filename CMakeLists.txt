@@ -59,11 +59,15 @@ target_include_directories(yantra_plugin_api INTERFACE
 
 # Radio API header from the yantra-radios submodule (PLG-26).
 include(YantraRadios)
+# The radio plugins Yantra ships, built from the submodule (or a prebuilt
+# yantra-radios package) into <build>/lib/yantra/plugins/radios (PLG-26).
+include(YantraRadiosBuild)
 
 if(YANTRA_BUILD_TESTS)
   enable_testing()
 endif()
 
+find_package(Threads REQUIRED)
 add_subdirectory(core)
 if(YANTRA_BUILD_APP)
   add_subdirectory(app)
@@ -76,7 +80,21 @@ if(YANTRA_BUILD_TESTS)
   add_subdirectory(tests)
 endif()
 
+# Installed layout (PLG-09, PLG-26): <prefix>/bin/yantra, the radio plugins
+# in <prefix>/lib/yantra/plugins/radios (the application's radio plugin
+# folder, found relative to the executable) with yantra-radios' licence
+# bundle, udev rules and RTL-SDR blacklist. Packaging: phase 12.
+if(NOT YANTRA_RADIOS_KIND STREQUAL "none")
+  install(DIRECTORY ${YANTRA_RADIO_PLUGIN_DIR}/ DESTINATION lib/yantra/plugins/radios
+          FILES_MATCHING PATTERN "*.so")
+  install(DIRECTORY ${YANTRA_RADIOS_STAGE}/share/licenses/yantra-radios
+          DESTINATION share/licenses OPTIONAL)
+  install(DIRECTORY ${YANTRA_RADIOS_STAGE}/lib/udev ${YANTRA_RADIOS_STAGE}/lib/modprobe.d
+          DESTINATION lib OPTIONAL)
+endif()
+
 message(STATUS "Yantra ${PROJECT_VERSION}: SIMD=${YANTRA_SIMD} "
                "APP=${YANTRA_BUILD_APP} TESTS=${YANTRA_BUILD_TESTS} "
                "SANITIZER='${YANTRA_SANITIZER}' "
-               "RADIO_API=${YANTRA_RADIO_API_VERSION_MAJOR}.${YANTRA_RADIO_API_VERSION_MINOR}")
+               "RADIO_API=${YANTRA_RADIO_API_VERSION_MAJOR}.${YANTRA_RADIO_API_VERSION_MINOR} "
+               "RADIOS=${YANTRA_RADIOS_KIND}")

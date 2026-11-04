@@ -69,6 +69,9 @@ yantra-radios is cloned next to yantra:
     ninja -C build
     ctest --test-dir build -j"$(nproc)"
 
+[BUILD.md](BUILD.md) has the build options, the radio plugin build (or a
+prebuilt yantra-radios package) and the plugin folders.
+
 Packages (.deb, later AppImage) are planned. Windows packages are planned
 but not yet built.
 
