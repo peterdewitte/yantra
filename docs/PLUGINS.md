@@ -52,6 +52,35 @@ environment variable `YANTRA_PLUGIN_PATH`, the user's plugin folder
 (`~/.local/share/yantra/plugins`) and the application's own
 `lib/yantra/plugins`.
 
+## Life cycle, threads, errors and versions
+
+The details are in [PLUGIN_API.md](PLUGIN_API.md); in short:
+
+| Stage | Plugin function | Thread |
+|---|---|---|
+| Load | `yantra_plugin_entry` returns the descriptor; Yantra checks it ([Life cycle](PLUGIN_API.md#life-cycle)) | main |
+| Init | `init(host, &instance)`: create the state, keep the host table | main |
+| Configure | read stored values with `settings_get`; the plugin manager enables or disables it | main |
+| Start | a feature's `start` when it is enabled | main |
+| Process | technology rules (pure, any thread); a feature's `on_record` (measurement thread, never blocks); exporter calls (worker thread); `draw` (UI thread) | see [Threading](PLUGIN_API.md#threading-plg-07) |
+| Stop | a feature's `stop`: stop its threads and timers | main |
+| Unload | `shutdown(instance)`, then the library is closed | main |
+
+- **Errors**: every function returns `YANTRA_OK` or a negative
+  `YANTRA_ERR_*` code; no C++ exception crosses the boundary
+  ([Errors](PLUGIN_API.md#errors)). A host service called on a thread
+  where it is not allowed answers `YANTRA_ERR_BUSY`.
+- **Settings and logging**: `settings_get` / `settings_set` keep small
+  text values per plugin, `log` writes to Yantra's log with the plugin's
+  name, `notify` shows a short message
+  ([Settings, logging and notifications](PLUGIN_API.md#settings-logging-and-notifications)).
+- **Versions**: a plugin loads when its API major equals Yantra's and its
+  minor is not newer; minor versions only add, and `struct_size` tells
+  which fields a struct has ([Versioning](PLUGIN_API.md#versioning-plg-04),
+  changes per version in [PLUGIN_API_CHANGELOG.md](PLUGIN_API_CHANGELOG.md)).
+- **Licence**: a GPL-3.0-compatible SPDX expression
+  ([Licence](PLUGIN_API.md#licence-plg-10)).
+
 ## Quick start: build and test the example
 
 The main build compiles the example into `build/lib/yantra/examples`:
