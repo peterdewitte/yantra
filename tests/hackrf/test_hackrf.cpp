@@ -23,8 +23,10 @@
 #include <fstream>
 #include <functional>
 #include <map>
+#include <set>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include <unistd.h>
@@ -431,15 +433,24 @@ TEST_CASE("hackrf: records of the fake HackRF match the generator's truth with o
     std::map<uint64_t, double> level;
     std::map<uint64_t, uint64_t> la, cc;
     uint32_t groups = 0;
-    int neighbours = 0;
+    // The serving cell's neighbour list: per broadcasting carrier, the
+    // (cell number, main carrier) entries. Each cell of the fixture lists
+    // the other one (A: cell 1, carrier 3700; B: cell 2, carrier 3712).
+    std::map<uint64_t, std::set<std::pair<uint64_t, uint64_t>>> lists;
+    const int nb_from = f.field(1, YR_FIELD_FREQUENCY_HZ);
+    const int nb_cell = f.field(1, "cell_number");
+    const int nb_carrier = f.field(1, "main_carrier");
+    REQUIRE((nb_from >= 0 && nb_cell >= 0 && nb_carrier >= 0));
     const int c1 = f.field(0, YR_FIELD_C1_DB);
     REQUIRE(c1 >= 0);
     bool any_c1 = false;
     const StreamResult r = f.stream(
         serving_plan(),
         [&](const Record& rec) {
-            if (rec.schema_index == 1)
-                ++neighbours;
+            if (rec.schema_index == 1) {
+                const auto at = [&](int i) { return rec.values[static_cast<std::size_t>(i)].u64; };
+                lists[at(nb_from)].insert({at(nb_cell), at(nb_carrier)});
+            }
             if (!identified(rec))
                 return false;
             const uint64_t hz = rec.values[YR_CORE_FREQUENCY_HZ].u64;
@@ -451,10 +462,10 @@ TEST_CASE("hackrf: records of the fake HackRF match the generator's truth with o
             level[hz] = rec.values[YR_CORE_LEVEL].f64;
             groups |= rec.present;
             any_c1 = any_c1 || rec.values[static_cast<std::size_t>(c1)].type != YR_TYPE_NONE;
-            return la.size() >= 2 && neighbours >= 2 && (groups & YR_GROUP_QUALITY) != 0 &&
+            return la.size() >= 2 && !lists.empty() && (groups & YR_GROUP_QUALITY) != 0 &&
                    (groups & YR_GROUP_BROADCAST) != 0 && (groups & YR_GROUP_FRAME) != 0;
         },
-        120.0); // a hang guard: two neighbour lists need 10-20 s of signal
+        120.0); // a hang guard: about 3 s of signal
     INFO(r.stop_reason);
     CHECK(la[392500000] == 120);
     CHECK(la[392800000] == 120);
@@ -465,7 +476,10 @@ TEST_CASE("hackrf: records of the fake HackRF match the generator's truth with o
     CHECK((groups & YR_GROUP_QUALITY) != 0);
     CHECK((groups & YR_GROUP_BROADCAST) != 0);
     CHECK((groups & YR_GROUP_FRAME) != 0);
-    CHECK(neighbours >= 2);
+    // The list of the serving cell (A, the stronger) and only the other cell in it.
+    REQUIRE(lists.size() == 1);
+    CHECK(lists.begin()->first == 392500000);
+    CHECK(lists.begin()->second == std::set<std::pair<uint64_t, uint64_t>>{{2, 3712}});
     CHECK_FALSE(any_c1); // C1 only with a calibration offset
     CHECK(r.stats.overflows == 0);
 }
