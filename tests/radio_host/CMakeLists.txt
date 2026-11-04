@@ -107,10 +107,19 @@ else()
   set_tests_properties(host_cli_decode_iq PROPERTIES
     PASS_REGULAR_EXPRESSION "decode-iq is not available: this build has no TETRA receiver")
 endif()
-add_test(NAME host_cli_capture_iq COMMAND ${_host} capture-iq --plugin ${_fake}
-         --out x.sigmf-data)
-set_tests_properties(host_cli_capture_iq PROPERTIES
-  PASS_REGULAR_EXPRESSION "capture-iq is not available yet: it needs the plugins' device layer \\(RAD-63, phase 5\\)")
+# capture-iq without the device asked for: the error names the built-in
+# modules and the usual reasons (RAD-63, RAD-52); capture itself is
+# tested against the fake module (tests/capture_iq).
+if(TARGET yantra::capture_iq)
+  add_test(NAME host_cli_capture_iq COMMAND ${_host} capture-iq --device none:0
+           --out x.sigmf-data)
+  set_tests_properties(host_cli_capture_iq PROPERTIES
+    PASS_REGULAR_EXPRESSION "no device none:0: SoapySDR 0\\.8\\.1 .*modules: SoapyHackRF 0\\.3\\.6 .*udev")
+else()
+  add_test(NAME host_cli_capture_iq COMMAND ${_host} capture-iq --out x.sigmf-data)
+  set_tests_properties(host_cli_capture_iq PROPERTIES
+    PASS_REGULAR_EXPRESSION "capture-iq is not in this build")
+endif()
 add_test(NAME host_cli_conformance_usage COMMAND ${_host} conformance --plugin ${_fake}
          --unplug true)
 set_tests_properties(host_cli_conformance_usage PROPERTIES

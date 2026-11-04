@@ -11,6 +11,11 @@
 #ifdef YANTRA_HOST_DECODE_IQ
 #include "decode_iq.hpp"
 #endif
+#ifdef YANTRA_HOST_CAPTURE_IQ
+#include "capture_iq.hpp"
+
+#include <yantra/plugins/soapy_plugin.hpp>
+#endif
 
 #include <yantra/radio.hpp>
 
@@ -78,9 +83,17 @@ Commands:
       --usable-fraction the share of the capture searched (default 0.9).
       --gsmtap sends the decoded broadcast blocks as GSMTAP over UDP to a
       numeric address (port 4729 or --gsmtap-port) for Wireshark (RAD-115).
-  capture-iq --plugin FILE [--device KEY] --out FILE.sigmf-data [--duration S]
-      IQ capture to SigMF (RAD-63): a hook only; it needs the plugins'
-      device layer (phase 5).
+  capture-iq --out FILE.sigmf-data [--device KEY] [--format cs16|cs8|cu8|cf32]
+             [--rate HZ] [--center HZ] [--duration S] [--rolling S]
+             [--gain DB | --gain NAME=DB ...] [--antenna NAME] [--bandwidth HZ]
+             [--ppm PPM]
+      IQ capture of an SDR to SigMF (RAD-63) through the SoapySDR modules
+      built into the host (those of the SDR plugins), for receiver
+      development; decode-iq reads it back. Defaults: the first device,
+      cs16, 2 Msps at 392.5 MHz, 10 s. --rolling keeps only the last S
+      seconds (written at the end or on Ctrl+C); --gain sets the overall
+      gain or one gain element (repeatable). IQ stays in this tool: it
+      never crosses the radio API.
 
 Plan (stream, default --serving):
   --serving [HZ]            follow the strongest (or the given) carrier
@@ -144,6 +157,11 @@ struct Options {
     bool scan_records = false;
     std::string report;           // conformance
     std::string unplug, replug;   // conformance
+    double rolling_s = 0.0;       // capture-iq
+    std::map<std::string, double> gains;
+    std::optional<double> gain_db, bandwidth_hz;
+    std::string antenna;
+    double ppm = 0.0;
     std::vector<std::string> kit_scenes;
 };
 
@@ -683,16 +701,54 @@ int cmd_read(const Options& o)
     return kExitPass;
 }
 
-// RAD-63: decode-iq through the receiver; capture-iq is a hook until the
-// plugins' device layer exists (phase 5).
+// RAD-63: decode-iq through the receiver, capture-iq through the SoapySDR
+// modules built into the host.
 int cmd_iq(const Options& o)
 {
     if (o.command == "capture-iq") {
+#ifdef YANTRA_HOST_CAPTURE_IQ
         if (o.out == "-" || o.out.empty())
             return usage_error("capture-iq needs --out FILE.sigmf-data");
-        std::cerr << "error: capture-iq is not available yet: it needs the plugins' device layer "
-                     "(RAD-63, phase 5)\n";
+        CaptureOptions c;
+        c.device = o.device;
+        c.out = o.out;
+        if (!o.iq_format.empty()) {
+            const auto f = iq_format_from_string(o.iq_format);
+            if (!f)
+                return usage_error("--format needs cs16, cs8, cu8 or cf32");
+            c.format = *f;
+        }
+        if (o.iq_rate)
+            c.rate_hz = *o.iq_rate;
+        if (o.iq_centre)
+            c.centre_hz = *o.iq_centre;
+        if (o.duration > 0.0)
+            c.duration_s = o.duration;
+        c.rolling_s = o.rolling_s;
+        c.gains = o.gains;
+        c.gain_db = o.gain_db;
+        c.bandwidth_hz = o.bandwidth_hz;
+        c.antenna = o.antenna;
+        c.ppm = o.ppm;
+        c.interrupt = &g_interrupt;
+        std::signal(SIGINT, on_signal);
+        yantra::soapy::module_table() = YANTRA_SOAPY_MODULE_TABLE;
+        CaptureResult r;
+        std::string error;
+        if (!capture_iq(c, r, error)) {
+            std::cerr << "error: " << error << '\n';
+            return kExitFail;
+        }
+        std::cout << "captured " << r.samples << " samples (" << r.samples / r.rate_hz << " s) of "
+                  << r.device << " (" << r.module << ") at " << r.centre_hz << " Hz, "
+                  << r.rate_hz << " Hz to " << o.out << " and " << r.meta_path << "; "
+                  << r.overflows << " overflows, " << r.lost << " samples lost, " << r.segments
+                  << " capture segment(s)\n";
+        return kExitPass;
+#else
+        std::cerr << "error: capture-iq is not in this build (it needs the SoapySDR layer)\n";
         return kExitFail;
+#endif
     }
     static const char* const formats[] = {"cs8", "cu8", "cs16", "cf32", "sigmf"};
     bool known = false;
@@ -902,6 +958,27 @@ int main(int argc, char** argv)
             o.log_level = levels.at(v);
         } else if (a == "--report") {
             o.report = v;
+        } else if (a == "--rolling" || a == "--bandwidth" || a == "--ppm") {
+            double x = 0;
+            if (!parse_double(v, x) || (a != "--ppm" && x <= 0))
+                return usage_error(a + " needs a number" + (a != "--ppm" ? " above 0" : ""));
+            if (a == "--rolling")
+                o.rolling_s = x;
+            else if (a == "--bandwidth")
+                o.bandwidth_hz = x;
+            else
+                o.ppm = x;
+        } else if (a == "--gain") {
+            const auto eq = v.find('=');
+            double x = 0;
+            if (!parse_double(eq == std::string::npos ? v : v.substr(eq + 1), x) || eq == 0)
+                return usage_error("--gain needs DB or NAME=DB");
+            if (eq == std::string::npos)
+                o.gain_db = x;
+            else
+                o.gains[v.substr(0, eq)] = x;
+        } else if (a == "--antenna") {
+            o.antenna = v;
         } else if (a == "--unplug") {
             o.unplug = v;
         } else if (a == "--replug") {
@@ -948,7 +1025,7 @@ int main(int argc, char** argv)
             return usage_error("read needs a FILE");
         return cmd_read(o);
     }
-    if (o.command == "decode-iq")
+    if (o.command == "decode-iq" || o.command == "capture-iq")
         return cmd_iq(o);
     if (o.plugin.empty())
         return usage_error("--plugin is required");

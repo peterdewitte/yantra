@@ -27,3 +27,19 @@ if(TARGET yantra::tetra_engine)
   target_link_libraries(yantra-radio-host PRIVATE yantra::radio_host_iq)
   target_compile_definitions(yantra-radio-host PRIVATE YANTRA_HOST_DECODE_IQ)
 endif()
+
+# capture-iq (RAD-63): the SoapySDR layer and the built-in modules of the
+# SDR plugins in the host; the tests link the fake module instead.
+if(TARGET yantra::radio_host_iq AND TARGET yantra::soapy_plugin)
+  add_library(yantra_capture_iq STATIC capture_iq.cpp)
+  target_include_directories(yantra_capture_iq PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+  target_link_libraries(yantra_capture_iq
+    PUBLIC yantra::radio_host_iq yantra::soapy_plugin
+    PRIVATE yantra::json yantra_warnings $<COMPILE_ONLY:yantra_soapysdr_whole>
+            $<COMPILE_ONLY:yantra_soapysdr>)
+  add_library(yantra::capture_iq ALIAS yantra_capture_iq)
+  yantra_soapy_module_table(_table)
+  target_link_libraries(yantra-radio-host PRIVATE yantra::capture_iq yantra::soapy_modules)
+  target_compile_definitions(yantra-radio-host PRIVATE YANTRA_HOST_CAPTURE_IQ
+    YANTRA_SOAPY_MODULE_TABLE="${_table}")
+endif()
