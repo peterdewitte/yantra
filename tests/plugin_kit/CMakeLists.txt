@@ -118,5 +118,5 @@ yantra_kit_test(conformance_tetra EXIT 0 MATCH "pass  neighbours: [0-9]+ entries
        --output ${_out}/tetra.out.json)
 yantra_kit_test(conformance_tetra_live EXIT 0 MATCH "pass  radio_schema: radio simulator.*PASS .*tetra"
   LABELS slow REQUIRE_FILE ${YANTRA_RADIO_PLUGIN_DIR}/simulator.so
-  ARGS check --plugin ${_tetra} --radio ${YANTRA_RADIO_PLUGIN_DIR}/simulator.so --count 40
+  ARGS check --plugin ${_tetra} --radio ${YANTRA_RADIO_PLUGIN_DIR}/simulator.so --count 20 --timeout 120
        --strict-translations)

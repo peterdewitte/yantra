@@ -688,8 +688,12 @@ TEST_CASE("measurement host: simulator records map onto the TETRA plugin with th
     CHECK(st.schema_mismatch == 0);
     CHECK(st.generic == 0);
     CHECK(st.c1_estimated == 0);  // uncalibrated dBFS levels: no estimate
-    const std::lock_guard lock(rig.out->m);
-    for (const ym::MappedRecord& r : with_c1()) {
+    std::vector<ym::MappedRecord> got;
+    {
+        const std::lock_guard lock(rig.out->m);  // not held while the device closes (lock order)
+        got = with_c1();
+    }
+    for (const ym::MappedRecord& r : got) {
         CHECK_FALSE(r.generic);
         CHECK(r.provenance.plugin_id == "yantra.tetra");
         CHECK(r.schema->id == "tetra_cell");
@@ -752,8 +756,12 @@ TEST_CASE("measurement host: without a radio C1 Yantra estimates it from the cal
     REQUIRE(rig.out->wait([&] { return estimated().size() >= 3; }));
     CHECK(dev->stop() == YR_OK);
     CHECK(rig.pipeline->stats().c1_radio == 0);
-    const std::lock_guard lock(rig.out->m);
-    for (const ym::MappedRecord& r : estimated()) {
+    std::vector<ym::MappedRecord> got;
+    {
+        const std::lock_guard lock(rig.out->m);  // not held while the device closes (lock order)
+        got = estimated();
+    }
+    for (const ym::MappedRecord& r : got) {
         CHECK(r.correction.calibrated);
         CHECK((r.flags & sf::kC1Estimated) != 0);
         CHECK(r.level == doctest::Approx(r.radio_level - 50.0));
