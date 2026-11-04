@@ -287,6 +287,44 @@ TEST_CASE("soapysdr: records of the fake device match the generator's truth (RAD
     CHECK(r.stats.overflows == 0);
 }
 
+TEST_CASE("soapysdr: a given serving carrier is followed with one decoder per carrier (RAD-32, RAD-62)")
+{
+    // The given serving carrier is pinned by the plan and as the serving
+    // carrier: one record per carrier and interval, the given one serving.
+    Fake f(R"(,"paced":false)");
+    f.open();
+    yr_plan plan = serving_plan();
+    plan.serving_hz = 392800000;
+    std::map<int64_t, std::map<uint64_t, int>> per_interval;
+    std::map<uint64_t, int> serving_records;
+    int synced = 0;
+    const StreamResult r = f.stream(
+        plan,
+        [&](const Record& rec) {
+            if (rec.schema_index != 0)
+                return false;
+            const uint64_t hz = rec.values[YR_CORE_FREQUENCY_HZ].u64;
+            if (hz != 392500000 && hz != 392800000)
+                return false; // the search's other candidates
+            ++per_interval[rec.time.monotonic_ns][hz];
+            if ((rec.flags & YR_RECORD_NO_SYNC) == 0) {
+                ++synced;
+                if (rec.values[YR_CORE_ROLE].i64 == YR_ROLE_SERVING)
+                    ++serving_records[hz];
+            }
+            return serving_records[392800000] >= 5 && synced >= 12;
+        },
+        30.0);
+    INFO(r.stop_reason);
+    CHECK(serving_records[392800000] >= 5);
+    CHECK(serving_records[392500000] == 0);
+    for (const auto& [t, counts] : per_interval)
+        for (const auto& [hz, n] : counts) {
+            CAPTURE(hz);
+            CHECK(n == 1);
+        }
+}
+
 TEST_CASE("soapysdr: gain changes move the dBFS levels (RAD-51)")
 {
     Fake f(R"(,"paced":false)"); // no overflow on a loaded machine

@@ -310,6 +310,26 @@ TEST_CASE("search: pinned carriers are decoded without a spectrum search and nev
     CHECK(r.search.carriers().empty());
 }
 
+TEST_CASE("search: a frequency pinned twice gets one decoder (SERVING plan with a given carrier)")
+{
+    // plan_setup pins a given serving carrier and the engine pins it again
+    // as the serving carrier: one carrier, one decoder, one record each.
+    SearchConfig cfg;
+    cfg.search_spectrum = false;
+    Run r(cfg);
+    CHECK(r.search.pin(390e6));
+    CHECK(r.search.pin(390e6));
+    Span s(250000.0, span3());
+    r.feed(s, 4.0, {}, [&] { return r.all_locked(1); });
+    REQUIRE(r.search.carriers().size() == 1);
+    CHECK(r.search.carriers()[0].pinned);
+    // Pinned again while streaming and after a retune: still one.
+    CHECK(r.search.pin(390e6));
+    std::vector<std::complex<float>> x(1000);
+    r.search.process(x.data(), x.size(), 390.01e6, 250000.0, false, r.events);
+    CHECK(r.search.carriers().size() == 1);
+}
+
 TEST_CASE("search: a parallel executor gives the same carriers and observations (RAD-111)")
 {
     const auto run = [](bool parallel) {

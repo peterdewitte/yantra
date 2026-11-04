@@ -166,7 +166,12 @@ std::pair<double, double> CarrierSearch::span() const
 bool CarrierSearch::pin(double frequency_hz)
 {
     if (!spectrum_) {
-        pins_.push_back(frequency_hz);
+        // Pinned twice (a plan's carrier that is also its serving carrier):
+        // one decoder.
+        const bool known = std::any_of(pins_.begin(), pins_.end(),
+                                       [&](double f) { return std::fabs(f - frequency_hz) < 1.0; });
+        if (!known)
+            pins_.push_back(frequency_hz);
         return true;
     }
     for (Carrier& c : carriers_)
@@ -224,6 +229,8 @@ void CarrierSearch::restart(double centre_hz, double rate_hz, std::vector<Carrie
     for (double f : pins) {
         if (carriers_.size() >= cfg_.max_carriers)
             break;
+        if (occupied(f, 1.0))
+            continue; // the same frequency pinned twice: one decoder
         if (!add_candidate(f, -300.0, events, true))
             pins_.push_back(f);  // outside this span: kept for a later one
     }
