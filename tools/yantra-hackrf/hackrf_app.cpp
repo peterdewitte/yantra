@@ -888,7 +888,15 @@ int cmd_noise(const Options& o, const Environment& env, json& j, std::ostream& t
         set_double(s, "gain_lna", g.lna);
         set_double(s, "gain_vga", g.vga);
         set_bool(s, "rf_amplifier", o.amp);
-        const Stream r = stream(s, make_plan(YR_PLAN_SERVING), seconds_or(o, 2.0), env);
+        // Until the plugin has measured the floor at this gain (a slow
+        // machine takes longer than the signal time); --duration is the limit.
+        const Stream r = stream(s, make_plan(YR_PLAN_SERVING), seconds_or(o, 30.0), env,
+                                [&](const radios::Record& rec) {
+                                    if (rec.schema_index != 0)
+                                        return false;
+                                    const auto f = read(s, "noise_floor_dbfs", true);
+                                    return f && f->type == YR_TYPE_DOUBLE;
+                                });
         const auto floor = read(s, "noise_floor_dbfs", true);
         const double total = g.lna + g.vga + (o.amp ? 14.0 : 0.0);
         json e{{"lna_db", g.lna}, {"vga_db", g.vga}, {"amp", o.amp}, {"total_gain_db", total}};
@@ -955,7 +963,13 @@ int cmd_level(const Options& o, const Environment& env, json& j, std::ostream& t
         } else if (!prompt(o, env, text, what)) {
             throw Fail{kFail, "no answer: the level steps need Enter after each setting (or --step-cmd)"};
         }
-        const Stream r = stream(s, carrier_plan(carriers), seconds_or(o, 3.0), env);
+        // Two records of the carrier after the step (--duration is the limit).
+        int seen = 0;
+        const Stream r = stream(s, carrier_plan(carriers), seconds_or(o, 30.0), env, [&](const radios::Record& rec) {
+            return rec.schema_index == 0 && rec.values[YR_CORE_LEVEL].type == YR_TYPE_DOUBLE &&
+                   std::fabs(static_cast<double>(rec.values[YR_CORE_FREQUENCY_HZ].u64) - o.frequency) < 13'000.0 &&
+                   ++seen >= 2;
+        });
         const auto level = carrier_level(r, o.frequency);
         if (!level) {
             ok = false;
@@ -1000,8 +1014,10 @@ int cmd_ppm(const Options& o, const Environment& env, json& j, std::ostream& tex
         throw Fail{kFail, "the plugin's records carry no frequency error"};
     std::vector<double> hz, ppm;
     const Stream r = stream(s, carrier_plan(carriers), seconds_or(o, 15.0), env, [&](const radios::Record& rec) {
+        if (rec.schema_index != 0)
+            return false;
         const Value& p = rec.values[static_cast<std::size_t>(ppm_i)];
-        if (rec.schema_index == 0 && p.type == YR_TYPE_DOUBLE) {
+        if (p.type == YR_TYPE_DOUBLE) {
             ppm.push_back(p.f64);
             hz.push_back(rec.values[static_cast<std::size_t>(hz_i)].f64);
         }
@@ -1186,6 +1202,10 @@ int cmd_report(const Options& o, const Environment& env, json& j, std::ostream& 
         Options sub = o;
         sub.command = c;
         sub.out.clear();
+        // --duration is the throughput time per rate; noise stops by
+        // itself once the floor is measured (this is only its limit).
+        if (std::string(c) == "noise")
+            sub.duration = std::max(120.0, o.duration.value_or(0.0));
         std::ostringstream t;
         json& sj = j[c];
         int code = kFail;
@@ -1227,7 +1247,7 @@ int cmd_report(const Options& o, const Environment& env, json& j, std::ostream& 
             s += (s.empty() ? "" : "; ") + x;
         return s;
     };
-    const std::string row = "| " + board + " (firmware " + firmware + ") | SoapyHackRF " + module + " | " +
+    const std::string row = "| " + board + " (firmware " + firmware + ") | " + module + " | " +
                             os_name() + " | " + join(tested) +
                             " | not measured (yantra-hackrf level) | " +
                             (issues.empty() ? "none" : join(issues)) + " | " + today() + " |";

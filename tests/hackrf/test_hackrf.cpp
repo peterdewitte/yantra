@@ -437,7 +437,7 @@ TEST_CASE("hackrf: records of the fake HackRF match the generator's truth with o
             return la.size() >= 2 && neighbours >= 2 && (groups & YR_GROUP_QUALITY) != 0 &&
                    (groups & YR_GROUP_BROADCAST) != 0 && (groups & YR_GROUP_FRAME) != 0;
         },
-        40.0);
+        120.0); // a hang guard: two neighbour lists need 10-20 s of signal
     INFO(r.stop_reason);
     CHECK(la[392500000] == 120);
     CHECK(la[392800000] == 120);

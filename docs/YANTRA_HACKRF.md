@@ -44,14 +44,14 @@ open and replug.
 | `settings preset [ID]` | lists the presets, or applies one and shows the gains read back | |
 | `measure` | records for `--plan serving`, `carriers` (`--carrier F`...) or `scan` (`--first F --last F [--step 25k]`), to the terminal, as JSON or with `--out FILE` as a record file (RAD-65); `--records N` | records arrive, none invalid |
 | `capture` | IQ to SigMF (`--out FILE.sigmf-data`, `--rate`, `--centre`, `--lna`, `--vga`, `--amp`, `--format cs16/cs8/cf32`) for `--duration` (default 10 s) | no samples lost |
-| `noise` | noise floor (dBFS) per gain point `--gains LNA/VGA,...` with the antenna port terminated (50 ohm) | every point measured |
-| `level` | level linearity against a signal generator at `--frequency F`: for each level of `--levels DBM,...` it asks you to set the generator and press Enter, or runs `--step-cmd CMD` (`{dbm}` is replaced by the level); reports dBFS against dBm, the offset for `c1_level_offset_db` and the linearity error (RAD-125) | worst error within `--tolerance` (1 dB) |
+| `noise` | noise floor (dBFS) per gain point `--gains LNA/VGA,...` with the antenna port terminated (50 ohm); each point streams until the plugin has measured the floor (`--duration` limit, 30 s) | every point measured |
+| `level` | level linearity against a signal generator at `--frequency F`: for each level of `--levels DBM,...` it asks you to set the generator and press Enter, or runs `--step-cmd CMD` (`{dbm}` is replaced by the level); measures two records per level (`--duration` limit, 30 s); reports dBFS against dBm, the offset for `c1_level_offset_db` and the linearity error (RAD-125) | worst error within `--tolerance` (1 dB) |
 | `ppm` | frequency error of a known TETRA carrier `--frequency F` (from the records' `freq_error_ppm`) | within `--max-ppm` (30) |
 | `throughput` | each sample rate (`--rates MSPS,...`, default all) for `--duration` (5 s): overflows, samples lost, receiver load (RAD-24) | no overflow, no loss |
 | `replug` | guided unplug and replug (RAD-35): waits for the plugin to report the device lost and back, checks antenna port power is off, streams again; `--unplug-cmd`/`--replug-cmd` run commands instead of asking, `--timeout S` (60) | lost, back, records again |
 | `report` | selftest, noise, throughput and replug, then one DEVICES.md row (RAD-95), printed and appended to `--out FILE` | all four pass |
 
-The DEVICES.md row has the board and firmware, the SoapyHackRF version,
+The DEVICES.md row has the board and firmware, the SoapyHackRF module and version,
 the OS, what was tested with results, the calibration offset (measured
 with `level`, by hand) and known issues; it holds no serial number.
 

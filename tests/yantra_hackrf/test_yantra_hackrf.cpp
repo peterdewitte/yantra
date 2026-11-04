@@ -29,6 +29,9 @@ const char* const kSerial = "0000000000000000a1b2c3d4e5f60001";
 
 std::string fixture() { return std::string(YANTRA_TEST_DATA_DIR) + "/soapy/fake_two_cells.json"; }
 
+// A limit that only guards against a hang (slower in sanitizer trees).
+std::string guard(double seconds) { return std::to_string(seconds * YANTRA_TEST_TIME_SCALE); }
+
 struct Result {
     int code = -1;
     std::string out, err;
@@ -201,25 +204,25 @@ TEST_CASE("yantra-hackrf: settings list, get, set with read-back, presets (RAD-6
 TEST_CASE("yantra-hackrf: measure serving, carriers and scan, to the terminal and a record file (RAD-66, RAD-32, RAD-65)")
 {
     Fake f;
-    const Result s = f.cli({"measure", "--records", "4", "--duration", "60", "--json"});
+    const Result s = f.cli({"measure", "--records", "4", "--duration", guard(60), "--json"});
     REQUIRE(s.code == kPass);
     CHECK(s.j["records"].size() == 4);
     CHECK(s.j["stream"]["invalid"] == 0);
     CHECK(s.j["records"][0]["schema"] == "tetra_cell");
 
     const Result c = f.cli({"measure", "--plan", "carriers", "--carrier", "392.8M", "--records", "3",
-                            "--duration", "60"});
+                            "--duration", guard(60)});
     CHECK(c.code == kPass);
     CHECK(c.out.find("392.8000 MHz") != std::string::npos);
 
     const Result sc = f.cli({"measure", "--plan", "scan", "--first", "392.45M", "--last", "392.55M",
-                             "--records", "5", "--duration", "60", "--json", "--set", "scan_dwell_s=0.5"});
+                             "--records", "5", "--duration", guard(60), "--json", "--set", "scan_dwell_s=0.5"});
     REQUIRE(sc.code == kPass);
     for (const json& r : sc.j["records"])
         CHECK(r["schema"] == "tetra_scan");
 
     const std::string out = (f.control / "m.yrec").string();
-    const Result w = f.cli({"measure", "--records", "3", "--duration", "60", "--out", out});
+    const Result w = f.cli({"measure", "--records", "3", "--duration", guard(60), "--out", out});
     CHECK(w.code == kPass);
     std::ifstream in(out);
     std::string first;
@@ -243,7 +246,7 @@ TEST_CASE("yantra-hackrf: capture IQ to SigMF (RAD-66, RAD-63)")
 TEST_CASE("yantra-hackrf: noise floor per gain (RAD-66)")
 {
     Fake f;
-    const Result r = f.cli({"noise", "--gains", "16/24,32/24", "--duration", "2", "--json", "--no-prompt"});
+    const Result r = f.cli({"noise", "--gains", "16/24,32/24", "--duration", guard(60), "--json", "--no-prompt"});
     REQUIRE_MESSAGE(r.code == kPass, std::string(r.out + r.err));
     REQUIRE(r.j["points"].size() == 2);
     const double a = r.j["points"][0]["noise_floor_dbfs"].get<double>();
@@ -260,32 +263,32 @@ TEST_CASE("yantra-hackrf: level linearity with the level steps (RAD-66, RAD-125)
     // The fake's level control file plays the signal generator.
     const std::string step = "printf %s {dbm} > " + f.file(".level_offset");
     const Result r = f.cli({"level", "--frequency", "392.5M", "--levels", "-20,-10,0", "--step-cmd", step,
-                            "--duration", "3", "--json"});
+                            "--duration", guard(60), "--json"});
     REQUIRE_MESSAGE(r.code == kPass, std::string(r.out + r.err));
     REQUIRE(r.j["steps"].size() == 3);
     CHECK(r.j["worst_error_db"].get<double>() < 1.0);
     // Without the steps the level does not follow: a linearity failure.
     fs::remove(f.file(".level_offset"));
-    const Result flat = f.cli({"level", "--frequency", "392.5M", "--levels", "-20,0", "--duration", "3",
+    const Result flat = f.cli({"level", "--frequency", "392.5M", "--levels", "-20,0", "--duration", guard(60),
                                "--no-prompt", "--json"});
     CHECK(flat.code == kFail);
     CHECK(flat.j["worst_error_db"].get<double>() > 5.0);
     // Guided: one Enter per level; no answer is a failure.
-    const Result guided = f.cli({"level", "--frequency", "392.5M", "--levels", "-10", "--duration", "3"},
+    const Result guided = f.cli({"level", "--frequency", "392.5M", "--levels", "-10", "--duration", guard(60)},
                                 true, "\n");
     CHECK(guided.code == kPass);
     CHECK(guided.err.find("Set the signal generator to -10.0 dBm at 392.5000 MHz.") != std::string::npos);
-    CHECK(f.cli({"level", "--frequency", "392.5M", "--levels", "-10,-5", "--duration", "3"}, true, "\n").code ==
+    CHECK(f.cli({"level", "--frequency", "392.5M", "--levels", "-10,-5", "--duration", guard(60)}, true, "\n").code ==
           kFail);
 }
 
 TEST_CASE("yantra-hackrf: frequency error of a known carrier (RAD-66)")
 {
     Fake f;
-    const Result r = f.cli({"ppm", "--frequency", "392.5M", "--duration", "30", "--json"});
+    const Result r = f.cli({"ppm", "--frequency", "392.5M", "--duration", guard(60), "--json"});
     REQUIRE_MESSAGE(r.code == kPass, std::string(r.out + r.err));
     CHECK(std::fabs(r.j["error_ppm"].get<double>()) < 1.0);
-    CHECK(f.cli({"ppm", "--frequency", "392.5M", "--max-ppm", "-1", "--duration", "30"}).code == kFail);
+    CHECK(f.cli({"ppm", "--frequency", "392.5M", "--max-ppm", "-1", "--duration", guard(60)}).code == kFail);
     CHECK(f.cli({"ppm"}).code == kUsage);
 }
 
@@ -303,8 +306,8 @@ TEST_CASE("yantra-hackrf: throughput per sample rate (RAD-66, RAD-24)")
     }
     SUBCASE("an overflow fails")
     {
-        Fake f(R"(,"paced":false,"overflow_at":1000000)");
-        const Result r = f.cli({"throughput", "--rates", "2", "--duration", "2", "--json"});
+        Fake f(R"(,"paced":false,"overflow_at":200000)");
+        const Result r = f.cli({"throughput", "--rates", "2", "--duration", guard(2), "--json"});
         CHECK(r.code == kFail);
         CHECK(r.j["rates"][0]["overflow_events"] == 1);
         CHECK(r.j["rates"][0]["samples_dropped"] == 20000);
@@ -327,11 +330,11 @@ TEST_CASE("yantra-hackrf: replug and report (RAD-66, RAD-35, RAD-95)")
 
     const std::string md = (f.control / "DEVICES.md").string();
     const Result rep = f.cli({"report", "--unplug-cmd", unplug, "--replug-cmd", replug, "--timeout", "20",
-                              "--rates", "2", "--gains", "16/24", "--duration", "2", "--no-prompt", "--out", md,
+                              "--rates", "2", "--gains", "16/24", "--duration", guard(4), "--no-prompt", "--out", md,
                               "--json"});
     REQUIRE_MESSAGE(rep.code == kPass, std::string(rep.out + rep.err));
     const std::string row = rep.j["devices_md_row"];
-    CHECK(row.rfind("| HackRF One (firmware 2024.02.1) | SoapyHackRF ", 0) == 0);
+    CHECK(row.rfind("| HackRF One (firmware 2024.02.1) | SoapyHackRF (yantra fake module for tests) 0.3.6-fake", 0) == 0);
     CHECK(row.find("selftest pass") != std::string::npos);
     CHECK(row.find("throughput up to 2 Msps pass") != std::string::npos);
     CHECK(row.find("replug pass") != std::string::npos);
