@@ -9,6 +9,7 @@
 #include "soapy_device.hpp"
 
 #include <yantra/radio.hpp>
+#include <yantra/receiver/dependencies.hpp>
 
 #include <SoapySDR/Formats.hpp>
 
@@ -503,6 +504,10 @@ void build_table(Device& d)
                                     "Where the device is tuned while streaming (with offset "
                                     "tuning beside the carriers).",
                                     9));
+    t.sensors.push_back(make_sensor("build_info", YR_TYPE_STRING, "Build info", "", kGroupModule,
+                                    "The libraries built into the plugin with their versions "
+                                    "(RAD-136); their licences are in the licence bundle.",
+                                    99));
     int32_t io = 1;
     for (const InfoSensor& is : pr.info_sensors)
         t.sensors.push_back(make_sensor(is.key, YR_TYPE_STRING, is.label, "", kGroupModule, is.help, 100 + io++));
@@ -708,6 +713,14 @@ yr_status read_sensor(Device& d, const char* key, yr_value* out, char* text, uin
     if (std::strcmp(key, "receiver_load") == 0) {
         *out = yr_value_double(d.load.load());
         return YR_OK;
+    }
+    if (std::strcmp(key, "build_info") == 0) {
+        std::string v;
+        for (const receiver::BundledLibrary& l : receiver::bundled_libraries())
+            v += (v.empty() ? "" : ", ") + std::string(l.name) + " " + l.version;
+        if (v.size() > YR_MAX_STRING_VALUE_BYTES) // the full list is in the licence bundle
+            v = v.substr(0, v.rfind(", ", YR_MAX_STRING_VALUE_BYTES - 5)) + ", ...";
+        return plugins::string_value(v, out, text, size);
     }
     for (const InfoSensor& is : profile_of(d).info_sensors)
         if (std::strcmp(key, is.key) == 0) {

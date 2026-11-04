@@ -37,7 +37,9 @@
 // Control files in "control": <serial>.unplugged (present: unplugged;
 // removing it replugs; a replug never revives an old handle, as with
 // real USB devices), <serial>.overflow (holds n: the next n reads
-// report SOAPY_SDR_OVERFLOW; consumed).
+// report SOAPY_SDR_OVERFLOW; consumed), <serial>.level_offset (holds a
+// level step in dB applied to the whole signal, as a signal generator
+// stepped by hand; read at every read while present).
 //
 // Adapted from yantra 68ea20a tests/fake_soapy/fake_module.cpp (device
 // model, pacing, hackrf profile); the signal is the scenario engine's.
@@ -191,6 +193,16 @@ int take_overflows(const Config& c, const std::string& serial)
     std::error_code ec;
     fs::remove(p, ec);
     return std::max(n, 0);
+}
+
+// The level step of <serial>.level_offset, dB (0 when there is none).
+double level_offset_db(const Config& c, const std::string& serial)
+{
+    if (!control_file(c, serial, ".level_offset"))
+        return 0.0;
+    double db = 0.0;
+    std::ifstream(fs::path(c.control) / (serial + ".level_offset")) >> db;
+    return std::isfinite(db) ? db : 0.0;
 }
 
 double nearest(const std::vector<double>& list, double v)
@@ -593,7 +605,8 @@ int FakeDevice::readStream(SoapySDR::Stream* stream, void* const* buffs, const s
     s->produced += n;
     flags |= SOAPY_SDR_HAS_TIME;
     // The level follows the gain: the scenario's levels at reference_gain_db.
-    const auto g = static_cast<float>(std::pow(10.0, (total_gain_db() - spec_.reference_gain_db) / 20.0));
+    const auto g = static_cast<float>(std::pow(
+        10.0, (total_gain_db() - spec_.reference_gain_db + level_offset_db(cfg, spec_.serial)) / 20.0));
     if (s->format == SOAPY_SDR_CF32) {
         auto* out = static_cast<cf*>(buffs[0]);
         for (std::size_t i = 0; i < n; ++i)
