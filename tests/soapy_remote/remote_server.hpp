@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // A SoapySDRServer on the loopback for the SoapyRemote tests (RAD-50,
-// RAD-92): SoapyRemote's own server side (ServerListener, ClientHandler)
-// in this process, serving the SoapySDR modules linked into it (the fake
+// RAD-92): SoapyRemote's own server side (its ClientHandler, with an own
+// accept loop) in this process, serving the SoapySDR modules linked into it (the fake
 // module). Test builds only.
 #pragma once
 
