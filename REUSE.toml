@@ -28,3 +28,10 @@ path = ["data/logo/*.svg", "data/logo/png/*.png"]
 precedence = "override"
 SPDX-FileCopyrightText = "2026 The Yantra contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# doctest 2.4.12 (MIT), vendored unchanged; tests only (TST-01).
+[[annotations]]
+path = ["third_party/doctest/doctest/**", "third_party/doctest/LICENSE.txt"]
+precedence = "override"
+SPDX-FileCopyrightText = "2016-2023 Viktor Kirilov"
+SPDX-License-Identifier = "MIT"
