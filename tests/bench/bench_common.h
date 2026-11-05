@@ -87,17 +87,18 @@ inline Args parse_args(int argc, char** argv, const char* name) {
     return a;
 }
 
-/// Prints one timing and checks it against its limit; false when beyond
-/// it or without a limit (limits on).
+/// Prints one timing and checks it against its limit (the limit of
+/// `limit_name` when given); false when beyond it or without a limit
+/// (limits on).
 inline bool check(const Args& a, const std::map<std::string, double>& limits, const char* name, double seconds,
-                  double cal) {
+                  double cal, const char* limit_name = nullptr) {
     const double units = seconds / cal;
     std::printf("  %-30s %8.3f s  %7.2f units", name, seconds, units);
     if (a.update) {
         std::printf("  -> %s,%.2f\n", name, units * kHeadroom);
         return true;
     }
-    const auto it = limits.find(name);
+    const auto it = limits.find(limit_name != nullptr ? limit_name : name);
     if (!a.limits_on || it == limits.end()) {
         std::printf("%s\n", a.limits_on ? "  (no limit)" : "");
         return !a.limits_on;

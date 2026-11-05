@@ -72,7 +72,8 @@ int main(int argc, char** argv) {
         const double s = bench::best_of(3, [&] {
             fields[k] = raytrace::interpolate_residuals(b, "office", grid, res, {}, run);
         });
-        ok = bench::check(args, limits, names[k], s, cal) && ok;
+        // Without SIMD built the SIMD run is the scalar path: its limit.
+        ok = bench::check(args, limits, names[k], s, cal, raytrace::simd_built() ? nullptr : names[1]) && ok;
     }
     if (fields[0].correction_db != fields[1].correction_db || fields[0].confidence != fields[1].confidence) {
         std::printf("SIMD and scalar residual fields differ\n");
