@@ -123,7 +123,7 @@ TEST_CASE("DB-01 project 7.6: the cell database round-trips through the project 
     const yc::CellDatabase db = example();
     {
         auto p = pj::Project::create(file, info());
-        CHECK(p->meta().schema_version == 5);
+        CHECK(p->meta().schema_version == pj::kSchemaVersion);  // new files: the current schema (>= 5, DB-01)
         CHECK(p->cell_database().entries().empty());
         int changes = 0;
         p->subscribe([&](const pj::Change& c) { changes += c.kind == pj::Change::Kind::Cells ? 1 : 0; });

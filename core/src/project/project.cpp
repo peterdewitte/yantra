@@ -28,6 +28,8 @@
 
 #include <unistd.h>
 
+#include <nlohmann/json.hpp>
+
 #include "schema.h"
 #include "sqlite.h"
 #include "yantra/core/build_info.h"
@@ -2070,6 +2072,188 @@ void Project::remove_source(const std::string& id) {
     notify({Change::Kind::SourceRemoved, id});
 }
 
+// ---- propagation model and interpolation results (schema 6) ------------------
+// Copied from yantra-v2 68ea20a: core/src/project/project.cpp (propagation,
+// interpolation results), adapted (dB per floor in the building table).
+
+namespace {
+
+void check_range(std::vector<std::string>& out, const char* name, double v, double lo, double hi) {
+    if (!std::isfinite(v) || v < lo || v > hi) {
+        char b[160];
+        std::snprintf(b, sizeof b, "%s: %g is outside %g .. %g", name, v, lo, hi);
+        out.emplace_back(b);
+    }
+}
+
+bool is_hex64(const std::string& s) {
+    return s.size() == 64 &&
+           std::all_of(s.begin(), s.end(), [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); });
+}
+
+bool is_json_object(const std::string& text) {
+    const auto j = nlohmann::json::parse(text, nullptr, false);
+    return !j.is_discarded() && j.is_object();
+}
+
+constexpr const char* kInterpolationColumns =
+    "id, floor_id, key, created_utc, created_with, building_sha256, points_sha256, settings_sha256, parameters, "
+    "result, origin_x, origin_y, cell_m, cols, rows";
+
+StoredInterpolation interpolation_row(const sql::Stmt& s, bool with_cells) {
+    StoredInterpolation r;
+    r.id = s.i64(0);
+    r.floor_id = s.text(1);
+    r.key = s.text(2);
+    r.created_utc = s.text(3);
+    r.created_with = s.text(4);
+    r.building_sha256 = s.text(5);
+    r.points_sha256 = s.text(6);
+    r.settings_sha256 = s.text(7);
+    r.parameters_json = s.text(8);
+    r.result_json = s.text(9);
+    r.origin_m = {s.f64(10), s.f64(11)};
+    r.cell_m = s.f64(12);
+    r.cols = static_cast<int>(s.i64(13));
+    r.rows = static_cast<int>(s.i64(14));
+    if (with_cells) r.cells = s.blob(15);
+    return r;
+}
+
+}  // namespace
+
+std::vector<std::string> PropagationSettings::validate() const {
+    std::vector<std::string> out;
+    check_range(out, "grid_m", grid_m, 0.05, 10.0);
+    if (max_reflections < 0 || max_reflections > 3)
+        out.push_back("max_reflections: " + std::to_string(max_reflections) + " is outside 0 .. 3");
+    check_range(out, "path_loss_exponent", path_loss_exponent, 1.0, 8.0);
+    check_range(out, "reference_distance_m", reference_distance_m, 0.01, 100.0);
+    check_range(out, "reflection_loss_db", reflection_loss_db, 0.0, 60.0);
+    check_range(out, "rx_height_m", rx_height_m, 0.0, 10.0);
+    check_range(out, "default_eirp_dbm", default_eirp_dbm, -50.0, 80.0);
+    return out;
+}
+
+PropagationSettings Project::propagation() const {
+    const std::lock_guard l(impl_->mutex);
+    impl_->require_open();
+    sql::Stmt s(impl_->db, "SELECT grid_m, max_reflections, path_loss_exponent, reference_distance_m, "
+                           "reflection_loss_db, rx_height_m, other_floors, default_eirp_dbm "
+                           "FROM propagation WHERE id = 1");
+    PropagationSettings r;
+    if (!s.step()) return r;
+    r.grid_m = s.f64(0);
+    r.max_reflections = static_cast<int>(s.i64(1));
+    r.path_loss_exponent = s.f64(2);
+    r.reference_distance_m = s.f64(3);
+    r.reflection_loss_db = s.f64(4);
+    r.rx_height_m = s.f64(5);
+    r.other_floors = s.i64(6) != 0;
+    r.default_eirp_dbm = s.f64(7);
+    return r;
+}
+
+void Project::set_propagation(const PropagationSettings& v) {
+    const auto problems = v.validate();
+    if (!problems.empty()) throw ProjectError(Code::Invalid, "propagation settings: " + problems.front());
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        sql::Stmt s(impl_->db,
+                    "INSERT INTO propagation (id, grid_m, max_reflections, path_loss_exponent, reference_distance_m, "
+                    "reflection_loss_db, rx_height_m, other_floors, default_eirp_dbm) "
+                    "VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) ON CONFLICT (id) DO UPDATE SET "
+                    "grid_m = excluded.grid_m, max_reflections = excluded.max_reflections, "
+                    "path_loss_exponent = excluded.path_loss_exponent, "
+                    "reference_distance_m = excluded.reference_distance_m, "
+                    "reflection_loss_db = excluded.reflection_loss_db, rx_height_m = excluded.rx_height_m, "
+                    "other_floors = excluded.other_floors, default_eirp_dbm = excluded.default_eirp_dbm");
+        s.bind(1, v.grid_m).bind(2, v.max_reflections).bind(3, v.path_loss_exponent);
+        s.bind(4, v.reference_distance_m).bind(5, v.reflection_loss_db).bind(6, v.rx_height_m);
+        s.bind(7, v.other_floors ? 1 : 0).bind(8, v.default_eirp_dbm).run();
+        impl_->touch();
+        tx.commit();
+    }
+    notify({Change::Kind::Propagation, ""});
+}
+
+std::int64_t Project::store_interpolation(StoredInterpolation r) {
+    if (r.key.empty()) throw ProjectError(Code::Invalid, "interpolation: empty key");
+    for (const std::string* h : {&r.building_sha256, &r.points_sha256, &r.settings_sha256})
+        if (!is_hex64(*h)) throw ProjectError(Code::Invalid, "interpolation: a fingerprint is not 64 hex digits");
+    if (!is_json_object(r.parameters_json) || !is_json_object(r.result_json))
+        throw ProjectError(Code::Invalid, "interpolation: parameters and result must be JSON objects");
+    if (!std::isfinite(r.origin_m.x) || !std::isfinite(r.origin_m.y) || !std::isfinite(r.cell_m) || r.cell_m <= 0.0 ||
+        r.cols <= 0 || r.rows <= 0)
+        throw ProjectError(Code::Invalid, "interpolation: the grid is not valid");
+    if (r.cells.size() != static_cast<std::uint64_t>(r.cols) * static_cast<std::uint64_t>(r.rows) * 12u)
+        throw ProjectError(Code::Invalid, "interpolation: the cells do not match the grid");
+    if (r.cells.size() > kMaxSourceBytes) throw ProjectError(Code::Invalid, "interpolation: the grid is too large");
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        if (!impl_->db.text_value("SELECT id FROM floors WHERE id = " + sql::quote(r.floor_id), "floor"))
+            throw ProjectError(Code::NotFound, "no floor " + r.floor_id);
+        sql::Stmt del(impl_->db, "DELETE FROM interpolations WHERE floor_id = ?1 AND key = ?2");
+        del.bind(1, r.floor_id).bind(2, r.key).run();
+        sql::Stmt s(impl_->db,
+                    "INSERT INTO interpolations (floor_id, key, created_utc, created_with, building_sha256, "
+                    "points_sha256, settings_sha256, parameters, result, origin_x, origin_y, cell_m, cols, rows, "
+                    "cells) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)");
+        s.bind(1, r.floor_id).bind(2, r.key).bind(3, impl_->now()).bind(4, impl_->tool());
+        s.bind(5, r.building_sha256).bind(6, r.points_sha256).bind(7, r.settings_sha256);
+        s.bind(8, r.parameters_json).bind(9, r.result_json).bind(10, r.origin_m.x).bind(11, r.origin_m.y);
+        s.bind(12, r.cell_m).bind(13, r.cols).bind(14, r.rows).bind_blob(15, r.cells).run();
+        r.id = impl_->db.last_rowid();
+        impl_->touch();
+        tx.commit();
+    }
+    notify({Change::Kind::Interpolations, r.floor_id});
+    return r.id;
+}
+
+std::vector<StoredInterpolation> Project::interpolations(const std::string& floor_id, bool with_cells) const {
+    const std::lock_guard l(impl_->mutex);
+    impl_->require_open();
+    sql::Stmt s(impl_->db, std::string("SELECT ") + kInterpolationColumns + (with_cells ? ", cells" : "") +
+                               " FROM interpolations WHERE floor_id = ?1 ORDER BY key");
+    s.bind(1, floor_id);
+    std::vector<StoredInterpolation> out;
+    while (s.step()) out.push_back(interpolation_row(s, with_cells));
+    return out;
+}
+
+std::optional<StoredInterpolation> Project::interpolation(std::int64_t id) const {
+    const std::lock_guard l(impl_->mutex);
+    impl_->require_open();
+    sql::Stmt s(impl_->db,
+                std::string("SELECT ") + kInterpolationColumns + ", cells FROM interpolations WHERE id = ?1");
+    s.bind(1, id);
+    if (!s.step()) return std::nullopt;
+    return interpolation_row(s, true);
+}
+
+void Project::remove_interpolation(std::int64_t id) {
+    std::string floor_id;
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        sql::Stmt q(impl_->db, "SELECT floor_id FROM interpolations WHERE id = ?1");
+        q.bind(1, id);
+        if (!q.step()) throw ProjectError(Code::NotFound, "no interpolation " + std::to_string(id));
+        floor_id = q.text(0);
+        sql::Stmt s(impl_->db, "DELETE FROM interpolations WHERE id = ?1");
+        s.bind(1, id).run();
+        impl_->touch();
+        tx.commit();
+    }
+    notify({Change::Kind::Interpolations, floor_id});
+}
+
 // ---- file -------------------------------------------------------------------
 
 void Project::save() {
@@ -2162,11 +2346,6 @@ std::vector<std::string> Project::check() const {
 // ---- recordings (REC-02, REC-03; schema 4) ----------------------------------
 
 namespace {
-
-bool is_hex64(const std::string& s) {
-    return s.size() == 64 &&
-           std::all_of(s.begin(), s.end(), [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); });
-}
 
 constexpr const char* kRecordingColumns =
     "id, file_name, session_id, session_name, file_index, sha256, size, reference, header, added_utc";

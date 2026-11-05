@@ -18,9 +18,10 @@
 // (sessions, IND-20, GEO-02, GEO-05) and their measured points, the one
 // point list of IND-30 (core/survey/points.h reads it); version 5 (step
 // 7.6) the cell database in the cells (DB-01: site, sector, azimuth,
-// colour, notes, origin, parameters, neighbour lists). Interpolation
-// results come with a later schema version (the hooks are listed in
-// docs/formats/PROJECT.md); no part of a model is ever dropped silently.
+// colour, notes, origin, parameters, neighbour lists); version 6 (step
+// 8.2) the ray-tracing settings (IND-40) and the stored interpolation
+// results (IND-41..45; core/survey/interpolation.h makes and reads them).
+// No part of a model is ever dropped silently.
 //
 // Storage rules (data safety):
 // - Every change is written in its own transaction before the call
@@ -72,7 +73,7 @@ inline constexpr std::int32_t kApplicationId = 0x594E5452;
 /// The value of the format mark in the meta table.
 inline constexpr const char* kFormat = "yantra-project";
 /// Schema version written by this build (docs/formats/PROJECT.md).
-inline constexpr int kSchemaVersion = 5;
+inline constexpr int kSchemaVersion = 6;
 
 class ProjectError : public std::runtime_error {
 public:
@@ -161,6 +162,8 @@ struct Change {
         Sessions,         ///< a session was added, changed or removed (id: its id)
         Points,           ///< points of a session were added or removed (id: the session id)
         Saved,            ///< save() or save_as(); path() may have changed
+        Propagation,      ///< the ray-tracing settings (IND-40)
+        Interpolations,   ///< an interpolation result was stored or removed (id: its floor)
     };
     Kind kind = Kind::Info;
     std::string id;  ///< floor or source id
@@ -220,6 +223,49 @@ struct StoredPoint {
     std::string label;                    ///< manual: the point's label (e.g. a room)
     std::string sample;                   ///< the values (JSON)
     bool operator==(const StoredPoint&) const = default;
+};
+
+/// Settings of the ray-tracing model (IND-40), stored in the project
+/// (schema 6). Ranges as raytrace::ModelParams (docs/PROPAGATION.md); the
+/// dB per floor of IND-44 is the building's floor_attenuation_db.
+struct PropagationSettings {
+    double grid_m = 0.25;
+    int max_reflections = 2;
+    double path_loss_exponent = 2.0;
+    double reference_distance_m = 1.0;
+    double reflection_loss_db = 6.0;
+    double rx_height_m = 1.5;
+    bool other_floors = true;
+    double default_eirp_dbm = 10.0;
+    bool operator==(const PropagationSettings&) const = default;
+    /// Problems, one message each; empty when usable.
+    std::vector<std::string> validate() const;
+};
+
+/// A stored interpolation result (IND-41..43, IND-45; schema 6): the
+/// project keeps it as data, survey/interpolation.h makes and reads it.
+/// One per floor and key; storing another with the same key replaces it.
+struct StoredInterpolation {
+    std::int64_t id = 0;           ///< set by store_interpolation
+    std::string floor_id;
+    std::string key;               ///< what it is for (metric and source group), not empty
+    std::string created_utc;       ///< set by store_interpolation
+    std::string created_with;      ///< "Yantra <version>", set by store_interpolation
+    /// Fingerprints (SHA-256, 64 lower-case hex digits) of the inputs: the
+    /// building model, the measured points, the settings and parameters.
+    std::string building_sha256;
+    std::string points_sha256;
+    std::string settings_sha256;
+    std::string parameters_json;   ///< JSON object: everything needed to compute it again
+    std::string result_json;       ///< JSON object: fit, sources, points
+    building::Point2 origin_m;     ///< the grid (raytrace::Grid), plan-frame metres
+    double cell_m = 0.0;
+    int cols = 0;
+    int rows = 0;
+    /// Per cell (grid index order) value, model and confidence as
+    /// little-endian float32: 12 bytes per cell.
+    std::vector<std::uint8_t> cells;
+    bool operator==(const StoredInterpolation&) const = default;
 };
 
 struct ProjectOptions {
@@ -421,6 +467,25 @@ public:
     std::optional<StoredPoint> point(std::int64_t session_id, std::int64_t sequence) const;
     /// The number of points of a floor's sessions.
     std::size_t point_count(const std::string& floor_id) const;
+
+    // -- propagation model and interpolation results (IND-40..45; schema 6)
+    /// The ray-tracing settings (a new project: the defaults).
+    PropagationSettings propagation() const;
+    /// Invalid for a value outside its range. Notifies Propagation.
+    void set_propagation(const PropagationSettings& settings);
+    /// Stores a result (replacing the one with the same floor and key) in
+    /// one transaction and returns its id. NotFound for an unknown floor;
+    /// Invalid for an empty key, a fingerprint that is not 64 hex digits,
+    /// JSON texts that are not objects, a grid that is not positive or
+    /// cells of the wrong size. Notifies Interpolations (id: the floor).
+    std::int64_t store_interpolation(StoredInterpolation result);
+    /// The results of a floor ordered by key; without the cells unless
+    /// asked for (they can be large).
+    std::vector<StoredInterpolation> interpolations(const std::string& floor_id, bool with_cells = false) const;
+    /// One result with its cells, or nullopt.
+    std::optional<StoredInterpolation> interpolation(std::int64_t id) const;
+    /// NotFound when there is none. Removing a floor removes its results.
+    void remove_interpolation(std::int64_t id);
 
     // -- source files (IND-03) -------------------------------------------
     /// Copies a file into the project unchanged; its id is

@@ -23,7 +23,7 @@ form is the building model of [BUILDING_MODEL.md](../BUILDING_MODEL.md)
 | Item | Value |
 | --- | --- |
 | `PRAGMA application_id` | `0x594E5452` ("YNTR"); other files are refused as "not a Yantra project" |
-| `PRAGMA user_version` | schema version, now **5** |
+| `PRAGMA user_version` | schema version, now **6** |
 | `meta.format` | `yantra-project` |
 
 | Version | Change |
@@ -33,6 +33,7 @@ form is the building model of [BUILDING_MODEL.md](../BUILDING_MODEL.md)
 | 3 | the rest of the building model: `floors` scale columns (`scale_*`, IND-08) and alignment point (`reference_x/y`, IND-09); the project's wall-class table `wall_classes` + `wall_class_bands` with the default classes (IND-11); `walls` + `wall_points` (IND-11); `cells` + `cell_identity`, `antennas` + `antenna_pattern_gains` (IND-12); meta counters `next_wall_number`, `next_antenna_number`, `next_cell_number`. Existing floors get no scale and no reference point |
 | 4 | the project's recordings (`recordings`, REC-02/03), its walk tests and manual-point sets (`sessions`, IND-20, GEO-02, GEO-05) and their measured points (`points`), the one point list of the project window and the report (IND-30). Existing projects get no sessions |
 | 5 | the cell database in the project's cells (DB-01): `cells` columns `site_name`, `sector`, `azimuth_deg`, `colour`, `notes`, `origin`, `plugin_version`; the tables `cell_parameters` and `cell_neighbours`; meta keys `celldb_match:<technology>`. Existing cells become manual entries without parameters or neighbours |
+| 6 | the propagation model settings (`propagation`, IND-40/41) and the stored interpolation results with their parameters and input fingerprints (`interpolations`, IND-41..45). Existing projects get the default settings and no results |
 
 Rules:
 
@@ -58,13 +59,11 @@ page sizes; version 3 the rest of the building model (scale, alignment,
 wall classes, walls, cells, antennas), so the whole model of
 [BUILDING_MODEL.md](../BUILDING_MODEL.md) is stored; version 4 the
 recordings, walk tests and measured points ([SURVEY.md](../SURVEY.md)); version 5 the
-cell database ([CELL_DATABASE.md](../CELL_DATABASE.md)). The later data come
-as new versions in the steps that add them; until then the API has no
-call that would store them, so nothing is ever dropped silently.
-
-| Step | Planned content |
-| --- | --- |
-| 8 interpolation | stored interpolation results with their parameters (IND-45) |
+cell database ([CELL_DATABASE.md](../CELL_DATABASE.md)); version 6 the
+propagation settings and the interpolation results
+([PROPAGATION.md](../PROPAGATION.md)). Later data come as new versions in
+the steps that add them; until then the API has no call that would store
+them, so nothing is ever dropped silently.
 
 ## Storage rules
 
@@ -98,7 +97,7 @@ call that would store them, so nothing is ever dropped silently.
   the building model: heights in metres, plan sizes in plan units,
   attenuations in dB.
 
-## Tables (version 5)
+## Tables (version 6)
 
 ### `meta`
 
@@ -461,6 +460,59 @@ report (IND-30): both read it unchanged.
 
 When a floor's trim is edited, its points are mapped through the page to
 the new trim, so they stay where they were measured on the sheet.
+
+### `propagation`
+
+The propagation model settings of the project (version 6, IND-40/41;
+`Project::propagation()`): one row (`id` = 1), the start values of the
+fit and the model of the coverage map. The dB per floor of the
+inter-floor term is the building's (`building.floor_attenuation_db`,
+`floors.slab_attenuation_db`, IND-44); wall losses are the wall-class
+table.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `id` | INTEGER, 1 | the one row |
+| `grid_m` | REAL 0.05 .. 10 | map grid cell, metres (default 0.25) |
+| `max_reflections` | INTEGER 0 .. 3 | specular reflections traced (default 2) |
+| `path_loss_exponent` | REAL 1 .. 8 | n beyond the reference distance (default 2) |
+| `reference_distance_m` | REAL 0.01 .. 100 | d0: free space up to it (default 1) |
+| `reflection_loss_db` | REAL 0 .. 60 | loss of a reflection off a wall without its own class value (default 6) |
+| `rx_height_m` | REAL 0 .. 10 | receiver height above the floor (default 1.5) |
+| `other_floors` | INTEGER 0/1 | antennas of other floors reach this floor through the slabs (default 1) |
+| `default_eirp_dbm` | REAL -50 .. 80 | EIRP of an antenna without one (default 10) |
+
+### `interpolations`
+
+The stored interpolated maps (version 6, IND-41..45; `survey/interpolation.h`,
+[PROPAGATION.md](../PROPAGATION.md) "Interpolation of a floor"): one per
+floor and key, kept with what they were made from, so a result is shown
+as stale when its inputs change and stays usable until run again
+(IND-45). Removed with its floor.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `id` | INTEGER | result id; never reused, also not when a result is replaced or removed |
+| `floor_id` | TEXT | `floors.id` |
+| `key` | TEXT, not empty | what it is for: the metric and the source group (unique per floor) |
+| `created_utc`, `created_with` | TEXT | when and by which Yantra version it was made |
+| `building_sha256`, `points_sha256`, `settings_sha256` | TEXT, 64 hex digits | fingerprints of the building model, the measured points used and the settings with the request |
+| `parameters` | TEXT | JSON object: the request (metric, sessions, fit, residual and source-search options), the start and the fitted model parameters |
+| `result` | TEXT | JSON object: the label (`interpolated`, or `interpolated, estimated sources`), fit quality (rms, points), fitted parameters with bounds, parameters not fitted and why, estimated sources, cells on the floor, the measured points with model value and residual |
+| `origin_x`, `origin_y` | REAL | the grid's corner, plan-frame metres |
+| `cell_m` | REAL > 0 | grid cell size, metres |
+| `cols`, `rows` | INTEGER > 0 | grid size |
+| `cells` | BLOB, cols x rows x 12 bytes | per cell, row by row: the map value, the fitted model (dBm, -infinity where no source reaches) and the confidence 0..1, each a little-endian IEEE 754 float |
+
+### `sqlite_sequence`
+
+SQLite's own table of the last id given out in `interpolations` (version
+6), so result ids are never reused.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `name` | TEXT | table name (`interpolations`) |
+| `seq` | INTEGER | the highest id given out so far |
 
 ## Example
 

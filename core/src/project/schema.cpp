@@ -286,6 +286,47 @@ CREATE TABLE cell_neighbours (
 ) WITHOUT ROWID;
 )sql";
 
+// Version 6 (step 8.2): the settings of the ray-tracing model (IND-40; the
+// dB per floor of IND-44 is building.floor_attenuation_db), one row, and
+// the stored interpolation results (IND-41..43, IND-45): one per floor and
+// key (metric and source group), with the fingerprints of their inputs
+// (staleness), the parameters that made them (reproducible reports), the
+// fit and the map cells (value, model, confidence as little-endian
+// float32, 12 bytes per cell).
+const char* const kV6 = R"sql(
+CREATE TABLE propagation (
+  id                   INTEGER PRIMARY KEY CHECK (id = 1),
+  grid_m               REAL NOT NULL DEFAULT 0.25 CHECK (grid_m BETWEEN 0.05 AND 10),
+  max_reflections      INTEGER NOT NULL DEFAULT 2 CHECK (max_reflections BETWEEN 0 AND 3),
+  path_loss_exponent   REAL NOT NULL DEFAULT 2 CHECK (path_loss_exponent BETWEEN 1 AND 8),
+  reference_distance_m REAL NOT NULL DEFAULT 1 CHECK (reference_distance_m BETWEEN 0.01 AND 100),
+  reflection_loss_db   REAL NOT NULL DEFAULT 6 CHECK (reflection_loss_db BETWEEN 0 AND 60),
+  rx_height_m          REAL NOT NULL DEFAULT 1.5 CHECK (rx_height_m BETWEEN 0 AND 10),
+  other_floors         INTEGER NOT NULL DEFAULT 1 CHECK (other_floors IN (0, 1)),
+  default_eirp_dbm     REAL NOT NULL DEFAULT 10 CHECK (default_eirp_dbm BETWEEN -50 AND 80)
+);
+INSERT INTO propagation (id) VALUES (1);
+CREATE TABLE interpolations (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  floor_id        TEXT NOT NULL REFERENCES floors (id) ON DELETE CASCADE,
+  key             TEXT NOT NULL CHECK (key <> ''),
+  created_utc     TEXT NOT NULL,
+  created_with    TEXT NOT NULL,
+  building_sha256 TEXT NOT NULL CHECK (length(building_sha256) = 64),
+  points_sha256   TEXT NOT NULL CHECK (length(points_sha256) = 64),
+  settings_sha256 TEXT NOT NULL CHECK (length(settings_sha256) = 64),
+  parameters      TEXT NOT NULL,
+  result          TEXT NOT NULL,
+  origin_x        REAL NOT NULL,
+  origin_y        REAL NOT NULL,
+  cell_m          REAL NOT NULL CHECK (cell_m > 0),
+  cols            INTEGER NOT NULL CHECK (cols > 0),
+  rows            INTEGER NOT NULL CHECK (rows > 0),
+  cells           BLOB NOT NULL CHECK (length(cells) = cols * rows * 12),
+  UNIQUE (floor_id, key)
+);
+)sql";
+
 }  // namespace
 
 void migrate(sql::Db& db, int from, int to, const std::string& now, const std::string& tool,
@@ -307,6 +348,8 @@ void migrate(sql::Db& db, int from, int to, const std::string& now, const std::s
             db.exec(kV4, what);
         } else if (v == 5) {
             db.exec(kV5, what);
+        } else if (v == 6) {
+            db.exec(kV6, what);
         } else if (v > kSchemaVersion && static_cast<std::size_t>(v - kSchemaVersion) <= extra.size()) {
             db.exec(extra[static_cast<std::size_t>(v - kSchemaVersion - 1)], what);
         } else {
