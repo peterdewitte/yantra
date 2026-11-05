@@ -18,6 +18,15 @@ Needed: CMake 3.20+, Ninja, a C++20 compiler (GCC or Clang), SQLite 3.37+
 with its headers (`libsqlite3-dev`; the project file, IND-01), Python 3
 with PyYAML, binutils, and `reuse` for the licence lint test.
 
+PDF floor plans (IND-02) use a pinned prebuilt PDFium (THIRD_PARTY.md).
+The first configure downloads it (about 4 MB) into `build/_deps/` and
+checks its SHA-256. Offline: download `pdfium-linux-x64.tgz` of release
+`chromium/8125` from https://github.com/bblanchon/pdfium-binaries once
+and pass `-DYANTRA_PDFIUM_ARCHIVE=<file>` (the hash is checked the same
+way). Without it, or with `-DYANTRA_PDFIUM=OFF`, Yantra builds without
+PDF support and says so when a PDF plan is opened; the PDF tests then
+check that message instead.
+
 ## Radio plugins (PLG-26)
 
 Yantra itself has no radio code: the radio plugins come from the

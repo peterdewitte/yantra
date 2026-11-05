@@ -50,6 +50,16 @@ precedence = "override"
 SPDX-FileCopyrightText = "2013-2025 Niels Lohmann"
 SPDX-License-Identifier = "MIT"
 
+# stb_image 2.30 and stb_image_write 1.16 (stb at d14d46f), vendored
+# unchanged from https://github.com/nothings/stb for the floor plan images
+# (IND-02, spec 16.2). Dual-licensed by their author: MIT or public domain
+# (Unlicense); the files state it in their last lines, without SPDX tags.
+[[annotations]]
+path = ["third_party/stb/stb_image.h", "third_party/stb/stb_image_write.h", "third_party/stb/LICENSE"]
+precedence = "override"
+SPDX-FileCopyrightText = "2017 Sean Barrett"
+SPDX-License-Identifier = "MIT OR Unlicense"
+
 # Record files (RAD-65, JSON Lines without a comment syntax), recorded
 # from the radio plugins of yantra-radios or written for the tests, and
 # golden outputs of the plugin test kit (PLG-13).

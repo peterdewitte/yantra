@@ -49,6 +49,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(YantraWarnings)
 include(YantraSanitizers)
+include(YantraPdfium)
 
 # Public plugin API headers: plugin.h (C ABI, PLG-03) and plugin.hpp (C++
 # helpers).
@@ -99,8 +100,16 @@ if(NOT YANTRA_RADIOS_KIND STREQUAL "none")
           DESTINATION lib OPTIONAL)
 endif()
 
+# PDFium (IND-02): the prebuilt library next to Yantra's own libraries
+# with its licence texts (THIRD_PARTY.md). The run path of the installed
+# executable is set by the packaging (phase 12).
+if(YANTRA_PDFIUM_FOUND)
+  install(FILES $<TARGET_FILE:yantra_pdfium_lib> DESTINATION lib/yantra)
+  install(DIRECTORY ${YANTRA_PDFIUM_LICENSES}/ DESTINATION share/licenses/pdfium)
+endif()
+
 message(STATUS "Yantra ${PROJECT_VERSION}: SIMD=${YANTRA_SIMD} "
                "APP=${YANTRA_BUILD_APP} TESTS=${YANTRA_BUILD_TESTS} "
                "SANITIZER='${YANTRA_SANITIZER}' "
                "RADIO_API=${YANTRA_RADIO_API_VERSION_MAJOR}.${YANTRA_RADIO_API_VERSION_MINOR} "
-               "RADIOS=${YANTRA_RADIOS_KIND}")
+               "RADIOS=${YANTRA_RADIOS_KIND} PDFIUM=${YANTRA_PDFIUM_FOUND}")
