@@ -28,6 +28,7 @@ add_library(yantra_core STATIC
   src/measure/sample.cpp
   src/measure/technology_map.cpp
   src/platform/dynlib.cpp
+  src/platform/file_posix.cpp
   src/plugin/abi.cpp
   src/plugin/descriptor.cpp
   src/plugin/folders.cpp
@@ -37,7 +38,8 @@ add_library(yantra_core STATIC
   src/plugin/schema.cpp
   src/plugin/state_store.cpp
   src/radio/radio_host.cpp
-  src/radio/scene_export.cpp)
+  src/radio/scene_export.cpp
+  src/util/sha256.cpp)
 add_library(yantra::core ALIAS yantra_core)
 
 target_include_directories(yantra_core
