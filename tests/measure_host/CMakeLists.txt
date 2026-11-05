@@ -11,8 +11,9 @@
 # plugins are not built. TST-10 end to end (test_measure_e2e.cpp): the
 # simulator on the radios' scenarios through RadioHost + pipeline + TETRA
 # plugin, and record files of the same scenarios (yantra-gen ground truth
-# and decode-iq dBFS) replayed, against the ground truth. One ctest per
-# test case.
+# and decode-iq dBFS) replayed, against the ground truth. A walk test of
+# the simulator on a drawn floor, recorded and replayed
+# (test_measure_survey.cpp, IND-20, IND-30). One ctest per test case.
 set(_dir ${CMAKE_CURRENT_SOURCE_DIR})
 file(GLOB _srcs CONFIGURE_DEPENDS ${_dir}/test_*.cpp)
 add_executable(test_measure_host ${_srcs})
