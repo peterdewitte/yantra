@@ -23,6 +23,9 @@ Users of the model:
 - the project file (IND-01, NFR-05), which stores the model in its tables
   ([formats/PROJECT.md](formats/PROJECT.md); `project/project.h`
   `Project::building()`).
+- the plan import (IND-02, IND-05..07, IND-10; [PLANS.md](PLANS.md),
+  `plan/import.h`), which renders a floor from its source, page and trim
+  (`plan/trim.h`, `plan::Trim` is `building::Trim`).
 
 The core is technology-neutral (PLG-01): wall classes and antennas are
 generic RF data, and a cell's identity is a set of named key values of a

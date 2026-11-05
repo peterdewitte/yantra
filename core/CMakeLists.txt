@@ -30,6 +30,7 @@ add_library(yantra_core STATIC
   src/platform/dynlib.cpp
   src/platform/file_posix.cpp
   src/plan/image_meta.cpp
+  src/plan/import.cpp
   src/plan/source.cpp
   src/plan/tiles.cpp
   src/plan/trim.cpp

@@ -25,6 +25,16 @@ own changes are in its CHANGELOG.md.
   Save as write whole files; a project is open in one Yantra at a time;
   older files are migrated after a backup, newer and damaged files are
   refused with the reason.
+- 2026-11-05: plan sources (IND-02): PDF plans (any page, through a
+  pinned PDFium release) and every image format stb_image reads (PNG,
+  JPEG, BMP, GIF, TGA, PSD, PNM, HDR); a file that cannot be read is
+  refused with the reason. Large sheets render in tiles at the detail the
+  zoom needs, within a memory budget. Floors are trimmed non-destructively
+  from their source (IND-05..07): a rectangle or a polygon, quarter turns
+  and a fine deskew; several floors from one sheet and several sheets per
+  project (IND-06, IND-10); trims are kept in the project file (schema
+  version 2, older files are migrated) and can be edited later. The plan
+  import window itself comes with the desktop UI.
 
 ### Measurements
 
