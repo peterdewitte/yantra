@@ -245,6 +245,11 @@ struct PointLevels {
 };
 PointLevels evaluate(const building::Building& b, const PathSet& s, const ModelParams& p);
 
+/// The frequency of every group of `s` under `p` (as evaluate() uses
+/// them): ModelParams::frequency_hz, else the group cell's carrier.
+/// std::invalid_argument for a group without either.
+std::vector<double> group_frequencies(const building::Building& b, const PathSet& s, const ModelParams& p);
+
 /// Path loss of one ray of 3D length `d_m` at `frequency_hz` (dB): free
 /// space up to d0 (lengths below kMinDistanceM held there), log-distance
 /// with `exponent` beyond.

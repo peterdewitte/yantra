@@ -702,14 +702,21 @@ PathSet trace_points(const Building& b, const std::string& floor_id, const std::
     return out;
 }
 
+std::vector<double> group_frequencies(const Building& b, const PathSet& s, const ModelParams& p) {
+    std::vector<double> out;
+    for (const SourceGroup& g : s.groups)
+        out.push_back(group_frequency(b, p.frequency_hz, g.cell_id,
+                                      g.antenna_ids.empty() ? g.key : g.antenna_ids.front()));
+    return out;
+}
+
 PointLevels evaluate(const Building& b, const PathSet& s, const ModelParams& p) {
     const auto problems = p.validate();
     if (!problems.empty()) throw std::invalid_argument("invalid model parameters: " + problems.front());
     // The groups' frequencies: the given one, else each cell's carrier.
     std::vector<SourceGroup> groups = s.groups;
-    for (SourceGroup& g : groups)
-        g.frequency_hz = group_frequency(b, p.frequency_hz, g.cell_id,
-                                         g.antenna_ids.empty() ? g.key : g.antenna_ids.front());
+    const std::vector<double> freq = group_frequencies(b, s, p);
+    for (std::size_t k = 0; k < groups.size(); ++k) groups[k].frequency_hz = freq[k];
     const std::vector<GroupLoss> gl = group_losses(b, s.wall_classes, groups, p);
     std::vector<double> eirp;
     for (const std::string& id : s.antennas) {

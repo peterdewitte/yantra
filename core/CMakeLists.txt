@@ -60,8 +60,10 @@ add_library(yantra_core STATIC
   src/recording/replay.cpp
   src/recording/writer.cpp
   src/radio/scene_export.cpp
+  src/raytrace/fit.cpp
   src/raytrace/kernels.cpp
   src/raytrace/model.cpp
+  src/raytrace/residuals.cpp
   src/survey/bins.cpp
   src/survey/points.cpp
   src/survey/recordings.cpp
@@ -71,6 +73,7 @@ add_library(yantra_core STATIC
   src/survey/views.cpp
   src/survey/walk.cpp
   src/survey/walk_test.cpp
+  src/util/job.cpp
   src/util/sha256.cpp)
 add_library(yantra::core ALIAS yantra_core)
 
@@ -125,4 +128,5 @@ else()
   target_compile_definitions(yantra_core PRIVATE YANTRA_RAYTRACE_SIMD=0)
 endif()
 set_source_files_properties(src/raytrace/kernels.cpp src/raytrace/kernels_simd.cpp src/raytrace/model.cpp
+  src/raytrace/fit.cpp src/raytrace/residuals.cpp
   PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
