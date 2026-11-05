@@ -112,7 +112,9 @@ TEST_CASE("REC-07 simulator: a recorded TETRA walk replays to the same cycles, C
             std::size_t n = 0;
             for (const auto& c : rig.out->cycles)
                 if (c.sequence >= first && c.serving(key) != nullptr) ++n;
-            return n >= 8;
+            // ... and a split into a second file (the records' rate
+            // varies with the build, e.g. under sanitizers).
+            return n >= 8 && recorder->status().file_index >= 1;
         }));
         CHECK(dev->stop() == YR_OK);
     }
