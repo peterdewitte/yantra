@@ -38,7 +38,7 @@ set(_e2e_records ${CMAKE_CURRENT_BINARY_DIR}/records)
 set(_e2e_gen ${YANTRA_RADIOS_STAGE}/bin/yantra-gen)
 set(_e2e_host ${YANTRA_RADIOS_STAGE}/bin/yantra-radio-host)
 if(YANTRA_RADIOS_KIND STREQUAL "build" OR (YANTRA_RADIOS_KIND STREQUAL "prebuilt" AND EXISTS ${_e2e_gen}))
-  set(_e2e_scenarios fraunces:3 failed_site:10 floor_change:12 indoor_weak_das:10)
+  set(_e2e_scenarios fraunces:3 failed_site:10 floor_change:12 indoor_good_das:10 indoor_weak_das:10)
   set(_e2e_outputs ${_e2e_records}/fraunces_dbfs.records.jsonl)
   foreach(_s IN LISTS _e2e_scenarios)
     string(REGEX REPLACE ":.*" "" _id ${_s})
@@ -62,6 +62,16 @@ endif()
 target_compile_definitions(test_measure_host PRIVATE
   RADIOS_BIN_DIR="${YANTRA_RADIOS_STAGE}/bin"
   RADIOS_SCENARIO_DIR="${YANTRA_RADIOS_DIR}/data/scenarios")
+# The demo project (tools/yantra-demo, DEMO-05/06; test_measure_demo.cpp).
+if(TARGET demo_fraunces)
+  add_dependencies(test_measure_host demo_fraunces)
+endif()
+target_compile_definitions(test_measure_host PRIVATE
+  DEMO_DATA_DIR="${PROJECT_SOURCE_DIR}/data/demo"
+  DEMO_FRAUNCES_DIR="$<$<TARGET_EXISTS:demo_fraunces>:${YANTRA_DEMO_FRAUNCES_DIR}>"
+  YANTRA_DEMO_PATH="$<TARGET_FILE:yantra-demo>"
+  DEMO_GEN="${YANTRA_DEMO_GEN}"
+  DEMO_SCENARIO_DIR="${YANTRA_DEMO_SCENARIO_DIR}")
 
 # PROCESSORS: the simulator and SDR plugin cases keep a stream thread,
 # the plugin's engine workers and the pipeline busy and check real-time

@@ -98,6 +98,17 @@ own changes are in its CHANGELOG.md.
   map is marked stale when the building, the points or the settings
   change. Project schema version 6 (propagation settings and stored maps;
   older files are migrated).
+- 2026-11-05: the Fraunces demo project (DEMO-05, DEMO-06, DEMO-13;
+  docs/DEMO.md): two floors of the Fraunces Tavern from public-domain
+  HABS sheets (Library of Congress), with trims, scale, walls, DAS
+  antennas, a fictitious cell database, one simulated walk recording per
+  floor and the stored ray-tracing interpolation of each floor. It is made
+  at build time by the new tool `yantra-demo` from its description
+  (`data/demo/fraunces/fraunces.json`) with the radios' Fraunces scenario
+  and yantra-gen, the same on every build, and installed to
+  `share/yantra/demo/fraunces`. The demo scenarios (DEMO-09) are listed in
+  `data/demo/scenarios.json`. Recordings can have a fixed session id, and
+  a walk test can take its start time from the measurement clock.
 
 ### Measurements
 

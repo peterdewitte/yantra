@@ -22,6 +22,7 @@ add_library(yantra_core STATIC
   src/celldb/reselection.cpp
   src/celldb/technology.cpp
   src/celldb/verify.cpp
+  src/demo/demo_project.cpp
   src/building/edit.cpp
   src/building/geometry.cpp
   src/building/model.cpp
