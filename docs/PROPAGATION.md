@@ -16,9 +16,11 @@ boundary of the radios' plugins is untouched). It works in dBm at each
 cell's carrier frequency.
 
 The fit to the measured points (IND-41), the estimated sources (IND-42),
-the confidence mask and readout (IND-43) and the background job with its
-stored result (IND-45) build on this model in later steps; the hooks they
-use are listed under "Results and use".
+the residual map with its confidence mask, readout and floor-area
+statistics (IND-43) and the background job with its stored result
+(IND-45) build on this model: "Interpolation of a floor" below
+(`core/include/yantra/core/raytrace/fit.h`, `raytrace/residuals.h`,
+`survey/interpolation.h`, `util/job.h`).
 
 ## What is traced
 
@@ -132,17 +134,221 @@ The 6 dB reflection loss is an estimate for concrete and brick at UHF
   by class, pattern loss, slabs, wall crossings per class).
   `evaluate(building, rays, params)` turns it into levels for any EIRP,
   exponent, wall-class, reflection and floor loss without tracing again;
-  at the grid cell centres it equals the map (tested to 1e-9 dB). This is
-  the hook for the fit of IND-41.
+  at the grid cell centres it equals the map (tested to 1e-9 dB). The
+  fit of IND-41 uses it.
 - `RunControl`: the inner-loop ISA (SIMD or scalar), threads (default all
   hardware threads), a cancel flag that may be set from any thread
   (`cancelled` in the result), and a progress callback (0 .. 1,
   non-decreasing, at most about 200 calls, on the calling thread).
-  Results do not depend on the thread count or the ISA. This is the hook
-  for the background job of IND-45.
+  Results do not depend on the thread count or the ISA. The background
+  job of IND-45 drives it.
 - Exceptions: `std::invalid_argument` for invalid parameters, an unknown
   floor or wall class, a group without a frequency or a grid beyond
   `kMaxGridCells`; `std::logic_error` for a receiver floor without scale.
+
+## Interpolation of a floor
+
+The measured levels of a floor and the model are combined in five steps
+(`survey::interpolate`, the job `survey::InterpolationJob`):
+
+1. **Points.** The measured points come only from the shared point list
+   (`survey::point_list`, IND-30, [SURVEY.md](SURVEY.md)): the same
+   points, values and count as the project window and the report. Points
+   with a level in dBm and a position in metres are used; the metric is
+   a level (`Metric::Value::Level`) of the serving, strongest or a chosen
+   carrier.
+2. **Sources** (only when no antenna reaches the floor, IND-42).
+3. **Fit** of the model parameters (IND-41).
+4. **Map**: `compute_map` with the fitted parameters.
+5. **Residuals** interpolated over the map, and the confidence mask.
+
+The start parameters are the project's propagation settings
+(`Project::propagation()`, table `propagation`,
+[formats/PROJECT.md](formats/PROJECT.md)), the building's wall-class
+table and dB per floor. Each source is traced at its cell's carrier; a
+source without one, and estimated sources, use the measured carrier: the
+request's frequency, else the metric's carrier, else the median carrier
+of the points. The value compared is the level of the cell on the
+metric's carrier when the metric names a carrier and an antenna serves
+that cell (group `cell:<id>`), else the strongest group at each point.
+
+The result is always labelled "interpolated" ("interpolated, estimated
+sources" with estimated sources) and kept apart from the measured values
+(IND-43).
+
+### Fit to the measured points (IND-41)
+
+`raytrace::fit_model` fits, by least squares on the level in dB:
+
+- the EIRP of every antenna whose EIRP is not known (no EIRP and no feed
+  power; option: all or none), bounds -30 .. 60 dBm;
+- the path-loss exponent n, bounds 1.5 .. 6;
+- the loss of every wall class at the source's frequency, bounds 0 .. 2 x
+  the table value + 10 dB (at most 100 dB), or bounds given per class;
+- the dB per floor S of the inter-floor term (IND-44), when a measured
+  point depends on an antenna of another floor, bounds 0 .. 60 dB; the
+  start is the building's value (a floor's own slab value where set) and
+  the fitted value replaces both in the model.
+
+Walls with their own attenuation, the reflection loss and the reference
+distance stay as set. A parameter no measured point depends on (an
+antenna that reaches no point, a class no ray crosses, no slab between
+the points and an antenna) is not fitted and listed with the reason.
+
+The rays to the points are traced once (`trace_points`). Every ray's
+level in dB is linear in the parameters (EIRP +1, exponent
+-10 log10(d/d0) beyond d0 and 0 within, wall class -crossings, dB per
+floor -slabs), and a point's level is the power sum of its group's rays,
+so the derivative of a point's level is the power-weighted mean of its
+rays' coefficients: exact and cheap.
+
+The solver is Levenberg-Marquardt with Marquardt's scaling (damping
+lambda x diag(J'J), start 1e-3, /10 after an accepted step, x10 after a
+rejected one) and bounds: a step is clamped into the bounds, and a
+parameter on a bound whose gradient points outwards is frozen for that
+step. The start is deterministic: the start values (the antenna's EIRP or
+the default EIRP, the project's exponent, the table losses) clamped into
+the bounds, then the fitted EIRPs moved together by the mean residual. It
+stops when
+
+- an accepted step changes no parameter by more than 1e-9,
+- an accepted step lowers the cost by less than 1e-14 of it,
+- the cost (sum of squared errors) is below 1e-20 dB^2 (exact fit),
+- the damping exceeds 1e12 (no step lowers the cost: a minimum within
+  the bounds), or the projected gradient is zero,
+- or after 200 iterations (option), or when cancelled.
+
+The fit quality, shown and reported, is the root mean square of (model -
+measured) over the used points and their count, plus the mean error, the
+largest error and the rms before the fit. The reported values come from
+`evaluate` with the fitted parameters, the model the map uses.
+
+Tests (TST-36, tests/raytrace/test_fit.cpp): on the office floor, levels
+made by the ray tracer at known parameters (other wall losses, EIRPs 13
+and 7 dBm, exponent 2.6) are fitted from the default table and unknown
+EIRPs: without reflections the exponent comes back within 1e-6 and the
+EIRPs and wall losses within 1e-4 dB, rms below 1e-6 dB; the dB per floor
+of a two-floor building within 1e-4 dB. With 2 reflections and a seeded
+correlated shadowing field (5 m lattice), over eight seeds: rms 0.5 ..
+1.1 sigma, the fitted model within 2/3 sigma rms of the noise-free truth,
+exponent within 0.35, wall losses within 2 dB and single EIRPs within 6
+dB (correlated shadowing trades the EIRPs of nearby antennas against the
+exponent). SIMD and scalar give the same fit. Against the simulator
+(tests/measure_host/test_measure_raytrace.cpp): the simulator's
+calibrated levels at 13 points of a floor with other wall losses and
+EIRP than the plan's give the EIRP back within 0.5 dB and the concrete,
+brick and glass losses within 1 dB (measured: 0.05 dB and 0.001 dB).
+
+### Estimated sources (IND-42)
+
+When no antenna reaches the floor (none on it, and none on other floors
+when they count), `raytrace::estimate_sources` places sources from the
+measured levels alone, one at a time:
+
+- a candidate grid over the floor (spacing: the larger floor side / 32,
+  at least 0.5 m, or set), then four finer 5 x 5 rounds around the best
+  candidate (spacing halved each round, down to 1/16);
+- for each candidate the EIRPs of all sources are fitted (direct rays,
+  the project's exponent and wall losses) and the candidate with the
+  lowest rms wins; the first in grid order wins a tie (deterministic);
+- after a source is added, every kept source is searched again over the
+  whole floor with the others fixed (at most two passes), because the
+  first ones were placed without the later ones;
+- a further source is kept only when it lowers the rms by at least 1 dB;
+  at most 3 sources (options).
+
+By default the sources serve one cell (`estimated`, at the measured
+carrier) and their levels add up in power (a DAS); as an option each is
+a source of its own and the strongest counts. The sources (antennas
+`estimated-1`, ... at 2.7 m with their fitted EIRP) are kept with the
+result, never written into the building model, and the map is labelled
+"estimated sources". The exponent and wall losses are then fitted with
+the sources in place.
+
+### Residual interpolation (IND-41)
+
+The residual of a measured point is measured - model. It is spread over
+the floor by inverse-distance weighting limited by walls:
+
+    correction(x) = sum w_i r_i / (w_0 + sum w_i),   w_i = 1 / d_i^p,   w_0 = 1 / R^p
+
+over the points i within R (10 m) of x that x sees without crossing a
+wall of the floor (the ray tracer's wall test), p = 2. At a measured
+point the correction is its residual (the mean of points at the same
+place), so the map agrees with the measured points there. Away from the
+points, w_0 pulls the correction back to 0: the fitted model alone. The
+value of a cell is model + correction at its centre; a cell no source
+reaches has no value. Tests check hand-computed values (e.g. 2 m from
+two points with residuals 4 and -1.5 dB: (1 - 0.75) / 0.76 dB).
+
+### Confidence mask (IND-43)
+
+The confidence of a cell fades with the distance to the nearest measured
+point it sees (walls limit it as above): 1 up to 2 m, 0 from 10 m,
+linear between (options). Cells off the floor (outside its trim outline)
+have confidence 0. The colour layer uses the measured points' legend and
+thresholds (`survey::cell_colours`: the scale colour of the value with
+alpha = confidence), so unmeasured areas fade out.
+
+### Readout and statistics (IND-43, EXP-06)
+
+- Hover readout (`survey::readout`): the value at the position, and
+  whether it is measured (the position is within half a cell of a
+  measured point: that point's measured value) or interpolated (the
+  cell's value), the cell's model value and confidence, and the nearest
+  measured point with its distance.
+- Statistics stay apart: the point statistics (`survey::coverage_stats`,
+  "% of measured points") count measured points only; the area
+  statistics (`survey::area_stats`, "% of floor area (interpolated)")
+  give, per threshold, the share of the assessed area at or above it.
+  The **floor area** is the grid cells whose centre lies on the floor:
+  inside its trim outline (rectangle or polygon), else inside the plan
+  rectangle (`survey::floor_cells`); the **assessed area** is those with
+  confidence >= 0.5 (option). `survey::coverage_summary` gives both
+  figures side by side with the fit quality and whether the result is
+  stale, as the report shows them.
+- Acceptance on the floor-area basis (EXP-06, `AcceptanceProfile::Basis::
+  FloorArea`, [SURVEY.md](SURVEY.md)): `survey::evaluate_area` evaluates
+  a profile over the maps of one or more floors, a criterion's share
+  being of the assessed area of all floors together (area-weighted). The
+  point statistics give such a profile as not passed, with a note: an
+  interpolated value never counts as a measured one.
+
+### Stored results and staleness (IND-45)
+
+A result is stored in the project (table `interpolations`, schema 6,
+[formats/PROJECT.md](formats/PROJECT.md)) under a key made of the metric
+and the source group; a new run with the same key replaces it (with a
+new id). It keeps everything needed to make it again and to report it:
+the request (metric, sessions, frequency, grid, fit, residual and
+source-search options), the model parameters before and after the fit,
+the fit quality and parameters, the estimated sources, the used points
+with their model value and residual, the number of cells on the floor
+and the map cells (value, model, confidence). Reading it back gives the
+same result (tested).
+
+A stored result is never changed or dropped when its inputs change; it is
+marked **stale** (`survey::staleness`) with the reasons, and the UI
+offers to run it again. It keeps three SHA-256 fingerprints of its
+inputs:
+
+| Fingerprint | Stale when |
+| --- | --- |
+| building | a wall, antenna, cell, wall class, floor, scale, alignment, slab loss or the dB per floor changed (any floor: other floors contribute) |
+| points | a measured point of its selection was added, removed, moved or changed value |
+| settings | the propagation settings or the request's parameters changed |
+
+### Background job (IND-45)
+
+`survey::InterpolationJob` runs a request on a worker thread
+(`util::Job`, with the project shared): it never blocks the UI, reports
+its stage (Points, Sources, Fit, Map, Residuals, Storing) and a
+non-decreasing progress, and can be cancelled at any time. It stores the
+result at the job's commit point, after the last cancel check: a
+cancelled job stores nothing, a finished one is stored. The project's
+change notification of the store comes on the worker thread. The same
+request gives the same map with any thread count and with or without
+SIMD (tested).
 
 ## Speed and SIMD
 
@@ -167,6 +373,15 @@ units measured when set) and a run beyond a limit fails. Measured on the
 build machine (12 hardware threads, RelWithDebInfo, one thread): 4.2 s
 with SIMD, 7.1 s scalar (the default run uses all hardware threads).
 
+`bench_interpolation` times, on the same floor with 400 measured points
+and one thread, the fit (rays to the points with 2 reflections plus the
+solver: 0.17 s), the residual field with its mask on the 0.25 m grid
+(0.13 s SIMD, 0.31 s scalar, equal bit for bit) and the source search of
+IND-42 with a 4 m candidate step (3.6 s). `bench_pipeline` times the
+record pipeline (RF-01): 1.6 million records of 8 carriers through the
+measurement pipeline with 4000 cycles, 0.97 s. Both use the same
+calibration and limits file.
+
 ## Limits
 
 - 2D floor geometry with straight vertical walls; no diffraction around
@@ -180,3 +395,12 @@ with SIMD, 7.1 s scalar (the default run uses all hardware threads).
 - A floor without scale cannot be traced.
 - Outdoor donor directions (IND-12) point at an outdoor site, not at a
   radiator on the floor: they are not traced (listed in `skipped`).
+- The fit is a local least-squares fit: with few points or correlated
+  shadowing, single EIRPs of nearby antennas trade against the exponent
+  (the fitted model stays close; the parameters may not). Parameters no
+  point depends on are not fitted and are listed.
+- Estimated sources use direct rays only and the best-candidate search;
+  they stand in for unknown antennas, labelled as such, and are never
+  written into the building model.
+- The residual map is inverse-distance weighting limited by walls; it
+  does not model the shadowing's correlation (no kriging).

@@ -84,6 +84,20 @@ own changes are in its CHANGELOG.md.
   summed in power per cell. It gives the levels the simulator plugin
   computes for the same floor, runs on all cores and can be cancelled.
   The coverage map built on it comes with the measured-point fit.
+- 2026-11-05: the interpolated coverage map of a floor (docs/PROPAGATION.md
+  "Interpolation of a floor", IND-41..45): the propagation model is fitted
+  to the measured points (unknown EIRPs, path-loss exponent, wall-class
+  losses and the dB per floor, within bounds; the fit quality is shown),
+  the remaining differences are spread over the floor limited by walls,
+  and a confidence mask fades the map away from the points. A floor
+  without antennas gets estimated sources from its points, labelled as
+  such. The map always says "interpolated"; its "% of floor area
+  (interpolated)" stays apart from the measured-point statistics and is a
+  new acceptance basis (EXP-06). Maps run in the background (progress,
+  cancel) and are stored in the project with their parameters; a stored
+  map is marked stale when the building, the points or the settings
+  change. Project schema version 6 (propagation settings and stored maps;
+  older files are migrated).
 
 ### Measurements
 

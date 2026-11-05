@@ -100,21 +100,27 @@ std::vector<SurveyPoint> points_in_area(const std::vector<SurveyPoint>& points, 
 ///   `square_m` holding a point, a square counting when its percentile
 ///   `square_percentile` is >= the threshold. Per floor (squares of
 ///   different floors never merge); without a scale a floor has no
-///   squares. This is the "% of area" of EXP-06 until the interpolated
-///   map (IND-40..45) gives the floor-area basis.
+///   squares.
+/// - FloorArea: "% of floor area (interpolated)" (IND-43): the cells of
+///   the interpolated map on the floor with confidence >= min_confidence,
+///   a cell counting when its interpolated value is >= the threshold.
+///   Kept apart from the measured statistics: interpolation.h
+///   evaluate_area() evaluates it on the maps; evaluate() and the floor
+///   statistics here give such a profile as not passed, with a note.
 struct AcceptanceCriterion {
     double threshold = 0.0;
     double min_percent = 0.0;
     bool operator==(const AcceptanceCriterion&) const = default;
 };
 struct AcceptanceProfile {
-    enum class Basis { Points, TestedArea };
+    enum class Basis { Points, TestedArea, FloorArea };
     std::string name;
     std::string unit = "dBm";
     std::vector<AcceptanceCriterion> criteria;
     Basis basis = Basis::Points;
     double square_m = 2.0;             ///< TestedArea: square size
     double square_percentile = 50.0;   ///< TestedArea: value of a square
+    double min_confidence = 0.5;       ///< FloorArea: least confidence of an assessed cell
 };
 struct CriterionResult {
     AcceptanceCriterion criterion;
@@ -127,7 +133,9 @@ struct AcceptanceResult {
     AcceptanceProfile::Basis basis = AcceptanceProfile::Basis::Points;
     std::size_t points = 0;
     std::size_t squares = 0;  ///< TestedArea: tested squares
-    double area_m2 = 0.0;     ///< TestedArea: tested area
+    std::size_t cells = 0;    ///< FloorArea: assessed map cells
+    double area_m2 = 0.0;     ///< TestedArea: tested area; FloorArea: assessed area
+    std::string note;         ///< e.g. why a profile could not be evaluated here
     bool pass = false;        ///< false without points (squares)
     std::vector<CriterionResult> criteria;
     bool operator==(const AcceptanceResult&) const = default;

@@ -65,6 +65,7 @@ add_library(yantra_core STATIC
   src/raytrace/model.cpp
   src/raytrace/residuals.cpp
   src/survey/bins.cpp
+  src/survey/interpolation.cpp
   src/survey/points.cpp
   src/survey/recordings.cpp
   src/survey/sample.cpp
@@ -128,5 +129,5 @@ else()
   target_compile_definitions(yantra_core PRIVATE YANTRA_RAYTRACE_SIMD=0)
 endif()
 set_source_files_properties(src/raytrace/kernels.cpp src/raytrace/kernels_simd.cpp src/raytrace/model.cpp
-  src/raytrace/fit.cpp src/raytrace/residuals.cpp
+  src/raytrace/fit.cpp src/raytrace/residuals.cpp src/survey/interpolation.cpp
   PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")

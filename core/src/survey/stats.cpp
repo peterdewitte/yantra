@@ -107,6 +107,13 @@ AcceptanceResult evaluate_floors(const AcceptanceProfile& profile, const std::ve
     AcceptanceResult r;
     r.profile = profile.name;
     r.basis = profile.basis;
+    if (profile.basis == AcceptanceProfile::Basis::FloorArea) {
+        // Interpolated values never mix with the measured ones (IND-43).
+        for (const auto* f : floors) r.points += f->size();
+        r.note = "needs the interpolated map (survey::evaluate_area)";
+        for (const AcceptanceCriterion& crit : profile.criteria) r.criteria.push_back({crit, 0.0, false});
+        return r;
+    }
     if (profile.basis == AcceptanceProfile::Basis::TestedArea) {
         // Squares per floor, each judged by its percentile (bins.h).
         std::vector<BinnedView> views;

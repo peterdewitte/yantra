@@ -194,8 +194,15 @@ the shared list:
     no squares, so the profile does not pass there. The result gives the
     tested squares and area in m².
 
-  The interpolated map (IND-40..45) adds the "% of floor area
-  (interpolated)" basis; it is not part of these statistics.
+  - `FloorArea`: "% of floor area (interpolated)" (IND-43): the cells of
+    the interpolated map on the floor (inside its trim outline) with
+    confidence >= `min_confidence` (default 0.5), a cell counting when
+    its interpolated value is >= Y; over several floors the shares are
+    of their assessed area together. Only `survey::evaluate_area` on the
+    maps evaluates it ([PROPAGATION.md](PROPAGATION.md) "Interpolation of
+    a floor"); the point statistics here give such a profile as not
+    passed, with a note, so interpolated values never mix with measured
+    ones. The result gives the assessed cells and area in m².
 
 ## Post-processing
 
