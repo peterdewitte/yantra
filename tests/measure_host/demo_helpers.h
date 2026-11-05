@@ -22,6 +22,7 @@
 #include <yantra/core/measure/catalog.h>
 #include <yantra/core/plugin/loader.h>
 #include <yantra/core/project/project.h>
+#include <yantra/core/raytrace/model.h>
 #include <yantra/core/survey/interpolation.h>
 #include <yantra/core/survey/points.h>
 #include <yantra/core/util/sha256.h>
@@ -62,13 +63,27 @@ inline ys::PointList points_of(const yj::Project& p, const yd::DemoDescription& 
     return ys::point_list(p, q);
 }
 
+/// Worker threads of the interpolations a demo case runs: the ctest
+/// PROCESSORS of test_measure_host's cases (tests/measure_host/
+/// CMakeLists.txt). With all hardware threads (the default) the demo cases
+/// starved the real-time simulator cases running next to them under ctest
+/// -j (the TSan tree). The results do not depend on it (IND-45).
+inline constexpr unsigned kDemoThreads = 4;
+
+inline yantra::raytrace::RunControl demo_run() {
+    yantra::raytrace::RunControl run;
+    run.threads = kDemoThreads;
+    return run;
+}
+
 /// Runs yantra-demo on `description` into `out` (extra options appended);
 /// true when it succeeded.
 inline bool run_yantra_demo(const fs::path& description, const fs::path& out, const std::string& extra = {}) {
     fs::create_directories(out);
     const std::string cmd = std::string("'") + YANTRA_DEMO_PATH + "' --description '" + description.string() +
                             "' --out '" + out.string() + "' --gen '" + DEMO_GEN + "' --scenario-dir '" +
-                            DEMO_SCENARIO_DIR + "' --tetra-plugin '" + TETRA_PLUGIN_PATH + "' " + extra + " > '" +
+                            DEMO_SCENARIO_DIR + "' --tetra-plugin '" + TETRA_PLUGIN_PATH + "' --threads " +
+                            std::to_string(kDemoThreads) + " " + extra + " > '" +
                             (out / "log.txt").string() + "' 2>&1";
     const bool ok = std::system(cmd.c_str()) == 0;
     if (!ok) MESSAGE(file_bytes(out / "log.txt"));

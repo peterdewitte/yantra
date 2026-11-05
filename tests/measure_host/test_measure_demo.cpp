@@ -194,7 +194,7 @@ TEST_CASE("DEMO-05 each floor's stored interpolation is the ray-tracing interpol
         CHECK(!s.estimated_sources);  // the floor's DAS antennas serve T1
         CHECK(s.floor_cells > 0);
         CHECK(s.quality.rms_db < 3.0);
-        const auto again = ys::interpolate(*p, s.request, rt::RunControl{});
+        const auto again = ys::interpolate(*p, s.request, demo_run());
         REQUIRE(again);
         CHECK(again->quality.points == s.quality.points);
         CHECK(again->quality.rms_db == doctest::Approx(s.quality.rms_db).epsilon(1e-6));
