@@ -684,7 +684,9 @@ TEST_CASE("TST-10 simulator: walls and antennas drawn in a project file reach th
     fs::create_directories(dir);
     const fs::path file = dir / "office.yantra";
     std::string floor_id;
-    constexpr std::uint64_t kCarrier = 390'200'000;
+    // 390.0 MHz: the default scenario's D0 carrier, which the plan's cell
+    // replaces (RAD-61, yantra-radios 0.2.3).
+    constexpr std::uint64_t kCarrier = 390'000'000;
     {
         auto p = ypj::Project::create(file, ypj::ProjectInfo{"Simulated office", "Office", "", ""});
         yb::Floor f;
@@ -695,8 +697,6 @@ TEST_CASE("TST-10 simulator: walls and antennas drawn in a project file reach th
         // A 20 m long wall of the plan is 400 units: 0.05 m per unit.
         p->set_scale(floor_id, *yb::two_point_scale({0, 190}, {400, 190}, 20.0));
         p->set_reference_point(floor_id, yb::Point2{0, 0});
-        // An own plan's cells are simulated next to the default scenario's
-        // cells: a carrier none of those uses.
         const std::string cell = p->add_cell(yb::Cell{"", "Indoor DAS", "tetra", "tetra_cell", kCarrier,
                                                       {{"mcc", 901}, {"mnc", 1}, {"la", 100}, {"colour_code", 1}}});
         yb::Antenna a;

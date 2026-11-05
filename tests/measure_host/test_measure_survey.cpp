@@ -40,11 +40,11 @@ using nlohmann::json;
 
 namespace {
 
-constexpr std::uint64_t kCarrier = 390'200'000;
+constexpr std::uint64_t kCarrier = 390'000'000;  // D0's carrier: the plan cell replaces D0 (RAD-61)
 constexpr std::int64_t kNs = 1'000'000'000;
 
 // The office of the 7.3 wall test: 20 x 10 m (0.05 m per unit), the
-// DAS antenna at (3, 5) m with 10 dBm EIRP on cell-1 (390.2 MHz), a
+// DAS antenna at (3, 5) m with 10 dBm EIRP on cell-1 (390.0 MHz), a
 // concrete wall at x = 8 m.
 std::shared_ptr<ypj::Project> office(const fs::path& file, std::string& floor_id) {
     auto p = ypj::Project::create(file, ypj::ProjectInfo{"Simulated office", "Office", "", ""});
