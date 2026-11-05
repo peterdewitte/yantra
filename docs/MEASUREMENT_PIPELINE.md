@@ -124,6 +124,28 @@ pipeline and gets the same cycles and statistics as the live run:
 | Unplug and replug | `device_lost` until the device is back; then fresh samples. |
 | Unknown technology | Generic schema; counted (`generic`). |
 
+## Self-interference (NFR-07)
+
+A laptop, its USB bus and cables radiate RF noise that an antenna close
+to them picks up: the noise next to every carrier rises and the radio
+sees carriers it cannot sync to. Yantra has no spectrum (the radio
+plugins keep their IQ), so `measure::SelfInterferenceMonitor`
+(`core/measure/self_interference.h`) works on the cycles:
+
+| Check | Rule (defaults) |
+| --- | --- |
+| Noise | median over the cycle's fresh, synced, calibrated samples of level - `snr_db` (radio API QUALITY field), dBm |
+| Rise | noise minus the reference: the noise taken with the antenna away from the PC (`set_reference`, from `cycle_noise_dbm`), else the thermal floor -174 dBm/Hz + 10 log10(25 kHz) + 15 dB noise figure (about -115 dBm). A rise >= 6 dB is a finding |
+| Unsynced | 3 or more fresh NO_SYNC samples (a level but no identity) are a finding |
+| Warning | on after 3 cycles in a row with a finding, off after 10 in a row without one |
+
+Samples without an SNR, uncalibrated (dBFS), stale or held samples do
+not count. The warning carries an English text with the advice for the
+UI (phase 9: status bar and level panel): keep the antenna away from the
+laptop, its USB ports and cables; a USB extension cable helps. The radios'
+scenarios as recorded do not raise it; the same records with 20 dB more
+noise next to every carrier do (tests/measure_host/test_measure_self_interference.cpp).
+
 ## Threading
 
 Records and events of different radios arrive on their own delivery
@@ -135,6 +157,15 @@ radio's sink queue fill and drop (counted), never the plugin wait. The
 level corrector is called on the delivery threads, several at once.
 
 ## Hooks for the next steps
+
+- Self-interference (7.6, done): feed every cycle to a
+  `SelfInterferenceMonitor` on the cycle thread and show
+  `warning().text` while `active` (UI, phase 9); offer "take reference"
+  with the antenna away from the PC (`set_reference(cycle_noise_dbm(c))`).
+- Cell database (7.6, done): `celldb::Observations::add(cycle)` collects
+  the survey's cells and lists for verification, cross-check and learning;
+  `celldb::walk_steps` gives the reselection simulator the levels.
+  [CELL_DATABASE.md](CELL_DATABASE.md).
 
 - Calibration and antenna correction (6.2, done): `calibration::TableCorrector`
   with the user's table and `AntennaSettings`, set with `set_corrector`;
