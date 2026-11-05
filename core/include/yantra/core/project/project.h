@@ -139,6 +139,16 @@ struct SourcePage {
     bool operator==(const SourcePage&) const = default;
 };
 
+/// A licence-restricted source file known only by its description
+/// (add_source_reference without the file).
+struct SourceReference {
+    std::string file_name;   ///< no folder
+    std::string media_type;  ///< e.g. image/jpeg
+    std::uint64_t size = 0;  ///< bytes
+    std::string sha256;      ///< 64 lower-case hex digits
+    std::string reference;   ///< the path hint ("" none)
+};
+
 struct AddSourceResult {
     std::string id;
     bool added = false;  ///< false: the same content was already in the project
@@ -495,6 +505,13 @@ public:
     /// Adds a reference to a cached licence-restricted file (IND-03,
     /// DEMO-12): its name, size and SHA-256 are stored, not its content.
     AddSourceResult add_source_reference(const std::filesystem::path& cached_file);
+    /// The same without the file (DEMO-12, DEMO-13: an example project
+    /// made where the licence-restricted file may not be): the file's
+    /// name, media type, size and SHA-256 as described, `reference` as
+    /// the path hint. Invalid for an empty name, a size of 0 or a SHA-256
+    /// that is not 64 lower-case hex digits; the same SHA-256 again
+    /// returns the existing source.
+    AddSourceResult add_source_reference(const SourceReference& described);
     std::vector<SourceFile> sources() const;
     std::optional<SourceFile> source(const std::string& id) const;
     /// The content; Damaged when it no longer matches its hash, Io when a

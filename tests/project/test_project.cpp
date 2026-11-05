@@ -487,6 +487,45 @@ TEST_CASE("project: licence-restricted sources are referenced by hash (IND-03, D
     CHECK(code_of([&] { (void)p->read_source_from(r.id, dir / "short.pdf"); }) == Code::Damaged);
 }
 
+TEST_CASE("project: a licence-restricted source can be referenced from its description alone (IND-03, DEMO-13)") {
+    const fs::path dir = scratch("described-references");
+    const std::string pdf = fake_pdf(1) + std::string(4000, 'z');
+    const fs::path file = dir / "d.yantra";
+    auto p = pj::Project::create(file, info());
+    pj::SourceReference ref;
+    ref.file_name = "sheet.pdf";
+    ref.media_type = "application/pdf";
+    ref.size = pdf.size();
+    ref.sha256 = yantra::util::Sha256::of(pdf);
+    ref.reference = "sheet.pdf";
+    const pj::AddSourceResult r = p->add_source_reference(ref);
+    CHECK(r.added);
+    CHECK_FALSE(p->add_source_reference(ref).added);  // the same SHA-256
+    const auto s = p->source(r.id);
+    REQUIRE(s.has_value());
+    CHECK_FALSE(s->plan.embedded);
+    CHECK(s->plan.file_name == "sheet.pdf");
+    CHECK(s->media_type == "application/pdf");
+    CHECK(s->size == pdf.size());
+    CHECK(s->reference == "sheet.pdf");
+    CHECK(p->check().empty());
+    // The file is not there; once it is (the user's cache), it is read
+    // and checked by its hash.
+    CHECK(code_of([&] { (void)p->read_source(r.id); }) == Code::Io);
+    write_file(dir / "cache.pdf", pdf);
+    CHECK(as_string(p->read_source_from(r.id, dir / "cache.pdf")) == pdf);
+    // The same file added by path later is the same source.
+    CHECK(p->add_source_reference(dir / "cache.pdf").id == r.id);
+    // Refused: no name, a folder in the name, size 0, a bad hash.
+    for (const auto& bad : {pj::SourceReference{"", "image/jpeg", 10, ref.sha256, ""},
+                            pj::SourceReference{"a/b.jpg", "image/jpeg", 10, ref.sha256, ""},
+                            pj::SourceReference{"b.jpg", "image/jpeg", 0, std::string(64, 'a'), ""},
+                            pj::SourceReference{"b.jpg", "image/jpeg", 10, std::string(64, 'A'), ""},
+                            pj::SourceReference{"b.jpg", "image/jpeg", 10, "abc", ""}})
+        CHECK(code_of([&] { (void)p->add_source_reference(bad); }) == Code::Invalid);
+    CHECK(p->sources().size() == 1);
+}
+
 TEST_CASE("project: save_as writes a copy and continues with it") {
     const fs::path dir = scratch("saveas");
     const fs::path a = dir / "a.yantra";

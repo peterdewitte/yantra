@@ -148,7 +148,12 @@ The plan source files (IND-02, IND-03). The project keeps a copy of each
 file, byte for byte; for licence-restricted files (such as the MAK plans
 of DEMO-12) only a reference: the cached file's path when it was added
 and its SHA-256, which identifies it on any computer. A file is stored
-once: adding the same content again gives the existing source.
+once: adding the same content again gives the existing source. The MAK
+example projects (DEMO-13) are made without the file: their reference
+holds the described name, size and SHA-256 and the file name as the
+hint (`Project::add_source_reference(SourceReference)`), and their page
+size comes from the description (`source_pages`); the app reads the
+image from its cache with `read_source_from`.
 
 | Column | Type | Meaning |
 | --- | --- | --- |
@@ -160,7 +165,7 @@ once: adding the same content again gives the existing source.
 | `sha256` | TEXT, unique | 64 lower-case hex digits of the content |
 | `storage` | TEXT | `embedded` or `reference` |
 | `content` | BLOB | the file (`embedded` only; NULL for references) |
-| `reference` | TEXT | `reference` only: the cached file's absolute path when it was added (a hint) |
+| `reference` | TEXT | `reference` only: the cached file's absolute path when it was added, or the described file name (a hint) |
 | `added_utc` | TEXT | when it was added |
 
 A source used by a floor cannot be removed.

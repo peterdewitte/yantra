@@ -1961,6 +1961,40 @@ AddSourceResult Project::add_source_reference(const fs::path& cached_file) {
     return r;
 }
 
+AddSourceResult Project::add_source_reference(const SourceReference& described) {
+    const auto hex = [](const std::string& h) {
+        return h.size() == 64 &&
+               std::all_of(h.begin(), h.end(), [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); });
+    };
+    if (described.file_name.empty() || described.file_name.find_first_of("/\\") != std::string::npos)
+        throw ProjectError(Code::Invalid, "a source reference needs a file name without a folder");
+    if (described.size == 0 || described.size > kMaxSourceBytes)
+        throw ProjectError(Code::Invalid, "source reference " + described.file_name + ": size out of range");
+    if (!hex(described.sha256))
+        throw ProjectError(Code::Invalid, "source reference " + described.file_name + ": SHA-256 is not 64 lower-case hex digits");
+    AddSourceResult r;
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        if (auto id = impl_->source_by_hash(described.sha256)) {
+            return {std::move(*id), false};
+        }
+        sql::Transaction tx(impl_->db);
+        r.id = impl_->next_id("next_source_number", "source-", "sources");
+        sql::Stmt s(impl_->db, "INSERT INTO sources (id, file_name, media_type, size, sha256, storage, reference, "
+                               "added_utc) VALUES (?1, ?2, ?3, ?4, ?5, 'reference', ?6, ?7)");
+        s.bind(1, r.id).bind(2, described.file_name)
+            .bind(3, described.media_type.empty() ? std::string("application/octet-stream") : described.media_type);
+        s.bind(4, static_cast<std::int64_t>(described.size)).bind(5, described.sha256);
+        s.bind(6, described.reference).bind(7, impl_->now()).run();
+        r.added = true;
+        impl_->touch();
+        tx.commit();
+    }
+    notify({Change::Kind::SourceAdded, r.id});
+    return r;
+}
+
 std::vector<SourceFile> Project::sources() const {
     const std::lock_guard l(impl_->mutex);
     impl_->require_open();
