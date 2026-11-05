@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Limits of bench_raytrace (TST-41): calibrated units (time divided by the
+# CPU calibration line), one thread. Set at twice the units measured on
+# the build machine on 2026-11-05 (x86-64, GCC, RelWithDebInfo, one
+# thread): SIMD 4.24 s = 133.86 units, scalar 7.08 s = 223.79 units
+# (calibration 0.0316 s per unit).
+# name,limit
+raytrace_office_simd,267.71
+raytrace_office_scalar,447.58

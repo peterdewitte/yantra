@@ -76,6 +76,14 @@ own changes are in its CHANGELOG.md.
   (PP-05). Acceptance profiles can be evaluated over the tested area
   besides the points (EXP-06). A serving cell on another carrier now
   counts as a serving-cell change.
+- 2026-11-05: the propagation model (docs/PROPAGATION.md, IND-40,
+  IND-44): a ray tracer per floor predicts each cell's level on a grid
+  (default 0.25 m) from the drawn walls and antennas, with free-space
+  loss, the loss of every wall crossed at the cell's carrier, specular
+  reflections (default 2) and the slabs to antennas on other floors,
+  summed in power per cell. It gives the levels the simulator plugin
+  computes for the same floor, runs on all cores and can be cancelled.
+  The coverage map built on it comes with the measured-point fit.
 
 ### Measurements
 
