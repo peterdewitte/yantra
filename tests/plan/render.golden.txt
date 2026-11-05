@@ -1,0 +1,17 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Golden render hashes of tests/plan/test_plan_golden.cpp: <case> <width>x<height>:<sha256 of RGBA>.
+image page 0.3 72x48:27588f7069a59648541e4ff9c76b28de98caae9fafba6ac0ac0f40afc3caf5ff
+image page 1:1 240x160:c66e45713d0285f030094a92e6113bb85c30fd2f2c4c51bd3f08187ea4df4749
+image page 2.5 window 120x90:b6d65129974992554fa84afb6a8bc9096359438a29c9d3f0cddac81b07e94c44
+pdf page 1 at 0.5 298x421:34d15a437687f2ee989672393ce97f6a82a66b80d7920a019d2b08486e941ea7
+pdf page 1 trim polygon + quarter turn + deskew at 0.5 397x260:a9db594596155961169e5c9a5dcd1ac770b359470a4e2bee3d903cb8c206d551
+pdf page 2 at 0.25 141x200:a63690fc5b041c60fe9ef8c2b1bd3db1f60fe8a4021ead441c462eabaee944d8
+trim deskew 172x131:ad4133c409f4daf771bb89929d7c91a24ac761e0026ec71e311cb237de848b0c
+trim polygon 220x140:d704a251e345f160be1562e179940f84c1a4e43c553b25e2366bf20022cd166f
+trim polygon + 3 quarter turns + deskew 132x220:3849a74950fce4690faff12322b26e75e8aed23bf27d28b23bab8e4389a45daa
+trim polygon + 3 quarter turns + deskew at 0.5 66x110:57050c6eb66114caf694be014b1915ff5afa75fa99c5f8b50b645de6ffa4160d
+trim polygon + 3 quarter turns + deskew at 2 265x440:4ce96beb5d2ec3b235d1dc971ab0045b7169358f5f66ab345fe92a5ef923b981
+trim quarter turn 120x180:d18a17725b93e978892f4db7fb8b6102c657eaeba12119f37b793c69c4b1394a
+trim rectangle 180x120:4a9d71fb8b88f2afb9c2ce98380212247c609738ffdc4ddffd24c36f0473c183

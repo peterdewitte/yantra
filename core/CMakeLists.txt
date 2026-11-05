@@ -29,6 +29,10 @@ add_library(yantra_core STATIC
   src/measure/technology_map.cpp
   src/platform/dynlib.cpp
   src/platform/file_posix.cpp
+  src/plan/image_meta.cpp
+  src/plan/source.cpp
+  src/plan/tiles.cpp
+  src/plan/trim.cpp
   src/plugin/abi.cpp
   src/plugin/descriptor.cpp
   src/plugin/folders.cpp
@@ -56,3 +60,26 @@ target_include_directories(yantra_core
 target_link_libraries(yantra_core
   PUBLIC yantra::plugin_api yantra::radio_api Threads::Threads ${CMAKE_DL_LIBS}
   PRIVATE yantra::warnings yantra::json SQLite::SQLite3)
+
+# Plan images (IND-02): stb_image, vendored in third_party/stb (MIT or
+# public domain), compiled once in its own library without Yantra's
+# warning flags. Under UBSan it needs -fno-sanitize=nonnull-attribute
+# (memcpy with a null pointer and size 0 in its decoders).
+# Copied from yantra-v2 68ea20a: core/CMakeLists.txt (plan part).
+add_library(yantra_stb_image STATIC src/plan/stb_image_impl.c)
+target_include_directories(yantra_stb_image SYSTEM PUBLIC ${PROJECT_SOURCE_DIR}/third_party/stb)
+set_target_properties(yantra_stb_image PROPERTIES POSITION_INDEPENDENT_CODE ON)
+if(YANTRA_SANITIZER STREQUAL "asan-ubsan")
+  target_compile_options(yantra_stb_image PRIVATE -fno-sanitize=nonnull-attribute)
+endif()
+target_link_libraries(yantra_core PRIVATE yantra_stb_image)
+
+# PDF plans (IND-02): the pinned PDFium release (cmake/YantraPdfium.cmake),
+# or a stub that refuses PDF sources with a clear reason.
+if(YANTRA_PDFIUM_FOUND)
+  target_sources(yantra_core PRIVATE src/plan/pdf_source.cpp)
+  target_compile_definitions(yantra_core PRIVATE YANTRA_PDFIUM_VERSION="${YANTRA_PDFIUM_VERSION}")
+  target_link_libraries(yantra_core PUBLIC yantra::pdfium)
+else()
+  target_sources(yantra_core PRIVATE src/plan/pdf_none.cpp)
+endif()
