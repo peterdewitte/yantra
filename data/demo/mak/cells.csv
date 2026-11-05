@@ -1,0 +1,4 @@
+#yantra-cells,1
+id,label,technology,schema,site_name,sector,azimuth_deg,colour,notes,origin,plugin_version,frequency_hz,mcc,mnc,la,colour_code,neighbours.frequency_hz,neighbours.la
+T1,Indoor DAS,tetra,tetra_cell,Example building DAS,,,,"Fictitious demo cell: the DAS of the MAK example buildings (ceiling antennas on every floor)",manual,,390000000,901,1,100,1,390200000,200
+M1,Macro site,tetra,tetra_cell,Macro site,,,,"Fictitious demo cell: a macro site outside, weak indoors",manual,,390200000,901,1,200,2,390000000,100

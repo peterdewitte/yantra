@@ -1,0 +1,275 @@
+{
+  "format": "yantra-demo-project",
+  "version": 1,
+  "id": "mak_haus_claeson",
+  "label": "DEMO - simulated data",
+  "project": {
+    "name": "Haus Claeson, Falsterbo (example)",
+    "site": "Falsterbo (historic plan; fictitious network)",
+    "operator_name": "Demo network (fictitious, MCC 901 MNC 1)",
+    "notes": "Example building of the guided tour (DEMO-11, DEMO-12, DEMO-13). Every measurement is simulated (yantra-radios scenario mak_haus_claeson); the network and its DAS are fictitious. The floor plan is not part of Yantra: it is downloaded unaltered from the MAK collection on first use, after you agree, and kept in your cache. Plan: MAK - Museum of Applied Arts, Vienna, Josef Frank, inv. KI 23497-359, CC BY-NC-ND 4.0. The scales are approximate. Walls and DAS antennas are hand-traced main walls only."
+  },
+  "building": {
+    "name": "Haus Claeson, Falsterbo",
+    "floor_attenuation_db": 15.0
+  },
+  "start_utc": "2026-11-03T09:05:00Z",
+  "cell_database": "cells.csv",
+  "sheets": [
+    {
+      "id": "sheet",
+      "file": "mak_haus_claeson.jpg",
+      "sha256": "d56bce9370653c20b4fe388c924c42cfc0c9fadfd86d206a3ec6b612de9e365e",
+      "licence_restricted": true,
+      "size_bytes": 199208,
+      "media_type": "image/jpeg",
+      "width": 1274,
+      "height": 1680,
+      "units_per_inch": 600,
+      "source_url": "https://mak-media.azureedge.net/l/39763d214a8c28c8d647a7ea08af4400.jpg",
+      "item_url": "https://sammlung.mak.at/en/collect/kopie-des-originalplans-mit-querschnitten-und-grundrissen-der-einzelnen-etagen-fuer-das-haus-claeson-in-falsterbo_430870",
+      "title": "Copy of the original plan with cross-sections and floor plans of the individual floors for Haus Claeson in Falsterbo",
+      "licence": "CC BY-NC-ND 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      "credit": {
+        "holder": "MAK - Museum of Applied Arts, Vienna",
+        "designer": "Josef Frank",
+        "year": "1927",
+        "inventory_number": "KI 23497-359"
+      }
+    }
+  ],
+  "floors": [
+    {
+      "id": "basement",
+      "example_id": "mak-haus-claeson-1",
+      "name": "Basement (Källarvåning)",
+      "level": -1,
+      "height_m": 3.2,
+      "sheet": "sheet",
+      "trim": [[640, 240], [1230, 455]],
+      "scale": {
+        "metres_per_unit": 0.028,
+        "approximate": true,
+        "note": "about 0.028 m per pixel, from the drawn 12.00 m width of the house (sheet at 1:50)"
+      },
+      "reference_point": [43, 18],
+      "walls": [
+        {
+          "id": "w1",
+          "class": "concrete",
+          "points": [[43, 18], [574, 18], [574, 65], [450, 65], [450, 200], [43, 200], [43, 18]]
+        },
+        {
+          "id": "w2",
+          "class": "brick",
+          "points": [[300, 18], [300, 200]]
+        }
+      ],
+      "antennas": [
+        {
+          "id": "das-1",
+          "name": "Basement",
+          "model": "Omni ceiling antenna",
+          "position": [170, 110],
+          "height_m": 2.7,
+          "gain_dbi": 2,
+          "feed_power_dbm": 20.8,
+          "cable_loss_db": 3,
+          "splitter_loss_db": 7.8,
+          "cell": "T1"
+        }
+      ],
+      "walk": {
+        "name": "Basement (Källarvåning) walk",
+        "speed_mps": 1.0,
+        "waypoints": [[80, 60], [260, 60], [360, 110], [420, 50], [540, 45], [410, 170], [260, 170], [80, 170]]
+      }
+    },
+    {
+      "id": "ground-floor",
+      "example_id": "mak-haus-claeson-2",
+      "name": "Ground floor (Bottenvåning)",
+      "level": 0,
+      "height_m": 3.2,
+      "sheet": "sheet",
+      "trim": [[105, 1075], [570, 1470]],
+      "scale": {
+        "metres_per_unit": 0.028,
+        "approximate": true,
+        "note": "about 0.028 m per pixel, from the drawn 12.00 m width of the house (sheet at 1:50)"
+      },
+      "reference_point": [25, 40],
+      "walls": [
+        {
+          "id": "w1",
+          "class": "brick",
+          "points": [[25, 40], [450, 40], [450, 255], [25, 255], [25, 40]]
+        },
+        {
+          "id": "w2",
+          "class": "brick",
+          "points": [[170, 40], [170, 255]]
+        },
+        {
+          "id": "w3",
+          "class": "brick",
+          "points": [[305, 40], [305, 255]]
+        },
+        {
+          "id": "w4",
+          "class": "plasterboard",
+          "points": [[305, 115], [450, 115]]
+        },
+        {
+          "id": "w5",
+          "class": "plasterboard",
+          "points": [[170, 165], [305, 165]]
+        }
+      ],
+      "antennas": [
+        {
+          "id": "das-2",
+          "name": "Living room",
+          "model": "Omni ceiling antenna",
+          "position": [95, 145],
+          "height_m": 2.7,
+          "gain_dbi": 2,
+          "feed_power_dbm": 20.8,
+          "cable_loss_db": 3,
+          "splitter_loss_db": 7.8,
+          "cell": "T1"
+        },
+        {
+          "id": "das-3",
+          "name": "Kitchen",
+          "model": "Omni ceiling antenna",
+          "position": [375, 175],
+          "height_m": 2.7,
+          "gain_dbi": 2,
+          "feed_power_dbm": 20.8,
+          "cable_loss_db": 3,
+          "splitter_loss_db": 7.8,
+          "cell": "T1"
+        }
+      ],
+      "walk": {
+        "name": "Ground floor (Bottenvåning) walk",
+        "speed_mps": 1.0,
+        "waypoints": [[65, 75], [145, 225], [245, 225], [245, 75], [375, 75], [415, 225], [345, 325], [95, 325]]
+      }
+    },
+    {
+      "id": "first-floor",
+      "example_id": "mak-haus-claeson-3",
+      "name": "First floor (Våning 1 trapp upp)",
+      "level": 1,
+      "height_m": 3.2,
+      "sheet": "sheet",
+      "trim": [[105, 590], [575, 995]],
+      "scale": {
+        "metres_per_unit": 0.028,
+        "approximate": true,
+        "note": "about 0.028 m per pixel, from the drawn 12.00 m width of the house (sheet at 1:50)"
+      },
+      "reference_point": [30, 80],
+      "walls": [
+        {
+          "id": "w1",
+          "class": "brick",
+          "points": [[30, 80], [450, 80], [450, 280], [30, 280], [30, 80]]
+        },
+        {
+          "id": "w2",
+          "class": "brick",
+          "points": [[175, 80], [175, 280]]
+        },
+        {
+          "id": "w3",
+          "class": "brick",
+          "points": [[305, 80], [305, 280]]
+        },
+        {
+          "id": "w4",
+          "class": "plasterboard",
+          "points": [[175, 135], [305, 135]]
+        }
+      ],
+      "antennas": [
+        {
+          "id": "das-4",
+          "name": "Bedroom west",
+          "model": "Omni ceiling antenna",
+          "position": [105, 180],
+          "height_m": 2.7,
+          "gain_dbi": 2,
+          "feed_power_dbm": 20.8,
+          "cable_loss_db": 3,
+          "splitter_loss_db": 7.8,
+          "cell": "T1"
+        },
+        {
+          "id": "das-5",
+          "name": "Bedroom east",
+          "model": "Omni ceiling antenna",
+          "position": [375, 180],
+          "height_m": 2.7,
+          "gain_dbi": 2,
+          "feed_power_dbm": 20.8,
+          "cable_loss_db": 3,
+          "splitter_loss_db": 7.8,
+          "cell": "T1"
+        }
+      ],
+      "walk": {
+        "name": "First floor (Våning 1 trapp upp) walk",
+        "speed_mps": 1.0,
+        "waypoints": [[65, 110], [145, 250], [235, 250], [240, 170], [345, 110], [415, 250], [295, 340], [75, 340]]
+      }
+    },
+    {
+      "id": "roof-floor",
+      "example_id": "mak-haus-claeson-4",
+      "name": "Roof floor (Takvåning)",
+      "level": 2,
+      "height_m": 3.2,
+      "sheet": "sheet",
+      "trim": [[115, 295], [585, 520]],
+      "scale": {
+        "metres_per_unit": 0.028,
+        "approximate": true,
+        "note": "about 0.028 m per pixel, from the drawn 12.00 m width of the house (sheet at 1:50)"
+      },
+      "reference_point": [18, 17],
+      "walls": [
+        {
+          "id": "w1",
+          "class": "brick",
+          "points": [[168, 55], [385, 55], [385, 170], [168, 170], [168, 55]]
+        }
+      ],
+      "antennas": [
+        {
+          "id": "das-6",
+          "name": "Attic room",
+          "model": "Omni ceiling antenna",
+          "position": [275, 115],
+          "height_m": 2.7,
+          "gain_dbi": 2,
+          "feed_power_dbm": 20.8,
+          "cable_loss_db": 3,
+          "splitter_loss_db": 7.8,
+          "cell": "T1"
+        }
+      ],
+      "walk": {
+        "name": "Roof floor (Takvåning) walk",
+        "speed_mps": 1.0,
+        "waypoints": [[55, 45], [415, 45], [415, 185], [55, 185], [55, 105], [215, 105], [335, 125]]
+      }
+    }
+  ],
+  "interpolation": {
+    "cell": "T1"
+  }
+}

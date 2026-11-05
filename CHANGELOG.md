@@ -109,6 +109,17 @@ own changes are in its CHANGELOG.md.
   `share/yantra/demo/fraunces`. The demo scenarios (DEMO-09) are listed in
   `data/demo/scenarios.json`. Recordings can have a fixed session id, and
   a walk test can take its start time from the measurement clock.
+- 2026-11-05: the three MAK example buildings of the guided tour
+  (DEMO-12, DEMO-13; docs/DEMO.md): Beer house and Villa Bunzl in Vienna
+  and Haus Claeson in Falsterbo, one description each in `data/demo/mak/`
+  (image URL, SHA-256, size, licence and credit; per floor the trim,
+  an approximate scale, walls, DAS antennas and a walk route). The MAK
+  plans themselves (CC BY-NC-ND 4.0) are never shipped: the example
+  projects, made at build time with one simulated walk recording and
+  interpolation per floor and installed to `share/yantra/demo/mak/`,
+  reference the plan by its SHA-256 (IND-03). A plan file that is not the
+  described one is refused with both hashes and the download address.
+  `yantra-demo` takes `--sheets DIR` (the cache) or `--reference-sheets`.
 
 ### Measurements
 

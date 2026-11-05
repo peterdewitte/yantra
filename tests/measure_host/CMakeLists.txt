@@ -17,7 +17,8 @@
 set(_dir ${CMAKE_CURRENT_SOURCE_DIR})
 file(GLOB _srcs CONFIGURE_DEPENDS ${_dir}/test_*.cpp)
 add_executable(test_measure_host ${_srcs})
-target_link_libraries(test_measure_host PRIVATE yantra_test_main yantra_warnings yantra::core yantra::json)
+target_link_libraries(test_measure_host PRIVATE yantra_test_main yantra_warnings yantra::core yantra::json
+                      yantra_plan_fixtures)
 target_include_directories(test_measure_host PRIVATE ${PROJECT_SOURCE_DIR}/tests/radio_host)
 add_dependencies(test_measure_host fake_radio_v1 yantra_radio_plugins yantra_example_beacon yantra_tetra)
 target_compile_definitions(test_measure_host PRIVATE
@@ -62,13 +63,18 @@ endif()
 target_compile_definitions(test_measure_host PRIVATE
   RADIOS_BIN_DIR="${YANTRA_RADIOS_STAGE}/bin"
   RADIOS_SCENARIO_DIR="${YANTRA_RADIOS_DIR}/data/scenarios")
-# The demo project (tools/yantra-demo, DEMO-05/06; test_measure_demo.cpp).
+# The demo project (tools/yantra-demo, DEMO-05/06; test_measure_demo.cpp)
+# and the MAK example projects (DEMO-12/13; test_measure_demo_mak.cpp).
 if(TARGET demo_fraunces)
   add_dependencies(test_measure_host demo_fraunces)
+endif()
+if(TARGET demo_mak)
+  add_dependencies(test_measure_host demo_mak)
 endif()
 target_compile_definitions(test_measure_host PRIVATE
   DEMO_DATA_DIR="${PROJECT_SOURCE_DIR}/data/demo"
   DEMO_FRAUNCES_DIR="$<$<TARGET_EXISTS:demo_fraunces>:${YANTRA_DEMO_FRAUNCES_DIR}>"
+  DEMO_MAK_DIR="$<$<TARGET_EXISTS:demo_mak>:${YANTRA_DEMO_MAK_DIR}>"
   YANTRA_DEMO_PATH="$<TARGET_FILE:yantra-demo>"
   DEMO_GEN="${YANTRA_DEMO_GEN}"
   DEMO_SCENARIO_DIR="${YANTRA_DEMO_SCENARIO_DIR}")

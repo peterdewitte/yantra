@@ -102,6 +102,83 @@ walk points they are the ray tracer's levels with no reflections within
 reflections) and the fit (IND-41), so they differ from the walk by the
 fit's rms error (about 1.4 dB).
 
+## The MAK example buildings (DEMO-12, DEMO-13)
+
+The guided tour (DEMO-11) uses three example buildings, one per sheet of
+the MAK collection (spec section 0 [MAK]): the Beer house in Vienna
+(Josef Frank and Oskar Wlach, 1929-30), Haus Claeson in Falsterbo
+(Josef Frank, 1927) and Villa Bunzl in Vienna (Josef Frank, 1936). The
+sheets are licensed CC BY-NC-ND 4.0 by the MAK - Museum of Applied Arts,
+Vienna: **they are never in the repository, the packages, screenshots,
+docs or samples, and never altered**. Yantra ships only a description
+per building, `data/demo/mak/<id>.json` (installed to
+`share/yantra/demo/mak/`), in the same `yantra-demo-project` format, and
+the projects and walk recordings made from it.
+
+| Id | Floors (example ids) | DAS antennas | Image (SHA-256 in the description) |
+|---|---|---|---|
+| `mak_beer_house` | basement, ground floor, upper floor, attic (`mak-beer-house-1..4`) | 8 | 1680 x 1565 px JPEG, KI 23126-36 |
+| `mak_haus_claeson` | basement, ground floor, first floor, roof floor (`mak-haus-claeson-1..4`) | 6 | 1274 x 1680 px JPEG, KI 23497-359 |
+| `mak_villa_bunzl` | basement, ground floor, upper floor (`mak-villa-bunzl-1..3`) | 5 | 1680 x 1262 px JPEG, KI 23126-41 |
+
+The floors are trimmed from the one sheet of each building. The walls
+are the main walls only and, like the antennas and walk routes, were
+traced for the demo (copied from yantra-v2 68ea20a, `data/demo/mak/`).
+The network is the fictitious one of the Fraunces project (T1 on
+390.0 MHz with every antenna at 12 dBm EIRP, as the radios' scenarios
+`mak_beer_house`, `mak_haus_claeson` and `mak_villa_bunzl` set them;
+M1 on 390.2 MHz).
+
+What the description adds for a licence-restricted sheet:
+
+- `sheets[]`: `licence_restricted: true`, `size_bytes`, `media_type`,
+  `width` and `height` (pixels), `units_per_inch`, the image URL
+  (`source_url`, https) and catalogue page (`item_url`), `licence`,
+  `licence_url` and `credit` (`holder`, `designer`, `year`,
+  `inventory_number`), shown with the plan and in its reports (DEMO-12);
+  `file` is the image's name in the user's cache.
+- `floors[].scale`: `metres_per_unit` with `"approximate": true` and a
+  `note` saying how it was found (the sheets have no usable scale bar),
+  instead of `scale_bar`.
+
+Every description is checked when read: each trim lies on its sheet and
+every wall point, antenna, walk waypoint and reference point on its
+floor's trimmed plan.
+
+### Projects and the image
+
+`demo::create_project` never copies a restricted sheet: the project
+references it by SHA-256 (IND-03) with the described name, size and page
+size. With `CreateOptions::sheet_folder` (the user's cache) the file there
+must be the described one: its SHA-256, size and pixel size are checked
+first, and a missing or different file is refused with a message naming
+both hashes and the download URL. The build has no image: the target
+`demo_mak` runs `yantra-demo --reference-sheets` per building, which
+references the sheet from the description alone, and makes
+`build/demo/mak/<id>/<id>.yantra` and its `recordings/` exactly as for
+Fraunces (yantra-gen ground truth of the floor's scenario, replayed into
+a recorded continuous walk, the interpolation of each floor stored).
+They contain no image data and are installed to
+`share/yantra/demo/mak/<id>/` (DEMO-13). By hand, with a cache folder:
+
+```sh
+yantra-demo --description data/demo/mak/mak_villa_bunzl.json --out DIR \
+  --sheets CACHE_DIR --gen ... --scenario-dir ... --tetra-plugin ...
+```
+
+On first use the app (phase 9 tour) asks the user, downloads the
+unaltered image from `source_url` with a plain request, checks it with
+`demo::check_sheet_file` and keeps it in the cache; the project then
+reads it with `Project::read_source_from`. If the download fails or the
+hash differs, the tour says so and opens the Fraunces project instead.
+
+The tests (`tests/measure_host/test_measure_demo_mak.cpp`) need no MAK
+image: a synthetic JPEG of the same pixel size stands in for each sheet
+(refused against the real description; accepted, as a reference, by a
+copy of the description with the stand-in's hash). The case that uses
+the real sheets runs only when `YANTRA_MAK_CACHE` names a folder holding
+them and is skipped with that reason otherwise.
+
 ## Demo scenarios (DEMO-09)
 
 `data/demo/scenarios.json` (format `yantra-demo-scenarios`, version 1)
@@ -118,5 +195,5 @@ script, the user manual and the tests.
 | `weak_signal` | One weak cell near sensitivity with a noisy receiver and fading |
 
 The example plans have their own scenarios, chosen by example id:
-`fraunces` (this project) and, for the tour's MAK buildings (DEMO-12),
-`mak_beer_house`, `mak_haus_claeson` and `mak_villa_bunzl`.
+`fraunces` (the Fraunces project) and, for the tour's MAK buildings
+(DEMO-12), `mak_beer_house`, `mak_haus_claeson` and `mak_villa_bunzl`.

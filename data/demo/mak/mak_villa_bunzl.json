@@ -1,0 +1,249 @@
+{
+  "format": "yantra-demo-project",
+  "version": 1,
+  "id": "mak_villa_bunzl",
+  "label": "DEMO - simulated data",
+  "project": {
+    "name": "Villa Bunzl, Vienna (example)",
+    "site": "Chimanistrasse 18, Vienna 19 (historic plan; fictitious network)",
+    "operator_name": "Demo network (fictitious, MCC 901 MNC 1)",
+    "notes": "Example building of the guided tour (DEMO-11, DEMO-12, DEMO-13). Every measurement is simulated (yantra-radios scenario mak_villa_bunzl); the network and its DAS are fictitious. The floor plan is not part of Yantra: it is downloaded unaltered from the MAK collection on first use, after you agree, and kept in your cache. Plan: MAK - Museum of Applied Arts, Vienna, Josef Frank, inv. KI 23126-41, CC BY-NC-ND 4.0. The scales are approximate. Walls and DAS antennas are hand-traced main walls only."
+  },
+  "building": {
+    "name": "Villa Bunzl, Vienna",
+    "floor_attenuation_db": 15.0
+  },
+  "start_utc": "2026-11-03T09:05:00Z",
+  "cell_database": "cells.csv",
+  "sheets": [
+    {
+      "id": "sheet",
+      "file": "mak_villa_bunzl.jpg",
+      "sha256": "35333c2e538c2fbcd536d1c52281ab260f9049c6e5ad070d31a5d513c9ee1a4b",
+      "licence_restricted": true,
+      "size_bytes": 694770,
+      "media_type": "image/jpeg",
+      "width": 1680,
+      "height": 1262,
+      "units_per_inch": 300,
+      "source_url": "https://mak-media.azureedge.net/l/2a4a77207054ae807920113d42e83f1b.jpg",
+      "item_url": "https://sammlung.mak.at/en/collect/copy-of-the-original-floor-plans-with-legend-for-the-individual-floors-as-well-as-of-the-cross-section-with-pencil-sketches-and-markings-for-the-villa-for-hugo-bunzl-at-chimanistrasse-18-vienna_332434",
+      "title": "Copy of the original floor plans with legend for the individual floors as well as of the cross-section, with pencil sketches and markings, for the villa for Hugo Bunzl at Chimanistrasse 18, Vienna",
+      "licence": "CC BY-NC-ND 4.0",
+      "licence_url": "https://creativecommons.org/licenses/by-nc-nd/4.0/",
+      "credit": {
+        "holder": "MAK - Museum of Applied Arts, Vienna",
+        "designer": "Josef Frank",
+        "year": "1936",
+        "inventory_number": "KI 23126-41"
+      }
+    }
+  ],
+  "floors": [
+    {
+      "id": "basement",
+      "example_id": "mak-villa-bunzl-1",
+      "name": "Basement (Keller)",
+      "level": -1,
+      "height_m": 3.2,
+      "sheet": "sheet",
+      "trim": [[85, 170], [360, 600]],
+      "scale": {
+        "metres_per_unit": 0.032,
+        "approximate": true,
+        "note": "about 0.032 m per pixel, estimated from the size of the rooms (the sheet has no readable scale bar)"
+      },
+      "reference_point": [45, 55],
+      "walls": [
+        {
+          "id": "w1",
+          "class": "concrete",
+          "points": [[45, 55], [233, 55], [233, 405], [45, 405], [45, 55]]
+        },
+        {
+          "id": "w2",
+          "class": "brick",
+          "points": [[45, 140], [233, 140]]
+        },
+        {
+          "id": "w3",
+          "class": "plasterboard",
+          "points": [[65, 290], [215, 290]]
+        },
+        {
+          "id": "w4",
+          "class": "plasterboard",
+          "points": [[155, 55], [155, 140]]
+        }
+      ],
+      "antennas": [
+        {
+          "id": "das-1",
+          "name": "Basement",
+          "model": "Omni ceiling antenna",
+          "position": [140, 250],
+          "height_m": 2.7,
+          "gain_dbi": 2,
+          "feed_power_dbm": 20.0,
+          "cable_loss_db": 3,
+          "splitter_loss_db": 7.0,
+          "cell": "T1"
+        }
+      ],
+      "walk": {
+        "name": "Basement (Keller) walk",
+        "speed_mps": 1.0,
+        "waypoints": [[75, 90], [205, 90], [205, 210], [85, 210], [85, 350], [205, 350]]
+      }
+    },
+    {
+      "id": "ground-floor",
+      "example_id": "mak-villa-bunzl-2",
+      "name": "Ground floor (Parterre)",
+      "level": 0,
+      "height_m": 3.2,
+      "sheet": "sheet",
+      "trim": [[95, 670], [790, 1210]],
+      "scale": {
+        "metres_per_unit": 0.032,
+        "approximate": true,
+        "note": "about 0.032 m per pixel, estimated from the size of the rooms (the sheet has no readable scale bar)"
+      },
+      "reference_point": [40, 30],
+      "walls": [
+        {
+          "id": "w1",
+          "class": "brick",
+          "points": [[40, 30], [595, 30], [595, 220], [665, 220], [665, 355], [570, 355], [570, 515], [405, 515], [405, 360], [205, 360], [205, 470], [45, 470], [40, 30]]
+        },
+        {
+          "id": "w2",
+          "class": "brick",
+          "points": [[40, 220], [595, 220]]
+        },
+        {
+          "id": "w3",
+          "class": "brick",
+          "points": [[195, 30], [195, 360]]
+        },
+        {
+          "id": "w4",
+          "class": "plasterboard",
+          "points": [[385, 30], [385, 220]]
+        },
+        {
+          "id": "w5",
+          "class": "plasterboard",
+          "points": [[450, 30], [450, 220]]
+        },
+        {
+          "id": "w6",
+          "class": "plasterboard",
+          "points": [[45, 340], [205, 340]]
+        }
+      ],
+      "antennas": [
+        {
+          "id": "das-2",
+          "name": "Hall",
+          "model": "Omni ceiling antenna",
+          "position": [285, 130],
+          "height_m": 2.7,
+          "gain_dbi": 2,
+          "feed_power_dbm": 20.0,
+          "cable_loss_db": 3,
+          "splitter_loss_db": 7.0,
+          "cell": "T1"
+        },
+        {
+          "id": "das-3",
+          "name": "Living room",
+          "model": "Omni ceiling antenna",
+          "position": [485, 330],
+          "height_m": 2.7,
+          "gain_dbi": 2,
+          "feed_power_dbm": 20.0,
+          "cable_loss_db": 3,
+          "splitter_loss_db": 7.0,
+          "cell": "T1"
+        }
+      ],
+      "walk": {
+        "name": "Ground floor (Parterre) walk",
+        "speed_mps": 1.0,
+        "waypoints": [[105, 90], [325, 90], [525, 90], [525, 180], [285, 180], [245, 280], [505, 280], [625, 290], [505, 430], [465, 480]]
+      }
+    },
+    {
+      "id": "upper-floor",
+      "example_id": "mak-villa-bunzl-3",
+      "name": "Upper floor (Stock)",
+      "level": 1,
+      "height_m": 3.2,
+      "sheet": "sheet",
+      "trim": [[975, 650], [1380, 935]],
+      "scale": {
+        "metres_per_unit": 0.032,
+        "approximate": true,
+        "note": "about 0.032 m per pixel, estimated from the size of the rooms (the sheet has no readable scale bar)"
+      },
+      "reference_point": [25, 55],
+      "walls": [
+        {
+          "id": "w1",
+          "class": "brick",
+          "points": [[25, 55], [380, 55], [380, 230], [25, 230], [25, 55]]
+        },
+        {
+          "id": "w2",
+          "class": "brick",
+          "points": [[115, 95], [115, 220]]
+        },
+        {
+          "id": "w3",
+          "class": "plasterboard",
+          "points": [[240, 95], [240, 220]]
+        },
+        {
+          "id": "w4",
+          "class": "plasterboard",
+          "points": [[115, 95], [240, 95]]
+        }
+      ],
+      "antennas": [
+        {
+          "id": "das-4",
+          "name": "Bedrooms",
+          "model": "Omni ceiling antenna",
+          "position": [175, 150],
+          "height_m": 2.7,
+          "gain_dbi": 2,
+          "feed_power_dbm": 20.0,
+          "cable_loss_db": 3,
+          "splitter_loss_db": 7.0,
+          "cell": "T1"
+        },
+        {
+          "id": "das-5",
+          "name": "Terrace room",
+          "model": "Omni ceiling antenna",
+          "position": [315, 150],
+          "height_m": 2.7,
+          "gain_dbi": 2,
+          "feed_power_dbm": 20.0,
+          "cable_loss_db": 3,
+          "splitter_loss_db": 7.0,
+          "cell": "T1"
+        }
+      ],
+      "walk": {
+        "name": "Upper floor (Stock) walk",
+        "speed_mps": 1.0,
+        "waypoints": [[65, 90], [65, 200], [175, 200], [175, 120], [305, 120], [345, 200], [225, 210]]
+      }
+    }
+  ],
+  "interpolation": {
+    "cell": "T1"
+  }
+}

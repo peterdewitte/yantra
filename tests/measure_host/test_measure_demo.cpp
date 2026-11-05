@@ -35,10 +35,12 @@
 #include <yantra/core/survey/viewer.h>
 #include <yantra/core/util/sha256.h>
 
+#include "demo_helpers.h"
 #include "e2e_helpers.h"
 #include "measure_rig.h"
 
 using namespace mh;
+using namespace demo_test;
 namespace yb = yantra::building;
 namespace yd = yantra::demo;
 namespace yj = yantra::project;
@@ -57,72 +59,12 @@ bool demo_built() {
     return true;
 }
 
-fs::path scratch(const std::string& name) {
-    const fs::path p = fs::path(MEASURE_SCRATCH_DIR) / "demo" / (name + "." + std::to_string(getpid()));
-    fs::remove_all(p);
-    fs::create_directories(p);
-    return p;
-}
-
 // A copy of the built demo project (project file and recordings), so a
 // case never changes the build's files.
 fs::path demo_copy(const std::string& name) {
     const fs::path dir = scratch(name);
     fs::copy(DEMO_FRAUNCES_DIR, dir, fs::copy_options::recursive);
     return dir;
-}
-
-std::string file_sha256(const fs::path& p) {
-    std::ifstream in(p, std::ios::binary);
-    return yantra::util::Sha256::of(std::string(std::istreambuf_iterator<char>(in), {}));
-}
-
-std::shared_ptr<ym::TechnologyCatalog> tetra_catalog(yp::PluginLoader& loader) {
-    const yp::PluginEntry e = loader.load_file(TETRA_PLUGIN_PATH);
-    REQUIRE(e.status == yp::PluginStatus::Enabled);
-    auto catalog = std::make_shared<ym::TechnologyCatalog>();
-    REQUIRE(catalog->add(*loader.info(e.id), loader.descriptor(e.id), loader.instance(e.id)));
-    return catalog;
-}
-
-ys::PointList points_of(const yj::Project& p, const yd::DemoDescription& d, const std::string& floor) {
-    ys::PointQuery q;
-    q.floor_id = floor;
-    q.metric = yd::demo_metric(p, d);
-    return ys::point_list(p, q);
-}
-
-// The project content that must not depend on when or where it was made:
-// everything but the creation times and the plan copies' path hints.
-void check_same_content(const yj::Project& a, const yj::Project& b, const yd::DemoDescription& d) {
-    CHECK(a.meta().info == b.meta().info);
-    CHECK(a.building() == b.building());
-    CHECK(a.cell_database().entries() == b.cell_database().entries());
-    auto sources = [](const yj::Project& p) {
-        auto s = p.sources();
-        for (auto& f : s) f.added_utc.clear(), f.reference.clear();
-        return s;
-    };
-    CHECK(sources(a) == sources(b));
-    auto recordings = [](const yj::Project& p) {
-        auto r = p.recordings();
-        for (auto& f : r) f.added_utc.clear();
-        return r;
-    };
-    CHECK(recordings(a) == recordings(b));
-    CHECK(a.sessions() == b.sessions());
-    for (const yd::DemoFloor& f : d.floors) {
-        CAPTURE(f.id);
-        CHECK(points_of(a, d, f.id) == points_of(b, d, f.id));
-        auto ia = a.interpolations(f.id, true);
-        auto ib = b.interpolations(f.id, true);
-        REQUIRE(ia.size() == ib.size());
-        for (std::size_t i = 0; i < ia.size(); ++i) {
-            ia[i].created_utc.clear();
-            ib[i].created_utc.clear();
-            CHECK(ia[i] == ib[i]);
-        }
-    }
 }
 
 }  // namespace
@@ -273,11 +215,7 @@ TEST_CASE("DEMO-06 making the demo project again gives the same recordings and p
     if (!demo_built()) return;
     const yd::DemoDescription d = yd::read_description(kDescription);
     const fs::path dir = scratch("again");
-    const std::string cmd = std::string("'") + YANTRA_DEMO_PATH + "' --description '" + kDescription.string() +
-                            "' --out '" + dir.string() + "' --gen '" + DEMO_GEN + "' --scenario-dir '" +
-                            DEMO_SCENARIO_DIR + "' --tetra-plugin '" + TETRA_PLUGIN_PATH + "' > '" +
-                            (dir / "log.txt").string() + "' 2>&1";
-    REQUIRE(std::system(cmd.c_str()) == 0);
+    REQUIRE(run_yantra_demo(kDescription, dir));
     for (const auto& e : fs::directory_iterator(fs::path(DEMO_FRAUNCES_DIR) / "recordings")) {
         CAPTURE(e.path().filename().string());
         CHECK(file_sha256(e.path()) == file_sha256(dir / "recordings" / e.path().filename()));
