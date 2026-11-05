@@ -51,6 +51,8 @@ The calibration table and antenna correction:
 [docs/CALIBRATION.md](docs/CALIBRATION.md).
 The TETRA technology plugin (schemas, channel raster, C1, reselection):
 [docs/plugins/TETRA.md](docs/plugins/TETRA.md).
+The cell database (CSV import/export, verification, cross-check,
+reselection simulator): [docs/CELL_DATABASE.md](docs/CELL_DATABASE.md).
 
 Out of scope, by design: short data messages, subscriber addresses, voice
 and decryption. Yantra only handles broadcast and system information,

@@ -53,8 +53,24 @@ own changes are in its CHANGELOG.md.
   statistics: shares above thresholds, percentiles, per area, per floor
   and for the building, serving-cell changes and acceptance profiles
   (EXP-05, EXP-06, PP-02).
+- 2026-11-05: the cell database (docs/CELL_DATABASE.md), kept in the
+  project's cells (project schema 5): site, sector, azimuth, graph
+  colour, notes, broadcast and reselection parameters and up to 31
+  neighbours per cell; cells identified by LA, by channel or by both.
+  CSV import and export with LA in hex or decimal and channel numbers;
+  rows that cannot be read are reported by line. Received broadcasts are
+  verified against it (match, differs, new, missing, per parameter and
+  neighbour) with a difference log, can fill or extend it (auto-learn),
+  and neighbour relations that are not mutual are found across all cells
+  of a survey or project. A reselection simulator shows the serving-cell
+  state and the reselection that would occur, also along a walk.
 
 ### Measurements
+
+- 2026-11-05: a self-interference warning: raised noise next to the
+  carriers or many carriers without sync for three seconds suggest that
+  the antenna picks up the laptop's RF noise; the advice is to keep the
+  antenna away from the PC, its USB ports and cables.
 
 - 2026-11-04: the TETRA technology plugin (`tetra.so`): TETRA cell,
   neighbour, scan and terminal records with their own columns, the

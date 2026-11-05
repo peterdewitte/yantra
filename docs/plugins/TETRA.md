@@ -144,7 +144,16 @@ received code (nearest code, ties to the higher one).
 
 - Neighbour links use the frequency only; linking `neighbour_la`,
   `neighbour_mcc` and `neighbour_mnc` needs a link rule "the entry's
-  value, else the broadcaster's" in plugin.h (an API change).
+  value, else the broadcaster's" in plugin.h (an API change). Until then
+  the cell database treats the LA it takes from the broadcaster as
+  inherited: it ranks a match but never refuses one, so a neighbour in
+  another location area still resolves by its frequency
+  ([CELL_DATABASE.md](../CELL_DATABASE.md)).
 - The reselection formulation is ours; it is to be checked against
-  EN 300 392-2 clause 18.3.4 before the cell database uses it.
+  EN 300 392-2 clause 18.3.4. The cell database's simulator (DB-08) uses
+  it as it is. The earlier implementation (yantra-v1) applied
+  relinquishable and improvable only when a neighbour meets the
+  criterion and had 5 s / 15 s timers; here the states follow the
+  thresholds alone and a walk's hold time is the caller's
+  (`celldb::WalkOptions::hold_s`).
 - Help texts are English only; the labels are translated.
