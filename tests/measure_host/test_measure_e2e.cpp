@@ -10,7 +10,7 @@
 //     pipeline with the TETRA technology plugin on a ManualClock;
 //   - the simulator radio plugin (RAD-61) on the same scenarios through
 //     RadioHost + pipeline + TETRA plugin, also with Yantra's building
-//     model (walls, PLG-27);
+//     model (walls, PLG-27), also drawn through a project file (IND-11/12);
 //   - late, burst, out-of-order and duplicate TETRA records (TST-23) and
 //     the >= 1 Hz cadence without gaps (TST-31), with calibration (TST-30).
 // Levels, identities, neighbours, C1 (delivered and estimated) and sample
@@ -30,11 +30,17 @@
 #include <yantra/core/building/model.h>
 #include <yantra/core/context/building_context.h>
 #include <yantra/core/measure/record_file.h>
+#include <yantra/core/building/edit.h>
+#include <yantra/core/project/project.h>
+#include <yantra/core/radio/scene_export.h>
+
+#include <nlohmann/json.hpp>
 
 #include "measure_rig.h"
 
 using namespace mh;
 namespace yb = yantra::building;
+namespace ypj = yantra::project;
 
 namespace {
 
@@ -813,6 +819,108 @@ TEST_CASE("TST-10 simulator: Yantra's building model sets the indoor level; a wa
     const double behind = at_cursor(mark, 10, 10, 1);
     MESSAGE("T1 at (12, 5) m: " << open << " dBm without the wall, " << behind << " dBm behind it");
     CHECK(std::fabs((open - behind) - wall_db) <= 1.0);
+}
+
+TEST_CASE("TST-10 simulator: walls and antennas drawn in a project file reach the simulator's scene; the level drops across a drawn wall as the multi-wall model predicts (IND-08, IND-11, IND-12, RAD-36)") {
+    // The building is drawn through the project API (schema 3: scale from
+    // two points, a cell, an antenna, a wall), closed and reopened; the
+    // reopened model is what the context callbacks export (PLG-27).
+    const fs::path dir = fs::path(MEASURE_SCRATCH_DIR) / "project-wall";
+    fs::remove_all(dir);
+    fs::create_directories(dir);
+    const fs::path file = dir / "office.yantra";
+    std::string floor_id;
+    constexpr std::uint64_t kCarrier = 390'200'000;
+    {
+        auto p = ypj::Project::create(file, ypj::ProjectInfo{"Simulated office", "Office", "", ""});
+        yb::Floor f;
+        f.name = "Ground floor";
+        f.plan_width = 400;
+        f.plan_height = 200;
+        floor_id = p->add_floor(f);
+        // A 20 m long wall of the plan is 400 units: 0.05 m per unit.
+        p->set_scale(floor_id, *yb::two_point_scale({0, 190}, {400, 190}, 20.0));
+        p->set_reference_point(floor_id, yb::Point2{0, 0});
+        // An own plan's cells are simulated next to the default scenario's
+        // cells: a carrier none of those uses.
+        const std::string cell = p->add_cell(yb::Cell{"", "Indoor DAS", "tetra", "tetra_cell", kCarrier,
+                                                      {{"mcc", 901}, {"mnc", 1}, {"la", 100}, {"colour_code", 1}}});
+        yb::Antenna a;
+        a.name = "DAS 1";
+        a.position = {60, 100};  // (3, 5) m
+        a.height_m = 2.8;
+        a.eirp_dbm = 10.0;
+        a.cell = cell;
+        p->add_antenna(floor_id, a);
+        p->add_wall(floor_id, yb::Wall{"", "concrete", {{160, 0}, {160, 200}}, std::nullopt});  // x = 8 m
+    }
+    auto project = ypj::Project::open(file);
+    const yb::Building b = project->building();
+    // The scene the simulator reads holds the drawn wall and antenna.
+    const yr::SceneExport scene = yr::export_scene(b, floor_id);
+    REQUIRE_MESSAGE(scene.ok, scene.error);
+    const auto j = nlohmann::json::parse(scene.json);
+    REQUIRE(j["walls"].size() == 1);
+    CHECK(j["walls"][0]["polyline"] == "wall-1");
+    CHECK(j["walls"][0]["x1_m"].get<double>() == doctest::Approx(8.0));
+    REQUIRE(j["antennas"].size() == 1);
+    CHECK(j["antennas"][0]["id"] == "antenna-1");
+    CHECK(j["antennas"][0]["x_m"].get<double>() == doctest::Approx(3.0));
+
+    SimRun sim;
+    yc::BuildingContext context(sim.rig.publisher, yr::SceneExportOptions{});
+    context.set_building(b);
+    context.show_floor(floor_id);
+    context.set_cursor(yb::Point2{140.0, 100.0});  // (7, 5) m: 4 m from the antenna, before the wall
+    if (!sim.open("", 10.0)) return;
+    sim.calibrate();
+    REQUIRE(sim.dev->start(serving(kCarrier)) == YR_OK);
+    // Mean calibrated level of 10 records at x_m behind `walls` walls,
+    // from record `from` on, after 10 that let the receiver settle.
+    auto level_at = [&](std::size_t from, double x_m, int walls) {
+        std::vector<ym::MappedRecord> got;
+        const bool ok = sim.rig.out->wait([&] {
+            got.clear();
+            std::size_t seen = 0;
+            for (std::size_t i = from; i < sim.rig.out->records.size(); ++i) {
+                const ym::MappedRecord& m = sim.rig.out->records[i];
+                if (m.schema->id != "tetra_cell" || m.frequency_hz != kCarrier || num(m, "sim_x_m") != x_m ||
+                    num(m, "walls") != static_cast<double>(walls))
+                    continue;
+                if (++seen > 10) got.push_back(m);
+            }
+            return got.size() >= 10;
+        });
+        REQUIRE(ok);
+        double sum = 0.0;
+        for (const auto& m : got) {
+            CHECK(m.correction.calibrated);
+            CHECK(text(m, "sim_floor_id") == floor_id);
+            sum += m.level;
+        }
+        return sum / static_cast<double>(got.size());
+    };
+    const double front = level_at(0, 7.0, 0);
+    std::size_t mark = 0;
+    {
+        const std::lock_guard lock(sim.rig.out->m);
+        mark = sim.rig.out->records.size();
+    }
+    context.set_cursor(yb::Point2{240.0, 100.0});  // (12, 5) m: 9 m from the antenna, behind the wall
+    const double behind = level_at(mark, 12.0, 1);
+    // Multi-wall model (yantra-radios docs/CHANNEL_MODEL.md, RAD-73): free
+    // space over the 3D distance (antenna 2.8 m, receiver 1.5 m high) plus
+    // the wall's loss at the carrier, from the project's wall-class table.
+    auto fspl = [](double horizontal_m) {
+        const double d = std::hypot(horizontal_m, 2.8 - 1.5);
+        return 20.0 * std::log10(4.0 * std::numbers::pi * d * static_cast<double>(kCarrier) / 299'792'458.0);
+    };
+    const double wall_db = *b.wall_attenuation_db(b.floors[0].walls[0], static_cast<double>(kCarrier) / 1e6);
+    const double predicted = fspl(9.0) - fspl(4.0) + wall_db;
+    MESSAGE("cell-1 at (7, 5) m: " << front << " dBm, at (12, 5) m behind the wall: " << behind << " dBm; predicted drop "
+                               << predicted << " dB");
+    CHECK(std::fabs(front - (10.0 - fspl(4.0))) <= 0.5);
+    CHECK(std::fabs((front - behind) - predicted) <= 1.0);
 }
 
 TEST_CASE("TST-23 simulator: a burst the pipeline cannot keep up with is dropped and counted; the cycles go on") {

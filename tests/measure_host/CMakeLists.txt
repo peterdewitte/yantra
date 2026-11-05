@@ -16,7 +16,7 @@
 set(_dir ${CMAKE_CURRENT_SOURCE_DIR})
 file(GLOB _srcs CONFIGURE_DEPENDS ${_dir}/test_*.cpp)
 add_executable(test_measure_host ${_srcs})
-target_link_libraries(test_measure_host PRIVATE yantra_test_main yantra_warnings yantra::core)
+target_link_libraries(test_measure_host PRIVATE yantra_test_main yantra_warnings yantra::core yantra::json)
 target_include_directories(test_measure_host PRIVATE ${PROJECT_SOURCE_DIR}/tests/radio_host)
 add_dependencies(test_measure_host fake_radio_v1 yantra_radio_plugins yantra_example_beacon yantra_tetra)
 target_compile_definitions(test_measure_host PRIVATE
@@ -26,7 +26,8 @@ target_compile_definitions(test_measure_host PRIVATE
   EXAMPLE_BEACON_PATH="$<TARGET_FILE:yantra_example_beacon>"
   TETRA_PLUGIN_PATH="$<TARGET_FILE:yantra_tetra>"
   FAKE_SDR_SCENARIO="${YANTRA_RADIOS_FAKE_SDR_SCENARIO}"
-  FAKE_SDR_CONTROL_DIR="${CMAKE_CURRENT_BINARY_DIR}/fake_sdr_control")
+  FAKE_SDR_CONTROL_DIR="${CMAKE_CURRENT_BINARY_DIR}/fake_sdr_control"
+  MEASURE_SCRATCH_DIR="${CMAKE_CURRENT_BINARY_DIR}/scratch")
 
 # TST-10 record files of the radios' scenarios, written into the build
 # tree by the submodule's yantra-gen and yantra-radio-host when the radio
