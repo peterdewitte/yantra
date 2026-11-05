@@ -20,7 +20,7 @@ extern "C" YR_EXPORT const yr_descriptor* yantra_radio_entry(void)
     static const yantra::soapy::Options options = {
         YANTRA_SOAPY_PLUGIN_NAME,
         "SDR receiver (SoapySDR)",
-        "0.1.1",
+        "0.1.2",
         "TETRA levels and cell information with an SDR through its SoapySDR module (RAD-62)",
         YANTRA_RADIOS_SOURCE_URL,
         YANTRA_SOAPY_MODULE_TABLE,

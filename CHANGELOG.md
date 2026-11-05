@@ -30,6 +30,43 @@ marked:
 Record file (RAD-65) and scene JSON (RAD-36) versions are listed here as
 well; they change independently of the radio API version.
 
+## [0.2.2] - 2026-11-05
+
+A patch release (tag v0.2.2, RAD-98): the SDR plugins return from
+stop_stream within the RAD-15 limit also on a slow or loaded machine,
+and tests that failed only under load have their causes fixed. No API
+or format change: radio API 1.0, record files 1, scene JSON 1.1 and
+scenario files 1 as in 0.2.0.
+
+### Radio API
+
+- **Radio API 1.0**: no change.
+
+### Fixed
+
+- SDR plugins soapysdr 0.1.2 and hackrf 0.1.2 (shared SoapySDR layer;
+  RAD-15, RAD-33): the stream thread handed a whole read (up to the
+  module's MTU, 131072 samples) to the receiver in one call, and
+  stop_stream waits for that thread; on a loaded machine that took
+  seconds. The engine now takes a read in pieces of 16384 samples and
+  the thread stops between two pieces.
+- Fake SoapySDR module (tests, RAD-92): an unpaced read generated its
+  whole request whatever its timeout (up to 15 s under ASan with
+  parallel tests), so a stop_stream waiting for it missed the RAD-15
+  limit (Yantra's unplug/replug test: 21 of 24 parallel ASan runs). A
+  read now returns at its timeout with the samples generated so far, as
+  a real module does.
+
+### Tests
+
+- The HackRF records case checks the content of the serving cell's
+  neighbour list instead of waiting more than 10 s of signal for its
+  repeat (it reached its 600 s hang guard under ASan and load).
+- New: the fake module's reads with timeout 0 return one piece each and
+  together the same samples as one long read.
+- perf_engine is RUN_SERIAL like the other time limits; CONTRIBUTING.md
+  says why timing tests need an otherwise idle machine.
+
 ## [0.2.1] - 2026-11-04
 
 A patch release (tag v0.2.1, RAD-98): the simulator measures every cell

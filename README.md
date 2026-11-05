@@ -57,7 +57,7 @@ and how: [DEVICES.md](DEVICES.md) (none on real hardware yet).
 
 ## Status
 
-Release 0.2.1 (2026-11-04, tag v0.2.1; [CHANGELOG.md](CHANGELOG.md)): the simulator measures every cell of its scenario.
+Release 0.2.2 (2026-11-05, tag v0.2.2; [CHANGELOG.md](CHANGELOG.md)): the SDR plugins stop within the RAD-15 limit on a loaded machine.
 Linux x86-64 is built and tested; Linux arm64 is in the nightly CI; the
 Windows build (MSYS2 UCRT64, `.dll`) is written and not yet run. The
 screenshots of the radio windows Yantra generates from the plugins'
