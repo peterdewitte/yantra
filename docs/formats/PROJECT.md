@@ -56,7 +56,7 @@ model and the source files; version 2 adds the floor trims and the source
 page sizes; version 3 the rest of the building model (scale, alignment,
 wall classes, walls, cells, antennas), so the whole model of
 [BUILDING_MODEL.md](../BUILDING_MODEL.md) is stored; version 4 the
-recordings, walk tests and measured points. The later data come
+recordings, walk tests and measured points ([SURVEY.md](../SURVEY.md)). The later data come
 as new versions in the steps that add them; until then the API has no
 call that would store them, so nothing is ever dropped silently.
 
@@ -414,7 +414,7 @@ report (IND-30): both read it unchanged.
 | `grp` | INTEGER >= 0 | the walk segment number, or the manual point number |
 | `cycles` | INTEGER >= 1 | measurement cycles in the point (manual points: averaged over N seconds) |
 | `label` | TEXT | a manual point's label (e.g. a room) |
-| `sample` | TEXT | the sample's values (JSON) |
+| `sample` | TEXT | the sample's values (JSON, [SURVEY.md](../SURVEY.md) "Sample values") |
 
 When a floor's trim is edited, its points are mapped through the page to
 the new trim, so they stay where they were measured on the sheet.

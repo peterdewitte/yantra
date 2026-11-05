@@ -42,6 +42,17 @@ own changes are in its CHANGELOG.md.
   position in plan units and in metres; metres follow the floor scale, a
   trim edit keeps the points where they were measured on the sheet, and
   a floor with walk tests is not removed. Older files are migrated.
+- 2026-11-05: walk tests on a floor plan (docs/SURVEY.md): point and
+  click and continuous mode with the samples spread evenly between the
+  clicks, pause and delete last segment (GEO-02); manual points averaged
+  over N seconds as power (GEO-05); a floor change in the middle of a walk
+  goes on in a new session on the other floor; with the simulator, the
+  walk position is where it measures. Every action is recorded, so a
+  replay gives the same points. One point list per floor for the project
+  window and the report, never thinned (IND-30), with coverage
+  statistics: shares above thresholds, percentiles, per area, per floor
+  and for the building, serving-cell changes and acceptance profiles
+  (EXP-05, EXP-06, PP-02).
 
 ### Measurements
 

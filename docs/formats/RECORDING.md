@@ -15,8 +15,8 @@ describes version 1. The test "recording: docs/formats/RECORDING.md
 documents ..." (tests/recording) checks this document against the code.
 
 Recordings are files of their own, next to the project; the project file
-does not hold them (a project's list of its recordings is planned in
-[PROJECT.md](PROJECT.md)).
+does not hold them; it lists them (name, size, SHA-256, header) in its
+`recordings` table ([PROJECT.md](PROJECT.md), schema 4).
 
 ## Files
 
@@ -186,7 +186,7 @@ by input and cycle number.
 
 ### Walk-test actions (`walk`)
 
-A walk test (core/survey/walk_test.h, docs/SURVEY.md) writes every action
+A walk test (core/survey/walk_test.h, [SURVEY.md](../SURVEY.md)) writes every action
 of the surveyor as a `walk` line, so a replay of the recording places the
 samples exactly as the live walk test did (the same points, IND-20,
 IND-30). `action` is one of:

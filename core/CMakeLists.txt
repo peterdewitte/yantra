@@ -53,6 +53,12 @@ add_library(yantra_core STATIC
   src/recording/replay.cpp
   src/recording/writer.cpp
   src/radio/scene_export.cpp
+  src/survey/points.cpp
+  src/survey/recordings.cpp
+  src/survey/sample.cpp
+  src/survey/stats.cpp
+  src/survey/walk.cpp
+  src/survey/walk_test.cpp
   src/util/sha256.cpp)
 add_library(yantra::core ALIAS yantra_core)
 
