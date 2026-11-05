@@ -306,7 +306,10 @@ TEST_CASE("yantra-hackrf: throughput per sample rate (RAD-66, RAD-24)")
     }
     SUBCASE("an overflow fails")
     {
-        Fake f(R"(,"paced":false,"overflow_at":200000)");
+        // The overflow comes at the second read: the unpaced fake is
+        // CPU-bound and 200000 samples (0.1 s of signal) took 4-6 s of the
+        // 10 s run alone under ASan, more than the run under ctest load.
+        Fake f(R"(,"paced":false,"overflow_at":1)");
         const Result r = f.cli({"throughput", "--rates", "2", "--duration", guard(2), "--json"});
         CHECK(r.code == kFail);
         CHECK(r.j["rates"][0]["overflow_events"] == 1);
