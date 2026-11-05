@@ -49,6 +49,7 @@
 
 #include "yantra/core/context/building_context.h"
 #include "yantra/core/measure/measurement_pipeline.h"
+#include "yantra/core/platform/clock.h"
 #include "yantra/core/project/project.h"
 #include "yantra/core/recording/format.h"
 #include "yantra/core/recording/replay.h"
@@ -69,6 +70,11 @@ struct WalkTestOptions {
     /// The recording session the points come from (`sessions.recording_session`)
     /// without a recorder, e.g. when a recording is imported (PP-01, viewer.h).
     std::string recording_session;
+    /// The UTC of a session that starts before the first cycle (a start
+    /// time has no UTC of its own); nullptr: the system clock. Generated
+    /// walks (the demo, DEMO-06) give the pipeline's clock so the session
+    /// times follow the generated clock.
+    std::shared_ptr<const platform::Clock> clock;
 };
 
 class WalkTest final : public measure::MeasurementObserver {

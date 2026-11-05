@@ -75,7 +75,7 @@ wrongly) and counts them.
 |-----|---------|
 | `format` | `"yantra-recording/1"` |
 | `tool` | `name` ("Yantra"), `version` |
-| `session` | `id` (16 hex digits, the same in all files of a session), `name`, `file_index`, `started_utc` (ISO 8601), `started_ns` (UTC ns), `continued` |
+| `session` | `id` (16 hex digits, the same in all files of a session; random, or fixed by the recorder's `session_id` for generated data such as the demo walks), `name`, `file_index`, `started_utc` (ISO 8601), `started_ns` (UTC ns), `continued` |
 | `file_started_utc`, `file_started_ns` | this file's start (UTC; ISO 8601 and ns) |
 | `file_started_mono` | this file's start on the pipeline clock |
 | `next_marker` | the number of the next marker at the file's start |

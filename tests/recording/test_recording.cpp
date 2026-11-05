@@ -479,6 +479,34 @@ TEST_CASE("recording: quick-record names come from the date and time and do not 
     CHECK_FALSE(live.recorder->start("../x", error));
 }
 
+TEST_CASE("recording: a configured session id is used for a new session; a random one otherwise (DEMO-06 generated walks)") {
+    const fs::path dir = scratch("session_id");
+    rec::RecorderConfig c = config(dir);
+    c.session_id = "0123456789abcdef";
+    CHECK(c.validate() == "");
+    {
+        Live live(c);
+        std::string error;
+        REQUIRE_MESSAGE(live.recorder->start("fixed", error), error);
+        CHECK(live.recorder->status().session_id == "0123456789abcdef");
+        live.recorder->stop();
+    }
+    const auto h = rec::read_header(dir / rec::file_name("fixed", 0, rec::Compression::None));
+    REQUIRE(h.ok());
+    CHECK(h.value->session_id == "0123456789abcdef");
+    for (const char* bad : {"0123456789ABCDEF", "0123456789abcde", "0123456789abcdefa", "0123456789abcdeg"}) {
+        c.session_id = bad;
+        CHECK(c.validate() != "");
+    }
+    c.session_id.clear();
+    Live other(c);
+    std::string error;
+    REQUIRE_MESSAGE(other.recorder->start("random", error), error);
+    CHECK(other.recorder->status().session_id.size() == 16);
+    CHECK(other.recorder->status().session_id != "0123456789abcdef");
+    other.recorder->stop();
+}
+
 TEST_CASE("recording: a cut, damaged or newer file is read as far as it is good, or refused with the reason (REC-10, TST-23)") {
     const fs::path dir = scratch("damaged");
     Live live(config(dir));

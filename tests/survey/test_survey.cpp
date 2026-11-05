@@ -461,3 +461,18 @@ TEST_CASE("REC-03 recording list: a file that is not a recording is refused, a m
     }
     CHECK(fx.p->recordings().empty());
 }
+
+TEST_CASE("IND-20 walk: a session that starts before the first cycle takes its UTC from the given clock (DEMO-06)") {
+    Fixture fx("walk-clock");
+    ys::WalkTestOptions o;
+    o.project = fx.p;
+    o.floor_id = fx.ground;
+    o.name = "Walk";
+    // 2026-11-02T10:00:00Z at monotonic 5 s; the walk starts at 7 s.
+    o.clock = std::make_shared<yantra::platform::ManualClock>(5 * kS, std::int64_t{1'793'613'600} * kS);
+    auto w = std::make_shared<ys::WalkTest>(o);
+    w->start(7 * kS);
+    const auto sessions = fx.p->sessions(fx.ground);
+    REQUIRE(sessions.size() == 1);
+    CHECK(sessions[0].started_utc == "2026-11-02T10:00:02Z");
+}

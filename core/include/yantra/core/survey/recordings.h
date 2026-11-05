@@ -16,6 +16,10 @@ namespace yantra::survey {
 /// file number, size, SHA-256, the header line and the path as a hint.
 /// ProjectError Io when it cannot be read, Invalid when it is not a
 /// recording (docs/formats/RECORDING.md), Exists when already listed.
-std::int64_t add_recording_file(project::Project& project, const std::filesystem::path& path);
+/// `reference` replaces the path hint (default: the absolute path), e.g.
+/// a path relative to the project for shipped demo projects (DEMO-06),
+/// which must not hold the folders of the computer that made them.
+std::int64_t add_recording_file(project::Project& project, const std::filesystem::path& path,
+                                const std::string& reference = {});
 
 }  // namespace yantra::survey

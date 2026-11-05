@@ -104,6 +104,10 @@ struct RecorderConfig {
     HeaderInfo info;
     // false: no flush thread, only flush() (deterministic tests).
     bool flush_thread = true;
+    // The session id of a new session (16 lower-case hex digits); "" = a
+    // random one. Generated data (the demo walks, DEMO-06) uses a fixed id
+    // so the same inputs give the same files.
+    std::string session_id;
 
     // "" when valid, else what is wrong.
     std::string validate() const;

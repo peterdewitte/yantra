@@ -153,6 +153,9 @@ std::string RecorderConfig::validate() const {
     if (!(flush_interval_s > 0.0 && flush_interval_s <= 0.5))
         return "flush interval must be in (0, 0.5] s (REC-10: at most 1 s lost)";
     if (!(keyframe_s >= 1.0 && keyframe_s <= 600.0)) return "keyframe interval must be 1..600 s";
+    if (!session_id.empty() &&
+        (session_id.size() != 16 || session_id.find_first_not_of("0123456789abcdef") != std::string::npos))
+        return "a session id has 16 lower-case hex digits";
     return {};
 }
 
@@ -373,7 +376,7 @@ bool Recorder::open_session(const std::string& name, bool continued, std::string
             error = "a recording '" + name + "' exists";
             return false;
         }
-        s->id = new_session_id();
+        s->id = config_.session_id.empty() ? new_session_id() : config_.session_id;
         s->started_utc = now_utc();
     }
     files_.clear();

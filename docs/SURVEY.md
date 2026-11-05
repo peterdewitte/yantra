@@ -68,6 +68,11 @@ the cycle with the same time. A `WalkTest` fed through `WalkReplay`
 (walk lines) and the replay pipeline (cycles) therefore stores the same
 points, in the same order, with the same values as the live walk test.
 
+A session gets its start time (`started_utc`) from the last cycle's UTC.
+A walk that starts before the first cycle takes it from
+`WalkTestOptions::clock` when given (the demo walks of docs/DEMO.md
+use the replay clock), else from the system clock.
+
 ## Sample values
 
 `points.sample` holds the values of the point's cycle as JSON

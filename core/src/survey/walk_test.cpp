@@ -89,6 +89,8 @@ void WalkTest::publish(const std::optional<Point2>& plan) {
 void WalkTest::begin_session(std::int64_t t, std::optional<std::int64_t> continues) {
     project::Session s;
     if (last_cycle_) s.started_utc = calibration::utc_text((last_cycle_->second + (t - last_cycle_->first)) / 1'000'000'000);
+    else if (o_.clock)
+        s.started_utc = calibration::utc_text((o_.clock->utc_ns() + (t - o_.clock->monotonic_ns())) / 1'000'000'000);
     s.floor_id = floor_;
     s.kind = o_.kind;
     s.name = o_.name;

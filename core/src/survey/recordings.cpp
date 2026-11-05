@@ -11,7 +11,8 @@
 
 namespace yantra::survey {
 
-std::int64_t add_recording_file(project::Project& project, const std::filesystem::path& path) {
+std::int64_t add_recording_file(project::Project& project, const std::filesystem::path& path,
+                                const std::string& reference) {
     using Code = project::ProjectError::Code;
     std::ifstream in(path, std::ios::binary);
     if (!in) throw project::ProjectError(Code::Io, "cannot read " + path.string());
@@ -37,7 +38,7 @@ std::int64_t add_recording_file(project::Project& project, const std::filesystem
     r.file_index = header.value->file_index;
     r.sha256 = h.finish_hex();
     r.size = size;
-    r.reference = std::filesystem::absolute(path).lexically_normal().string();
+    r.reference = reference.empty() ? std::filesystem::absolute(path).lexically_normal().string() : reference;
     r.header = recording::codec::header_line(*header.value);
     return project.add_recording(std::move(r));
 }
