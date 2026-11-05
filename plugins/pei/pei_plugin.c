@@ -1215,7 +1215,7 @@ YR_EXPORT const yr_descriptor* yantra_radio_entry(void)
         YR_CAP_SELF_CALIBRATED | YR_CAP_HOTPLUG,
         "pei",
         "TETRA terminal (PEI)",
-        "0.1.0",
+        "0.1.1",
         "The Yantra contributors",
         "GPL-3.0-or-later",
         "A TETRA terminal read over its PEI (AT commands, EN 300 392-5): serving and neighbour cells, C1 and "

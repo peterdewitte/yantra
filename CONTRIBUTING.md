@@ -108,6 +108,12 @@ request. Build steps follow in BUILD.md once the CMake project exists.
       ctest --preset asan-ubsan -j"$(nproc)"   # = ctest --test-dir build-asan -LE timing
       ctest --preset tsan -j"$(nproc)"
 
+  A stream that runs as fast as the CPU allows (the fake SoapySDR module
+  with `"paced": false`) gets no wall-clock limit: the time its records
+  take grows with the machine's load (a full parallel ASan run made such
+  a case over 4x slower than alone). Limit it in seconds of signal, with
+  a stall guard for a hang (`tests/stream_guard.hpp`).
+
   The time-limited ones (`perf_engine`, `bench_limits`, the
   `*_timing/*` cases) are RUN_SERIAL, so ctest runs no other test next to
   them. Load from outside ctest still counts: another tree building or

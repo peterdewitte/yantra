@@ -30,6 +30,46 @@ marked:
 Record file (RAD-65) and scene JSON (RAD-36) versions are listed here as
 well; they change independently of the radio API version.
 
+## [0.2.4] - 2026-11-05
+
+A patch release (tag v0.2.4, RAD-98): the TETRA terminal plugin no
+longer takes the late reply of a stopped session as the answer to the
+next session's first command, and the SDR tests that failed only under
+load have their cause fixed. No API or format change: radio API 1.0,
+record files 1, scene JSON 1.1 and scenario files 1 as in 0.2.0.
+
+### Radio API
+
+- **Radio API 1.0**: no change.
+
+### Fixed
+
+- TETRA terminal plugin pei 0.1.1 (RAD-80, RAD-46, TRM-01): a stream
+  stopped while a command was out left the terminal's reply on the line.
+  When it came after the next session had flushed the port and sent its
+  first command, it was taken as that command's answer: a self-test
+  reported "The terminal answers AT commands" as passed for a terminal
+  that did not answer. A session stopped with a command out now notes
+  when that reply is due, and the next session (stream or self-test)
+  reads it away before its first command.
+
+### Tests
+
+- The soapysdr and hackrf cases stream from the fake SoapySDR module
+  unpaced, as fast as the CPU allows; their limit was wall-clock time
+  and a loaded machine (a full parallel ASan run) stopped them before
+  their records came. They now stop after a number of seconds of signal,
+  read from the record times, with a stall guard for a stream that
+  hangs (`tests/stream_guard.hpp`; RAD-90, RAD-92).
+- yantra-hackrf "throughput per sample rate", subcase "an overflow
+  fails": the fake now injects its overflow at the second read instead of
+  after 0.1 s of signal, which the unpaced stream under ASan did not
+  always reach within the command's wall-clock duration under load
+  (RAD-66, RAD-24).
+- New: the stream guard stops after its signal and reports a stall; a
+  terminal's late reply to a stopped stream does not pass the next
+  self-test's at_reply item. The latter fails before the fix.
+
 ## [0.2.3] - 2026-11-05
 
 A patch release (tag v0.2.3, RAD-98): an own plan's cell on a carrier

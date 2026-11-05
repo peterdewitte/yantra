@@ -57,7 +57,7 @@ and how: [DEVICES.md](DEVICES.md) (none on real hardware yet).
 
 ## Status
 
-Release 0.2.3 (2026-11-05, tag v0.2.3; [CHANGELOG.md](CHANGELOG.md)): an own plan's cell on a carrier of the simulator's default scenario is simulated from the plan.
+Release 0.2.4 (2026-11-05, tag v0.2.4; [CHANGELOG.md](CHANGELOG.md)): the TETRA terminal plugin does not take a late reply of a stopped session as the next answer; SDR tests no longer fail under load.
 Linux x86-64 is built and tested; Linux arm64 is in the nightly CI; the
 Windows build (MSYS2 UCRT64, `.dll`) is written and not yet run. The
 screenshots of the radio windows Yantra generates from the plugins'
