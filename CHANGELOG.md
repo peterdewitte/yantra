@@ -30,6 +30,39 @@ marked:
 Record file (RAD-65) and scene JSON (RAD-36) versions are listed here as
 well; they change independently of the radio API version.
 
+## [0.2.3] - 2026-11-05
+
+A patch release (tag v0.2.3, RAD-98): an own plan's cell on a carrier
+the simulator's default scenario already uses is simulated from the
+plan's scene. No API or format change: radio API 1.0, record files 1,
+scene JSON 1.1 and scenario files 1 as in 0.2.0.
+
+### Radio API
+
+- **Radio API 1.0**: no change.
+
+### Fixed
+
+- Simulator plugin 0.2.2 and yantra-gen (RAD-61, RAD-73): a cell of the
+  host's scene on a carrier of the default scenario (390.0 or 390.1 MHz)
+  was transmitted next to the scenario's cell on the same carrier; the
+  scenario's fixed-level cell (D0, -60 dBm) won the decoder and the
+  records carried its truth (cell_id D0, walls 0) instead of the plan's
+  multi-wall level. `gen::add_scene_cells()` checked ids only. A scene
+  cell on the carrier of a scenario cell the scene does not name now
+  replaces that cell: it keeps the old cell's place and neighbour cell
+  identifier, the other cells announce it instead, and the old cell's
+  events and scenario-floor antennas go. Carriers 6.25 or 12.5 kHz apart
+  stay different carriers (RADIO_PLUGINS.md).
+
+### Tests
+
+- New: add_scene_cells replaces a scenario cell on the same carrier
+  (neighbours, cell number, events, floor antennas; a cell 6.25 kHz away
+  is kept); the simulator with an own plan whose cell is on D0's carrier
+  gives that cell's identity, walls 0 and 1 and the multi-wall level
+  within 0.5 dB in front of and behind a wall. Both fail before the fix.
+
 ## [0.2.2] - 2026-11-05
 
 A patch release (tag v0.2.2, RAD-98): the SDR plugins return from
