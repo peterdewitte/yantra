@@ -101,6 +101,9 @@ struct yr_device {
     int thread_running;
     atomic_int stop;
     yr_stream_stats stats;
+    /* A session stopped while a command was out (pei_session.c): the
+     * terminal's reply may still come until this time, ms; 0 = none. */
+    int64_t reply_due_ms;
 };
 
 struct yr_plugin {

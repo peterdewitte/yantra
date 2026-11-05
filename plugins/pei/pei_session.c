@@ -190,7 +190,38 @@ static int exchange(session* ss, const char* cmd, const char* prefix)
             return EX_TIMEOUT;
         }
     }
+    /* Stopped with the command out: its reply may still come and must not
+     * answer the next session's first command (settle). */
+    pthread_mutex_lock(&ss->d->mutex);
+    ss->d->reply_due_ms = deadline;
+    pthread_mutex_unlock(&ss->d->mutex);
     return EX_STOP;
+}
+
+/* Before the first command of a session (stream or self-test): when the
+ * last session was stopped while a command was out, its reply is read
+ * away, until it is complete or its reply time is over. The flush in
+ * exchange() does not catch a reply the terminal sends after it: a late
+ * "OK" was taken as the answer to the self-test's ATE0 (RAD-46, TRM-01). */
+static void settle(session* ss)
+{
+    pthread_mutex_lock(&ss->d->mutex);
+    const int64_t due = ss->d->reply_due_ms;
+    ss->d->reply_due_ms = 0;
+    pthread_mutex_unlock(&ss->d->mutex);
+    if (due == 0)
+        return;
+    pei_parser* p = &ss->parser;
+    pei_parser_begin(p, "", "");
+    char buf[512];
+    while (!atomic_load(ss->stop) && now_ms() < due) {
+        const long n = pei_port_read(ss->port, buf, sizeof buf, 50);
+        if (n < 0 || (n > 0 && pei_parser_feed(p, buf, (size_t)n)))
+            break;
+    }
+    if (ss->s.log_commands)
+        pei_log(ss->d, YR_LOG_DEBUG, "< %s (the reply of the last session's command)",
+                p->reply.done ? "read away" : "not seen");
 }
 
 static void note_refused(session* ss, int which, const char* cmd)
@@ -533,6 +564,7 @@ static void* stream_main(void* arg)
             identified = 0;
             reset_connection(ss);
         }
+        settle(ss);
         int r = wake(ss);
         if (r == EX_TIMEOUT) {
             set_terminal(ss, PEI_TERMINAL_NO_REPLY,
@@ -691,6 +723,7 @@ yr_status pei_session_self_test(yr_device* d, yr_selftest_cb cb, void* user)
     }
     pei_format(detail, sizeof detail, "%s at %d baud", ss->s.port, ss->s.baud);
     item(cb, user, YR_TEST_PASS, "port", "Serial port opens", detail, "");
+    settle(ss);
     const int awake = wake(ss) == EX_DONE;
     item(cb, user, awake ? YR_TEST_PASS : YR_TEST_FAIL, "at_reply", "The terminal answers AT commands",
          awake ? "ATE0: OK" : "no OK to ATE0",

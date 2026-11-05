@@ -24,6 +24,7 @@
 #include <memory>
 #include <set>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include <unistd.h>
@@ -532,6 +533,31 @@ TEST_CASE("pei: self-test on the simulator and on a silent terminal (RAD-46)")
     CHECK_FALSE(items[1].remedy.empty());
     for (std::size_t i = 2; i < items.size(); ++i)
         CHECK(items[i].result == YR_TEST_SKIPPED);
+}
+
+TEST_CASE("pei: a reply left by a stopped stream does not answer the next self-test (RAD-46, TRM-01)")
+{
+    // The stream stops while its first command (ATE0) is out; the terminal
+    // answers 300 ms later, after the self-test flushed the port and sent
+    // its own ATE0, to which the terminal stays silent. That late OK is
+    // not the self-test's answer: at_reply fails. (Seen under load in the
+    // case above: the simulated terminal's thread lagged behind the stop.)
+    Rig rig;
+    rig.pty->set_reply_delay_ms(300);
+    {
+        Stream s(rig);
+        const auto end = guard(10.0);
+        while (rig.terminal.commands().empty() && Clock::now() < end)
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        REQUIRE_FALSE(rig.terminal.commands().empty());
+    }
+    rig.set_uint("reply_timeout_ms", 500);
+    rig.terminal.set_silent("ATE0", true);
+    std::vector<radio_host::SelfTestItem> items;
+    REQUIRE(radio_host::run_self_test(*rig.host, rig.device, items) == YR_OK);
+    REQUIRE(items.size() == 7);
+    CHECK(items[1].name == "at_reply");
+    CHECK(items[1].result == YR_TEST_FAIL);
 }
 
 TEST_CASE("pei: devices, keys and a port that is gone (RAD-30)")
