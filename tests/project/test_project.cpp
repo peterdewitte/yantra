@@ -267,36 +267,42 @@ TEST_CASE("project: floors ordered by level, renamed, levels and heights, reorde
     CHECK(q->add_floor(floor_named("Top", 8)) == "floor-5");
 }
 
-TEST_CASE("project: data of later schema versions is refused, never dropped") {
+TEST_CASE("project: scale, reference point, walls, antennas, cells and the wall-class table round trip (TST-35)") {
+    // Schema 2 refused these (Unsupported); schema 3 stores them, through
+    // add_floor, update_floor and replace_building alike.
     const fs::path dir = scratch("unsupported");
-    auto p = pj::Project::create(dir / "u.yantra", info());
-    bm::Floor scaled = floor_named("Ground floor", 0);
-    scaled.scale.method = bm::Scale::Method::Factor;
-    scaled.scale.metres_per_unit = 0.05;
-    CHECK(code_of([&] { p->add_floor(scaled); }) == Code::Unsupported);
-    bm::Floor aligned = floor_named("Ground floor", 0);
-    aligned.reference_point = bm::Point2{1, 2};
-    CHECK(code_of([&] { p->add_floor(aligned); }) == Code::Unsupported);
-    bm::Floor walled = floor_named("Ground floor", 0);
-    walled.walls.push_back(bm::Wall{"w1", "brick", {{0, 0}, {1, 0}}, std::nullopt});
-    CHECK(code_of([&] { p->add_floor(walled); }) == Code::Unsupported);
-    bm::Floor with_antenna = floor_named("Ground floor", 0);
-    with_antenna.antennas.emplace_back();
-    with_antenna.antennas.back().id = "a1";
-    CHECK(code_of([&] { p->add_floor(with_antenna); }) == Code::Unsupported);
-    CHECK(p->floors().empty());
+    const fs::path file = dir / "u.yantra";
+    bm::Building expected;
+    {
+        auto p = pj::Project::create(file, info());
+        bm::Floor scaled = floor_named("Ground floor", 0);
+        scaled.scale.method = bm::Scale::Method::Factor;
+        scaled.scale.metres_per_unit = 0.05;
+        scaled.reference_point = bm::Point2{1, 2};
+        scaled.walls.push_back(bm::Wall{"w1", "brick", {{0, 0}, {1, 0}}, std::nullopt});
+        scaled.antennas.emplace_back();
+        scaled.antennas.back().id = "a1";
+        const std::string id = p->add_floor(scaled);
+        bm::Floor f = *p->floor(id);
+        CHECK(f.scale == scaled.scale);
+        CHECK(f.reference_point == scaled.reference_point);
+        CHECK(f.walls == scaled.walls);
+        CHECK(f.antennas == scaled.antennas);
+        f.walls.push_back(bm::Wall{"w2", "", {{0, 0}, {0, 1}, {1, 1}}, 7.5});
+        p->update_floor(f);
+        CHECK(p->floor(id)->walls == f.walls);
 
-    bm::Building b = p->building();
-    b.cells.push_back(bm::Cell{"c1", "Cell", "", "", 0, {}});
-    CHECK(code_of([&] { p->replace_building(b); }) == Code::Unsupported);
-    b = p->building();
-    b.wall_classes.pop_back();
-    CHECK(code_of([&] { p->replace_building(b); }) == Code::Unsupported);
-    const std::string id = p->add_floor(floor_named("Ground floor", 0));
-    bm::Floor f = *p->floor(id);
-    f.walls.push_back(bm::Wall{"w1", "brick", {{0, 0}, {1, 0}}, std::nullopt});
-    CHECK(code_of([&] { p->update_floor(f); }) == Code::Unsupported);
-    CHECK(p->floor(id)->walls.empty());
+        bm::Building b = p->building();
+        b.cells.push_back(bm::Cell{"c1", "Cell", "", "", 0, {}});
+        b.wall_classes.pop_back();
+        b.floors[0].antennas[0].cell = "c1";
+        p->replace_building(b);
+        expected = p->building();
+        CHECK(expected == b);
+    }
+    auto p = pj::Project::open(file);
+    CHECK(p->building() == expected);
+    CHECK(p->wall_classes().size() == bm::default_wall_classes().size() - 1);
 }
 
 TEST_CASE("project: the building model round trip (IND-04, TST-33)") {
@@ -446,7 +452,7 @@ TEST_CASE("project: source files are copied in with their hash, deduplicated, ne
 
 TEST_CASE("project: licence-restricted sources are referenced by hash (IND-03, DEMO-12)") {
     const fs::path dir = scratch("references");
-    const std::string pdf = fake_pdf(3) + std::string(200000, 'x');
+    const std::string pdf = fake_pdf(3) + std::string(1000000, 'x');
     const fs::path cached = dir / "cache" / "restricted.pdf";
     fs::create_directories(cached.parent_path());
     write_file(cached, pdf);
@@ -462,7 +468,9 @@ TEST_CASE("project: licence-restricted sources are referenced by hash (IND-03, D
     CHECK(s->reference == fs::absolute(cached).lexically_normal().string());
     CHECK(as_string(p->read_source(r.id)) == pdf);
     p->save();
-    CHECK(fs::file_size(file) < 100000);  // the content is not in the project
+    // The content is not in the project (an empty schema-3 project is
+    // about 120 kB of table pages).
+    CHECK(fs::file_size(file) < 500000);
     CHECK(p->building().sources.at(0).embedded == false);
 
     // The cache moved: read it from its new place, checked by hash.
@@ -613,7 +621,7 @@ TEST_CASE("project: an older schema version is migrated on open, with a backup")
           Code::Invalid);
 }
 
-TEST_CASE("project: a schema 1 file is migrated to schema 2 (trims, source pages)") {
+TEST_CASE("project: a schema 1 file is migrated to the current schema (trims, source pages)") {
     const fs::path dir = scratch("migrate-1-2");
     const fs::path file = dir / "v1.yantra";
     // A file as step 7.1's Yantra wrote it, with two floors and a source.
@@ -630,7 +638,7 @@ TEST_CASE("project: a schema 1 file is migrated to schema 2 (trims, source pages
     {
         auto p = pj::Project::open(file);
         CHECK(p->opened_version() == 1);
-        CHECK(p->meta().schema_version == 2);
+        CHECK(p->meta().schema_version == pj::kSchemaVersion);
         CHECK(p->migration_backup() == fs::path(file.string() + ".schema1.bak"));
         // The floors keep every value and get the whole page (no trim).
         const auto floors = p->floors();
@@ -651,7 +659,7 @@ TEST_CASE("project: a schema 1 file is migrated to schema 2 (trims, source pages
     }
     {
         auto p = pj::Project::open(file);
-        CHECK(p->opened_version() == 2);
+        CHECK(p->opened_version() == pj::kSchemaVersion);
         CHECK(p->floors()[0].trim.outline.size() == 4);
         CHECK(p->floors()[0].trim.quarter_turns == 1);
         CHECK(p->source_pages("source-1") == std::vector<pj::SourcePage>{{400, 200, 96}});

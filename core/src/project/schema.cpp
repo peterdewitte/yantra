@@ -92,6 +92,120 @@ CREATE TABLE source_pages (
 ) WITHOUT ROWID;
 )sql";
 
+// Version 3 (step 7.3): the floor scale (IND-08) and alignment point
+// (IND-09) in the floors row; the project's editable wall-class table
+// with the default classes (IND-11), walls per floor as polylines, the
+// cells and the antennas per floor (IND-12). Plan units throughout.
+// Existing floors get no scale and no reference point.
+const char* const kV3 = R"sql(
+ALTER TABLE floors ADD COLUMN scale_method TEXT NOT NULL DEFAULT 'none'
+  CHECK (scale_method IN ('none', 'two_points', 'scale_bar', 'factor', 'shared'));
+ALTER TABLE floors ADD COLUMN scale_ax REAL NOT NULL DEFAULT 0;
+ALTER TABLE floors ADD COLUMN scale_ay REAL NOT NULL DEFAULT 0;
+ALTER TABLE floors ADD COLUMN scale_bx REAL NOT NULL DEFAULT 0;
+ALTER TABLE floors ADD COLUMN scale_by REAL NOT NULL DEFAULT 0;
+ALTER TABLE floors ADD COLUMN scale_distance_m REAL NOT NULL DEFAULT 0 CHECK (scale_distance_m >= 0);
+ALTER TABLE floors ADD COLUMN scale_metres_per_unit REAL NOT NULL DEFAULT 0 CHECK (scale_metres_per_unit >= 0);
+ALTER TABLE floors ADD COLUMN scale_shared_floor TEXT NOT NULL DEFAULT '';
+ALTER TABLE floors ADD COLUMN reference_x REAL;
+ALTER TABLE floors ADD COLUMN reference_y REAL CHECK ((reference_x IS NULL) = (reference_y IS NULL));
+CREATE TABLE wall_classes (
+  id                 TEXT PRIMARY KEY NOT NULL CHECK (id <> ''),
+  position           INTEGER NOT NULL,
+  name               TEXT NOT NULL DEFAULT '',
+  reflection_loss_db REAL CHECK (reflection_loss_db IS NULL OR reflection_loss_db >= 0)
+) WITHOUT ROWID;
+CREATE TABLE wall_class_bands (
+  class          TEXT NOT NULL REFERENCES wall_classes (id) ON DELETE CASCADE,
+  idx            INTEGER NOT NULL CHECK (idx >= 0),
+  frequency_mhz  REAL NOT NULL CHECK (frequency_mhz > 0),
+  attenuation_db REAL NOT NULL CHECK (attenuation_db >= 0),
+  PRIMARY KEY (class, idx)
+) WITHOUT ROWID;
+INSERT INTO wall_classes (id, position, name) VALUES
+  ('concrete', 0, 'Concrete'), ('brick', 1, 'Brick'), ('plasterboard', 2, 'Plasterboard'),
+  ('glass', 3, 'Glass'), ('wood', 4, 'Wood'), ('door', 5, 'Door'), ('metal', 6, 'Metal'),
+  ('coated_glass', 7, 'Coated glass');
+INSERT INTO wall_class_bands (class, idx, frequency_mhz, attenuation_db) VALUES
+  ('concrete', 0, 400, 12), ('concrete', 1, 900, 23),
+  ('brick', 0, 400, 8), ('brick', 1, 900, 10),
+  ('plasterboard', 0, 400, 3), ('plasterboard', 1, 900, 6),
+  ('glass', 0, 400, 2), ('glass', 1, 900, 4.5),
+  ('wood', 0, 400, 3), ('wood', 1, 900, 6.5),
+  ('door', 0, 400, 4), ('door', 1, 900, 9),
+  ('metal', 0, 400, 25), ('metal', 1, 900, 25),
+  ('coated_glass', 0, 400, 20), ('coated_glass', 1, 900, 20);
+CREATE TABLE walls (
+  row_id         INTEGER PRIMARY KEY,
+  floor          TEXT NOT NULL REFERENCES floors (id) ON DELETE CASCADE,
+  position       INTEGER NOT NULL,
+  id             TEXT NOT NULL DEFAULT '',
+  wall_class     TEXT REFERENCES wall_classes (id),
+  attenuation_db REAL CHECK (attenuation_db IS NULL OR attenuation_db >= 0),
+  CHECK (wall_class IS NOT NULL OR attenuation_db IS NOT NULL),
+  UNIQUE (floor, position)
+);
+CREATE UNIQUE INDEX walls_by_id ON walls (floor, id) WHERE id <> '';
+CREATE INDEX walls_by_class ON walls (wall_class);
+CREATE TABLE wall_points (
+  wall INTEGER NOT NULL REFERENCES walls (row_id) ON DELETE CASCADE,
+  idx  INTEGER NOT NULL CHECK (idx >= 0),
+  x    REAL NOT NULL,
+  y    REAL NOT NULL,
+  PRIMARY KEY (wall, idx)
+) WITHOUT ROWID;
+CREATE TABLE cells (
+  row_id        INTEGER PRIMARY KEY,
+  id            TEXT NOT NULL UNIQUE CHECK (id <> ''),
+  position      INTEGER NOT NULL,
+  label         TEXT NOT NULL DEFAULT '',
+  technology_id TEXT NOT NULL DEFAULT '',
+  schema_id     TEXT NOT NULL DEFAULT '',
+  carrier_hz    INTEGER NOT NULL DEFAULT 0 CHECK (carrier_hz >= 0)
+);
+CREATE TABLE cell_identity (
+  cell  TEXT NOT NULL REFERENCES cells (id) ON DELETE CASCADE,
+  name  TEXT NOT NULL CHECK (name <> ''),
+  value INTEGER NOT NULL,
+  PRIMARY KEY (cell, name)
+) WITHOUT ROWID;
+CREATE TABLE antennas (
+  row_id           INTEGER PRIMARY KEY,
+  id               TEXT NOT NULL UNIQUE CHECK (id <> ''),
+  floor            TEXT NOT NULL REFERENCES floors (id) ON DELETE CASCADE,
+  position         INTEGER NOT NULL,
+  name             TEXT NOT NULL DEFAULT '',
+  model            TEXT NOT NULL DEFAULT '',
+  type             TEXT NOT NULL CHECK (type IN ('indoor_das', 'outdoor_donor')),
+  x                REAL NOT NULL,
+  y                REAL NOT NULL,
+  height_m         REAL NOT NULL,
+  gain_dbi         REAL NOT NULL,
+  pattern          TEXT NOT NULL CHECK (pattern IN ('omni', 'sector', 'table')),
+  azimuth_deg      REAL NOT NULL DEFAULT 0,
+  beamwidth_deg    REAL NOT NULL DEFAULT 65,
+  front_to_back_db REAL NOT NULL DEFAULT 20,
+  step_deg         REAL NOT NULL DEFAULT 0,
+  eirp_dbm         REAL,
+  feed_power_dbm   REAL,
+  cable_loss_db    REAL NOT NULL DEFAULT 0 CHECK (cable_loss_db >= 0),
+  splitter_loss_db REAL NOT NULL DEFAULT 0 CHECK (splitter_loss_db >= 0),
+  cell             TEXT REFERENCES cells (id),
+  direction_deg    REAL,
+  elevation_deg    REAL CHECK (elevation_deg IS NULL OR elevation_deg BETWEEN -90 AND 90),
+  UNIQUE (floor, position)
+);
+CREATE INDEX antennas_by_cell ON antennas (cell);
+CREATE TABLE antenna_pattern_gains (
+  antenna INTEGER NOT NULL REFERENCES antennas (row_id) ON DELETE CASCADE,
+  idx     INTEGER NOT NULL CHECK (idx >= 0),
+  gain_db REAL NOT NULL,
+  PRIMARY KEY (antenna, idx)
+) WITHOUT ROWID;
+INSERT OR IGNORE INTO meta (key, value) VALUES
+  ('next_wall_number', '1'), ('next_antenna_number', '1'), ('next_cell_number', '1');
+)sql";
+
 }  // namespace
 
 void migrate(sql::Db& db, int from, int to, const std::string& now, const std::string& tool,
@@ -107,6 +221,8 @@ void migrate(sql::Db& db, int from, int to, const std::string& now, const std::s
                     what);
         } else if (v == 2) {
             db.exec(kV2, what);
+        } else if (v == 3) {
+            db.exec(kV3, what);
         } else if (v > kSchemaVersion && static_cast<std::size_t>(v - kSchemaVersion) <= extra.size()) {
             db.exec(extra[static_cast<std::size_t>(v - kSchemaVersion - 1)], what);
         } else {

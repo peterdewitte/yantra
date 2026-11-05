@@ -21,6 +21,7 @@
 #include <cstring>
 #include <ctime>
 #include <fstream>
+#include <limits>
 #include <map>
 #include <mutex>
 
@@ -29,6 +30,7 @@
 #include "schema.h"
 #include "sqlite.h"
 #include "yantra/core/build_info.h"
+#include "yantra/core/building/edit.h"
 #include "yantra/core/platform/file.h"
 #include "yantra/core/util/sha256.h"
 
@@ -188,30 +190,39 @@ SourceFile source_from(const sql::Stmt& s) {
     return f;
 }
 
-// Data of later schema versions (docs/formats/PROJECT.md, hooks): refused
-// rather than dropped.
-void require_storable(const building::Floor& f) {
-    auto refuse = [&](const char* what, const char* step) {
-        throw ProjectError(Code::Unsupported, "floor '" + f.name + "': " + what +
-                                                  " cannot be stored in project schema " +
-                                                  std::to_string(kSchemaVersion) + " yet (" + step + ")");
-    };
-    if (f.scale != building::Scale{}) refuse("a scale", "IND-08");
-    if (f.reference_point) refuse("a reference point", "IND-09");
-    if (!f.walls.empty()) refuse("walls", "IND-11");
-    if (!f.antennas.empty()) refuse("antennas", "IND-12");
+// Text forms of the model's enums in the tables (docs/formats/PROJECT.md).
+const char* scale_method_text(building::Scale::Method m) {
+    switch (m) {
+    case building::Scale::Method::TwoPoints: return "two_points";
+    case building::Scale::Method::ScaleBar: return "scale_bar";
+    case building::Scale::Method::Factor: return "factor";
+    case building::Scale::Method::Shared: return "shared";
+    case building::Scale::Method::None: break;
+    }
+    return "none";
 }
 
-void require_storable(const building::Building& b) {
-    if (!b.cells.empty()) {
-        throw ProjectError(Code::Unsupported, "cells cannot be stored in project schema " +
-                                                  std::to_string(kSchemaVersion) + " yet (IND-12)");
+building::Scale::Method scale_method_of(const std::string& t) {
+    if (t == "two_points") return building::Scale::Method::TwoPoints;
+    if (t == "scale_bar") return building::Scale::Method::ScaleBar;
+    if (t == "factor") return building::Scale::Method::Factor;
+    if (t == "shared") return building::Scale::Method::Shared;
+    return building::Scale::Method::None;
+}
+
+const char* pattern_text(building::AntennaPattern::Type t) {
+    switch (t) {
+    case building::AntennaPattern::Type::Sector: return "sector";
+    case building::AntennaPattern::Type::Table: return "table";
+    case building::AntennaPattern::Type::Omni: break;
     }
-    if (b.wall_classes != building::default_wall_classes()) {
-        throw ProjectError(Code::Unsupported, "an edited wall-class table cannot be stored in project schema " +
-                                                  std::to_string(kSchemaVersion) + " yet (IND-11)");
-    }
-    for (const building::Floor& f : b.floors) require_storable(f);
+    return "omni";
+}
+
+building::AntennaPattern::Type pattern_of(const std::string& t) {
+    if (t == "sector") return building::AntennaPattern::Type::Sector;
+    if (t == "table") return building::AntennaPattern::Type::Table;
+    return building::AntennaPattern::Type::Omni;
 }
 
 void require_floor_values(const building::Floor& f) {
@@ -414,7 +425,11 @@ struct Project::Impl {
             sql::Stmt s(db, std::string("SELECT ") + kFloorColumns + " FROM floors ORDER BY level");
             while (s.step()) out.push_back(floor_from(s));
         }
-        for (building::Floor& f : out) load_trim(f);
+        for (building::Floor& f : out) {
+            load_trim(f);
+            load_scale(f);
+            load_content(f);
+        }
         return out;
     }
 
@@ -427,6 +442,8 @@ struct Project::Impl {
             f = floor_from(s);
         }
         load_trim(*f);
+        load_scale(*f);
+        load_content(*f);
         return f;
     }
 
@@ -462,6 +479,275 @@ struct Project::Impl {
             in.reset();
             in.bind(1, f.id).bind(2, static_cast<std::int64_t>(i)).bind(3, t.outline[i].x).bind(4, t.outline[i].y).run();
         }
+    }
+
+    // The scale (IND-08) and reference point (IND-09) of a floor (schema 3,
+    // floors row).
+    void load_scale(building::Floor& f) const {
+        sql::Stmt s(db, "SELECT scale_method, scale_ax, scale_ay, scale_bx, scale_by, scale_distance_m, "
+                        "scale_metres_per_unit, scale_shared_floor, reference_x, reference_y FROM floors WHERE id = ?1");
+        s.bind(1, f.id);
+        if (!s.step()) return;
+        building::Scale& sc = f.scale;
+        sc = building::Scale{};
+        sc.method = scale_method_of(s.text(0));
+        sc.a = {s.f64(1), s.f64(2)};
+        sc.b = {s.f64(3), s.f64(4)};
+        sc.distance_m = s.f64(5);
+        sc.metres_per_unit = s.f64(6);
+        sc.shared_floor = s.text(7);
+        f.reference_point.reset();
+        if (!s.is_null(8) && !s.is_null(9)) f.reference_point = building::Point2{s.f64(8), s.f64(9)};
+    }
+
+    void store_scale(const building::Floor& f) {
+        const building::Scale& sc = f.scale;
+        sql::Stmt s(db, "UPDATE floors SET scale_method = ?2, scale_ax = ?3, scale_ay = ?4, scale_bx = ?5, "
+                        "scale_by = ?6, scale_distance_m = ?7, scale_metres_per_unit = ?8, scale_shared_floor = ?9, "
+                        "reference_x = ?10, reference_y = ?11 WHERE id = ?1");
+        s.bind(1, f.id).bind(2, scale_method_text(sc.method));
+        s.bind(3, sc.a.x).bind(4, sc.a.y).bind(5, sc.b.x).bind(6, sc.b.y);
+        s.bind(7, sc.distance_m).bind(8, sc.metres_per_unit).bind(9, sc.shared_floor);
+        if (f.reference_point) s.bind(10, f.reference_point->x).bind(11, f.reference_point->y);
+        else s.bind_null(10).bind_null(11);
+        s.run();
+    }
+
+    // Walls (IND-11) and antennas (IND-12) of a floor, in their order.
+    void load_content(building::Floor& f) const {
+        f.walls.clear();
+        f.antennas.clear();
+        {
+            sql::Stmt w(db, "SELECT row_id, id, wall_class, attenuation_db FROM walls WHERE floor = ?1 ORDER BY position");
+            sql::Stmt pts(db, "SELECT x, y FROM wall_points WHERE wall = ?1 ORDER BY idx");
+            w.bind(1, f.id);
+            while (w.step()) {
+                building::Wall wall;
+                wall.id = w.text(1);
+                wall.wall_class = w.is_null(2) ? std::string() : w.text(2);
+                wall.attenuation_db = w.opt_f64(3);
+                pts.reset();
+                pts.bind(1, w.i64(0));
+                while (pts.step()) wall.points.push_back({pts.f64(0), pts.f64(1)});
+                f.walls.push_back(std::move(wall));
+            }
+        }
+        sql::Stmt a(db, "SELECT row_id, id, name, model, type, x, y, height_m, gain_dbi, pattern, azimuth_deg, "
+                        "beamwidth_deg, front_to_back_db, step_deg, eirp_dbm, feed_power_dbm, cable_loss_db, "
+                        "splitter_loss_db, cell, direction_deg, elevation_deg FROM antennas WHERE floor = ?1 "
+                        "ORDER BY position");
+        sql::Stmt gains(db, "SELECT gain_db FROM antenna_pattern_gains WHERE antenna = ?1 ORDER BY idx");
+        a.bind(1, f.id);
+        while (a.step()) {
+            building::Antenna ant;
+            ant.id = a.text(1);
+            ant.name = a.text(2);
+            ant.model = a.text(3);
+            ant.type = a.text(4) == "outdoor_donor" ? building::AntennaType::OutdoorDonor
+                                                    : building::AntennaType::IndoorDas;
+            ant.position = {a.f64(5), a.f64(6)};
+            ant.height_m = a.f64(7);
+            ant.gain_dbi = a.f64(8);
+            ant.pattern.type = pattern_of(a.text(9));
+            ant.pattern.azimuth_deg = a.f64(10);
+            ant.pattern.beamwidth_deg = a.f64(11);
+            ant.pattern.front_to_back_db = a.f64(12);
+            ant.pattern.step_deg = a.f64(13);
+            ant.eirp_dbm = a.opt_f64(14);
+            ant.feed_power_dbm = a.opt_f64(15);
+            ant.cable_loss_db = a.f64(16);
+            ant.splitter_loss_db = a.f64(17);
+            ant.cell = a.is_null(18) ? std::string() : a.text(18);
+            ant.direction_deg = a.opt_f64(19);
+            ant.elevation_deg = a.opt_f64(20);
+            gains.reset();
+            gains.bind(1, a.i64(0));
+            while (gains.step()) ant.pattern.gain_db.push_back(gains.f64(0));
+            f.antennas.push_back(std::move(ant));
+        }
+    }
+
+    // Removes the walls and antennas of the given floors (all first, so an
+    // antenna moving between two of them keeps its unique id, and classes
+    // and cells they no longer use can be removed).
+    void delete_content(const std::vector<const building::Floor*>& floors) {
+        sql::Stmt dw(db, "DELETE FROM walls WHERE floor = ?1");
+        sql::Stmt da(db, "DELETE FROM antennas WHERE floor = ?1");
+        for (const building::Floor* f : floors) {
+            dw.reset();
+            dw.bind(1, f->id).run();
+            da.reset();
+            da.bind(1, f->id).run();
+        }
+    }
+
+    // Writes the walls and antennas of the given floors (removed before).
+    void insert_content(const std::vector<const building::Floor*>& floors) {
+        sql::Stmt w(db, "INSERT INTO walls (floor, position, id, wall_class, attenuation_db) VALUES (?1, ?2, ?3, ?4, ?5)");
+        sql::Stmt pt(db, "INSERT INTO wall_points (wall, idx, x, y) VALUES (?1, ?2, ?3, ?4)");
+        sql::Stmt a(db, "INSERT INTO antennas (id, floor, position, name, model, type, x, y, height_m, gain_dbi, "
+                        "pattern, azimuth_deg, beamwidth_deg, front_to_back_db, step_deg, eirp_dbm, feed_power_dbm, "
+                        "cable_loss_db, splitter_loss_db, cell, direction_deg, elevation_deg) VALUES (?1, ?2, ?3, "
+                        "?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)");
+        sql::Stmt g(db, "INSERT INTO antenna_pattern_gains (antenna, idx, gain_db) VALUES (?1, ?2, ?3)");
+        for (const building::Floor* f : floors) {
+            for (std::size_t i = 0; i < f->walls.size(); ++i) {
+                const building::Wall& wall = f->walls[i];
+                w.reset();
+                w.bind(1, f->id).bind(2, static_cast<std::int64_t>(i)).bind(3, wall.id);
+                if (wall.wall_class.empty()) w.bind_null(4);
+                else w.bind(4, wall.wall_class);
+                w.bind(5, wall.attenuation_db).run();
+                const std::int64_t row = db.last_rowid();
+                for (std::size_t k = 0; k < wall.points.size(); ++k) {
+                    pt.reset();
+                    pt.bind(1, row).bind(2, static_cast<std::int64_t>(k)).bind(3, wall.points[k].x);
+                    pt.bind(4, wall.points[k].y).run();
+                }
+            }
+            for (std::size_t i = 0; i < f->antennas.size(); ++i) {
+                const building::Antenna& ant = f->antennas[i];
+                a.reset();
+                a.bind(1, ant.id).bind(2, f->id).bind(3, static_cast<std::int64_t>(i)).bind(4, ant.name);
+                a.bind(5, ant.model).bind(6, ant.type == building::AntennaType::OutdoorDonor ? "outdoor_donor"
+                                                                                               : "indoor_das");
+                a.bind(7, ant.position.x).bind(8, ant.position.y).bind(9, ant.height_m).bind(10, ant.gain_dbi);
+                a.bind(11, pattern_text(ant.pattern.type)).bind(12, ant.pattern.azimuth_deg);
+                a.bind(13, ant.pattern.beamwidth_deg).bind(14, ant.pattern.front_to_back_db);
+                a.bind(15, ant.pattern.step_deg).bind(16, ant.eirp_dbm).bind(17, ant.feed_power_dbm);
+                a.bind(18, ant.cable_loss_db).bind(19, ant.splitter_loss_db);
+                if (ant.cell.empty()) a.bind_null(20);
+                else a.bind(20, ant.cell);
+                a.bind(21, ant.direction_deg).bind(22, ant.elevation_deg).run();
+                const std::int64_t row = db.last_rowid();
+                for (std::size_t k = 0; k < ant.pattern.gain_db.size(); ++k) {
+                    g.reset();
+                    g.bind(1, row).bind(2, static_cast<std::int64_t>(k)).bind(3, ant.pattern.gain_db[k]).run();
+                }
+            }
+        }
+    }
+
+    // The project's wall-class table (IND-11).
+    std::vector<building::WallClass> wall_classes_locked() const {
+        std::vector<building::WallClass> out;
+        sql::Stmt c(db, "SELECT id, name, reflection_loss_db FROM wall_classes ORDER BY position");
+        sql::Stmt bands(db, "SELECT frequency_mhz, attenuation_db FROM wall_class_bands WHERE class = ?1 ORDER BY idx");
+        while (c.step()) {
+            building::WallClass wc;
+            wc.id = c.text(0);
+            wc.name = c.text(1);
+            wc.reflection_loss_db = c.opt_f64(2);
+            bands.reset();
+            bands.bind(1, wc.id);
+            while (bands.step()) wc.bands.push_back({bands.f64(0), bands.f64(1)});
+            out.push_back(std::move(wc));
+        }
+        return out;
+    }
+
+    // Writes the table: classes not in it are removed (no wall may use
+    // them any more), the others updated in place or added.
+    void store_wall_classes(const std::vector<building::WallClass>& table) {
+        for (const building::WallClass& have : wall_classes_locked()) {
+            const bool kept = std::any_of(table.begin(), table.end(),
+                                          [&](const building::WallClass& c) { return c.id == have.id; });
+            if (kept) continue;
+            sql::Stmt d(db, "DELETE FROM wall_classes WHERE id = ?1");
+            d.bind(1, have.id).run();
+        }
+        sql::Stmt up(db, "INSERT INTO wall_classes (id, position, name, reflection_loss_db) VALUES (?1, ?2, ?3, ?4) "
+                         "ON CONFLICT (id) DO UPDATE SET position = excluded.position, name = excluded.name, "
+                         "reflection_loss_db = excluded.reflection_loss_db");
+        sql::Stmt db_(db, "DELETE FROM wall_class_bands WHERE class = ?1");
+        sql::Stmt ib(db, "INSERT INTO wall_class_bands (class, idx, frequency_mhz, attenuation_db) VALUES (?1, ?2, ?3, ?4)");
+        for (std::size_t i = 0; i < table.size(); ++i) {
+            const building::WallClass& c = table[i];
+            up.reset();
+            up.bind(1, c.id).bind(2, static_cast<std::int64_t>(i)).bind(3, c.name).bind(4, c.reflection_loss_db).run();
+            db_.reset();
+            db_.bind(1, c.id).run();
+            for (std::size_t k = 0; k < c.bands.size(); ++k) {
+                ib.reset();
+                ib.bind(1, c.id).bind(2, static_cast<std::int64_t>(k)).bind(3, c.bands[k].frequency_mhz);
+                ib.bind(4, c.bands[k].attenuation_db).run();
+            }
+        }
+    }
+
+    // The cells (IND-12).
+    std::vector<building::Cell> cells_locked() const {
+        std::vector<building::Cell> out;
+        sql::Stmt c(db, "SELECT id, label, technology_id, schema_id, carrier_hz FROM cells ORDER BY position, row_id");
+        sql::Stmt ids(db, "SELECT name, value FROM cell_identity WHERE cell = ?1");
+        while (c.step()) {
+            building::Cell cell;
+            cell.id = c.text(0);
+            cell.label = c.text(1);
+            cell.technology_id = c.text(2);
+            cell.schema_id = c.text(3);
+            cell.carrier_hz = static_cast<std::uint64_t>(std::max<std::int64_t>(0, c.i64(4)));
+            ids.reset();
+            ids.bind(1, cell.id);
+            while (ids.step()) cell.identity[ids.text(0)] = ids.i64(1);
+            out.push_back(std::move(cell));
+        }
+        return out;
+    }
+
+    // Writes the cells as the table: cells not in it are removed (no
+    // antenna may serve them any more), the others updated or added.
+    void store_cells(const std::vector<building::Cell>& cells) {
+        for (const building::Cell& have : cells_locked()) {
+            const bool kept =
+                std::any_of(cells.begin(), cells.end(), [&](const building::Cell& c) { return c.id == have.id; });
+            if (kept) continue;
+            sql::Stmt d(db, "DELETE FROM cells WHERE id = ?1");
+            d.bind(1, have.id).run();
+        }
+        sql::Stmt up(db, "INSERT INTO cells (id, position, label, technology_id, schema_id, carrier_hz) VALUES "
+                         "(?1, ?2, ?3, ?4, ?5, ?6) ON CONFLICT (id) DO UPDATE SET position = excluded.position, "
+                         "label = excluded.label, technology_id = excluded.technology_id, "
+                         "schema_id = excluded.schema_id, carrier_hz = excluded.carrier_hz");
+        sql::Stmt di(db, "DELETE FROM cell_identity WHERE cell = ?1");
+        sql::Stmt ii(db, "INSERT INTO cell_identity (cell, name, value) VALUES (?1, ?2, ?3)");
+        for (std::size_t i = 0; i < cells.size(); ++i) {
+            const building::Cell& c = cells[i];
+            if (c.carrier_hz > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max()))
+                throw ProjectError(Code::Invalid, "cell " + c.id + ": carrier out of range");
+            up.reset();
+            up.bind(1, c.id).bind(2, static_cast<std::int64_t>(i)).bind(3, c.label).bind(4, c.technology_id);
+            up.bind(5, c.schema_id).bind(6, static_cast<std::int64_t>(c.carrier_hz)).run();
+            di.reset();
+            di.bind(1, c.id).run();
+            for (const auto& [name, value] : c.identity) {
+                ii.reset();
+                ii.bind(1, c.id).bind(2, name).bind(3, value).run();
+            }
+        }
+    }
+
+    // Checks the whole changed model `b` and writes the parts named
+    // (inside the caller's transaction).
+    struct Parts {
+        std::vector<std::string> floors;  // scale, reference point, walls, antennas
+        bool wall_classes = false;
+        bool cells = false;
+    };
+    void write_parts(const building::Building& b, const Parts& parts) {
+        require_valid(b);
+        std::vector<const building::Floor*> floors;
+        for (const std::string& id : parts.floors) {
+            const building::Floor* f = b.find_floor(id);
+            if (f == nullptr) throw ProjectError(Code::NotFound, "no floor " + id);
+            floors.push_back(f);
+        }
+        delete_content(floors);
+        if (parts.wall_classes) store_wall_classes(b.wall_classes);
+        if (parts.cells) store_cells(b.cells);
+        for (const building::Floor* f : floors) store_scale(*f);
+        insert_content(floors);
+        touch();
     }
 
     // The page sizes recorded for a source (empty when not known yet).
@@ -518,6 +804,8 @@ struct Project::Impl {
         if (!s.step()) throw ProjectError(Code::Damaged, path.string() + ": no building row");
         b.name = s.text(0);
         b.floor_attenuation_db = s.f64(1);
+        b.wall_classes = wall_classes_locked();
+        b.cells = cells_locked();
         for (SourceFile& src : sources_locked()) b.sources.push_back(std::move(src.plan));
         b.floors = floors_locked();
         return b;
@@ -546,6 +834,13 @@ struct Project::Impl {
         if (n <= have) return;
         sql::Stmt up(db, "INSERT OR REPLACE INTO meta (key, value) VALUES (?1, ?2)");
         up.bind(1, key).bind(2, std::to_string(n)).run();
+    }
+
+    // The id counters stay above the ids of a floor's walls and antennas.
+    void bump_content_counters(const building::Floor& f) {
+        for (const building::Wall& w : f.walls) bump_counter("next_wall_number", id_number(w.id, "wall-") + 1);
+        for (const building::Antenna& a : f.antennas)
+            bump_counter("next_antenna_number", id_number(a.id, "antenna-") + 1);
     }
 
     // Moves every level out of the way of the UNIQUE constraint.
@@ -791,7 +1086,6 @@ std::optional<building::Floor> Project::floor(const std::string& id) const {
 
 std::string Project::add_floor(building::Floor floor) {
     require_floor_values(floor);
-    require_storable(floor);
     {
         const std::lock_guard l(impl_->mutex);
         impl_->require_open();
@@ -819,6 +1113,9 @@ std::string Project::add_floor(building::Floor floor) {
         bind_floor_fields(s, floor);
         s.bind(11, impl_->now()).run();
         impl_->store_trim(floor);
+        impl_->store_scale(floor);
+        impl_->insert_content({&floor});
+        impl_->bump_content_counters(floor);
         impl_->touch();
         tx.commit();
     }
@@ -828,7 +1125,6 @@ std::string Project::add_floor(building::Floor floor) {
 
 void Project::update_floor(const building::Floor& floor) {
     require_floor_values(floor);
-    require_storable(floor);
     bool moved = false;
     {
         const std::lock_guard l(impl_->mutex);
@@ -855,6 +1151,10 @@ void Project::update_floor(const building::Floor& floor) {
         bind_floor_fields(s, floor);
         s.run();
         impl_->store_trim(floor);
+        impl_->store_scale(floor);
+        impl_->delete_content({&floor});
+        impl_->insert_content({&floor});
+        impl_->bump_content_counters(floor);
         impl_->touch();
         tx.commit();
     }
@@ -943,7 +1243,6 @@ building::Building Project::building() const {
 }
 
 void Project::replace_building(const building::Building& b) {
-    require_storable(b);
     for (const building::Floor& f : b.floors) require_floor_values(f);
     require_valid(b);
     {
@@ -959,6 +1258,11 @@ void Project::replace_building(const building::Building& b) {
         }
         sql::Stmt bs(impl_->db, "UPDATE building SET name = ?1, floor_attenuation_db = ?2 WHERE id = 1");
         bs.bind(1, b.name).bind(2, b.floor_attenuation_db).run();
+        // Every wall and antenna goes first, so the classes and cells they
+        // used can be replaced; they are written again with their floors.
+        impl_->db.exec("DELETE FROM walls; DELETE FROM antennas", "replace building");
+        impl_->store_wall_classes(b.wall_classes);
+        impl_->store_cells(b.cells);
         // Floors not in b go; the others are updated (keeping their
         // creation time) or added.
         for (const building::Floor& f : impl_->floors_locked()) {
@@ -983,12 +1287,385 @@ void Project::replace_building(const building::Building& b) {
             up.bind(11, now).run();
             impl_->require_page(f);
             impl_->store_trim(f);
+            impl_->store_scale(f);
             impl_->bump_counter("next_floor_number", id_number(f.id, "floor-") + 1);
+            impl_->bump_content_counters(f);
         }
+        for (const building::Cell& c : b.cells) impl_->bump_counter("next_cell_number", id_number(c.id, "cell-") + 1);
+        std::vector<const building::Floor*> all;
+        for (const building::Floor& f : b.floors) all.push_back(&f);
+        impl_->insert_content(all);
         impl_->touch();
         tx.commit();
     }
     notify({Change::Kind::Building, ""});
+}
+
+// ---- scale and alignment (IND-08, IND-09) -----------------------------------
+
+namespace {
+
+building::Floor& floor_in(building::Building& b, const std::string& id) {
+    building::Floor* f = b.find_floor(id);
+    if (f == nullptr) throw ProjectError(Code::NotFound, "no floor " + id);
+    return *f;
+}
+
+// A Shared scale only between floors of one sheet (IND-08), never from a
+// floor without its own scale (the model refuses chains).
+void require_shareable(const building::Building& b, const building::Floor& f) {
+    if (f.scale.method != building::Scale::Method::Shared) return;
+    const building::Floor* from = b.find_floor(f.scale.shared_floor);
+    if (from == nullptr) throw ProjectError(Code::NotFound, "no floor " + f.scale.shared_floor);
+    if (!building::same_sheet(*from, f)) {
+        throw ProjectError(Code::Invalid, "floor '" + f.name + "' is not cut from the sheet of floor '" + from->name +
+                                              "': only floors of one sheet share a scale");
+    }
+}
+
+}  // namespace
+
+void Project::set_scale(const std::string& floor_id, const building::Scale& scale) {
+    std::vector<std::string> followers;
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        building::Building b = impl_->building_locked();
+        building::Floor& f = floor_in(b, floor_id);
+        f.scale = scale;
+        require_shareable(b, f);
+        followers = building::floors_sharing_scale(b, floor_id);
+        if (!followers.empty() && !building::own_metres_per_unit(scale)) {
+            throw ProjectError(Code::Invalid, "floor '" + f.name + "' gives its scale to " +
+                                                  std::to_string(followers.size()) +
+                                                  " other floor(s): it needs a scale of its own");
+        }
+        impl_->write_parts(b, {{floor_id}, false, false});
+        tx.commit();
+    }
+    notify({Change::Kind::FloorChanged, floor_id});
+    for (const std::string& id : followers) notify({Change::Kind::FloorChanged, id});
+}
+
+void Project::share_scale(const std::string& from_id, const std::vector<std::string>& floor_ids) {
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        building::Building b = impl_->building_locked();
+        floor_in(b, from_id);
+        for (const std::string& id : floor_ids) {
+            building::Floor& f = floor_in(b, id);
+            if (id == from_id) throw ProjectError(Code::Invalid, "a floor cannot share its own scale");
+            if (!building::floors_sharing_scale(b, id).empty()) {
+                throw ProjectError(Code::Invalid, "floor '" + f.name + "' gives its scale to other floors");
+            }
+            f.scale = building::shared_scale(from_id);
+            require_shareable(b, f);
+        }
+        impl_->write_parts(b, {floor_ids, false, false});
+        tx.commit();
+    }
+    for (const std::string& id : floor_ids) notify({Change::Kind::FloorChanged, id});
+}
+
+void Project::set_reference_point(const std::string& floor_id, std::optional<building::Point2> point) {
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        building::Building b = impl_->building_locked();
+        floor_in(b, floor_id).reference_point = point;
+        impl_->write_parts(b, {{floor_id}, false, false});
+        tx.commit();
+    }
+    notify({Change::Kind::FloorChanged, floor_id});
+}
+
+// ---- wall classes (IND-11) --------------------------------------------------
+
+std::vector<building::WallClass> Project::wall_classes() const {
+    const std::lock_guard l(impl_->mutex);
+    impl_->require_open();
+    return impl_->wall_classes_locked();
+}
+
+void Project::set_wall_class(const building::WallClass& wall_class) {
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        building::Building b = impl_->building_locked();
+        building::put_wall_class(b.wall_classes, wall_class);
+        impl_->write_parts(b, {{}, true, false});
+        tx.commit();
+    }
+    notify({Change::Kind::WallClasses, wall_class.id});
+}
+
+void Project::remove_wall_class(const std::string& id) {
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        building::Building b = impl_->building_locked();
+        if (b.find_class(id) == nullptr) throw ProjectError(Code::NotFound, "no wall class " + id);
+        if (const std::size_t n = building::walls_of_class(b, id); n > 0) {
+            throw ProjectError(Code::InUse, "wall class " + id + " is used by " + std::to_string(n) + " wall(s)");
+        }
+        b.wall_classes.erase(std::remove_if(b.wall_classes.begin(), b.wall_classes.end(),
+                                            [&](const building::WallClass& c) { return c.id == id; }),
+                             b.wall_classes.end());
+        impl_->write_parts(b, {{}, true, false});
+        tx.commit();
+    }
+    notify({Change::Kind::WallClasses, id});
+}
+
+void Project::reset_wall_classes() {
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        building::Building b = impl_->building_locked();
+        building::reset_default_wall_classes(b.wall_classes);
+        impl_->write_parts(b, {{}, true, false});
+        tx.commit();
+    }
+    notify({Change::Kind::WallClasses, ""});
+}
+
+// ---- walls (IND-11) -----------------------------------------------------------
+
+std::vector<building::Wall> Project::walls(const std::string& floor_id) const {
+    const auto f = floor(floor_id);
+    if (!f) throw ProjectError(Code::NotFound, "no floor " + floor_id);
+    return f->walls;
+}
+
+std::string Project::add_wall(const std::string& floor_id, building::Wall wall) {
+    return add_walls(floor_id, {std::move(wall)}).front();
+}
+
+std::vector<std::string> Project::add_walls(const std::string& floor_id, std::vector<building::Wall> walls) {
+    std::vector<std::string> ids;
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        building::Building b = impl_->building_locked();
+        building::Floor& f = floor_in(b, floor_id);
+        for (building::Wall& w : walls) {
+            if (w.id.empty()) {
+                // Unused in the building, so it is unique on the floor too.
+                do {
+                    w.id = impl_->next_id("next_wall_number", "wall-", "walls");
+                } while (std::any_of(f.walls.begin(), f.walls.end(),
+                                     [&](const building::Wall& have) { return have.id == w.id; }));
+            } else {
+                impl_->bump_counter("next_wall_number", id_number(w.id, "wall-") + 1);
+            }
+            ids.push_back(w.id);
+            f.walls.push_back(std::move(w));
+        }
+        impl_->write_parts(b, {{floor_id}, false, false});
+        tx.commit();
+    }
+    notify({Change::Kind::FloorChanged, floor_id});
+    return ids;
+}
+
+void Project::update_wall(const std::string& floor_id, const building::Wall& wall) {
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        building::Building b = impl_->building_locked();
+        building::Floor& f = floor_in(b, floor_id);
+        auto it = std::find_if(f.walls.begin(), f.walls.end(),
+                               [&](const building::Wall& w) { return !wall.id.empty() && w.id == wall.id; });
+        if (it == f.walls.end()) throw ProjectError(Code::NotFound, "no wall " + wall.id + " on floor " + floor_id);
+        *it = wall;
+        impl_->write_parts(b, {{floor_id}, false, false});
+        tx.commit();
+    }
+    notify({Change::Kind::FloorChanged, floor_id});
+}
+
+void Project::remove_wall(const std::string& floor_id, const std::string& wall_id) {
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        building::Building b = impl_->building_locked();
+        building::Floor& f = floor_in(b, floor_id);
+        const auto n = f.walls.size();
+        f.walls.erase(std::remove_if(f.walls.begin(), f.walls.end(),
+                                     [&](const building::Wall& w) { return !wall_id.empty() && w.id == wall_id; }),
+                      f.walls.end());
+        if (f.walls.size() == n) throw ProjectError(Code::NotFound, "no wall " + wall_id + " on floor " + floor_id);
+        impl_->write_parts(b, {{floor_id}, false, false});
+        tx.commit();
+    }
+    notify({Change::Kind::FloorChanged, floor_id});
+}
+
+// ---- cells and antennas (IND-12) ----------------------------------------------
+
+std::vector<building::Cell> Project::cells() const {
+    const std::lock_guard l(impl_->mutex);
+    impl_->require_open();
+    return impl_->cells_locked();
+}
+
+std::string Project::add_cell(building::Cell cell) {
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        building::Building b = impl_->building_locked();
+        if (cell.id.empty()) {
+            cell.id = impl_->next_id("next_cell_number", "cell-", "cells");
+        } else {
+            if (b.find_cell(cell.id) != nullptr) throw ProjectError(Code::Invalid, "cell id " + cell.id + " is used");
+            impl_->bump_counter("next_cell_number", id_number(cell.id, "cell-") + 1);
+        }
+        b.cells.push_back(cell);
+        impl_->write_parts(b, {{}, false, true});
+        tx.commit();
+    }
+    notify({Change::Kind::Cells, cell.id});
+    return cell.id;
+}
+
+void Project::update_cell(const building::Cell& cell) {
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        building::Building b = impl_->building_locked();
+        auto it = std::find_if(b.cells.begin(), b.cells.end(), [&](const building::Cell& c) { return c.id == cell.id; });
+        if (it == b.cells.end()) throw ProjectError(Code::NotFound, "no cell " + cell.id);
+        *it = cell;
+        impl_->write_parts(b, {{}, false, true});
+        tx.commit();
+    }
+    notify({Change::Kind::Cells, cell.id});
+}
+
+void Project::remove_cell(const std::string& id) {
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        building::Building b = impl_->building_locked();
+        if (b.find_cell(id) == nullptr) throw ProjectError(Code::NotFound, "no cell " + id);
+        std::size_t users = 0;
+        for (const building::Floor& f : b.floors)
+            for (const building::Antenna& a : f.antennas)
+                if (a.cell == id) ++users;
+        if (users > 0) throw ProjectError(Code::InUse, "cell " + id + " is served by " + std::to_string(users) + " antenna(s)");
+        b.cells.erase(std::remove_if(b.cells.begin(), b.cells.end(), [&](const building::Cell& c) { return c.id == id; }),
+                      b.cells.end());
+        impl_->write_parts(b, {{}, false, true});
+        tx.commit();
+    }
+    notify({Change::Kind::Cells, id});
+}
+
+std::vector<building::Antenna> Project::antennas(const std::string& floor_id) const {
+    const auto f = floor(floor_id);
+    if (!f) throw ProjectError(Code::NotFound, "no floor " + floor_id);
+    return f->antennas;
+}
+
+std::string Project::add_antenna(const std::string& floor_id, building::Antenna antenna) {
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        building::Building b = impl_->building_locked();
+        building::Floor& f = floor_in(b, floor_id);
+        if (antenna.id.empty()) {
+            antenna.id = impl_->next_id("next_antenna_number", "antenna-", "antennas");
+        } else {
+            if (b.find_antenna(antenna.id).second != nullptr) {
+                throw ProjectError(Code::Invalid, "antenna id " + antenna.id + " is used");
+            }
+            impl_->bump_counter("next_antenna_number", id_number(antenna.id, "antenna-") + 1);
+        }
+        f.antennas.push_back(antenna);
+        impl_->write_parts(b, {{floor_id}, false, false});
+        tx.commit();
+    }
+    notify({Change::Kind::FloorChanged, floor_id});
+    return antenna.id;
+}
+
+void Project::update_antenna(const building::Antenna& antenna) {
+    std::string floor_id;
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        building::Building b = impl_->building_locked();
+        const auto [f, a] = b.find_antenna(antenna.id);
+        if (a == nullptr) throw ProjectError(Code::NotFound, "no antenna " + antenna.id);
+        floor_id = f->id;
+        for (building::Antenna& x : floor_in(b, floor_id).antennas)
+            if (x.id == antenna.id) x = antenna;
+        impl_->write_parts(b, {{floor_id}, false, false});
+        tx.commit();
+    }
+    notify({Change::Kind::FloorChanged, floor_id});
+}
+
+void Project::move_antenna(const std::string& antenna_id, const std::string& floor_id, building::Point2 position) {
+    std::string from_id;
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        building::Building b = impl_->building_locked();
+        building::Floor& to = floor_in(b, floor_id);
+        const auto [f, a] = b.find_antenna(antenna_id);
+        if (a == nullptr) throw ProjectError(Code::NotFound, "no antenna " + antenna_id);
+        from_id = f->id;
+        building::Antenna moved = *a;
+        moved.position = position;
+        building::Floor& from = floor_in(b, from_id);
+        from.antennas.erase(std::remove_if(from.antennas.begin(), from.antennas.end(),
+                                           [&](const building::Antenna& x) { return x.id == antenna_id; }),
+                            from.antennas.end());
+        to.antennas.push_back(std::move(moved));
+        std::vector<std::string> floors{from_id};
+        if (floor_id != from_id) floors.push_back(floor_id);
+        impl_->write_parts(b, {floors, false, false});
+        tx.commit();
+    }
+    notify({Change::Kind::FloorChanged, from_id});
+    if (floor_id != from_id) notify({Change::Kind::FloorChanged, floor_id});
+}
+
+void Project::remove_antenna(const std::string& antenna_id) {
+    std::string floor_id;
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        building::Building b = impl_->building_locked();
+        const auto [f, a] = b.find_antenna(antenna_id);
+        if (a == nullptr) throw ProjectError(Code::NotFound, "no antenna " + antenna_id);
+        floor_id = f->id;
+        building::Floor& from = floor_in(b, floor_id);
+        from.antennas.erase(std::remove_if(from.antennas.begin(), from.antennas.end(),
+                                           [&](const building::Antenna& x) { return x.id == antenna_id; }),
+                            from.antennas.end());
+        impl_->write_parts(b, {{floor_id}, false, false});
+        tx.commit();
+    }
+    notify({Change::Kind::FloorChanged, floor_id});
 }
 
 // ---- sources ----------------------------------------------------------------

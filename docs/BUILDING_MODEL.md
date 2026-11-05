@@ -7,9 +7,10 @@ SPDX-License-Identifier: GPL-3.0-or-later
 The building of an indoor project (spec section 21): floors with their plan
 source and trim, scale and alignment point, walls with wall classes, antennas
 and the cells they serve. The model is plain data in the core library
-(`core/include/yantra/core/building/model.h`, no UI); the plan import window,
-the project window come in later phases and use it; the project file
-stores it.
+(`core/include/yantra/core/building/model.h`, no UI); what the scale,
+reference, wall and antenna tools do with it is in
+`core/include/yantra/core/building/edit.h` (the windows come in a later
+phase and call it); the project file stores all of it (schema 3).
 
 Users of the model:
 
@@ -59,6 +60,29 @@ A floor's scale is one of:
 - `none`: no scale. The floor has no positions in metres: the context
   callbacks answer NO_POSITION and the scene has no walls or antennas.
 
+### Setting the scale
+
+The scale tool asks for two points on the plan and their real distance in
+metres (`building::two_point_scale`), or the two ends of a scale bar and
+the length it stands for (`scale_bar`). A floor cut from the same sheet as
+another (same source and page, `same_sheet`) can share that floor's scale
+(`Project::share_scale`); when the scale of that floor changes, the
+sharing floors follow. Lengths and areas are given in metres, lengths to
+the centimetre and areas to 0.1 m² (`format_length`, `format_area`); a
+floor without scale gives "not to scale". Plan units and metres are kept
+as doubles, without rounding, in the model and the project file.
+
+## Alignment (IND-09)
+
+Each floor may have a reference point: the same building feature (for
+example a staircase corner) clicked on every floor. A floor with a scale
+and a reference point is aligned; a point of one aligned floor maps to
+the same building point on another (`point_on_floor`), whatever their
+sources and scales. Alignment is a translation: floors are turned alike by
+their trims (quarter turns and deskew), so no rotation is stored. The
+scene export puts the antennas of other aligned floors above or below the
+shown floor at their building position (IND-44).
+
 ## Wall classes (IND-11)
 
 A wall class has an attenuation table: the loss of one crossing at one or
@@ -93,6 +117,20 @@ measurements (IND-41). A class may also give the loss of a specular
 reflection (`reflection_loss_db`, IND-40); without it the propagation
 model's default applies.
 
+### Drawing and editing walls
+
+A wall is a polyline in plan units (at least two points) with a class of
+the project's table or its own attenuation. The wall tool picks the wall
+nearest to a click within a tolerance (`nearest_wall`, the wall drawn last
+wins a tie), and edits it: add, move and remove corners (a wall keeps two
+points), move the whole wall, split it at a corner (`split_wall`). The
+project stores each change at once (`Project::add_wall`, `add_walls` for
+accepted proposals, `update_wall`, `remove_wall`; ids `wall-<n>`). The
+table is edited with `Project::set_wall_class` (add or change a class),
+`remove_wall_class` (only when no wall uses it) and `reset_wall_classes`
+(the defaults back to their default values, the project's own classes
+kept).
+
 ## Antennas and cells (IND-12)
 
 An antenna has an id (unique in the building), name, model text, type
@@ -116,6 +154,17 @@ A cell has an id, label, technology id, schema id, main carrier and its
 identity as named integer key values of the technology schema (for a TETRA
 cell `mcc`, `mnc`, `la`, `colour_code`). One cell may have several antennas
 (DAS).
+
+### Placing antennas
+
+An antenna is placed at a plan point of a floor (`Project::add_antenna`,
+id `antenna-<n>`), moved on the floor or to another floor
+(`move_antenna`), and aimed by clicking where it points
+(`aim_antenna`): a directional antenna (`directional_pattern`: sector
+with azimuth, beamwidth and front-to-back ratio) gets its azimuth, an
+outdoor donor direction its bearing. Cells are added once
+(`Project::add_cell`, id `cell-<n>`) and chosen per antenna; a cell an
+antenna serves cannot be removed.
 
 ## Plan sources and trims (IND-02, IND-03, IND-05..07)
 

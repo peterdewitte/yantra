@@ -11,12 +11,12 @@
 // Schema version 1 (step 7.1) stores the building model's project-level
 // and floor-level fields and the sources; version 2 (step 7.2) adds the
 // floors' non-destructive trims (IND-05..07) and the page sizes of each
-// source (IND-02). Scales and alignment (IND-08/09), wall classes, walls, cells and antennas
-// (IND-11/12), recordings, measured points and their provenance (IND-20,
-// PLG-12) and interpolation results come with later schema versions (the
-// hooks are listed in docs/formats/PROJECT.md). Until then, a call that
-// would store such data is refused with Code::Unsupported: no part of a
-// model is ever dropped silently.
+// source (IND-02); version 3 (step 7.3) the rest of the building model:
+// floor scales and alignment points (IND-08/09), the project's wall-class
+// table, walls, cells and antennas (IND-11/12). Recordings, measured
+// points and their provenance (IND-20, PLG-12) and interpolation results
+// come with later schema versions (the hooks are listed in
+// docs/formats/PROJECT.md); no part of a model is ever dropped silently.
 //
 // Storage rules (data safety):
 // - Every change is written in its own transaction before the call
@@ -67,7 +67,7 @@ inline constexpr std::int32_t kApplicationId = 0x594E5452;
 /// The value of the format mark in the meta table.
 inline constexpr const char* kFormat = "yantra-project";
 /// Schema version written by this build (docs/formats/PROJECT.md).
-inline constexpr int kSchemaVersion = 2;
+inline constexpr int kSchemaVersion = 3;
 
 class ProjectError : public std::runtime_error {
 public:
@@ -79,9 +79,9 @@ public:
         Damaged,      ///< the file is damaged (corrupt database, wrong hash)
         Io,           ///< reading or writing a file failed
         NotFound,     ///< no floor or source with that id
-        InUse,        ///< a source still used by a floor
+        InUse,        ///< a source, wall class or cell still in use
         Invalid,      ///< an argument is not valid (e.g. an empty name)
-        Unsupported,  ///< data this schema version cannot store yet
+        Unsupported,  ///< data this schema version cannot store
         Closed,       ///< the project was closed
     };
     ProjectError(Code code, const std::string& message) : std::runtime_error(message), code_(code) {}
@@ -144,12 +144,14 @@ struct Change {
         Info,             ///< project metadata
         Building,         ///< building name and defaults, or replace_building()
         FloorAdded,
-        FloorChanged,
+        FloorChanged,     ///< also its scale, reference point, walls or antennas
         FloorRemoved,
         FloorsReordered,  ///< the levels (and so the order) changed
         SourceAdded,
         SourceRemoved,
         SourceChanged,    ///< set_source_pages()
+        WallClasses,      ///< the wall-class table changed (IND-11)
+        Cells,            ///< a cell was added, changed or removed (IND-12)
         Saved,            ///< save() or save_as(); path() may have changed
     };
     Kind kind = Kind::Info;
@@ -210,8 +212,8 @@ public:
     /// empty name, a used level or a value the building model refuses;
     /// NotFound for an unknown source; Invalid for a trim the building
     /// model refuses or a page the source does not have (when its pages
-    /// are recorded); Unsupported for a scale, reference point, walls or
-    /// antennas (later schema versions).
+    /// are recorded). The floor may carry a scale, reference point, walls
+    /// and antennas (ids as the building model requires).
     std::string add_floor(building::Floor floor);
     /// Updates every field but the id (a new level must be free).
     void update_floor(const building::Floor& floor);
@@ -227,15 +229,80 @@ public:
     void remove_floor(const std::string& id);
 
     // -- building model ------------------------------------------------
-    /// The building model of the project: name, slab default, sources and
-    /// floors (ordered by level), the default wall-class table.
+    /// The building model of the project: name, slab default, the
+    /// wall-class table, cells, sources and floors (ordered by level) with
+    /// their scales, reference points, walls and antennas.
     building::Building building() const;
-    /// Replaces the building in one transaction: name, slab default and
-    /// floors (floors not in `b` are removed). Every source of `b` must be
-    /// in the project with the same id (and SHA-256 when `b` gives one);
-    /// sources are added with add_source*. Invalid when b.validate()
-    /// fails; Unsupported for data of later schema versions.
+    /// Replaces the building in one transaction: name, slab default,
+    /// wall-class table, cells and floors (floors not in `b` are removed).
+    /// Every source of `b` must be in the project with the same id (and
+    /// SHA-256 when `b` gives one); sources are added with add_source*.
+    /// Invalid when b.validate() fails.
     void replace_building(const building::Building& b);
+
+    // -- scale and alignment (IND-08, IND-09) ----------------------------
+    /// Sets a floor's scale (building/edit.h: two_point_scale, scale_bar,
+    /// factor_scale, shared_scale; Scale{} clears it: "not to scale").
+    /// Floors sharing this floor's scale follow it. Invalid for a scale
+    /// the building model refuses, a Shared scale from a floor of another
+    /// sheet (IND-08 "floors from one sheet", building::same_sheet), and
+    /// clearing or sharing the scale of a floor others share from;
+    /// NotFound for an unknown floor.
+    void set_scale(const std::string& floor_id, const building::Scale& scale);
+    /// The floors `floor_ids` share the scale of `from_id` (one
+    /// transaction, all or none); as set_scale(id, shared_scale(from_id)).
+    void share_scale(const std::string& from_id, const std::vector<std::string>& floor_ids);
+    /// Sets or clears a floor's alignment point (plan units, IND-09).
+    void set_reference_point(const std::string& floor_id, std::optional<building::Point2> point);
+
+    // -- wall classes (IND-11) ---------------------------------------------
+    /// The project's editable table, in table order; a new project has
+    /// building::default_wall_classes().
+    std::vector<building::WallClass> wall_classes() const;
+    /// Adds a class (at the end) or replaces the class with its id.
+    /// Invalid for a class the building model refuses (empty id, no band,
+    /// bands not ascending, negative losses).
+    void set_wall_class(const building::WallClass& wall_class);
+    /// InUse while a wall uses it; NotFound when there is none.
+    void remove_wall_class(const std::string& id);
+    /// Puts the default classes back to their default values (adding
+    /// missing ones at the end); the project's own classes stay.
+    void reset_wall_classes();
+
+    // -- walls (IND-11) ----------------------------------------------------
+    /// The walls of a floor in drawing order; NotFound for an unknown floor.
+    std::vector<building::Wall> walls(const std::string& floor_id) const;
+    /// Adds a wall (a polyline in plan units, >= 2 finite points, a class
+    /// of the table or its own attenuation) and returns its id: the given
+    /// one when not empty (unused on the floor), else "wall-<n>" (never
+    /// reused). Invalid for a wall the model refuses.
+    std::string add_wall(const std::string& floor_id, building::Wall wall);
+    /// Adds several walls in one transaction (all or none).
+    std::vector<std::string> add_walls(const std::string& floor_id, std::vector<building::Wall> walls);
+    /// Replaces the wall with wall.id on the floor (points, class,
+    /// override); NotFound when there is none.
+    void update_wall(const std::string& floor_id, const building::Wall& wall);
+    void remove_wall(const std::string& floor_id, const std::string& wall_id);
+
+    // -- cells and antennas (IND-12) ----------------------------------------
+    std::vector<building::Cell> cells() const;
+    /// Adds a cell and returns its id (given, else "cell-<n>").
+    std::string add_cell(building::Cell cell);
+    void update_cell(const building::Cell& cell);
+    /// InUse while an antenna serves it; NotFound when there is none.
+    void remove_cell(const std::string& id);
+    /// The antennas of a floor in placement order; NotFound for an unknown floor.
+    std::vector<building::Antenna> antennas(const std::string& floor_id) const;
+    /// Places an antenna on a floor and returns its id (given and unused
+    /// in the building, else "antenna-<n>"). Invalid for values the model
+    /// refuses (pattern, elevation, losses, an unknown cell).
+    std::string add_antenna(const std::string& floor_id, building::Antenna antenna);
+    /// Replaces the antenna with antenna.id (it stays on its floor).
+    void update_antenna(const building::Antenna& antenna);
+    /// Moves an antenna to another floor (or the same) at `position`
+    /// (plan units of that floor); it goes last in that floor's list.
+    void move_antenna(const std::string& antenna_id, const std::string& floor_id, building::Point2 position);
+    void remove_antenna(const std::string& antenna_id);
 
     // -- source files (IND-03) -------------------------------------------
     /// Copies a file into the project unchanged; its id is

@@ -11,3 +11,5 @@ list(APPEND YANTRA_PER_CASE_TESTS project)
 yantra_add_test_dir(project LIBS yantra::core yantra::json SQLite::SQLite3)
 target_compile_definitions(test_project PRIVATE
   YANTRA_TEST_SCRATCH_DIR="${CMAKE_CURRENT_BINARY_DIR}/scratch")
+# The example building of the building tests (schema 3 round trip).
+target_include_directories(test_project PRIVATE ${PROJECT_SOURCE_DIR}/tests/building)
