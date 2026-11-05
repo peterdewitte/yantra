@@ -196,10 +196,6 @@ void require_storable(const building::Floor& f) {
                                                   " cannot be stored in project schema " +
                                                   std::to_string(kSchemaVersion) + " yet (" + step + ")");
     };
-    const building::Trim& t = f.trim;
-    if (t.shape != building::Trim::Shape::None || !t.outline.empty() || t.quarter_turns != 0 || t.deskew_deg != 0.0) {
-        refuse("a trim", "IND-05..07");
-    }
     if (f.scale != building::Scale{}) refuse("a scale", "IND-08");
     if (f.reference_point) refuse("a reference point", "IND-09");
     if (!f.walls.empty()) refuse("walls", "IND-11");
@@ -413,10 +409,79 @@ struct Project::Impl {
     }
 
     std::vector<building::Floor> floors_locked() const {
-        sql::Stmt s(db, std::string("SELECT ") + kFloorColumns + " FROM floors ORDER BY level");
         std::vector<building::Floor> out;
-        while (s.step()) out.push_back(floor_from(s));
+        {
+            sql::Stmt s(db, std::string("SELECT ") + kFloorColumns + " FROM floors ORDER BY level");
+            while (s.step()) out.push_back(floor_from(s));
+        }
+        for (building::Floor& f : out) load_trim(f);
         return out;
+    }
+
+    std::optional<building::Floor> floor_locked(const std::string& id) const {
+        std::optional<building::Floor> f;
+        {
+            sql::Stmt s(db, std::string("SELECT ") + kFloorColumns + " FROM floors WHERE id = ?1");
+            s.bind(1, id);
+            if (!s.step()) return std::nullopt;
+            f = floor_from(s);
+        }
+        load_trim(*f);
+        return f;
+    }
+
+    // The trim of a floor (schema 2, IND-07): shape and rotation in the
+    // floors row, the outline in floor_outline.
+    void load_trim(building::Floor& f) const {
+        sql::Stmt s(db, "SELECT trim_shape, quarter_turns, deskew_deg FROM floors WHERE id = ?1");
+        s.bind(1, f.id);
+        if (!s.step()) return;
+        const std::string shape = s.text(0);
+        f.trim.shape = shape == "rectangle" ? building::Trim::Shape::Rectangle
+                       : shape == "polygon" ? building::Trim::Shape::Polygon
+                                            : building::Trim::Shape::None;
+        f.trim.quarter_turns = static_cast<int>(s.i64(1));
+        f.trim.deskew_deg = s.f64(2);
+        f.trim.outline.clear();
+        sql::Stmt o(db, "SELECT x, y FROM floor_outline WHERE floor = ?1 ORDER BY idx");
+        o.bind(1, f.id);
+        while (o.step()) f.trim.outline.push_back({o.f64(0), o.f64(1)});
+    }
+
+    void store_trim(const building::Floor& f) {
+        const building::Trim& t = f.trim;
+        const char* shape = t.shape == building::Trim::Shape::Rectangle ? "rectangle"
+                            : t.shape == building::Trim::Shape::Polygon ? "polygon"
+                                                                        : "none";
+        sql::Stmt s(db, "UPDATE floors SET trim_shape = ?2, quarter_turns = ?3, deskew_deg = ?4 WHERE id = ?1");
+        s.bind(1, f.id).bind(2, shape).bind(3, t.quarter_turns).bind(4, t.deskew_deg).run();
+        sql::Stmt d(db, "DELETE FROM floor_outline WHERE floor = ?1");
+        d.bind(1, f.id).run();
+        sql::Stmt in(db, "INSERT INTO floor_outline (floor, idx, x, y) VALUES (?1, ?2, ?3, ?4)");
+        for (std::size_t i = 0; i < t.outline.size(); ++i) {
+            in.reset();
+            in.bind(1, f.id).bind(2, static_cast<std::int64_t>(i)).bind(3, t.outline[i].x).bind(4, t.outline[i].y).run();
+        }
+    }
+
+    // The page sizes recorded for a source (empty when not known yet).
+    std::vector<SourcePage> pages_locked(const std::string& id) const {
+        sql::Stmt s(db, "SELECT width, height, units_per_inch FROM source_pages WHERE source = ?1 ORDER BY page");
+        s.bind(1, id);
+        std::vector<SourcePage> out;
+        while (s.step()) out.push_back({s.f64(0), s.f64(1), s.f64(2)});
+        return out;
+    }
+
+    // A floor's page must exist when the source's pages are known.
+    void require_page(const building::Floor& f) const {
+        if (f.source.empty()) return;
+        const std::vector<SourcePage> pages = pages_locked(f.source);
+        if (!pages.empty() && f.page >= static_cast<int>(pages.size())) {
+            throw ProjectError(Code::Invalid, "floor '" + f.name + "': source " + f.source + " has " +
+                                                  std::to_string(pages.size()) + " page(s), no page " +
+                                                  std::to_string(f.page + 1));
+        }
     }
 
     std::vector<SourceFile> sources_locked() const {
@@ -721,10 +786,7 @@ std::vector<building::Floor> Project::floors() const {
 std::optional<building::Floor> Project::floor(const std::string& id) const {
     const std::lock_guard l(impl_->mutex);
     impl_->require_open();
-    sql::Stmt s(impl_->db, std::string("SELECT ") + kFloorColumns + " FROM floors WHERE id = ?1");
-    s.bind(1, id);
-    if (!s.step()) return std::nullopt;
-    return floor_from(s);
+    return impl_->floor_locked(id);
 }
 
 std::string Project::add_floor(building::Floor floor) {
@@ -750,11 +812,13 @@ std::string Project::add_floor(building::Floor floor) {
         }
         b.floors.push_back(floor);
         require_valid(b);
+        impl_->require_page(floor);
         sql::Stmt s(impl_->db, std::string("INSERT INTO floors (") + kFloorColumns +
                                    ", created_utc) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)");
         s.bind(1, floor.id);
         bind_floor_fields(s, floor);
         s.bind(11, impl_->now()).run();
+        impl_->store_trim(floor);
         impl_->touch();
         tx.commit();
     }
@@ -783,12 +847,14 @@ void Project::update_floor(const building::Floor& floor) {
         moved = old->level != floor.level;
         *old = floor;
         require_valid(b);
+        impl_->require_page(floor);
         sql::Stmt s(impl_->db, "UPDATE floors SET name = ?2, level = ?3, height_m = ?4, source = ?5, page = ?6, "
                                "example_id = ?7, plan_width = ?8, plan_height = ?9, slab_attenuation_db = ?10 "
                                "WHERE id = ?1");
         s.bind(1, floor.id);
         bind_floor_fields(s, floor);
         s.run();
+        impl_->store_trim(floor);
         impl_->touch();
         tx.commit();
     }
@@ -915,6 +981,8 @@ void Project::replace_building(const building::Building& b) {
             up.bind(1, f.id);
             bind_floor_fields(up, f);
             up.bind(11, now).run();
+            impl_->require_page(f);
+            impl_->store_trim(f);
             impl_->bump_counter("next_floor_number", id_number(f.id, "floor-") + 1);
         }
         impl_->touch();
@@ -1052,6 +1120,48 @@ void Project::export_source(const std::string& id, const fs::path& file) const {
         }
     }
     publish(tmp, file, true);
+}
+
+std::vector<SourcePage> Project::source_pages(const std::string& id) const {
+    const std::lock_guard l(impl_->mutex);
+    impl_->require_open();
+    if (!impl_->source_locked(id)) throw ProjectError(Code::NotFound, "no source " + id);
+    return impl_->pages_locked(id);
+}
+
+void Project::set_source_pages(const std::string& id, const std::vector<SourcePage>& pages) {
+    if (pages.empty()) throw ProjectError(Code::Invalid, "a source has at least one page");
+    for (const SourcePage& p : pages) {
+        if (!(p.width > 0.0) || !(p.height > 0.0) || !std::isfinite(p.width) || !std::isfinite(p.height) ||
+            !(p.units_per_inch >= 0.0) || !std::isfinite(p.units_per_inch)) {
+            throw ProjectError(Code::Invalid, "page sizes must be finite and > 0");
+        }
+    }
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        if (!impl_->source_locked(id)) throw ProjectError(Code::NotFound, "no source " + id);
+        sql::Stmt used(impl_->db, "SELECT name, page FROM floors WHERE source = ?1 AND page >= ?2 LIMIT 1");
+        used.bind(1, id).bind(2, static_cast<std::int64_t>(pages.size()));
+        if (used.step()) {
+            throw ProjectError(Code::Invalid, "floor '" + used.text(0) + "' uses page " +
+                                                  std::to_string(used.i64(1) + 1) + " of source " + id + ", which has " +
+                                                  std::to_string(pages.size()) + " page(s)");
+        }
+        sql::Stmt d(impl_->db, "DELETE FROM source_pages WHERE source = ?1");
+        d.bind(1, id).run();
+        sql::Stmt in(impl_->db, "INSERT INTO source_pages (source, page, width, height, units_per_inch) "
+                                "VALUES (?1, ?2, ?3, ?4, ?5)");
+        for (std::size_t i = 0; i < pages.size(); ++i) {
+            in.reset();
+            in.bind(1, id).bind(2, static_cast<std::int64_t>(i)).bind(3, pages[i].width).bind(4, pages[i].height);
+            in.bind(5, pages[i].units_per_inch).run();
+        }
+        impl_->touch();
+        tx.commit();
+    }
+    notify({Change::Kind::SourceChanged, id});
 }
 
 void Project::remove_source(const std::string& id) {

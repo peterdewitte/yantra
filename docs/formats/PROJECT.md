@@ -23,12 +23,13 @@ form is the building model of [BUILDING_MODEL.md](../BUILDING_MODEL.md)
 | Item | Value |
 | --- | --- |
 | `PRAGMA application_id` | `0x594E5452` ("YNTR"); other files are refused as "not a Yantra project" |
-| `PRAGMA user_version` | schema version, now **1** |
+| `PRAGMA user_version` | schema version, now **2** |
 | `meta.format` | `yantra-project` |
 
 | Version | Change |
 | --- | --- |
 | 1 | `meta`, `project`, `building`, `sources`, `floors` |
+| 2 | floor trims (IND-05..07): `floors` columns `trim_shape`, `quarter_turns`, `deskew_deg` and the table `floor_outline`; the page sizes of each source (IND-02): `source_pages`. Existing floors get the whole page (`trim_shape` `none`) |
 
 Rules:
 
@@ -49,14 +50,14 @@ Rules:
 ### Planned versions (hooks)
 
 Version 1 stores the project-level and floor-level fields of the building
-model and the source files. The rest of the model and the later data come
-as new versions in the steps that add them; until then the API refuses
-such data with "cannot be stored in project schema 1 yet" (error
-`Unsupported`), so nothing is ever dropped silently.
+model and the source files; version 2 adds the floor trims and the source
+page sizes. The rest of the model and the later data come as new versions
+in the steps that add them; until then the API refuses such data with
+"cannot be stored in project schema 2 yet" (error `Unsupported`), so
+nothing is ever dropped silently.
 
 | Step | Planned content |
 | --- | --- |
-| 7.2 plan import | floor trims (IND-05..07): `floors` columns `trim_shape`, `quarter_turns`, `deskew_deg` and a table `floor_outline` (floor, index, x, y in page units); PDF page count and page sizes per source |
 | 7.3 scale, alignment, walls, antennas | `floors` scale columns (method, two points, distance, metres per unit, shared floor) and `reference_x/y` (IND-08/09); tables `wall_classes` + `wall_class_bands` (the project's table, IND-11), `walls` + `wall_points`, `cells` + `cell_identity`, `antennas` (IND-12) |
 | 7.4 recordings | `recordings` (one row per recording file kept in the project: name, SHA-256, size, content or reference, header JSON; REC-*) |
 | 7.5 walk tests and points | `provenance` (plugin id, version, technology id; PLG-12), `sessions` (walk or manual, floor, radio, calibration, notes; IND-20), `samples` (session, sequence, time, plan position in metres and plan units, sample JSON) — the one point list of IND-30 |
@@ -95,7 +96,7 @@ such data with "cannot be stored in project schema 1 yet" (error
   the building model: heights in metres, plan sizes in plan units,
   attenuations in dB.
 
-## Tables (version 1)
+## Tables (version 2)
 
 ### `meta`
 
@@ -176,6 +177,44 @@ level. Reordering hands the same set of levels out in the new order.
 | `plan_width`, `plan_height` | REAL >= 0 | trimmed plan size in plan units |
 | `slab_attenuation_db` | REAL or NULL | attenuation of the slab to the floor above (IND-44); NULL: the building's default |
 | `created_utc` | TEXT | when it was added |
+| `trim_shape` | TEXT | the floor's trim on its source page (IND-05, IND-07): `none` (the whole page, or no source), `rectangle` (4 corners) or `polygon` (3 or more points); the outline is in `floor_outline`. Version 2 |
+| `quarter_turns` | INTEGER 0..3 | rotation of the floor plan by quarter turns, clockwise. Version 2 |
+| `deskew_deg` | REAL -45..45 | fine rotation (deskew) in degrees, clockwise, on top of the quarter turns. Version 2 |
+
+A floor stores its source, page and trim, never a new image: the plan is
+rendered from the unchanged source each time (non-destructive, IND-07).
+`plan_width` and `plan_height` are the size of the trimmed and turned
+outline (the trim's bounding box in the turned frame), so walls, antennas
+and points (plan units) stay on the plan. The page of a floor must exist
+when the source's pages are recorded (`source_pages`).
+
+### `floor_outline`
+
+The outline of a floor's trim (version 2): its points in drawing order,
+closed implicitly, in page units of the source page (PDF points or image
+pixels, origin top left, y down). A rectangle has 4 points, a polygon 3
+or more and must not cross itself; `none` has no points. Removed with
+its floor.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `floor` | TEXT | `floors.id` |
+| `idx` | INTEGER >= 0 | position in the outline, from 0 |
+| `x`, `y` | REAL | the point in page units |
+
+### `source_pages`
+
+The pages of a plan source (version 2, IND-02), recorded when the plan
+import first opens the source, so the page list and the page sizes are
+known without reading the file. No rows: not recorded yet. Removed with
+its source.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `source` | TEXT | `sources.id` |
+| `page` | INTEGER >= 0 | page number, from 0 |
+| `width`, `height` | REAL > 0 | page size in page units: PDF points as displayed (after the page's /Rotate), image pixels (after EXIF orientation) |
+| `units_per_inch` | REAL >= 0 | 72 for PDF; for images the resolution stored in the file, 0 when unknown |
 
 ## Example
 
@@ -184,18 +223,23 @@ it (`sqlite3 survey.yantra .dump`, content shortened):
 
 ```sql
 PRAGMA application_id = 1498305618;  -- 0x594E5452
-PRAGMA user_version = 1;
+PRAGMA user_version = 2;
 INSERT INTO meta VALUES ('format', 'yantra-project');
 INSERT INTO meta VALUES ('next_floor_number', '3');
 INSERT INTO meta VALUES ('next_source_number', '2');
 INSERT INTO meta VALUES ('schema_1_by', 'Yantra 0.1.0 2026-11-05T09:30:00Z');
+INSERT INTO meta VALUES ('schema_2_by', 'Yantra 0.1.0 2026-11-05T09:30:00Z');
 INSERT INTO project VALUES (1, 'Town hall survey', 'Town hall', 'Example network', '',
   '2026-11-05T09:30:00Z', '2026-11-05T09:41:12Z', 'Yantra 0.1.0', 'Yantra 0.1.0');
 INSERT INTO building VALUES (1, 'Town hall', 15.0);
 INSERT INTO sources VALUES (1, 'source-1', 'plans.pdf', 'application/pdf', 482113,
   '9f2c...e1a0', 'embedded', X'255044462D312E37...', '', '2026-11-05T09:31:02Z');
+INSERT INTO source_pages VALUES ('source-1', 0, 1191.0, 842.0, 72.0);
 INSERT INTO floors VALUES ('floor-1', 'Ground floor', 0, 3.6, 'source-1', 0, '',
-  1191.0, 842.0, NULL, '2026-11-05T09:33:40Z');
+  560.0, 400.0, NULL, '2026-11-05T09:33:40Z', 'rectangle', 0, 0.0);
 INSERT INTO floors VALUES ('floor-2', 'First floor', 1, 3.2, 'source-1', 0, '',
-  1191.0, 842.0, NULL, '2026-11-05T09:35:05Z');
+  400.0, 560.0, NULL, '2026-11-05T09:35:05Z', 'polygon', 1, -0.8);
+INSERT INTO floor_outline VALUES ('floor-1', 0, 20.0, 40.0), ('floor-1', 1, 580.0, 40.0),
+  ('floor-1', 2, 580.0, 440.0), ('floor-1', 3, 20.0, 440.0);
+INSERT INTO floor_outline VALUES ('floor-2', 0, 610.0, 40.0), ...;
 ```

@@ -67,6 +67,31 @@ CREATE TABLE floors (
 CREATE INDEX floors_by_source ON floors (source);
 )sql";
 
+// Version 2 (step 7.2): the non-destructive trim of each floor (IND-05..07)
+// and the page sizes of each source (IND-02). Existing floors keep the
+// whole page (shape 'none').
+const char* const kV2 = R"sql(
+ALTER TABLE floors ADD COLUMN trim_shape TEXT NOT NULL DEFAULT 'none'
+  CHECK (trim_shape IN ('none', 'rectangle', 'polygon'));
+ALTER TABLE floors ADD COLUMN quarter_turns INTEGER NOT NULL DEFAULT 0 CHECK (quarter_turns BETWEEN 0 AND 3);
+ALTER TABLE floors ADD COLUMN deskew_deg REAL NOT NULL DEFAULT 0 CHECK (deskew_deg BETWEEN -45 AND 45);
+CREATE TABLE floor_outline (
+  floor TEXT NOT NULL REFERENCES floors (id) ON DELETE CASCADE,
+  idx   INTEGER NOT NULL CHECK (idx >= 0),
+  x     REAL NOT NULL,
+  y     REAL NOT NULL,
+  PRIMARY KEY (floor, idx)
+) WITHOUT ROWID;
+CREATE TABLE source_pages (
+  source TEXT NOT NULL REFERENCES sources (id) ON DELETE CASCADE,
+  page   INTEGER NOT NULL CHECK (page >= 0),
+  width  REAL NOT NULL CHECK (width > 0),
+  height REAL NOT NULL CHECK (height > 0),
+  units_per_inch REAL NOT NULL DEFAULT 0 CHECK (units_per_inch >= 0),
+  PRIMARY KEY (source, page)
+) WITHOUT ROWID;
+)sql";
+
 }  // namespace
 
 void migrate(sql::Db& db, int from, int to, const std::string& now, const std::string& tool,
@@ -80,6 +105,8 @@ void migrate(sql::Db& db, int from, int to, const std::string& now, const std::s
                     "('next_floor_number', '1'), ('next_source_number', '1'); "
                     "INSERT INTO building (id) VALUES (1)",
                     what);
+        } else if (v == 2) {
+            db.exec(kV2, what);
         } else if (v > kSchemaVersion && static_cast<std::size_t>(v - kSchemaVersion) <= extra.size()) {
             db.exec(extra[static_cast<std::size_t>(v - kSchemaVersion - 1)], what);
         } else {

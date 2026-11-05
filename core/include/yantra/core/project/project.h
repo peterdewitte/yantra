@@ -9,8 +9,9 @@
 // sources a reference by SHA-256).
 //
 // Schema version 1 (step 7.1) stores the building model's project-level
-// and floor-level fields and the sources. Trims (IND-05..07), scales and
-// alignment (IND-08/09), wall classes, walls, cells and antennas
+// and floor-level fields and the sources; version 2 (step 7.2) adds the
+// floors' non-destructive trims (IND-05..07) and the page sizes of each
+// source (IND-02). Scales and alignment (IND-08/09), wall classes, walls, cells and antennas
 // (IND-11/12), recordings, measured points and their provenance (IND-20,
 // PLG-12) and interpolation results come with later schema versions (the
 // hooks are listed in docs/formats/PROJECT.md). Until then, a call that
@@ -66,7 +67,7 @@ inline constexpr std::int32_t kApplicationId = 0x594E5452;
 /// The value of the format mark in the meta table.
 inline constexpr const char* kFormat = "yantra-project";
 /// Schema version written by this build (docs/formats/PROJECT.md).
-inline constexpr int kSchemaVersion = 1;
+inline constexpr int kSchemaVersion = 2;
 
 class ProjectError : public std::runtime_error {
 public:
@@ -122,6 +123,16 @@ struct SourceFile {
     bool operator==(const SourceFile&) const = default;
 };
 
+/// The size of one page of a plan source in page units (PDF points or
+/// image pixels; IND-02), recorded by the plan import (plan/import.h) so
+/// the page list is known without reading the file.
+struct SourcePage {
+    double width = 0.0;
+    double height = 0.0;
+    double units_per_inch = 0.0;  ///< 72 for PDF; an image's stored resolution, else 0
+    bool operator==(const SourcePage&) const = default;
+};
+
 struct AddSourceResult {
     std::string id;
     bool added = false;  ///< false: the same content was already in the project
@@ -138,6 +149,7 @@ struct Change {
         FloorsReordered,  ///< the levels (and so the order) changed
         SourceAdded,
         SourceRemoved,
+        SourceChanged,    ///< set_source_pages()
         Saved,            ///< save() or save_as(); path() may have changed
     };
     Kind kind = Kind::Info;
@@ -196,8 +208,10 @@ public:
     /// Adds a floor and returns its id: the given one when not empty (it
     /// must be unused), else "floor-<n>" (never reused). Invalid for an
     /// empty name, a used level or a value the building model refuses;
-    /// NotFound for an unknown source; Unsupported for a trim, scale,
-    /// reference point, walls or antennas (later schema versions).
+    /// NotFound for an unknown source; Invalid for a trim the building
+    /// model refuses or a page the source does not have (when its pages
+    /// are recorded); Unsupported for a scale, reference point, walls or
+    /// antennas (later schema versions).
     std::string add_floor(building::Floor floor);
     /// Updates every field but the id (a new level must be free).
     void update_floor(const building::Floor& floor);
@@ -243,6 +257,14 @@ public:
     void export_source(const std::string& id, const std::filesystem::path& file) const;
     /// InUse while a floor uses it.
     void remove_source(const std::string& id);
+    /// The recorded page sizes of a source, page 0 first; empty when not
+    /// recorded yet. NotFound for an unknown source.
+    std::vector<SourcePage> source_pages(const std::string& id) const;
+    /// Records the page sizes of a source (replacing earlier ones).
+    /// Invalid for an empty list, a size that is not > 0 or finite, or
+    /// fewer pages than a floor of the source uses; NotFound for an
+    /// unknown source.
+    void set_source_pages(const std::string& id, const std::vector<SourcePage>& pages);
 
     // -- file ---------------------------------------------------------
     /// Folds the write-ahead log into the file (changes are already

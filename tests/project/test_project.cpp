@@ -270,13 +270,6 @@ TEST_CASE("project: floors ordered by level, renamed, levels and heights, reorde
 TEST_CASE("project: data of later schema versions is refused, never dropped") {
     const fs::path dir = scratch("unsupported");
     auto p = pj::Project::create(dir / "u.yantra", info());
-    bm::Floor trimmed = floor_named("Ground floor", 0);
-    trimmed.trim.shape = bm::Trim::Shape::Rectangle;
-    trimmed.trim.outline = {{0, 0}, {10, 0}, {10, 10}, {0, 10}};
-    CHECK(code_of([&] { p->add_floor(trimmed); }) == Code::Unsupported);
-    bm::Floor turned = floor_named("Ground floor", 0);
-    turned.trim.quarter_turns = 1;
-    CHECK(code_of([&] { p->add_floor(turned); }) == Code::Unsupported);
     bm::Floor scaled = floor_named("Ground floor", 0);
     scaled.scale.method = bm::Scale::Method::Factor;
     scaled.scale.metres_per_unit = 0.05;
@@ -592,12 +585,12 @@ TEST_CASE("project: an older schema version is migrated on open, with a backup")
         auto p = pj::Project::open(file, later);
         CHECK(p->opened_version() == pj::kSchemaVersion);
         CHECK(p->meta().schema_version == pj::kSchemaVersion + 1);
-        CHECK(p->migration_backup() == fs::path(file.string() + ".schema1.bak"));
+        CHECK(p->migration_backup() == fs::path(file.string() + ".schema" + std::to_string(pj::kSchemaVersion) + ".bak"));
         CHECK(p->floors().size() == 1);
     }
     // The backup is the old file, which this (older) build still opens.
     {
-        auto backup = pj::Project::open(file.string() + ".schema1.bak");
+        auto backup = pj::Project::open(file.string() + ".schema" + std::to_string(pj::kSchemaVersion) + ".bak");
         CHECK(backup->meta().schema_version == pj::kSchemaVersion);
         CHECK(backup->floors().size() == 1);
     }
@@ -615,9 +608,157 @@ TEST_CASE("project: an older schema version is migrated on open, with a backup")
         auto p = pj::Project::open(other, later);
         CHECK(p->migration_backup().empty());
     }
-    CHECK_FALSE(fs::exists(other.string() + ".schema1.bak"));
+    CHECK_FALSE(fs::exists(other.string() + ".schema" + std::to_string(pj::kSchemaVersion) + ".bak"));
     CHECK(code_of([] { pj::testing::create_at_version("unused.yantra", pj::kSchemaVersion + 1, info()); }) ==
           Code::Invalid);
+}
+
+TEST_CASE("project: a schema 1 file is migrated to schema 2 (trims, source pages)") {
+    const fs::path dir = scratch("migrate-1-2");
+    const fs::path file = dir / "v1.yantra";
+    // A file as step 7.1's Yantra wrote it, with two floors and a source.
+    pj::testing::create_at_version(file, 1, pj::ProjectInfo{"Version one", "Hall", "", ""});
+    raw_sql(file,
+            "INSERT INTO sources (id, file_name, media_type, size, sha256, storage, content, added_utc) VALUES "
+            "('source-1', 'sheet.png', 'image/png', 3, '" + std::string(64, 'a') + "', 'embedded', X'010203', "
+            "'2026-01-01T00:00:00Z');"
+            "INSERT INTO floors (id, name, level, height_m, source, page, plan_width, plan_height, created_utc) VALUES "
+            "('floor-1', 'Ground floor', 0, 3.5, 'source-1', 0, 400, 200, '2026-01-01T00:00:00Z'),"
+            "('floor-2', 'First floor', 1, 3.0, NULL, 0, 0, 0, '2026-01-01T00:00:00Z');"
+            "UPDATE meta SET value = '3' WHERE key = 'next_floor_number';"
+            "UPDATE meta SET value = '2' WHERE key = 'next_source_number';");
+    {
+        auto p = pj::Project::open(file);
+        CHECK(p->opened_version() == 1);
+        CHECK(p->meta().schema_version == 2);
+        CHECK(p->migration_backup() == fs::path(file.string() + ".schema1.bak"));
+        // The floors keep every value and get the whole page (no trim).
+        const auto floors = p->floors();
+        REQUIRE(floors.size() == 2);
+        CHECK(floors[0].name == "Ground floor");
+        CHECK(floors[0].source == "source-1");
+        CHECK(floors[0].height_m == 3.5);
+        CHECK(floors[0].plan_width == 400.0);
+        CHECK(floors[0].trim == bm::Trim{});
+        CHECK(floors[1].source.empty());
+        CHECK(p->source_pages("source-1").empty());
+        // Schema 2 data can now be stored in the migrated file.
+        bm::Floor f = floors[0];
+        f.trim = bm::Trim{bm::Trim::Shape::Polygon, {{5, 5}, {195, 5}, {195, 195}, {5, 120}}, 1, -2.5};
+        p->update_floor(f);
+        p->set_source_pages("source-1", {{400, 200, 96}});
+        CHECK(p->check().size() == 1);  // the made-up hash of source-1 only
+    }
+    {
+        auto p = pj::Project::open(file);
+        CHECK(p->opened_version() == 2);
+        CHECK(p->floors()[0].trim.outline.size() == 4);
+        CHECK(p->floors()[0].trim.quarter_turns == 1);
+        CHECK(p->source_pages("source-1") == std::vector<pj::SourcePage>{{400, 200, 96}});
+    }
+    // The backup is the version 1 file with its content (an older Yantra
+    // opens it).
+    sqlite3* db = nullptr;
+    REQUIRE(sqlite3_open_v2((file.string() + ".schema1.bak").c_str(), &db, SQLITE_OPEN_READONLY, nullptr) == SQLITE_OK);
+    sqlite3_stmt* st = nullptr;
+    REQUIRE(sqlite3_prepare_v2(db, "SELECT (SELECT user_version FROM pragma_user_version), "
+                                   "(SELECT group_concat(id || ':' || name, ',') FROM floors), "
+                                   "(SELECT count(*) FROM pragma_table_info('floors') WHERE name = 'trim_shape')",
+                               -1, &st, nullptr) == SQLITE_OK);
+    REQUIRE(sqlite3_step(st) == SQLITE_ROW);
+    CHECK(sqlite3_column_int(st, 0) == 1);
+    CHECK(std::string(reinterpret_cast<const char*>(sqlite3_column_text(st, 1))) ==
+          "floor-1:Ground floor,floor-2:First floor");
+    CHECK(sqlite3_column_int(st, 2) == 0);
+    sqlite3_finalize(st);
+    sqlite3_close(db);
+}
+
+TEST_CASE("project: trims round trip as non-destructive edits (IND-05, IND-06, IND-07)") {
+    const fs::path dir = scratch("trims");
+    const fs::path file = dir / "t.yantra";
+    write_file(dir / "sheet.png", fake_png(7));
+    const std::string png_bytes = read_file(dir / "sheet.png");
+    bm::Trim rect{bm::Trim::Shape::Rectangle, {{10, 10}, {190, 10}, {190, 190}, {10, 190}}, 0, 0.0};
+    bm::Trim poly{bm::Trim::Shape::Polygon, {{210, 10}, {390, 10}, {390, 190}, {300, 150}, {210, 190}}, 3, 1.25};
+    bm::Trim turned{bm::Trim::Shape::Rectangle, {{0, 0}, {400, 0}, {400, 200}, {0, 200}}, 2, -0.5};
+    std::string a, b, c;
+    {
+        auto p = pj::Project::create(file, info());
+        const std::string src = p->add_source(dir / "sheet.png").id;
+        p->set_source_pages(src, {{400, 200, 0}});
+        // Several floors from one source, each its own trim.
+        bm::Floor f0 = floor_named("Ground floor", 0);
+        f0.source = src;
+        f0.trim = rect;
+        a = p->add_floor(f0);
+        bm::Floor f1 = floor_named("First floor", 1);
+        f1.source = src;
+        f1.trim = poly;
+        b = p->add_floor(f1);
+        bm::Floor f2 = floor_named("Roof", 2);
+        f2.source = src;
+        f2.trim = turned;
+        c = p->add_floor(f2);
+        // A page the source does not have, a broken trim: refused, nothing changes.
+        bm::Floor bad = floor_named("Cellar", -1);
+        bad.source = src;
+        bad.page = 1;
+        CHECK(code_of([&] { p->add_floor(bad); }) == Code::Invalid);
+        bad.page = 0;
+        bad.trim = bm::Trim{bm::Trim::Shape::Polygon, {{0, 0}, {1, 1}}, 0, 0.0};
+        CHECK(code_of([&] { p->add_floor(bad); }) == Code::Invalid);
+        bad.trim = rect;
+        bad.trim.quarter_turns = 4;
+        CHECK(code_of([&] { p->add_floor(bad); }) == Code::Invalid);
+        bad.trim = rect;
+        bad.trim.deskew_deg = 50;
+        CHECK(code_of([&] { p->add_floor(bad); }) == Code::Invalid);
+        CHECK(p->floors().size() == 3);
+        // Fewer pages than a floor uses: refused.
+        p->set_source_pages(src, {{400, 200, 0}, {200, 400, 0}});
+        bm::Floor second_page = floor_named("Annex", 3);
+        second_page.source = src;
+        second_page.page = 1;
+        const std::string annex = p->add_floor(second_page);
+        CHECK(code_of([&] { p->set_source_pages(src, {{400, 200, 0}}); }) == Code::Invalid);
+        CHECK(p->source_pages(src).size() == 2);
+        p->remove_floor(annex);
+        CHECK(code_of([&] { p->set_source_pages(src, {}); }) == Code::Invalid);
+        CHECK(code_of([&] { p->set_source_pages("source-9", {{1, 1, 0}}); }) == Code::NotFound);
+        CHECK(code_of([&] { p->set_source_pages(src, {{0, 1, 0}}); }) == Code::Invalid);
+    }
+    {
+        // Reopened: every trim as stored; the source is unchanged.
+        auto p = pj::Project::open(file);
+        CHECK(p->floor(a)->trim == rect);
+        CHECK(p->floor(b)->trim == poly);
+        CHECK(p->floor(c)->trim == turned);
+        CHECK(as_string(p->read_source(p->floor(a)->source)) == png_bytes);
+        // Edited (IND-07): a new outline replaces the old one entirely.
+        bm::Floor f = *p->floor(b);
+        f.trim = rect;
+        f.trim.deskew_deg = 3.0;
+        p->update_floor(f);
+        CHECK(p->floor(b)->trim == f.trim);
+        // The building model and replace_building carry trims too.
+        bm::Building bld = p->building();
+        bld.find_floor(c)->trim.quarter_turns = 1;
+        p->replace_building(bld);
+        CHECK(p->building() == bld);
+        // A removed floor takes its outline with it.
+        p->remove_floor(a);
+        CHECK(p->check().empty());
+    }
+    sqlite3* db = nullptr;
+    REQUIRE(sqlite3_open_v2(file.string().c_str(), &db, SQLITE_OPEN_READONLY, nullptr) == SQLITE_OK);
+    sqlite3_stmt* st = nullptr;
+    REQUIRE(sqlite3_prepare_v2(db, "SELECT count(*) FROM floor_outline WHERE floor = ?1", -1, &st, nullptr) == SQLITE_OK);
+    sqlite3_bind_text(st, 1, a.c_str(), -1, SQLITE_TRANSIENT);
+    REQUIRE(sqlite3_step(st) == SQLITE_ROW);
+    CHECK(sqlite3_column_int(st, 0) == 0);
+    sqlite3_finalize(st);
+    sqlite3_close(db);
 }
 
 TEST_CASE("project: newer, foreign, damaged and cut files are refused with a reason") {
