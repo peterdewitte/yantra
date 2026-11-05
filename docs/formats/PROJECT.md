@@ -23,7 +23,7 @@ form is the building model of [BUILDING_MODEL.md](../BUILDING_MODEL.md)
 | Item | Value |
 | --- | --- |
 | `PRAGMA application_id` | `0x594E5452` ("YNTR"); other files are refused as "not a Yantra project" |
-| `PRAGMA user_version` | schema version, now **4** |
+| `PRAGMA user_version` | schema version, now **5** |
 | `meta.format` | `yantra-project` |
 
 | Version | Change |
@@ -32,6 +32,7 @@ form is the building model of [BUILDING_MODEL.md](../BUILDING_MODEL.md)
 | 2 | floor trims (IND-05..07): `floors` columns `trim_shape`, `quarter_turns`, `deskew_deg` and the table `floor_outline`; the page sizes of each source (IND-02): `source_pages`. Existing floors get the whole page (`trim_shape` `none`) |
 | 3 | the rest of the building model: `floors` scale columns (`scale_*`, IND-08) and alignment point (`reference_x/y`, IND-09); the project's wall-class table `wall_classes` + `wall_class_bands` with the default classes (IND-11); `walls` + `wall_points` (IND-11); `cells` + `cell_identity`, `antennas` + `antenna_pattern_gains` (IND-12); meta counters `next_wall_number`, `next_antenna_number`, `next_cell_number`. Existing floors get no scale and no reference point |
 | 4 | the project's recordings (`recordings`, REC-02/03), its walk tests and manual-point sets (`sessions`, IND-20, GEO-02, GEO-05) and their measured points (`points`), the one point list of the project window and the report (IND-30). Existing projects get no sessions |
+| 5 | the cell database in the project's cells (DB-01): `cells` columns `site_name`, `sector`, `azimuth_deg`, `colour`, `notes`, `origin`, `plugin_version`; the tables `cell_parameters` and `cell_neighbours`; meta keys `celldb_match:<technology>`. Existing cells become manual entries without parameters or neighbours |
 
 Rules:
 
@@ -56,13 +57,13 @@ model and the source files; version 2 adds the floor trims and the source
 page sizes; version 3 the rest of the building model (scale, alignment,
 wall classes, walls, cells, antennas), so the whole model of
 [BUILDING_MODEL.md](../BUILDING_MODEL.md) is stored; version 4 the
-recordings, walk tests and measured points ([SURVEY.md](../SURVEY.md)). The later data come
+recordings, walk tests and measured points ([SURVEY.md](../SURVEY.md)); version 5 the
+cell database ([CELL_DATABASE.md](../CELL_DATABASE.md)). The later data come
 as new versions in the steps that add them; until then the API has no
 call that would store them, so nothing is ever dropped silently.
 
 | Step | Planned content |
 | --- | --- |
-| 7.6 cell database | a project copy or reference of the cell database (DB-*) |
 | 8 interpolation | stored interpolation results with their parameters (IND-45) |
 
 ## Storage rules
@@ -97,7 +98,7 @@ call that would store them, so nothing is ever dropped silently.
   the building model: heights in metres, plan sizes in plan units,
   attenuations in dB.
 
-## Tables (version 4)
+## Tables (version 5)
 
 ### `meta`
 
@@ -113,7 +114,10 @@ Keys: `format` (`yantra-project`), `next_floor_number`,
 `next_antenna_number`, `next_cell_number` (the number of the next
 generated id `floor-<n>`, `source-<n>`, `wall-<n>`, `antenna-<n>`,
 `cell-<n>`; ids are never reused, also not after a removal),
-`schema_<n>_by` (who migrated to version n, and when).
+`schema_<n>_by` (who migrated to version n, and when) and, from version 5,
+`celldb_match:<technology>` (the cell database's match fields of a
+technology, comma-separated, e.g. `la,frequency_hz`; DB-01 "by LA, by
+channel, or by both"; no key: the technology's KEY fields).
 
 ### `project`
 
@@ -306,6 +310,18 @@ A cell an antenna serves cannot be removed.
 | `technology_id` | TEXT | the technology plugin's id, empty when not set |
 | `schema_id` | TEXT | the schema whose key fields the identity holds |
 | `carrier_hz` | INTEGER >= 0 | main carrier in Hz, 0 when not known |
+| `site_name` | TEXT | site name (version 5, DB-01) |
+| `sector` | TEXT | sector name or number |
+| `azimuth_deg` | REAL 0..<360 or NULL | sector azimuth, degrees from plan north; NULL when not known |
+| `colour` | TEXT | graph colour `#rrggbb`, empty for the default |
+| `notes` | TEXT | notes (up to 4096 bytes) |
+| `origin` | TEXT | `manual`, `import` (CSV, DB-02) or `learned` (DB-03) |
+| `plugin_version` | TEXT | version of the technology plugin that learned or imported it |
+
+The project's cells are its cell database ([CELL_DATABASE.md](../CELL_DATABASE.md)):
+one list, edited as cells (IND-12) or as database entries (DB-01..03).
+Building edits keep the database columns; removing a cell removes its
+parameters and neighbours.
 
 ### `cell_identity`
 
@@ -314,6 +330,33 @@ A cell an antenna serves cannot be removed.
 | `cell` | TEXT | `cells.id` |
 | `name` | TEXT, not empty | key field name, e.g. `la` |
 | `value` | INTEGER | its value |
+
+### `cell_parameters`
+
+The other fields of a cell database entry (version 5, DB-01): broadcast
+and reselection parameters by the technology schema's field names (for
+TETRA e.g. `rxlev_access_min_dbm`, `srt_db`, `subscriber_class`). Only
+the technology plugin interprets them.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `cell` | TEXT | `cells.id` |
+| `name` | TEXT, not empty | field name |
+| `value` | INTEGER, REAL or TEXT | its value, of the type it was given |
+
+### `cell_neighbours`
+
+The neighbour list of an entry (version 5, DB-01: up to 31 entries), one
+row per field of an entry; an entry names a cell by cell-schema field
+names (for TETRA `frequency_hz` and, when known, `la`).
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `cell` | TEXT | `cells.id` |
+| `idx` | INTEGER 0..30 | position in the list |
+| `name` | TEXT, not empty | field name |
+| `value` | INTEGER, REAL or TEXT | its value |
+| `inherited` | INTEGER 0/1 | 1: taken from the broadcasting cell, not sent for the neighbour (never refuses a match; [CELL_DATABASE.md](../CELL_DATABASE.md)) |
 
 ### `antennas`
 

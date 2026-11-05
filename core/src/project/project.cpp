@@ -729,6 +729,122 @@ struct Project::Impl {
         }
     }
 
+    // The cell database (DB-01, schema 5): the cells with their database
+    // columns, parameters, neighbour lists and match fields.
+    celldb::CellDatabase cell_database_locked() const {
+        celldb::CellDatabase out;
+        sql::Stmt c(db, "SELECT id, site_name, sector, azimuth_deg, colour, notes, origin, plugin_version FROM cells");
+        std::map<std::string, celldb::CellEntry> extra;
+        while (c.step()) {
+            celldb::CellEntry e;
+            e.site_name = c.text(1);
+            e.sector = c.text(2);
+            e.azimuth_deg = c.opt_f64(3);
+            e.colour = c.text(4);
+            e.notes = c.text(5);
+            e.origin = celldb::origin_from_name(c.text(6)).value_or(celldb::Origin::Manual);
+            e.plugin_version = c.text(7);
+            extra.emplace(c.text(0), std::move(e));
+        }
+        auto value_of = [](const sql::Stmt& st, int col) -> celldb::FieldValue {
+            switch (st.column_type(col)) {
+            case SQLITE_INTEGER: return st.i64(col);
+            case SQLITE_FLOAT: return st.f64(col);
+            default: return st.text(col);
+            }
+        };
+        sql::Stmt params(db, "SELECT cell, name, value FROM cell_parameters ORDER BY cell, name");
+        while (params.step())
+            if (auto it = extra.find(params.text(0)); it != extra.end())
+                it->second.parameters[params.text(1)] = value_of(params, 2);
+        sql::Stmt ns(db, "SELECT cell, idx, name, value, inherited FROM cell_neighbours ORDER BY cell, idx, name");
+        std::map<std::string, std::map<std::int64_t, celldb::NeighbourRef>> lists;
+        while (ns.step()) {
+            celldb::NeighbourRef& r = lists[ns.text(0)][ns.i64(1)];
+            r.fields[ns.text(2)] = value_of(ns, 3);
+            if (ns.i64(4) != 0) r.inherited.insert(ns.text(2));
+        }
+        for (auto& [cell, list] : lists)
+            if (auto it = extra.find(cell); it != extra.end())
+                for (auto& [idx, ref] : list) it->second.neighbours.push_back(std::move(ref));
+        std::vector<celldb::CellEntry> entries;
+        for (building::Cell& cell : cells_locked()) {
+            celldb::CellEntry e;
+            if (auto it = extra.find(cell.id); it != extra.end()) e = std::move(it->second);
+            e.cell = std::move(cell);
+            entries.push_back(std::move(e));
+        }
+        try {
+            out.merge(std::move(entries));
+        } catch (const celldb::CellDbError& err) {
+            throw ProjectError(Code::Damaged, std::string("cell database: ") + err.what());
+        }
+        sql::Stmt m(db, "SELECT key, value FROM meta WHERE key LIKE 'celldb_match:%' ORDER BY key");
+        while (m.step()) {
+            std::vector<std::string> fields;
+            const std::string v = m.text(1);
+            std::size_t start = 0;
+            while (start <= v.size()) {
+                const std::size_t comma = v.find(',', start);
+                const std::string f = v.substr(start, comma == std::string::npos ? std::string::npos : comma - start);
+                if (!f.empty()) fields.push_back(f);
+                if (comma == std::string::npos) break;
+                start = comma + 1;
+            }
+            try {
+                out.set_match_fields(m.text(0).substr(std::string_view("celldb_match:").size()), fields);
+            } catch (const celldb::CellDbError& err) {
+                throw ProjectError(Code::Damaged, std::string("cell database: ") + err.what());
+            }
+        }
+        return out;
+    }
+
+    // Writes the database columns of the cells (store_cells wrote the cells).
+    void store_cell_database(const celldb::CellDatabase& cdb) {
+        sql::Stmt up(db, "UPDATE cells SET site_name = ?2, sector = ?3, azimuth_deg = ?4, colour = ?5, notes = ?6, "
+                         "origin = ?7, plugin_version = ?8 WHERE id = ?1");
+        sql::Stmt dp(db, "DELETE FROM cell_parameters WHERE cell = ?1");
+        sql::Stmt ip(db, "INSERT INTO cell_parameters (cell, name, value) VALUES (?1, ?2, ?3)");
+        sql::Stmt dn(db, "DELETE FROM cell_neighbours WHERE cell = ?1");
+        sql::Stmt in(db, "INSERT INTO cell_neighbours (cell, idx, name, value, inherited) VALUES (?1, ?2, ?3, ?4, ?5)");
+        auto bind_value = [](sql::Stmt& st, int i, const celldb::FieldValue& v) {
+            if (const auto* x = std::get_if<std::int64_t>(&v)) st.bind(i, *x);
+            else if (const auto* d = std::get_if<double>(&v)) st.bind(i, *d);
+            else st.bind(i, std::get<std::string>(v));
+        };
+        for (const celldb::CellEntry& e : cdb.entries()) {
+            up.reset();
+            up.bind(1, e.cell.id).bind(2, e.site_name).bind(3, e.sector).bind(4, e.azimuth_deg).bind(5, e.colour);
+            up.bind(6, e.notes).bind(7, celldb::origin_name(e.origin)).bind(8, e.plugin_version).run();
+            dp.reset();
+            dp.bind(1, e.cell.id).run();
+            for (const auto& [name, v] : e.parameters) {
+                ip.reset();
+                ip.bind(1, e.cell.id).bind(2, name);
+                bind_value(ip, 3, v);
+                ip.run();
+            }
+            dn.reset();
+            dn.bind(1, e.cell.id).run();
+            for (std::size_t k = 0; k < e.neighbours.size(); ++k)
+                for (const auto& [name, v] : e.neighbours[k].fields) {
+                    in.reset();
+                    in.bind(1, e.cell.id).bind(2, static_cast<std::int64_t>(k)).bind(3, name);
+                    bind_value(in, 4, v);
+                    in.bind(5, e.neighbours[k].inherited.count(name) != 0 ? 1 : 0).run();
+                }
+        }
+        db.exec("DELETE FROM meta WHERE key LIKE 'celldb_match:%'", "cell database");
+        sql::Stmt mi(db, "INSERT INTO meta (key, value) VALUES (?1, ?2)");
+        for (const auto& [tech, fields] : cdb.all_match_fields()) {
+            std::string v;
+            for (const std::string& f : fields) v += (v.empty() ? "" : ",") + f;
+            mi.reset();
+            mi.bind(1, "celldb_match:" + tech).bind(2, v).run();
+        }
+    }
+
     // Checks the whole changed model `b` and writes the parts named
     // (inside the caller's transaction).
     struct Parts {
@@ -1730,6 +1846,36 @@ void Project::remove_antenna(const std::string& antenna_id) {
         tx.commit();
     }
     notify({Change::Kind::FloorChanged, floor_id});
+}
+
+// ---- cell database ------------------------------------------------------------
+
+celldb::CellDatabase Project::cell_database() const {
+    const std::lock_guard l(impl_->mutex);
+    impl_->require_open();
+    return impl_->cell_database_locked();
+}
+
+void Project::set_cell_database(const celldb::CellDatabase& cdb) {
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        for (const celldb::CellEntry& e : cdb.entries())
+            if (auto err = e.validate(); !err.empty()) throw ProjectError(Code::Invalid, "cell " + e.cell.id + ": " + err);
+        sql::Transaction tx(impl_->db);
+        building::Building b = impl_->building_locked();
+        for (const building::Floor& f : b.floors)
+            for (const building::Antenna& a : f.antennas)
+                if (!a.cell.empty() && cdb.find(a.cell) == nullptr)
+                    throw ProjectError(Code::InUse, "cell " + a.cell + " is served by antenna " + a.id);
+        b.cells.clear();
+        for (const celldb::CellEntry& e : cdb.entries()) b.cells.push_back(e.cell);
+        impl_->write_parts(b, {{}, false, true});
+        impl_->store_cell_database(cdb);
+        for (const building::Cell& c : b.cells) impl_->bump_counter("next_cell_number", id_number(c.id, "cell-") + 1);
+        tx.commit();
+    }
+    notify({Change::Kind::Cells, ""});
 }
 
 // ---- sources ----------------------------------------------------------------

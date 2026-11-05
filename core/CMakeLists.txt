@@ -16,6 +16,12 @@ add_library(yantra_core STATIC
   src/calibration/corrector.cpp
   src/calibration/table.cpp
   src/calibration/wizard.cpp
+  src/celldb/csv.cpp
+  src/celldb/database.cpp
+  src/celldb/network.cpp
+  src/celldb/reselection.cpp
+  src/celldb/technology.cpp
+  src/celldb/verify.cpp
   src/building/edit.cpp
   src/building/geometry.cpp
   src/building/model.cpp

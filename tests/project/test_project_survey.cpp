@@ -292,7 +292,7 @@ TEST_CASE("project 7.5: schema 1, 2 and 3 files migrate to schema 4 and then sto
         {
             auto p = pj::Project::open(file);
             CHECK(p->opened_version() == version);
-            CHECK(p->meta().schema_version == 4);
+            CHECK(p->meta().schema_version == pj::kSchemaVersion);
             CHECK(fs::exists(file.string() + ".schema" + std::to_string(version) + ".bak"));
             CHECK(p->sessions().empty());
             CHECK(p->recordings().empty());
@@ -309,7 +309,7 @@ TEST_CASE("project 7.5: schema 1, 2 and 3 files migrate to schema 4 and then sto
             CHECK(p->check().empty());
         }
         auto p = pj::Project::open(file);
-        CHECK(p->opened_version() == 4);
+        CHECK(p->opened_version() == pj::kSchemaVersion);
         CHECK(p->point_count("floor-1") == 1);
         CHECK(p->recordings().size() == 1);
     }

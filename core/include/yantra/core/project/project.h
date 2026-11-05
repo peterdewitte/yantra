@@ -16,7 +16,9 @@
 // table, walls, cells and antennas (IND-11/12); version 4 (step 7.5) the
 // project's recordings (REC-02/03), its walk tests and manual-point sets
 // (sessions, IND-20, GEO-02, GEO-05) and their measured points, the one
-// point list of IND-30 (core/survey/points.h reads it). Interpolation
+// point list of IND-30 (core/survey/points.h reads it); version 5 (step
+// 7.6) the cell database in the cells (DB-01: site, sector, azimuth,
+// colour, notes, origin, parameters, neighbour lists). Interpolation
 // results come with a later schema version (the hooks are listed in
 // docs/formats/PROJECT.md); no part of a model is ever dropped silently.
 //
@@ -59,6 +61,7 @@
 #include <vector>
 
 #include "yantra/core/building/model.h"
+#include "yantra/core/celldb/database.h"
 
 namespace yantra::project {
 
@@ -69,7 +72,7 @@ inline constexpr std::int32_t kApplicationId = 0x594E5452;
 /// The value of the format mark in the meta table.
 inline constexpr const char* kFormat = "yantra-project";
 /// Schema version written by this build (docs/formats/PROJECT.md).
-inline constexpr int kSchemaVersion = 4;
+inline constexpr int kSchemaVersion = 5;
 
 class ProjectError : public std::runtime_error {
 public:
@@ -369,6 +372,16 @@ public:
     /// (plan units of that floor); it goes last in that floor's list.
     void move_antenna(const std::string& antenna_id, const std::string& floor_id, building::Point2 position);
     void remove_antenna(const std::string& antenna_id);
+
+    // -- cell database (DB-01..05; schema 5) ------------------------------
+    /// The project's cells as the cell database (its cells() plus the
+    /// database columns, parameters, neighbour lists and match fields).
+    celldb::CellDatabase cell_database() const;
+    /// Makes `db` the project's cells: entries not in it are removed (InUse
+    /// while an antenna serves one; nothing is changed then), the others
+    /// updated or added in its order. Invalid for an entry the model or the
+    /// database refuses. Notifies Change::Kind::Cells with an empty id.
+    void set_cell_database(const celldb::CellDatabase& db);
 
     // -- recordings (REC-02, REC-03; schema 4) ------------------------------
     /// Adds a recording file and returns its id. Invalid for an empty

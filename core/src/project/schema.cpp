@@ -258,6 +258,34 @@ CREATE TABLE points (
 CREATE INDEX points_by_group ON points (session, grp);
 )sql";
 
+// Version 5 (step 7.6): the cell database (DB-01) in the project's cells
+// (IND-12): the entry columns, the parameters and the neighbour lists
+// (values typed as stored: integer, real or text). The match fields are
+// meta keys celldb_match:<technology>.
+const char* const kV5 = R"sql(
+ALTER TABLE cells ADD COLUMN site_name TEXT NOT NULL DEFAULT '';
+ALTER TABLE cells ADD COLUMN sector TEXT NOT NULL DEFAULT '';
+ALTER TABLE cells ADD COLUMN azimuth_deg REAL CHECK (azimuth_deg IS NULL OR (azimuth_deg >= 0 AND azimuth_deg < 360));
+ALTER TABLE cells ADD COLUMN colour TEXT NOT NULL DEFAULT '';
+ALTER TABLE cells ADD COLUMN notes TEXT NOT NULL DEFAULT '';
+ALTER TABLE cells ADD COLUMN origin TEXT NOT NULL DEFAULT 'manual' CHECK (origin IN ('manual', 'import', 'learned'));
+ALTER TABLE cells ADD COLUMN plugin_version TEXT NOT NULL DEFAULT '';
+CREATE TABLE cell_parameters (
+  cell  TEXT NOT NULL REFERENCES cells (id) ON DELETE CASCADE,
+  name  TEXT NOT NULL CHECK (name <> ''),
+  value NOT NULL CHECK (typeof(value) IN ('integer', 'real', 'text')),
+  PRIMARY KEY (cell, name)
+) WITHOUT ROWID;
+CREATE TABLE cell_neighbours (
+  cell      TEXT NOT NULL REFERENCES cells (id) ON DELETE CASCADE,
+  idx       INTEGER NOT NULL CHECK (idx >= 0 AND idx < 31),
+  name      TEXT NOT NULL CHECK (name <> ''),
+  value     NOT NULL CHECK (typeof(value) IN ('integer', 'real', 'text')),
+  inherited INTEGER NOT NULL DEFAULT 0 CHECK (inherited IN (0, 1)),
+  PRIMARY KEY (cell, idx, name)
+) WITHOUT ROWID;
+)sql";
+
 }  // namespace
 
 void migrate(sql::Db& db, int from, int to, const std::string& now, const std::string& tool,
@@ -277,6 +305,8 @@ void migrate(sql::Db& db, int from, int to, const std::string& now, const std::s
             db.exec(kV3, what);
         } else if (v == 4) {
             db.exec(kV4, what);
+        } else if (v == 5) {
+            db.exec(kV5, what);
         } else if (v > kSchemaVersion && static_cast<std::size_t>(v - kSchemaVersion) <= extra.size()) {
             db.exec(extra[static_cast<std::size_t>(v - kSchemaVersion - 1)], what);
         } else {
