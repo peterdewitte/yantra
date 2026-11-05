@@ -21,7 +21,8 @@
 //   passes when percent_at_or_above >= X; a profile passes when all its
 //   criteria pass, and fails on a selection without points.
 // - Serving-cell changes: in list order within each session, a point
-//   whose serving cell differs from the previous point's that had one.
+//   whose serving cell (identity text and carrier frequency) differs
+//   from the previous point's that had one.
 #pragma once
 
 #include <cstdint>
@@ -56,6 +57,7 @@ struct CellShare {
     std::string cell;  ///< serving cell identity text ("" = none)
     std::size_t points = 0;
     double percent = 0.0;  ///< of all points
+    std::uint64_t frequency_hz = 0;  ///< the serving carrier (cells on two carriers are two cells)
     bool operator==(const CellShare&) const = default;
 };
 
@@ -91,31 +93,50 @@ struct Area {
 std::vector<SurveyPoint> points_in_area(const std::vector<SurveyPoint>& points, const std::vector<Point2>& polygon);
 
 /// An acceptance profile (EXP-06), e.g. "95 % of the points >= -95 dBm
-/// and 99 % >= -100 dBm". Thresholds in `unit`.
+/// and 99 % >= -100 dBm". Thresholds in `unit`. The basis says what the
+/// percentages are of:
+/// - Points: the measured points (every point of the selection).
+/// - TestedArea: the tested area of the binned view (bins.h): squares of
+///   `square_m` holding a point, a square counting when its percentile
+///   `square_percentile` is >= the threshold. Per floor (squares of
+///   different floors never merge); without a scale a floor has no
+///   squares. This is the "% of area" of EXP-06 until the interpolated
+///   map (IND-40..45) gives the floor-area basis.
 struct AcceptanceCriterion {
     double threshold = 0.0;
     double min_percent = 0.0;
     bool operator==(const AcceptanceCriterion&) const = default;
 };
 struct AcceptanceProfile {
+    enum class Basis { Points, TestedArea };
     std::string name;
     std::string unit = "dBm";
     std::vector<AcceptanceCriterion> criteria;
+    Basis basis = Basis::Points;
+    double square_m = 2.0;             ///< TestedArea: square size
+    double square_percentile = 50.0;   ///< TestedArea: value of a square
 };
 struct CriterionResult {
     AcceptanceCriterion criterion;
-    double percent = 0.0;  ///< of all points at or above the threshold
+    double percent = 0.0;  ///< of all points (of the tested area) at or above the threshold
     bool pass = false;
     bool operator==(const CriterionResult&) const = default;
 };
 struct AcceptanceResult {
     std::string profile;
+    AcceptanceProfile::Basis basis = AcceptanceProfile::Basis::Points;
     std::size_t points = 0;
-    bool pass = false;
+    std::size_t squares = 0;  ///< TestedArea: tested squares
+    double area_m2 = 0.0;     ///< TestedArea: tested area
+    bool pass = false;        ///< false without points (squares)
     std::vector<CriterionResult> criteria;
     bool operator==(const AcceptanceResult&) const = default;
 };
+/// `points` of one floor (for TestedArea).
 AcceptanceResult evaluate(const AcceptanceProfile& profile, const std::vector<SurveyPoint>& points);
+/// Over several floors (the building summary): points together, squares per floor.
+AcceptanceResult evaluate_floors(const AcceptanceProfile& profile,
+                                 const std::vector<const std::vector<SurveyPoint>*>& floors);
 
 /// The statistics of one floor (EXP-05 floor section): the whole floor,
 /// each area and each acceptance profile.

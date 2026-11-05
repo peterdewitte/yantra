@@ -37,6 +37,15 @@ namespace yantra::survey {
 
 using building::Point2;
 
+/// A cell as the points name it: the carrier frequency and the cell
+/// identity text (the key fields without the frequency, as
+/// SurveyPoint::cell); an empty `cell` is any cell on that frequency.
+struct CellRef {
+    std::uint64_t frequency_hz = 0;
+    std::string cell;
+    bool operator==(const CellRef&) const = default;
+};
+
 /// Which value of a point is shown (PP-02 views).
 struct Metric {
     enum class Carrier {
@@ -54,6 +63,12 @@ struct Metric {
     std::uint64_t frequency_hz = 0;
     std::string quality_field;
     std::string device;  ///< only this device's carriers; "" = any
+    /// Base-station fail simulation (PP-03): the carriers of these cells
+    /// are left out of every point, as if the sites were switched off. The
+    /// serving carrier is then the best remaining server: the stored
+    /// serving carrier when it is not failed, else the strongest remaining
+    /// measured carrier. docs/SURVEY.md "Post-processing".
+    std::vector<CellRef> failed_cells;
 
     /// "Level, serving carrier", "C1, 390.2000 MHz", "mer_db, strongest carrier".
     std::string label() const;
@@ -69,8 +84,12 @@ struct MetricValue {
 };
 /// nullopt when the sample has no value for the metric.
 std::optional<MetricValue> metric_value(const nlohmann::json& sample, const Metric& metric);
-/// The serving carrier's cell identity text ("" none): serving-cell changes.
-std::string serving_cell(const nlohmann::json& sample, const std::string& device = {});
+/// The serving carrier's cell identity text ("" none): serving-cell
+/// changes. With failed cells (PP-03), the best remaining server's.
+std::string serving_cell(const nlohmann::json& sample, const std::string& device = {},
+                         const std::vector<CellRef>& failed_cells = {});
+/// The cell identity text of a sample carrier object ("" without one).
+std::string carrier_cell_text(const nlohmann::json& carrier);
 
 /// Colours by value: the band with the highest `from` <= value
 /// (`lower_is_better`: the band with the lowest `from` >= value).
@@ -109,6 +128,7 @@ struct SurveyPoint {
     std::string cell;              ///< of the metric's carrier
     std::string serving_cell;      ///< of the serving carrier
     std::uint32_t rgb = 0;         ///< from the list's scale
+    std::uint64_t serving_hz = 0;  ///< the serving carrier's frequency (0 none)
     bool operator==(const SurveyPoint&) const = default;
 };
 

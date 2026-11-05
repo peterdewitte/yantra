@@ -416,6 +416,9 @@ public:
     std::size_t remove_points(std::int64_t session_id, std::uint32_t group);
     /// The points of a session by sequence.
     std::vector<StoredPoint> points(std::int64_t session_id) const;
+    /// One point of a session by its sequence (e.g. the hover readout,
+    /// PP-01); nullopt when there is none.
+    std::optional<StoredPoint> point(std::int64_t session_id, std::int64_t sequence) const;
     /// The number of points of a floor's sessions.
     std::size_t point_count(const std::string& floor_id) const;
 

@@ -72,14 +72,16 @@ json sample_json(const measure::MeasurementCycle& cycle) {
     for (const measure::CarrierSample& s : cycle.samples) {
         const measure::MappedRecord& m = s.latest;
         const bool has_level = std::isfinite(m.level);
-        if (m.role == measure::CarrierRole::NeighbourEntry && !has_level) continue;
+        // Neighbour-list entries are kept without a level too: the PP-01
+        // readout shows the serving cell's whole announced list.
+        const bool entry = m.role == measure::CarrierRole::NeighbourEntry;
         json c;
         c["dev"] = m.device_key;
         c["tech"] = m.provenance.technology_id;
         c["schema"] = m.schema ? m.schema->id : m.provenance.schema_id;
         c["role"] = measure::role_text(m.role);
         c["f"] = m.frequency_hz;
-        if (m.role == measure::CarrierRole::NeighbourEntry) c["entry"] = m.entry_index;
+        if (entry) c["entry"] = m.entry_index;
         if (has_level) {
             c["level"] = m.level;
             c["unit"] = ((s.flags | m.flags) & measure::sample_flag::kUncalibrated) != 0 ? "dBFS" : "dBm";
@@ -96,7 +98,7 @@ json sample_json(const measure::MeasurementCycle& cycle) {
                 if (std::isfinite(v.value)) q.push_back({{"field", v.field}, {"unit", v.unit}, {"value", v.value}});
             if (!q.empty()) c["quality"] = std::move(q);
         }
-        if (!c.contains("level") && !c.contains("c1") && !c.contains("quality")) continue;
+        if (!entry && !c.contains("level") && !c.contains("c1") && !c.contains("quality")) continue;
         if (m.schema) {
             json cell = json::object();
             for (std::size_t i = 0; i < m.schema->fields.size() && i < m.record.values.size(); ++i) {

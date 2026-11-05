@@ -66,6 +66,9 @@ struct WalkTestOptions {
     std::shared_ptr<recording::Recorder> recorder;  ///< optional
     std::function<void(const std::optional<context::FloorPoint>&)> walker;  ///< optional
     std::string device;  ///< simulated: only this device's position; "" any
+    /// The recording session the points come from (`sessions.recording_session`)
+    /// without a recorder, e.g. when a recording is imported (PP-01, viewer.h).
+    std::string recording_session;
 };
 
 class WalkTest final : public measure::MeasurementObserver {

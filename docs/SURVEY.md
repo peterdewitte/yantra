@@ -8,7 +8,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 How an indoor walk test turns measurement cycles into points on a floor
 plan, and how the project window and the coverage report get the same
 points and statistics from them (IND-20, IND-30, GEO-02, GEO-05, GEO-06,
-EXP-05, EXP-06, PP-02, TST-32, TST-34). Code: `core/survey/`
+EXP-05, EXP-06, PP-01..PP-05, TST-32, TST-34). Code: `core/survey/`
 (namespace `yantra::survey`). The points are stored in the project file
 (schema 4, [formats/PROJECT.md](formats/PROJECT.md) `sessions` and
 `points`). The interpolated coverage map (IND-40..45) is not covered
@@ -85,8 +85,10 @@ points, in the same order, with the same values as the live walk test.
 ```
 
 There is one carrier object per sample of the cycle that has a level, a
-C1 or a quality value. Neighbour-list entries without a level are left
-out. The fields:
+C1 or a quality value, and one per entry of the serving cell's neighbour
+list (`neighbour_entry`, with its list position `entry`; a level only when
+the radio measured it), so the hover readout (PP-01) shows the whole
+announced list. The fields:
 
 - `role`: `serving`, `neighbour`, `other`, `scan` or `neighbour_entry`.
 - `unit`: `dBm`, or `dBFS` for an uncalibrated level.
@@ -149,8 +151,8 @@ Default colour scales:
 | dB | 0, 5, 10, 20 |
 | % | lower is better: <= 1, 2, 5, 10 (green to red); above 10 dark red |
 
-Binning (PP-05) will be an extra, labelled view built from this list,
-never a replacement.
+Binning (PP-05) is an extra, labelled view built from this list, never
+a replacement ("Post-processing" below).
 
 ## Coverage statistics
 
@@ -176,9 +178,118 @@ the shared list:
 - **Per floor and building**: a floor's statistics cover the floor's
   list. The building summary covers all floors' points together.
 - **Serving-cell changes**: in list order within each session, a point
-  whose serving cell differs from the previous point that had one.
-  Serving cells are also given as shares of all points.
-- **Acceptance profiles** (EXP-06): criteria "at least X % of the points
-  >= Y" in a unit. A criterion passes when its share >= X. A profile
-  passes when all its criteria pass. A selection without points does not
-  pass.
+  whose serving cell differs from the previous point that had one. A
+  serving cell is its identity text and its carrier frequency
+  (`SurveyPoint::serving_hz`): the same identity on another carrier is
+  another cell. Serving cells are also given as shares of all points.
+- **Acceptance profiles** (EXP-06): criteria "at least X % >= Y" in a
+  unit. A criterion passes when its share >= X. A profile passes when all
+  its criteria pass. A selection without points does not pass. The basis
+  (`AcceptanceProfile::basis`) says what the share is of:
+  - `Points`: all points of the selection.
+  - `TestedArea`: the tested area of the binned view (below) with squares
+    of `square_m` (default 2 m), a square counting when its percentile
+    `square_percentile` (default the median) is >= Y. Squares are formed
+    per floor and never merge across floors; a floor without a scale has
+    no squares, so the profile does not pass there. The result gives the
+    tested squares and area in m².
+
+  The interpolated map (IND-40..45) adds the "% of floor area
+  (interpolated)" basis; it is not part of these statistics.
+
+## Post-processing
+
+Code: `core/survey/views.h`, `bins.h`, `viewer.h`. Every view is built
+from the shared point list and never replaces it. A simulation is always
+labelled "(not measured)".
+
+### Viewer (PP-01)
+
+`import_recordings(project, files)` loads one or more recordings into a
+project:
+
+- The files are grouped by recording session and sorted by file number,
+  so they can be given in any order.
+- Each group is replayed through the measurement pipeline (the same
+  technology plugins and calibration key as the live run), and its
+  `walk` lines through a `WalkTest`. The points are therefore exactly
+  those of the live walk test: positions, order and values.
+- Every walk test of a recording becomes a session (a floor change
+  continues it). The session carries the recording session id; the files
+  are listed in the project's `recordings`.
+- A recording without walk lines has no plan positions and gives no
+  points.
+- Refused, with nothing changed: a recording already in the project (a
+  session with its recording session id: points are never doubled), a
+  walk on a floor the project does not have, a file that is not a
+  recording.
+
+The window draws the floor's point list. On hover, `nearest_point(points,
+plan, radius)` finds the point under the cursor (the nearest within the
+radius, the first in list order on a tie), and `point_detail(project,
+point)` gives its readout from the stored sample:
+
+| Readout | From the sample |
+| --- | --- |
+| plan position | the point's plan units and metres |
+| serving cell | the `serving` carrier: cell identity, frequency, level, C1, quality |
+| strongest cell | the carrier with the highest measured level (any role except list entries) |
+| neighbour cells | the measured `neighbour` carriers by level (highest first), then the list entries by list position (with a level when measured) |
+| other carriers | `other` carriers and scan channels, by level |
+
+### Views (PP-02)
+
+- **RSSI** is the Level metric (dBm, dBFS when uncalibrated).
+- **MER/BER (%)** are Quality metrics with the technology's quality
+  field. The core names none (PLG-01); the UI lists the schema's QUALITY
+  fields.
+- **Good/bad** (`classify(list, threshold)`): good is value >= threshold,
+  or <= for a value in % (error and erasure rates are better when lower).
+  A point without a value in the list's unit is "no value", which counts
+  as not good. The result gives the label ("Good: >= -95 dBm"), one
+  verdict per point, the counts and the % good of all points.
+- **Serving-cell changes** (`serving_changes(points)`): the points where
+  the serving cell changed (index, from, to), by the rule of the
+  statistics.
+- **Coverage rate of the tested area** (`area_coverage(binned, threshold)`):
+  covered squares / tested squares of the binned view, a square without a
+  value not covered. The coverage rate of the points is the threshold
+  share of the statistics.
+
+### Fail simulation (PP-03)
+
+`Metric::failed_cells` switches cells off: the carriers of those cells
+(frequency, and the cell identity or any cell on that carrier) are left
+out of every point. The serving carrier is then the best remaining
+server: the stored serving carrier when it is not failed, else the
+strongest remaining measured carrier. The point list, its colours and
+all statistics are computed as usual from what remains, and the metric's
+label says "(simulation: N cells off, not measured)". `cells_seen(project,
+query)` lists the cells the floor's points measured, to choose from.
+
+### Level offset (PP-04)
+
+`with_offset(list, dB)` gives a labelled copy ("Simulation: level -10 dB
+(not measured)") whose values in the list's unit are moved by the offset
+(building penetration, body loss) and recoloured with the list's scale.
+Positions, order and count stay. Only levels and C1 move (C1 moves dB for
+dB with the level); a quality metric is refused. Coverage is recomputed
+from the copy with the same functions.
+
+### Binning (PP-05)
+
+`bin_points(list, size_m, percentile)` is an extra view labelled "Binned
+view: 2 m squares, P50 per square (not the measured points)":
+
+- Squares of `size_m` in plan-frame metres: square (i, j) covers
+  [i size, (i+1) size) x [j size, (j+1) size), from the plan's origin. A
+  point on an edge belongs to the square above it.
+- A square's value is the percentile (R-7, as above; default the median)
+  of its points' values in the list's unit, coloured with the list's
+  scale. A square whose points have no value in that unit has no value.
+- Points without metres (no scale) are left out and counted; the view
+  says it is not to scale then.
+
+Example (2 m squares, median): the points -90, -80 and -70 dBm in square
+(0, 0) give -80 dBm; their P90 is -80 + 0.8 x 10 = -72 dBm (h = 2 x 0.9 =
+1.8).

@@ -2454,6 +2454,15 @@ std::vector<StoredPoint> Project::points(std::int64_t session_id) const {
     return out;
 }
 
+std::optional<StoredPoint> Project::point(std::int64_t session_id, std::int64_t sequence) const {
+    const std::lock_guard l(impl_->mutex);
+    impl_->require_open();
+    sql::Stmt s(impl_->db, std::string("SELECT ") + kPointColumns + " FROM points WHERE session = ?1 AND sequence = ?2");
+    s.bind(1, session_id).bind(2, sequence);
+    if (!s.step()) return std::nullopt;
+    return point_from(s);
+}
+
 std::size_t Project::point_count(const std::string& floor_id) const {
     const std::lock_guard l(impl_->mutex);
     impl_->require_open();

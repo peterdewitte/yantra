@@ -60,10 +60,13 @@ add_library(yantra_core STATIC
   src/recording/replay.cpp
   src/recording/writer.cpp
   src/radio/scene_export.cpp
+  src/survey/bins.cpp
   src/survey/points.cpp
   src/survey/recordings.cpp
   src/survey/sample.cpp
   src/survey/stats.cpp
+  src/survey/viewer.cpp
+  src/survey/views.cpp
   src/survey/walk.cpp
   src/survey/walk_test.cpp
   src/util/sha256.cpp)

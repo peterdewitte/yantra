@@ -64,6 +64,18 @@ own changes are in its CHANGELOG.md.
   and neighbour relations that are not mutual are found across all cells
   of a survey or project. A reselection simulator shows the serving-cell
   state and the reselection that would occur, also along a walk.
+- 2026-11-05: post-processing (docs/SURVEY.md "Post-processing"):
+  recordings are loaded into a project and give the same points as the
+  live walk test (PP-01), with a hover readout of a point's position,
+  serving and strongest cell and every neighbour (the stored points now
+  keep the serving cell's announced neighbour list); good/bad against a
+  threshold, serving-cell changes and the coverage rate of the tested
+  area (PP-02); switching sites off and recomputing the best server and
+  coverage from the measured levels (PP-03); a level offset simulation
+  (PP-04); a binned view with the median or another percentile per square
+  (PP-05). Acceptance profiles can be evaluated over the tested area
+  besides the points (EXP-06). A serving cell on another carrier now
+  counts as a serving-cell change.
 
 ### Measurements
 

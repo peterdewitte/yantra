@@ -1,8 +1,8 @@
 # SPDX-FileCopyrightText: 2026 The Yantra contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Walk tests, measured points and coverage statistics (IND-20, IND-30,
-# GEO-02, GEO-05, EXP-05, EXP-06, PP-02, TST-32, TST-34; docs/SURVEY.md).
+# Walk tests, measured points, coverage statistics and post-processing (IND-20, IND-30,
+# GEO-02, GEO-05, EXP-05, EXP-06, PP-01..PP-05, TST-32, TST-34; docs/SURVEY.md).
 # One ctest per doctest case (every case has its own scratch folder).
 
 list(APPEND YANTRA_PER_CASE_TESTS survey)

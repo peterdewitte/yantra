@@ -13,12 +13,7 @@ namespace {
 using nlohmann::json;
 using Code = project::ProjectError::Code;
 
-std::string cell_text(const json& c) {
-    std::string out;
-    if (!c.contains("cell")) return out;
-    for (const auto& [k, v] : c["cell"].items()) out += (out.empty() ? "" : " ") + k + "=" + v.get<std::string>();
-    return out;
-}
+std::string cell_text(const json& c) { return carrier_cell_text(c); }
 
 const json& carriers_of(const json& sample) {
     static const json empty = json::array();
@@ -29,36 +24,71 @@ const json& carriers_of(const json& sample) {
 
 bool measured(const json& c) { return c.value("role", "") != "neighbour_entry"; }
 
-// The carrier the metric reads, or nullptr.
-const json* pick(const json& sample, const Metric& m) {
-    const json* best = nullptr;
+bool failed(const json& c, const std::vector<CellRef>& cells) {
+    if (cells.empty()) return false;
+    const auto f = c.value("f", std::uint64_t{0});
+    for (const CellRef& r : cells)
+        if (r.frequency_hz == f && (r.cell.empty() || r.cell == cell_text(c))) return true;
+    return false;
+}
+
+// The serving carrier (the best remaining server with failed cells) and
+// the strongest measured carrier among those `keep` accepts.
+struct Picked {
     const json* serving = nullptr;
+    const json* strongest = nullptr;
+};
+template <typename Keep>
+Picked pick_carriers(const json& sample, const std::vector<CellRef>& failed_cells, Keep keep) {
+    Picked out;
     double best_level = 0.0;
     for (const json& c : carriers_of(sample)) {
-        if (!m.device.empty() && c.value("dev", "") != m.device) continue;
-        if (m.carrier == Metric::Carrier::Frequency && c.value("f", std::uint64_t{0}) != m.frequency_hz) continue;
-        if (c.value("role", "") == "serving" && serving == nullptr) serving = &c;
-        if (m.carrier == Metric::Carrier::Serving || !measured(c) || !c.contains("level")) continue;
+        if (!keep(c) || failed(c, failed_cells)) continue;
+        if (c.value("role", "") == "serving" && out.serving == nullptr) out.serving = &c;
+        if (!measured(c) || !c.contains("level")) continue;
         const double level = c["level"].get<double>();
-        if (best == nullptr || level > best_level) {
-            best = &c;
+        if (out.strongest == nullptr || level > best_level) {
+            out.strongest = &c;
             best_level = level;
         }
     }
-    if (m.carrier == Metric::Carrier::Serving) return serving;
-    if (m.carrier == Metric::Carrier::Frequency && serving != nullptr) return serving;
-    return best;
+    // PP-03: the stored serving cell failed: the strongest remaining serves.
+    if (out.serving == nullptr && !failed_cells.empty()) {
+        bool had = false;
+        for (const json& c : carriers_of(sample))
+            if (keep(c) && c.value("role", "") == "serving") had = true;
+        if (had) out.serving = out.strongest;
+    }
+    return out;
+}
+
+// The carrier the metric reads, or nullptr.
+const json* pick(const json& sample, const Metric& m) {
+    const auto dev = [&](const json& c) { return m.device.empty() || c.value("dev", "") == m.device; };
+    if (m.carrier == Metric::Carrier::Serving) return pick_carriers(sample, m.failed_cells, dev).serving;
+    if (m.carrier == Metric::Carrier::Strongest) return pick_carriers(sample, m.failed_cells, dev).strongest;
+    const Picked p = pick_carriers(sample, m.failed_cells, [&](const json& c) {
+        return dev(c) && c.value("f", std::uint64_t{0}) == m.frequency_hz;
+    });
+    return p.serving != nullptr ? p.serving : p.strongest;
 }
 
 }  // namespace
 
 std::string Metric::label() const {
     std::string v = value == Value::Level ? "Level" : value == Value::C1 ? "C1" : quality_field;
-    if (carrier == Carrier::Serving) return v + ", serving carrier";
-    if (carrier == Carrier::Strongest) return v + ", strongest carrier";
-    char f[48];
-    std::snprintf(f, sizeof f, "%.4f MHz", static_cast<double>(frequency_hz) / 1e6);
-    return v + ", " + f;
+    if (carrier == Carrier::Serving) v += ", serving carrier";
+    else if (carrier == Carrier::Strongest) v += ", strongest carrier";
+    else {
+        char f[48];
+        std::snprintf(f, sizeof f, "%.4f MHz", static_cast<double>(frequency_hz) / 1e6);
+        v += std::string(", ") + f;
+    }
+    // PP-03: a simulation is always labelled as one.
+    if (!failed_cells.empty())
+        v += " (simulation: " + std::to_string(failed_cells.size()) + (failed_cells.size() == 1 ? " cell" : " cells") +
+             " off, not measured)";
+    return v;
 }
 
 std::optional<MetricValue> metric_value(const json& sample, const Metric& metric) {
@@ -90,10 +120,18 @@ std::optional<MetricValue> metric_value(const json& sample, const Metric& metric
     return std::nullopt;
 }
 
-std::string serving_cell(const json& sample, const std::string& device) {
-    for (const json& c : carriers_of(sample))
-        if (c.value("role", "") == "serving" && (device.empty() || c.value("dev", "") == device)) return cell_text(c);
-    return {};
+std::string carrier_cell_text(const json& c) {
+    std::string out;
+    if (!c.is_object() || !c.contains("cell")) return out;
+    for (const auto& [k, v] : c["cell"].items()) out += (out.empty() ? "" : " ") + k + "=" + v.get<std::string>();
+    return out;
+}
+
+std::string serving_cell(const json& sample, const std::string& device, const std::vector<CellRef>& failed_cells) {
+    const json* s = pick_carriers(sample, failed_cells, [&](const json& c) {
+                        return device.empty() || c.value("dev", "") == device;
+                    }).serving;
+    return s != nullptr ? cell_text(*s) : std::string();
 }
 
 std::uint32_t ColourScale::colour_of(std::optional<double> value) const {
@@ -176,7 +214,13 @@ PointList point_list(const project::Project& p, const PointQuery& q) {
                     if (list.unit.empty()) list.unit = v->unit;
                     else if (v->unit != list.unit) list.mixed_units = true;
                 }
-                pt.serving_cell = serving_cell(sample, q.metric.device);
+                const json* serving = pick_carriers(sample, q.metric.failed_cells, [&](const json& c) {
+                                          return q.metric.device.empty() || c.value("dev", "") == q.metric.device;
+                                      }).serving;
+                if (serving != nullptr) {
+                    pt.serving_cell = cell_text(*serving);
+                    pt.serving_hz = serving->value("f", std::uint64_t{0});
+                }
             }
             if (!pt.metres) list.to_scale = false;
             list.points.push_back(std::move(pt));

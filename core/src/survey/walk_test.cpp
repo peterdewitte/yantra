@@ -96,7 +96,7 @@ void WalkTest::begin_session(std::int64_t t, std::optional<std::int64_t> continu
     s.calibration = o_.calibration;
     s.notes = o_.notes;
     s.walk_mode = walk_mode_name(route_.mode());
-    if (o_.recorder) s.recording_session = o_.recorder->status().session_id;
+    s.recording_session = o_.recorder ? o_.recorder->status().session_id : o_.recording_session;
     s.continues = continues;
     session_ = o_.project->add_session(s);
     sessions_.push_back(session_);
@@ -130,6 +130,8 @@ void WalkTest::act(const recording::WalkLine& l, bool record) {
     if (l.action == "start") {
         if (started_) throw std::logic_error("walk test: started twice");
         if (!l.floor_id.empty()) floor_ = l.floor_id;
+        if (l.kind == "walk" || l.kind == "manual" || l.kind == "simulated") o_.kind = l.kind;
+        if (!l.label.empty() && o_.name.empty()) o_.name = l.label;
         if (!l.mode.empty()) {
             if (const auto mode = walk_mode_from_name(l.mode)) route_ = WalkRoute(*mode);
         }
