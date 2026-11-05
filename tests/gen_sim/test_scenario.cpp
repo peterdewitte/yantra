@@ -308,6 +308,46 @@ TEST_CASE("scenario: cells added from a scene")
     CHECK_THROWS_AS(add_scene_cells(s, bad), ScenarioError);
 }
 
+TEST_CASE("scenario: a scene cell on a scenario cell's carrier replaces that cell (RAD-61)")
+{
+    // B (390.1 MHz) is the carrier of the plan's cell "own": the plan's
+    // cell takes B's place and cell identifier, A announces it instead of
+    // B, and B's event goes. A (named by the scene) stays.
+    Scenario s = parse_scenario(minimal().dump());
+    radios::Scene scene;
+    scene.cells.push_back({"own", "Own cell", 901, 1, 77, 3, 390100000});
+    scene.cells.push_back({"A", "A", 901, 1, 10, 1, 390000000});
+    add_scene_cells(s, scene);
+    REQUIRE(s.cells.size() == 2);
+    CHECK(s.find_cell("B") == nullptr);
+    const ScenarioCell* own = s.find_cell("own");
+    REQUIRE(own);
+    CHECK(own == &s.cells[1]);
+    CHECK(own->cell_number == 2);
+    CHECK(own->location_area == 77);
+    CHECK(cell_frequency_hz(*own) == 390100000.0);
+    REQUIRE(s.find_cell("A")->neighbours.size() == 1);
+    CHECK(s.find_cell("A")->neighbours[0].cell == "own");
+    CHECK(s.events.empty());
+    validate_scenario(s);
+
+    // The scenario's floor loses the antennas of a replaced cell; a carrier
+    // 6.25 kHz away is another carrier (added, nothing replaced).
+    Scenario t = parse_scenario(minimal().dump());
+    radios::Scene other;
+    other.cells.push_back({"own", "Own cell", 901, 1, 77, 3, 390000000});
+    other.cells.push_back({"near", "Near", 901, 1, 78, 3, 390106250});
+    add_scene_cells(t, other);
+    REQUIRE(t.cells.size() == 3);
+    CHECK(t.find_cell("A") == nullptr);
+    CHECK(t.find_cell("B") != nullptr);
+    CHECK(t.find_cell("own")->cell_number == 1);
+    CHECK(t.find_cell("near")->cell_number == 3);
+    CHECK(t.floors[0].scene.cells.empty());
+    CHECK(t.floors[0].scene.antennas.empty());
+    validate_scenario(t);
+}
+
 TEST_CASE("scenario: scene files from a reader instead of the file system (RAD-61)")
 {
     std::ifstream in(kDir + "/indoor_good_das.json");

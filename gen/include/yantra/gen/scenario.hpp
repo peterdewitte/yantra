@@ -235,7 +235,13 @@ radios::Scene apply_overrides(const Scenario& s, radios::Scene scene);
 /// scene's LA, colour code and carrier (band, carrier number and offset
 /// worked out from carrier_hz) and the other values from `defaults`: for a
 /// user's own plan, whose cells the simulator's default scenario does not
-/// know. ScenarioError for a carrier that is not on the TETRA raster.
+/// know. A scene cell on the carrier of a scenario cell that the scene does
+/// not name replaces that cell (RAD-61: the plan's cell is calculated from
+/// the scene, not given the scenario's level): it takes the old cell's
+/// place and neighbour cell identifier, the other cells' neighbour entries
+/// name it, and the old cell's events and scenario-floor antennas are
+/// dropped. Carriers 6.25 or 12.5 kHz apart are different carriers.
+/// ScenarioError for a carrier that is not on the TETRA raster.
 void add_scene_cells(Scenario& s, const radios::Scene& scene, const ScenarioCell& defaults = {});
 
 /// A scenario file in a folder.

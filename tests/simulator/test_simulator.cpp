@@ -332,6 +332,76 @@ TEST_CASE("simulator: a scene 1.1 is simulated with its polylines, bands and sto
     CHECK(seen.size() == path.size());
 }
 
+// An own plan (no example id: the default scenario) whose cell uses the
+// carrier of the default scenario's D0 (390.0 MHz), with another LA and
+// colour code, an antenna at (3, 5) m and a concrete wall at x = 8 m.
+std::string own_plan_scene()
+{
+    return R"({"format": "yantra-radio-scene", "version": 1,
+  "floor": {"id": "own-ground", "name": "Ground floor", "scale_set": true,
+            "width_m": 20.0, "height_m": 10.0},
+  "wall_classes": [{"id": "concrete", "label": "Concrete", "attenuation_db": 12.0}],
+  "walls": [{"x1_m": 8.0, "y1_m": 0.0, "x2_m": 8.0, "y2_m": 10.0, "class": "concrete",
+             "attenuation_db": 12.0}],
+  "cells": [{"id": "cell-1", "label": "Indoor DAS", "mcc": 901, "mnc": 1, "la": 321,
+             "colour_code": 5, "carrier_hz": 390000000}],
+  "antennas": [{"id": "antenna-1", "cell": "cell-1", "x_m": 3.0, "y_m": 5.0, "height_m": 2.8,
+                "eirp_dbm": 10.0, "pattern": {"type": "omni"}}]})";
+}
+
+TEST_CASE("simulator: an own plan's cell on a default-scenario carrier is calculated from the plan's scene (RAD-61, RAD-73)")
+{
+    gen::Scenario def;
+    for (const gen::ScenarioInfo& i : gen::list_scenarios(std::string(YANTRA_SOURCE_DIR) + "/data/scenarios"))
+        if (i.is_default)
+            def = gen::load_scenario_file(i.path);
+    REQUIRE(def.find_cell("D0") != nullptr);
+    REQUIRE(gen::cell_frequency_hz(*def.find_cell("D0")) == static_cast<double>(kT1Hz));
+    radios::Scene scene;
+    std::string error;
+    REQUIRE(radios::parse_scene(own_plan_scene(), scene, error));
+    gen::MultiWallParams p = def.channel.multiwall;
+    REQUIRE(p.shadowing_sigma_db == 0.0);
+    p.receiver_height_m = def.receiver.height_m;
+    const gen::MultiWallModel model(p);
+
+    ContextOptions c;
+    c.plan = true;
+    c.plan_name = "Own office";
+    c.scene_json = {own_plan_scene()};
+    c.cursor = {{7, 5}, {12, 5}};
+    c.path_step_records = 60; // the first point outlasts the receiver's acquisition
+    Sim sim(c);
+    std::map<double, int> checked; // x -> records checked there
+    std::map<double, int> arrived; // x -> records seen there
+    sim.stream(
+        [&](const Record& r) {
+            if (!sim.is_cell(r, kT1Hz) || !sim.has_position(r) || (r.flags & YR_RECORD_NO_SYNC) != 0)
+                return false;
+            const double x = sim.x(r);
+            // The first record at a new point can still hold some of the
+            // interval before the cursor moved (the filters' delay).
+            if (++arrived[x] <= 1)
+                return false;
+            const int walls = x > 8.0 ? 1 : 0;
+            CHECK(sim.v(r, "cell_id").str == "cell-1");
+            CHECK(sim.v(r, YR_FIELD_LA).u64 == 321);
+            CHECK(sim.v(r, YR_FIELD_COLOUR_CODE).u64 == 5);
+            CHECK(sim.v(r, "walls").u64 == static_cast<uint64_t>(walls));
+            const double want = model.cell(scene, "cell-1", gen::PlanPoint{x, sim.y(r)}).level_dbm;
+            const double got = sim.v(r, YR_FIELD_LEVEL).f64 + sim.offset();
+            CHECK_MESSAGE(std::abs(got - want) <= 0.5, "at x " << x << ": " << got << " dBm, model " << want);
+            ++checked[x];
+            return checked.size() >= 2 && std::all_of(checked.begin(), checked.end(),
+                                                      [](const auto& e) { return e.second >= 3; });
+        },
+        60.0);
+    CHECK(checked.size() == 2);
+    // Only one cell is on the carrier: the default scenario's D0 is gone,
+    // its first-floor DAS and the macro site stay.
+    CHECK(sim.sensor("scenario_id").str == def.id);
+}
+
 TEST_CASE("simulator: walk position and position sources (RAD-61)")
 {
     ContextOptions ctx = fraunces_plan({{4, 4}});

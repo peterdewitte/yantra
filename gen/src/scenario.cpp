@@ -742,6 +742,42 @@ radios::Scene apply_overrides(const Scenario& s, radios::Scene scene)
     return scene;
 }
 
+namespace {
+
+// Puts `c` in the place of the scenario cell `old` (same carrier): it keeps
+// the old cell's neighbour cell identifier, the other cells' neighbour
+// entries name it instead, and the old cell's events and its antennas in
+// the scenario's own floors are dropped.
+void replace_cell(Scenario& s, std::vector<ScenarioCell>::iterator old, ScenarioCell c)
+{
+    const std::string gone = old->id;
+    c.cell_number = old->cell_number;
+    *old = std::move(c);
+    const std::string& now = old->id;
+    for (ScenarioCell& o : s.cells) {
+        bool listed = false;
+        std::vector<ScenarioNeighbour> kept;
+        for (ScenarioNeighbour n : o.neighbours) {
+            if (n.cell == gone)
+                n.cell = now;
+            if (n.cell == now) {
+                if (listed || o.id == now)
+                    continue;
+                listed = true;
+            }
+            kept.push_back(std::move(n));
+        }
+        o.neighbours = std::move(kept);
+    }
+    std::erase_if(s.events, [&](const ScenarioEvent& e) { return e.cell == gone; });
+    for (ScenarioFloor& f : s.floors) {
+        std::erase_if(f.scene.cells, [&](const radios::SceneCell& k) { return k.id == gone; });
+        std::erase_if(f.scene.antennas, [&](const radios::SceneAntenna& a) { return a.cell == gone; });
+    }
+}
+
+} // namespace
+
 void add_scene_cells(Scenario& s, const radios::Scene& scene, const ScenarioCell& defaults)
 {
     for (const radios::SceneCell& sc : scene.cells) {
@@ -773,6 +809,17 @@ void add_scene_cells(Scenario& s, const radios::Scene& scene, const ScenarioCell
         if (!found)
             throw ScenarioError("scene cell \"" + sc.id + "\": carrier " + std::to_string(sc.carrier_hz) +
                                 " Hz is not on the TETRA raster");
+        // A scenario cell on the same carrier gives way to the plan's cell
+        // (RAD-61: the floor's cells are calculated from its scene).
+        const auto same = std::find_if(s.cells.begin(), s.cells.end(), [&](const ScenarioCell& o) {
+            return std::abs(cell_frequency_hz(o) - static_cast<double>(sc.carrier_hz)) < 1.0 &&
+                   std::none_of(scene.cells.begin(), scene.cells.end(),
+                                [&](const radios::SceneCell& k) { return k.id == o.id; });
+        });
+        if (same != s.cells.end()) {
+            replace_cell(s, same, std::move(c));
+            continue;
+        }
         uint8_t number = 1;
         while (number < 31 && std::any_of(s.cells.begin(), s.cells.end(),
                                           [&](const ScenarioCell& o) { return o.cell_number == number; }))

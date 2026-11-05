@@ -335,8 +335,9 @@ void Stream::build()
         if (scene_) {
             offset_scene(*scene_, s_.signal_offset_db);
             if (!knows_all_cells(sc, *scene_)) {
-                // An own plan's cells: added to the scenario, or (when they
-                // do not fit its span) the plan's cells alone.
+                // An own plan's cells: added to the scenario (replacing a
+                // scenario cell on the same carrier), or (when they do not
+                // fit its span) the plan's cells alone.
                 gen::Scenario with = sc;
                 try {
                     gen::add_scene_cells(with, *scene_);

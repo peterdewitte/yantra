@@ -839,8 +839,10 @@ Which scenario runs. The setting `scenario` is "auto" by default: the
 plugin asks `get_floor_plan` and picks the scenario whose `example_ids`
 match the example id of the plan shown (data/scenarios,
 docs/SCENARIO_FORMAT.md); with an own plan it uses the default scenario
-plus the cells of the plan's scene; without a plan (`YR_ERR_NO_PLAN`) the
-default scenario. Any bundled scenario can also be chosen by name. The
+plus the cells of the plan's scene (a plan cell on the carrier of a
+default-scenario cell replaces that cell, so every cell on the plan's
+carriers is calculated from the plan's scene); without a plan
+(`YR_ERR_NO_PLAN`) the default scenario. Any bundled scenario can also be chosen by name. The
 scenario files are embedded in the plugin, so it needs no data folder.
 
 Where the receiver is. Each record interval the plugin reads the position
