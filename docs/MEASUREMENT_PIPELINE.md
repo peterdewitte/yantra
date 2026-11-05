@@ -31,7 +31,7 @@ beacon example).
 | 3 | Level correction | The `LevelCorrector` is asked once per record, with the record's device, carrier frequency and calibration key (the radio host attaches the key that was valid when the record was measured). Its answer is added to every LEVEL reading: `dBm = dBFS + offset_db + correction_db` for dBFS radios and `dBm + correction_db` for SELF_CALIBRATED radios. Only DOUBLE fields in the unit of the radio's own level are readings; broadcast thresholds are SYSTEM_INFO and are never corrected. Without a calibration a dBFS level keeps its value and is flagged uncalibrated. The answer is kept with the record. The table and antenna correction are described in [CALIBRATION.md](CALIBRATION.md) (`calibration::TableCorrector`). | RF-02, HW-01b, HW-09 |
 | 3b | C1 | For a record of a technology plugin's cell schema with a DOUBLE `c1_db` field (the radio API's C1): a C1 delivered by the radio is kept as it is. When the radio left it empty and the level is calibrated (dBm), the plugin's `compute_c1` is asked with the corrected level and `ms_power_dbm`; its answer fills the field and the record is flagged `c1_estimated`. UNSUPPORTED (missing broadcast parameters) leaves it empty; an error answer also does and is counted (`c1_failed`) and logged once. An uncalibrated (dBFS) level gets no C1. | RF-06, PLG-02 |
 | 4 | Checks and carrier state | A level that is not finite or outside [`min_level`, `max_level`] is refused; a record older than the newest of its carrier is ignored (out of order), one equal to it is ignored (duplicate); one that arrived more than `late_after_ns` after it was measured is used and flagged late. Each carrier keeps its newest record. | TST-23 |
-| 5 | Observers | `on_record` for every accepted record (recording, feature plugins' `on_record`), on the delivery thread; `on_event` for every event. | REC, PLG-02 |
+| 5 | Observers | `on_input` for every input, record or event, also refused, ignored and duplicate records (`PipelineInput`: its number in the order the state took it in, its arrival time on the pipeline clock, the level correction used; what a recording stores, REC-03); `on_record` for every accepted record (feature plugins' `on_record`), on the delivery thread; `on_event` for every event. | REC-03, PLG-02 |
 | 6 | Cycle | `tick()` closes every period that has ended on the clock and gives `on_cycle` one `MeasurementCycle` per period with a `CarrierSample` per carrier: the newest record, its age, the records since the previous cycle and the flags. | OA-13, RF-01, RF-03, RF-04, RF-05, RF-07, TST-31 |
 
 A carrier is one (radio plugin, device, schema, frequency) and, for
@@ -86,6 +86,30 @@ stops or its plugin fails.
 - A sample's age is the cycle time minus the record's measurement time
   (0 when the record was measured after the cycle's grid time but arrived
   before the tick).
+
+## Recording and replay (REC-03, REC-07)
+
+A recording ([formats/RECORDING.md](formats/RECORDING.md)) keeps the
+pipeline's inputs, not only its output, so a replay drives the same
+pipeline and gets the same cycles and statistics as the live run:
+
+- Every input has a number (`PipelineInput::sequence`, 1, 2, ...) given
+  under the state lock, and every cycle says how many inputs it was built
+  from (`MeasurementCycle::inputs`) and when its tick ran (`built_ns`).
+  Records of several delivery threads may reach an observer in another
+  order than their numbers; the numbers are the order that counts.
+- `snapshot()` gives the whole state between two inputs
+  (`PipelineState`: the cycle grid, the next cycle number, the inputs
+  taken in, every carrier with the radio record of its newest sample, its
+  arrival time and correction, the device states), with the stats.
+  `restore()` puts it into another pipeline (the records are mapped again
+  through the same technology plugins and the recorded corrections).
+- A replay restores a snapshot (a keyframe of the recording), then feeds
+  each later input at its arrival time (a `ManualClock`) with its
+  recorded correction, and ticks at each recorded tick time
+  (`ManualClock::set(monotonic, utc)`), after the inputs that cycle was
+  built from. `cycle_difference()` names the first difference between two
+  cycles ("" when equal).
 
 ## Robustness (TST-23)
 

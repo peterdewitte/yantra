@@ -60,6 +60,7 @@
 #include "yantra/core/measure/catalog.h"
 #include "yantra/core/measure/correction.h"
 #include "yantra/core/measure/pipeline.h"
+#include "yantra/core/measure/record_file.h"
 #include "yantra/core/measure/sample.h"
 #include "yantra/core/measure/technology_map.h"
 #include "yantra/core/platform/clock.h"
@@ -88,6 +89,8 @@ struct PipelineInput {
 struct PipelineState {
     struct Carrier {
         RadioRecord input;            // radio_schema nullptr
+        // A copy of its radio schema (owned: valid after the plugin is gone).
+        std::shared_ptr<const RadioSchemaView> radio_schema;
         std::int64_t arrival_ns = 0;
         LevelCorrection correction;
         std::uint32_t fresh = 0;      // records since the last cycle
@@ -189,6 +192,7 @@ public:
     std::int64_t next_cycle_ns() const;
     const PipelineConfig& config() const noexcept { return config_; }
     const platform::Clock& clock() const noexcept { return *clock_; }
+    const std::shared_ptr<const platform::Clock>& clock_ptr() const noexcept { return clock_; }
 
     // A new level correction (6.2: calibration table or antenna setting
     // changed); later records use it.
@@ -204,12 +208,12 @@ public:
     PipelineState snapshot(PipelineStats* stats = nullptr) const;
     // Replaces the state with a snapshot (replay and seek, REC-07): each
     // carrier's record is mapped again with its recorded correction and
-    // arrival time (`schema_of` gives its radio schema: valid during the
-    // call). `stats`, when given, become the pipeline's stats. No input or
+    // arrival time, with its radio schema (Carrier::radio_schema, or what
+    // `schema_of` gives when set: valid during the call). `stats`, when given, become the pipeline's stats. No input or
     // tick may run meanwhile. "" when done, else why not (the state is
     // then cleared).
     std::string restore(const PipelineState& state,
-                        const std::function<const yr_schema*(const RadioRecord&)>& schema_of,
+                        const std::function<const yr_schema*(const RadioRecord&)>& schema_of = {},
                         const PipelineStats* stats = nullptr);
     // Waits until `pred(stats())` holds (tests: an observable condition).
     bool wait_stats(const std::function<bool(const PipelineStats&)>& pred,
@@ -219,6 +223,7 @@ private:
     // Per (radio plugin, radio schema): the mapping to its technology schema.
     struct SchemaEntry {
         const yr_schema* radio = nullptr;
+        std::shared_ptr<const RadioSchemaView> radio_copy;  // owned copy (snapshots)
         std::uint64_t generation = 0;
         std::shared_ptr<const plugin::Schema> schema;
         std::shared_ptr<const SchemaMap> map;
@@ -239,6 +244,7 @@ private:
     struct CarrierState {
         MappedRecord latest;
         RadioRecord input;  // the radio record of `latest` (radio_schema nullptr)
+        std::shared_ptr<const RadioSchemaView> radio_schema;  // its schema
         std::uint32_t fresh = 0;
         bool late = false;
         bool sync_lost = false;
@@ -255,6 +261,7 @@ private:
     // the corrector (restore).
     struct Mapped {
         MappedRecord m;
+        std::shared_ptr<const RadioSchemaView> radio_schema;
         std::uint64_t PipelineStats::*refused = nullptr;
         bool corrected = false;
         bool c1_failed = false;

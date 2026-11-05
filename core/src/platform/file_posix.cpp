@@ -79,4 +79,54 @@ bool rename_replace(const std::filesystem::path& from, const std::filesystem::pa
     return false;
 }
 
+AppendFile AppendFile::create_new(const std::filesystem::path& path, std::string& error) {
+    AppendFile f;
+    f.fd_ = ::open(path.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_APPEND | O_CLOEXEC, 0644);
+    if (f.fd_ < 0) error = path.string() + ": " + std::strerror(errno);
+    return f;
+}
+
+AppendFile::~AppendFile() { close(); }
+
+AppendFile::AppendFile(AppendFile&& other) noexcept : fd_(other.fd_) { other.fd_ = -1; }
+
+AppendFile& AppendFile::operator=(AppendFile&& other) noexcept {
+    if (this != &other) {
+        close();
+        fd_ = other.fd_;
+        other.fd_ = -1;
+    }
+    return *this;
+}
+
+bool AppendFile::write(const void* data, std::size_t size, std::string& error) {
+    const char* p = static_cast<const char*>(data);
+    while (size > 0) {
+        const ssize_t n = ::write(fd_, p, size);
+        if (n < 0) {
+            if (errno == EINTR) continue;
+            error = std::strerror(errno);
+            return false;
+        }
+        p += n;
+        size -= static_cast<std::size_t>(n);
+    }
+    return true;
+}
+
+bool AppendFile::sync(std::string& error) {
+    if (::fdatasync(fd_) != 0) {
+        error = std::strerror(errno);
+        return false;
+    }
+    return true;
+}
+
+void AppendFile::close() noexcept {
+    if (fd_ >= 0) {
+        ::close(fd_);
+        fd_ = -1;
+    }
+}
+
 }  // namespace yantra::platform

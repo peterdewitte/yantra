@@ -126,6 +126,7 @@ std::shared_ptr<const MeasurementPipeline::SchemaEntry> MeasurementPipeline::sch
     const yr_schema& radio = *record.radio_schema;
     auto e = std::make_shared<SchemaEntry>();
     e->radio = &radio;
+    e->radio_copy = std::make_shared<const RadioSchemaView>(record_file_schema(radio));
     e->generation = generation;
     e->kind = radio.kind;
     const std::string schema_id = plugin::text_of(radio.id);
@@ -247,6 +248,7 @@ MeasurementPipeline::Mapped MeasurementPipeline::map_record(const RadioRecord& r
         if (!std::isfinite(c.offset_db) || !std::isfinite(c.correction_db)) c = {};
     }
 
+    out.radio_schema = e->radio_copy;
     MappedRecord& m = out.m;
     m.provenance = e->provenance;
     m.generic = e->generic;
@@ -367,6 +369,7 @@ void MeasurementPipeline::on_radio_record(const RadioRecord& rr) {
             st.latest = m;
             st.input = rr;
             st.input.radio_schema = nullptr;
+            st.radio_schema = mapped.radio_schema;
             ++st.fresh;
             if (late) {
                 st.late = true;
@@ -541,6 +544,7 @@ PipelineState MeasurementPipeline::snapshot(PipelineStats* stats) const {
     for (const auto& [key, st] : carriers_) {
         PipelineState::Carrier c;
         c.input = st.input;
+        c.radio_schema = st.radio_schema;
         c.arrival_ns = st.latest.arrival_ns;
         c.correction = st.latest.correction;
         c.fresh = st.fresh;
@@ -562,7 +566,9 @@ std::string MeasurementPipeline::restore(const PipelineState& state,
     std::string error;
     for (const PipelineState::Carrier& c : state.carriers) {
         RadioRecord rr = c.input;
-        rr.radio_schema = schema_of ? schema_of(c.input) : nullptr;
+        rr.radio_schema = schema_of ? schema_of(c.input)
+                          : c.radio_schema ? &c.radio_schema->get()
+                                           : nullptr;
         Mapped mapped = map_record(rr, c.arrival_ns, &c.correction);
         if (mapped.refused != nullptr) {
             error = "a carrier of " + c.input.plugin_id + " (schema " + c.input.record.schema_id +
@@ -575,6 +581,7 @@ std::string MeasurementPipeline::restore(const PipelineState& state,
         st.latest = std::move(mapped.m);
         st.input = c.input;
         st.input.radio_schema = nullptr;
+        st.radio_schema = c.radio_schema ? c.radio_schema : mapped.radio_schema;
         st.fresh = c.fresh;
         st.late = c.late;
         st.sync_lost = c.sync_lost;

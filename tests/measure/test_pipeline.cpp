@@ -972,7 +972,13 @@ TEST_CASE("pipeline: every input is numbered; a restored snapshot fed the same i
     ym::MeasurementPipeline g(std::move(o));
     auto out = std::make_shared<Collector>();
     g.add_observer(out);
-    REQUIRE(g.restore(*snap, static_schema, &snap_stats).empty());
+    // The snapshot owns copies of its carriers' radio schemas.
+    for (const auto& c : snap->carriers) {
+        REQUIRE(c.radio_schema);
+        CHECK(c.radio_schema->schema().id == c.input.record.schema_id);
+        CHECK(&c.radio_schema->get() != static_schema(c.input));
+    }
+    REQUIRE(g.restore(*snap, {}, &snap_stats).empty());
     CHECK(g.next_cycle_ns() == snap->next_end_ns);
     std::size_t next_input = snap->inputs;  // index into log->inputs
     auto feed_upto = [&](std::uint64_t upto) {
@@ -1009,6 +1015,10 @@ TEST_CASE("pipeline: every input is numbered; a restored snapshot fed the same i
     REQUIRE(!changed.samples.empty());
     changed.samples[0].latest.level += 0.001;
     CHECK(ym::cycle_difference(expected.back(), changed).find("level") != std::string::npos);
+    // With the schemas given by the caller instead.
+    ym::MeasurementPipeline h(ym::MeasurementPipeline::Options{});
+    CHECK(h.restore(*snap, static_schema).empty());
+    CHECK(h.snapshot().carriers.size() == snap->carriers.size());
     // A carrier whose schema is unknown cannot be restored.
     CHECK_FALSE(g.restore(*snap, [](const ym::RadioRecord&) { return nullptr; }).empty());
 }

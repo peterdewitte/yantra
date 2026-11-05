@@ -62,6 +62,7 @@ public:
     RadioSchemaView(const RadioSchemaView&) = delete;
     RadioSchemaView& operator=(const RadioSchemaView&) = delete;
     const yr_schema& get() const noexcept { return schema_; }
+    const RecordFileSchema& schema() const noexcept { return copy_; }
 
 private:
     RecordFileSchema copy_;
@@ -70,6 +71,9 @@ private:
     std::vector<const yr_field_def*> pointers_;
     yr_schema schema_{};
 };
+
+// The header form of a radio schema (a deep copy of its texts and items).
+RecordFileSchema record_file_schema(const yr_schema& schema);
 
 // One line after the header, in file order.
 using RecordFileLine = std::variant<RadioRecord, RadioEvent>;

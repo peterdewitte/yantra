@@ -7,6 +7,8 @@
 
 #include "yantra/core/measure/record_file.h"
 
+#include "record_json.h"
+
 #include <cmath>
 #include <fstream>
 #include <istream>
@@ -306,6 +308,32 @@ void parse_event_line(const json& j, Context& c, const std::string& where) {
 
 }  // namespace
 
+RecordFileSchema record_file_schema(const yr_schema& schema) {
+    RecordFileSchema out;
+    out.id = plugin::text_of(schema.id);
+    out.label = plugin::text_of(schema.label);
+    out.kind = schema.kind;
+    out.version = schema.version;
+    out.groups = schema.groups;
+    for (std::uint32_t i = 0; i < schema.field_count && schema.fields != nullptr; ++i) {
+        const yr_field_def* d = schema.fields[i];
+        if (d == nullptr) continue;
+        RecordFileField f;
+        f.name = plugin::text_of(d->name);
+        f.label = plugin::text_of(d->label);
+        f.unit = plugin::text_of(d->unit);
+        f.help = plugin::text_of(d->help);
+        f.type = d->type;
+        f.group = d->group;
+        f.flags = d->flags;
+        for (std::uint32_t k = 0; k < d->enum_count && d->enum_items != nullptr; ++k)
+            f.items.push_back({d->enum_items[k].value, plugin::text_of(d->enum_items[k].name),
+                               plugin::text_of(d->enum_items[k].label)});
+        out.fields.push_back(std::move(f));
+    }
+    return out;
+}
+
 RadioSchemaView::RadioSchemaView(const RecordFileSchema& schema) : copy_(schema) {
     items_.reserve(copy_.fields.size());
     fields_.reserve(copy_.fields.size());
@@ -422,5 +450,98 @@ std::size_t replay(const RecordFile& file, MeasurementInput& input, const Replay
     }
     return n;
 }
+
+// --- shared with the recording format (record_json.h) --------------------------------
+
+namespace {
+
+template <std::size_t N>
+json names_of(std::uint32_t bits_set, const Name (&table)[N]) {
+    json out = json::array();
+    for (const Name& n : table)
+        if (n.value != 0 && (bits_set & n.value) == n.value) out.push_back(n.name);
+    return out;
+}
+
+template <std::size_t N>
+const char* name_in(std::uint32_t value, const Name (&table)[N]) {
+    for (const Name& n : table)
+        if (n.value == value) return n.name.data();
+    return nullptr;
+}
+
+}  // namespace
+
+json schema_json(const RecordFileSchema& s) {
+    json fields = json::array();
+    for (const RecordFileField& f : s.fields) {
+        json j;
+        j["name"] = f.name;
+        j["label"] = f.label;
+        j["unit"] = f.unit;
+        j["help"] = f.help;
+        j["type"] = name_in(f.type, kTypes) ? name_in(f.type, kTypes) : "uint";
+        j["group"] = name_in(f.group, kGroups) ? name_in(f.group, kGroups) : "core";
+        j["flags"] = names_of(f.flags, kFieldFlags);
+        if (!f.items.empty()) {
+            json items = json::array();
+            for (const plugin::EnumItem& item : f.items)
+                items.push_back({{"value", item.value}, {"name", item.name}, {"label", item.label}});
+            j["items"] = std::move(items);
+        }
+        fields.push_back(std::move(j));
+    }
+    return {{"id", s.id},
+            {"label", s.label},
+            {"kind", name_in(s.kind, kKinds) ? name_in(s.kind, kKinds) : "measurement"},
+            {"version", s.version},
+            {"groups", names_of(s.groups, kGroups)},
+            {"fields", std::move(fields)}};
+}
+
+std::optional<RecordFileSchema> parse_schema_json(const json& j, const std::string& where,
+                                                  std::string& error) {
+    try {
+        return parse_schema(j, where);
+    } catch (const Error& e) {
+        error = e.message;
+        return std::nullopt;
+    }
+}
+
+bool parse_value_json(const json& v, const RecordFileField& f, plugin::Value& out,
+                      std::string& error) {
+    if (v.is_null()) {
+        out = std::monostate{};
+        return true;
+    }
+    try {
+        out = parse_value(v, f, "field '" + f.name + "'");
+        return true;
+    } catch (const Error& e) {
+        error = e.message;
+        return false;
+    }
+}
+
+json value_json(const plugin::Value& v) {
+    return std::visit(
+        [](const auto& x) -> json {
+            using T = std::decay_t<decltype(x)>;
+            if constexpr (std::is_same_v<T, std::monostate>) return nullptr;
+            else if constexpr (std::is_same_v<T, plugin::EnumValue>) return x.value;
+            else return x;
+        },
+        v);
+}
+
+json group_names(std::uint32_t groups) { return names_of(groups, kGroups); }
+std::uint32_t group_bits(const json& names) { return bits(json{{"g", names}}, "g", kGroups); }
+json capability_names(std::uint32_t caps) { return names_of(caps, kCapabilities); }
+std::uint32_t capability_bits(const json& names) { return bits(json{{"c", names}}, "c", kCapabilities); }
+json record_flag_names(std::uint32_t flags) { return names_of(flags, kRecordFlags); }
+std::uint32_t record_flag_bits(const json& names) { return bits(json{{"f", names}}, "f", kRecordFlags); }
+const char* event_name(std::uint32_t event) { return name_in(event, kEvents); }
+std::optional<std::uint32_t> event_value(std::string_view name) { return lookup(kEvents, name); }
 
 }  // namespace yantra::measure

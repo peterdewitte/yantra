@@ -60,7 +60,7 @@ call that would store them, so nothing is ever dropped silently.
 
 | Step | Planned content |
 | --- | --- |
-| 7.4 recordings | `recordings` (one row per recording file kept in the project: name, SHA-256, size, content or reference, header JSON; REC-*) |
+| 7.5 recordings | `recordings` (one row per recording file of the project's walks: name, SHA-256, size, reference, header JSON; REC-*). The recordings themselves are files of their own (7.4, [RECORDING.md](RECORDING.md)) |
 | 7.5 walk tests and points | `provenance` (plugin id, version, technology id; PLG-12), `sessions` (walk or manual, floor, radio, calibration, notes; IND-20), `samples` (session, sequence, time, plan position in metres and plan units, sample JSON) — the one point list of IND-30 |
 | 7.6 cell database | a project copy or reference of the cell database (DB-*) |
 | 8 interpolation | stored interpolation results with their parameters (IND-45) |

@@ -47,6 +47,11 @@ add_library(yantra_core STATIC
   src/project/schema.cpp
   src/project/sqlite.cpp
   src/radio/radio_host.cpp
+  src/recording/codec.cpp
+  src/recording/format.cpp
+  src/recording/reader.cpp
+  src/recording/replay.cpp
+  src/recording/writer.cpp
   src/radio/scene_export.cpp
   src/util/sha256.cpp)
 add_library(yantra::core ALIAS yantra_core)
@@ -55,13 +60,17 @@ add_library(yantra::core ALIAS yantra_core)
 # a system library. 3.37 or newer (SQLITE_OPEN_EXRESCODE; VACUUM INTO,
 # upserts and SQLITE_OPEN_NOFOLLOW are older).
 find_package(SQLite3 3.37 REQUIRED)
+# zstd (spec 16.2): optional compression of recordings (REC-03,
+# docs/formats/RECORDING.md), a system library found with pkg-config.
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(ZSTD REQUIRED IMPORTED_TARGET libzstd>=1.4)
 
 target_include_directories(yantra_core
   PUBLIC include
   PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
 target_link_libraries(yantra_core
   PUBLIC yantra::plugin_api yantra::radio_api Threads::Threads ${CMAKE_DL_LIBS}
-  PRIVATE yantra::warnings yantra::json SQLite::SQLite3)
+  PRIVATE yantra::warnings yantra::json SQLite::SQLite3 PkgConfig::ZSTD)
 
 # Plan images (IND-02): stb_image, vendored in third_party/stb (MIT or
 # public domain), compiled once in its own library without Yantra's
