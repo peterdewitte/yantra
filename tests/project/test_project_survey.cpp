@@ -341,3 +341,48 @@ TEST_CASE("project 7.5: the file refuses session and point rows that break the s
     CHECK(p->points(1).size() == 1);
     CHECK(p->check().empty());
 }
+
+TEST_CASE("TST-33 plan positions survive the project file round trips bit for bit (save, save as, reopen); one point by its sequence") {
+    const fs::path dir = scratch("tst33-positions");
+    // Positions no decimal text keeps exactly: thirds, tiny and large
+    // offsets, negative (outside the trim) and the smallest normal step.
+    const std::vector<bm::Point2> plans = {{1.0 / 3.0, 2.0 / 3.0},          {0.1 + 0.2, 1e-9},
+                                           {399.99999999999994, 199.0000001}, {-12.5, 1e6 + 0.123456789012},
+                                           {std::nextafter(100.0, 200.0), std::nextafter(50.0, 0.0)}};
+    std::string floor;
+    std::int64_t session = 0;
+    std::vector<pj::StoredPoint> in;
+    {
+        auto p = pj::Project::create(dir / "a.yantra", pj::ProjectInfo{"Positions", "", "", ""});
+        floor = p->add_floor(floor_of("Ground floor", 0));
+        p->set_scale(floor, *bm::factor_scale(0.05));
+        pj::Session s;
+        s.floor_id = floor;
+        s.kind = "walk";
+        session = p->add_session(s);
+        for (std::size_t i = 0; i < plans.size(); ++i) in.push_back(point(static_cast<std::int64_t>(i + 1), plans[i].x, plans[i].y));
+        p->add_points(session, in);
+        p->save();
+        p->save_as(dir / "b.yantra");
+    }
+    for (const char* name : {"a.yantra", "b.yantra"}) {
+        CAPTURE(name);
+        auto p = pj::Project::open(dir / name);
+        const auto out = p->points(session);
+        REQUIRE(out.size() == plans.size());
+        const bm::Building b = p->building();
+        const double mpu = b.metres_per_unit(*b.find_floor(floor)).value();
+        for (std::size_t i = 0; i < plans.size(); ++i) {
+            CAPTURE(i);
+            CHECK(out[i].plan.x == plans[i].x);  // exact, not approximately
+            CHECK(out[i].plan.y == plans[i].y);
+            REQUIRE(out[i].metres);
+            CHECK(out[i].metres->x == plans[i].x * mpu);
+            CHECK(out[i].metres->y == plans[i].y * mpu);
+            CHECK(out[i].sample == in[i].sample);
+            CHECK(p->point(session, out[i].sequence) == out[i]);
+        }
+        CHECK_FALSE(p->point(session, 99));
+        CHECK_FALSE(p->point(session + 1, 1));
+    }
+}

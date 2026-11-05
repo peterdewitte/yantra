@@ -11,6 +11,7 @@
 // for the building model's floors and sources (sessions, samples and
 // provenance belong to later steps).
 
+#include "yantra/core/building/edit.h"
 #include "yantra/core/building/model_json.h"
 #include "yantra/core/project/project.h"
 #include "yantra/core/util/sha256.h"
@@ -1089,4 +1090,77 @@ TEST_CASE("project: docs/formats/PROJECT.md lists every table and column of the 
     // The document names the current version.
     CHECK(read_file(fs::path(YANTRA_SOURCE_DIR) / "docs" / "formats" / "PROJECT.md")
               .find("schema version, now **" + std::to_string(pj::kSchemaVersion) + "**") != std::string::npos);
+}
+
+TEST_CASE("TST-35 indoor project model: trims, rotation, several floors per source, several sources, reordering, scale and a missing source survive save and reopen") {
+    const fs::path dir = scratch("tst35");
+    const fs::path file = dir / "m.yantra";
+    write_file(dir / "sheet.png", fake_png(11));
+    const fs::path cached = dir / "cache" / "annex.pdf";
+    fs::create_directories(cached.parent_path());
+    const std::string pdf = fake_pdf(5);
+    write_file(cached, pdf);
+    const bm::Trim rect{bm::Trim::Shape::Rectangle, {{10, 10}, {190, 10}, {190, 190}, {10, 190}}, 0, 0.0};
+    const bm::Trim poly{bm::Trim::Shape::Polygon, {{210, 10}, {390, 10}, {390, 190}, {300, 150}, {210, 190}}, 1, 2.5};
+    const bm::Trim turned{bm::Trim::Shape::Rectangle, {{0, 0}, {300, 0}, {300, 400}, {0, 400}}, 3, -1.75};
+    bm::Building saved;
+    std::string ground, first, annex;
+    {
+        auto p = pj::Project::create(file, info());
+        // Two floors from one embedded sheet (rectangle; polygon turned and deskewed).
+        const std::string sheet = p->add_source(dir / "sheet.png").id;
+        p->set_source_pages(sheet, {{400, 200, 0}});
+        bm::Floor g = floor_named("Ground floor", 0);
+        g.source = sheet;
+        g.trim = rect;
+        ground = p->add_floor(g);
+        bm::Floor f = floor_named("First floor", 1);
+        f.source = sheet;
+        f.trim = poly;
+        first = p->add_floor(f);
+        // A second source, referenced by hash (page 2 of a PDF), turned.
+        const std::string ref = p->add_source_reference(cached).id;
+        p->set_source_pages(ref, {{595, 842, 0}, {300, 400, 0}});
+        bm::Floor a = floor_named("Annex", 2);
+        a.source = ref;
+        a.page = 1;
+        a.trim = turned;
+        annex = p->add_floor(a);
+        // Scales: two-point calibration, a shared scale (same sheet), a factor.
+        p->set_scale(ground, *bm::two_point_scale({10, 180}, {190, 180}, 9.0));
+        p->share_scale(ground, {first});
+        p->set_scale(annex, *bm::factor_scale(0.02));
+        // Reordering: the annex shown first.
+        p->move_floor(annex, 0);
+        saved = p->building();
+        CHECK(p->floors().front().id == annex);
+        p->save();
+    }
+    // The reference file goes missing between sessions.
+    const fs::path moved = dir / "elsewhere.pdf";
+    fs::rename(cached, moved);
+    {
+        auto p = pj::Project::open(file);
+        CHECK(p->building() == saved);
+        CHECK(p->floor(ground)->trim == rect);
+        CHECK(p->floor(first)->trim == poly);
+        CHECK(p->floor(annex)->trim == turned);
+        CHECK(p->floor(annex)->page == 1);
+        CHECK(p->floors().front().id == annex);
+        const bm::Building b = p->building();
+        CHECK(b.metres_per_unit(*b.find_floor(ground)).value() == doctest::Approx(9.0 / 180.0).epsilon(1e-12));
+        CHECK(b.metres_per_unit(*b.find_floor(first)) == b.metres_per_unit(*b.find_floor(ground)));
+        CHECK(b.metres_per_unit(*b.find_floor(annex)).value() == doctest::Approx(0.02).epsilon(1e-12));
+        // Missing source: the project opens and is sound, the floor keeps
+        // its trim and scale, the content is read from where it is now.
+        CHECK(p->check().empty());
+        const std::string ref = p->floor(annex)->source;
+        CHECK(code_of([&] { (void)p->read_source(ref); }) == Code::Io);
+        CHECK(as_string(p->read_source_from(ref, moved)) == pdf);
+        CHECK(as_string(p->read_source(p->floor(ground)->source)) == read_file(dir / "sheet.png"));
+        // Saved again elsewhere and reopened: unchanged.
+        p->save_as(dir / "copy.yantra");
+    }
+    auto copy = pj::Project::open(dir / "copy.yantra");
+    CHECK(copy->building() == saved);
 }
