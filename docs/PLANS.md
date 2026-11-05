@@ -57,10 +57,18 @@ window can show and adjust the trim later.
 ## Scale and alignment
 
 Scale per floor (IND-08), the alignment point (IND-09), walls (IND-11) and
-antennas (IND-12) are set on the trimmed floor in plan units, so they stay
-in place when a trim is adjusted only if the trimmed size stays the same;
-they are described with the building model in
-[BUILDING_MODEL.md](BUILDING_MODEL.md).
+antennas (IND-12) are set on the trimmed floor in plan units and
+described with the building model in [BUILDING_MODEL.md](BUILDING_MODEL.md).
+
+When a trim is edited later (IND-07: another outline, page, rotation or
+deskew), everything drawn on the floor moves with it so it stays at the
+same place on the sheet: the walls, antennas, the two points of a scale
+measurement and the reference point are mapped from the old trim's plan
+units through the page to the new trim's (`plan::reanchor_floor`, called
+by `PlanImport::apply_to_floor`). Antenna azimuths and donor directions
+turn with the plan. A trim only turns, so the metres per plan unit stay
+the same. Points that fall outside the new trim are kept (the floor shows
+them outside its plan) and are never deleted.
 
 ## Coordinates (for developers)
 
@@ -87,7 +95,8 @@ trips agree to about 1e-9 units.
 The building model (`yantra::building`, [BUILDING_MODEL.md](BUILDING_MODEL.md))
 holds the trim (`building::Trim`, the same type as `plan::Trim`) and the
 floor's `plan_width` x `plan_height`; the project file stores them in
-`floors` and `floor_outline` (schema 2).
+`floors` and `floor_outline` (schema 2), the scale, reference point,
+walls and antennas in plan units from schema 3.
 
 Example: a sheet with a trim rectangle from (20, 10) to (100, 50) turned
 one quarter clockwise gives a floor of 40 x 80 units; the trim's top-left

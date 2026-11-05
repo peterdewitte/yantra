@@ -105,4 +105,20 @@ PixelSize floor_pixels(const TrimTransform& t, double scale);
 Raster render_floor(const PlanSource& source, int page, const TrimTransform& t, double scale,
                     const PixelRect& window);
 
+/// Floor units of trim `t` -> page units; a trim of shape None is the
+/// whole page unturned (floor units = page units). `t` must be valid.
+Point2 trim_floor_to_page(const Trim& t, Point2 floor);
+/// Page units -> floor units of trim `t` (None: identity).
+Point2 trim_page_to_floor(const Trim& t, Point2 page);
+
+/// Keeps what is drawn on a floor at the same place on the source page
+/// when its trim changes from `from` to `to` (IND-07 edit with IND-08..12
+/// data): walls, antennas, the scale's two points and the reference point
+/// (plan units) are mapped through the page; antenna azimuths and donor
+/// directions turn with the plan's rotation. A Factor or Shared scale
+/// needs no change: a trim only turns, so the unit length stays. Points
+/// that fall outside the new trim are kept (outside the plan). Both trims
+/// must be valid (or None).
+void reanchor_floor(building::Floor& f, const Trim& from, const Trim& to);
+
 }  // namespace yantra::plan

@@ -301,4 +301,44 @@ Raster render_floor(const PlanSource& source, int page, const TrimTransform& t, 
     return out;
 }
 
+Point2 trim_floor_to_page(const Trim& t, Point2 floor) {
+    if (t.shape == Trim::Shape::None) return floor;
+    return TrimTransform(t).floor_to_page(floor);
+}
+
+Point2 trim_page_to_floor(const Trim& t, Point2 page) {
+    if (t.shape == Trim::Shape::None) return page;
+    return TrimTransform(t).page_to_floor(page);
+}
+
+void reanchor_floor(building::Floor& f, const Trim& from, const Trim& to) {
+    if (from == to) return;
+    const std::optional<TrimTransform> a =
+        from.shape == Trim::Shape::None ? std::nullopt : std::optional<TrimTransform>(TrimTransform(from));
+    const std::optional<TrimTransform> b =
+        to.shape == Trim::Shape::None ? std::nullopt : std::optional<TrimTransform>(TrimTransform(to));
+    auto map = [&](Point2 p) {
+        const Point2 page = a ? a->floor_to_page(p) : p;
+        return b ? b->page_to_floor(page) : page;
+    };
+    const double turn = (b ? b->rotation_deg() : 0.0) - (a ? a->rotation_deg() : 0.0);
+    auto turned = [&](double deg) {
+        double d = std::fmod(deg + turn, 360.0);
+        if (d < 0.0) d += 360.0;
+        return d >= 360.0 ? 0.0 : d;
+    };
+    for (building::Wall& w : f.walls)
+        for (Point2& p : w.points) p = map(p);
+    for (building::Antenna& ant : f.antennas) {
+        ant.position = map(ant.position);
+        if (ant.pattern.type != building::AntennaPattern::Type::Omni) ant.pattern.azimuth_deg = turned(ant.pattern.azimuth_deg);
+        if (ant.direction_deg) ant.direction_deg = turned(*ant.direction_deg);
+    }
+    if (f.scale.method == building::Scale::Method::TwoPoints || f.scale.method == building::Scale::Method::ScaleBar) {
+        f.scale.a = map(f.scale.a);
+        f.scale.b = map(f.scale.b);
+    }
+    if (f.reference_point) f.reference_point = map(*f.reference_point);
+}
+
 }  // namespace yantra::plan
