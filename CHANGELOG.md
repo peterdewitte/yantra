@@ -28,6 +28,11 @@ own changes are in its CHANGELOG.md.
 
 ### Radio plugins (yantra-radios)
 
+- 2026-11-05: pinned to yantra-radios **v0.2.2** (commit a78c5c1): the
+  SDR plugins (SoapySDR, HackRF) return from stop within the 1 s control
+  call limit also on a slow or loaded computer; before, stopping (or a
+  replug restart followed by a stop) could take seconds and the plugin
+  was disabled. Radio API 1.0 unchanged.
 - 2026-11-04: pinned to yantra-radios **v0.2.1** (commit f359ee1): the
   simulator plugin measures every cell of its scenario's capture, not only
   the carrier at the capture centre, and a carrier pinned twice (a given
