@@ -7,8 +7,10 @@
 # 2 reflections), one thread, SIMD and scalar, after a CPU calibration
 # line; a time beyond limits.csv fails (label slow). Time limits: label
 # timing and RUN_SERIAL (an otherwise idle machine; left out of the
-# sanitizer runs, -LE timing). The record pipeline and interpolation
-# benchmarks of TST-41 join this folder with their steps.
+# sanitizer runs, -LE timing). bench_interpolation times the fit, the
+# residual field and the source search (IND-41..43) on the same floor;
+# bench_pipeline the record pipeline (RF-01). bench_common.h holds the
+# calibration and the limit check of all three.
 # Copied from yantra-v2 68ea20a: tests/raytrace_bench, adapted (CPU
 # calibration and limits as yantra-radios tests/bench/bench_limits.cpp).
 add_executable(bench_raytrace bench_raytrace.cpp)
@@ -21,3 +23,16 @@ else()
   add_test(NAME bench_raytrace COMMAND bench_raytrace ${CMAKE_CURRENT_SOURCE_DIR}/limits.csv --no-limits)
 endif()
 set_tests_properties(bench_raytrace PROPERTIES LABELS "slow;perf;timing" TIMEOUT 900 RUN_SERIAL TRUE)
+
+foreach(_bench bench_interpolation bench_pipeline)
+  add_executable(${_bench} ${_bench}.cpp)
+  target_include_directories(${_bench} PRIVATE ${PROJECT_SOURCE_DIR}/tests/raytrace)
+  target_link_libraries(${_bench} PRIVATE yantra::core yantra::plugin_api yantra_warnings)
+  if(YANTRA_SANITIZER STREQUAL "")
+    add_test(NAME ${_bench} COMMAND ${_bench} ${CMAKE_CURRENT_SOURCE_DIR}/limits.csv)
+  else()
+    # Instrumented trees: a smaller run, no limits (the checks still hold).
+    add_test(NAME ${_bench} COMMAND ${_bench} ${CMAKE_CURRENT_SOURCE_DIR}/limits.csv --no-limits)
+  endif()
+  set_tests_properties(${_bench} PROPERTIES LABELS "slow;perf;timing" TIMEOUT 900 RUN_SERIAL TRUE)
+endforeach()
