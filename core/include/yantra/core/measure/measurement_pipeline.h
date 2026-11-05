@@ -66,10 +66,55 @@
 
 namespace yantra::measure {
 
+// One input as the pipeline took it in (recording, REC-03): every radio
+// record (also refused, ignored and duplicate ones) and every event, in
+// the order of `sequence`, with the pipeline clock's time it arrived and
+// the level correction the corrector answered for it. Valid during
+// MeasurementObserver::on_input only (`record->radio_schema` too).
+struct PipelineInput {
+    std::uint64_t sequence = 0;     // 1, 2, ...: the order the state saw them
+    std::int64_t arrival_ns = 0;    // pipeline clock (monotonic) when it arrived
+    const RadioRecord* record = nullptr;  // a record, or
+    const RadioEvent* event = nullptr;    // an event
+    bool corrected = false;         // the corrector was asked (a record with a level)
+    LevelCorrection correction;     // its answer (as used)
+};
+
+// The pipeline's whole state between inputs (PipelineState::inputs taken
+// in): what a recording keeps as a keyframe so its replay starts, or
+// seeks, from the same state (REC-03, REC-07). Carriers keep the radio
+// record that made their newest sample (radio_schema nullptr) with its
+// arrival time and correction, so restore() maps it again.
+struct PipelineState {
+    struct Carrier {
+        RadioRecord input;            // radio_schema nullptr
+        std::int64_t arrival_ns = 0;
+        LevelCorrection correction;
+        std::uint32_t fresh = 0;      // records since the last cycle
+        bool late = false;
+        bool sync_lost = false;
+    };
+    struct Device {
+        std::string plugin_id;
+        std::string device_key;
+        bool lost = false;
+        bool stopped = false;
+        bool data_loss = false;
+    };
+    std::int64_t next_end_ns = 0;   // end of the next cycle
+    std::uint64_t sequence = 0;     // sequence number of the next cycle
+    std::uint64_t inputs = 0;       // inputs taken in (PipelineInput::sequence of the last)
+    std::vector<Carrier> carriers;
+    std::vector<Device> devices;
+};
+
 // Receiver of the pipeline's output. Every method is optional.
 class MeasurementObserver {
 public:
     virtual ~MeasurementObserver() = default;
+    // Each input (record or event) after the state took it in, on its
+    // delivery thread, before on_record/on_event: what a recording stores.
+    virtual void on_input(const PipelineInput& input) { (void)input; }
     // Each accepted record, on the delivery thread of its stream.
     virtual void on_record(const MappedRecord& record) { (void)record; }
     // Each radio event, on the delivery thread (or the host's thread).
@@ -115,6 +160,7 @@ struct PipelineStats {
     std::uint64_t c1_radio = 0;        // accepted records with the radio's C1 (RF-06)
     std::uint64_t c1_estimated = 0;    // accepted records with C1 estimated by Yantra
     std::uint64_t c1_failed = 0;       // compute_c1 answered an error (not UNSUPPORTED)
+    bool operator==(const PipelineStats&) const = default;
 };
 
 class MeasurementPipeline final : public MeasurementInput {
@@ -154,6 +200,17 @@ public:
     void remove_observer(const std::shared_ptr<MeasurementObserver>& observer);
 
     PipelineStats stats() const;
+    // The state between two inputs (keyframe, REC-03), with the stats.
+    PipelineState snapshot(PipelineStats* stats = nullptr) const;
+    // Replaces the state with a snapshot (replay and seek, REC-07): each
+    // carrier's record is mapped again with its recorded correction and
+    // arrival time (`schema_of` gives its radio schema: valid during the
+    // call). `stats`, when given, become the pipeline's stats. No input or
+    // tick may run meanwhile. "" when done, else why not (the state is
+    // then cleared).
+    std::string restore(const PipelineState& state,
+                        const std::function<const yr_schema*(const RadioRecord&)>& schema_of,
+                        const PipelineStats* stats = nullptr);
     // Waits until `pred(stats())` holds (tests: an observable condition).
     bool wait_stats(const std::function<bool(const PipelineStats&)>& pred,
                     std::chrono::milliseconds timeout) const;
@@ -181,6 +238,7 @@ private:
     using DeviceKey = std::pair<std::string, std::string>;
     struct CarrierState {
         MappedRecord latest;
+        RadioRecord input;  // the radio record of `latest` (radio_schema nullptr)
         std::uint32_t fresh = 0;
         bool late = false;
         bool sync_lost = false;
@@ -192,6 +250,17 @@ private:
     };
 
     std::shared_ptr<const SchemaEntry> schema_entry(const RadioRecord& record);
+    // Stages 2-3b for one record: the mapped record, or the stats counter
+    // of its refusal. `forced`: the correction to use instead of asking
+    // the corrector (restore).
+    struct Mapped {
+        MappedRecord m;
+        std::uint64_t PipelineStats::*refused = nullptr;
+        bool corrected = false;
+        bool c1_failed = false;
+    };
+    Mapped map_record(const RadioRecord& rr, std::int64_t now, const LevelCorrection* forced);
+    void emit_input(const PipelineInput& input);
     void build_cycle(std::int64_t end_ns, std::int64_t now_ns, MeasurementCycle& out);
     std::vector<std::shared_ptr<MeasurementObserver>> observers() const;
     void bump();
@@ -218,6 +287,7 @@ private:
     std::map<DeviceKey, DeviceState> devices_;
     std::int64_t next_end_ns_ = 0;
     std::uint64_t sequence_ = 0;
+    std::uint64_t inputs_ = 0;
     PipelineStats stats_;
 };
 

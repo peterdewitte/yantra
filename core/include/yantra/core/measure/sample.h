@@ -128,6 +128,12 @@ struct MeasurementCycle {
     std::uint64_t sequence = 0;
     yantra_time time{};
     std::int64_t period_ns = 0;
+    // The tick that built it: its clock (monotonic; the UTC then is
+    // time.utc_ns + built_ns - time.monotonic_ns) and the inputs the
+    // state had taken in (PipelineInput::sequence), so a replay builds it
+    // from the same inputs at the same time (REC-07).
+    std::int64_t built_ns = 0;
+    std::uint64_t inputs = 0;
     std::uint32_t flags = 0;  // union of the samples' flags
     std::vector<CarrierSample> samples;
 
@@ -137,5 +143,11 @@ struct MeasurementCycle {
     // Every sample of one role (RF-03 neighbours, RF-04 scan channels).
     std::vector<const CarrierSample*> with_role(CarrierRole role) const;
 };
+
+// "" when two cycles are the same in every value (NaN equals NaN; the
+// schemas compared by content), else the first difference, e.g.
+// "sample 2 (390012500 Hz): level -71.2 != -71.3". A replayed recording
+// gives the same cycles as the live run (REC-07).
+std::string cycle_difference(const MeasurementCycle& a, const MeasurementCycle& b);
 
 }  // namespace yantra::measure

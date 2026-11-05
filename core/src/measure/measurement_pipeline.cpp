@@ -192,22 +192,20 @@ std::shared_ptr<const MeasurementPipeline::SchemaEntry> MeasurementPipeline::sch
 
 // --- stages 1-5: a record --------------------------------------------------------------
 
-void MeasurementPipeline::on_radio_record(const RadioRecord& rr) {
-    const plugin::MeasurementThreadScope scope;  // PLG-07
-    const std::int64_t now = clock_->monotonic_ns();
-    auto refuse = [this](std::uint64_t PipelineStats::*counter) {
-        {
-            const std::lock_guard lock(mutex_);
-            ++stats_.records;
-            ++(stats_.*counter);
-        }
-        bump();
-    };
+MeasurementPipeline::Mapped MeasurementPipeline::map_record(const RadioRecord& rr, std::int64_t now,
+                                                             const LevelCorrection* forced) {
+    Mapped out;
     std::shared_ptr<const SchemaEntry> e = rr.radio_schema ? schema_entry(rr) : nullptr;
-    if (!e) return refuse(&PipelineStats::unmapped);
+    if (!e) {
+        out.refused = &PipelineStats::unmapped;
+        return out;
+    }
     const plugin::Value* fv = value_at(rr.record, e->frequency);
     const std::uint64_t* freq = fv ? std::get_if<std::uint64_t>(fv) : nullptr;
-    if (freq == nullptr) return refuse(&PipelineStats::unmapped);
+    if (freq == nullptr) {
+        out.refused = &PipelineStats::unmapped;
+        return out;
+    }
 
     // Stage 4a: a level must be a plausible number (TST-23: NaN/Inf, out of range).
     double radio_level = std::nan("");
@@ -215,33 +213,41 @@ void MeasurementPipeline::on_radio_record(const RadioRecord& rr) {
     if (has_level_field) {
         const plugin::Value* lv = value_at(rr.record, e->level);
         const double* d = lv ? std::get_if<double>(lv) : nullptr;
-        if (d == nullptr || !std::isfinite(*d) || *d < config_.min_level || *d > config_.max_level)
-            return refuse(&PipelineStats::implausible);
+        if (d == nullptr || !std::isfinite(*d) || *d < config_.min_level || *d > config_.max_level) {
+            out.refused = &PipelineStats::implausible;
+            return out;
+        }
         radio_level = *d;
     } else if (e->kind != YR_SCHEMA_NEIGHBOUR) {
-        return refuse(&PipelineStats::unmapped);
+        out.refused = &PipelineStats::unmapped;
+        return out;
     }
 
     // Stage 3: level correction (RF-02, HW-09; the 6.2 hook).
     LevelCorrection c;
     if (has_level_field) {
-        std::shared_ptr<const LevelCorrector> corrector;
-        {
-            const std::lock_guard lock(corrector_mutex_);
-            corrector = corrector_;
+        out.corrected = true;
+        if (forced != nullptr) {
+            c = *forced;
+        } else {
+            std::shared_ptr<const LevelCorrector> corrector;
+            {
+                const std::lock_guard lock(corrector_mutex_);
+                corrector = corrector_;
+            }
+            LevelContext lc;
+            lc.radio_plugin_id = rr.plugin_id;
+            lc.device_key = rr.device_key;
+            lc.frequency_hz = *freq;
+            lc.radio_dbm = !e->radio_dbfs;
+            lc.simulated = (rr.capabilities & YR_CAP_SIMULATED) != 0;
+            lc.calibration_key = rr.calibration_key.get();
+            c = corrector->correction(lc);
         }
-        LevelContext lc;
-        lc.radio_plugin_id = rr.plugin_id;
-        lc.device_key = rr.device_key;
-        lc.frequency_hz = *freq;
-        lc.radio_dbm = !e->radio_dbfs;
-        lc.simulated = (rr.capabilities & YR_CAP_SIMULATED) != 0;
-        lc.calibration_key = rr.calibration_key.get();
-        c = corrector->correction(lc);
         if (!std::isfinite(c.offset_db) || !std::isfinite(c.correction_db)) c = {};
     }
 
-    MappedRecord m;
+    MappedRecord& m = out.m;
     m.provenance = e->provenance;
     m.generic = e->generic;
     m.radio_plugin_id = rr.plugin_id;
@@ -272,7 +278,6 @@ void MeasurementPipeline::on_radio_record(const RadioRecord& rr) {
     m.radio_dbfs = e->radio_dbfs;
     m.correction = c;
     // Stage 3b: C1 (RF-06): the radio's, else estimated from the calibrated level.
-    bool c1_failed = false;
     if (e->tech_c1 >= 0) {
         plugin::Value& v = m.record.values[static_cast<std::size_t>(e->tech_c1)];
         if (std::holds_alternative<double>(v)) {
@@ -291,7 +296,7 @@ void MeasurementPipeline::on_radio_record(const RadioRecord& rr) {
                 v = c1;
                 m.c1_source = C1Source::Estimated;
             } else if (st != YANTRA_ERR_UNSUPPORTED) {
-                c1_failed = true;
+                out.c1_failed = true;
                 const std::string once = "c1/" + m.provenance.plugin_id;
                 const std::lock_guard slock(schema_mutex_);
                 if (log_ && logged_.insert(once).second)
@@ -309,54 +314,88 @@ void MeasurementPipeline::on_radio_record(const RadioRecord& rr) {
     m.record.flags = m.flags;
     if (m.c1_source == C1Source::Estimated) m.flags |= sample_flag::kC1Estimated;
     m.arrival_ns = now;
+    return out;
+}
+
+void MeasurementPipeline::emit_input(const PipelineInput& input) {
+    for (const auto& o : observers()) o->on_input(input);
+}
+
+void MeasurementPipeline::on_radio_record(const RadioRecord& rr) {
+    const plugin::MeasurementThreadScope scope;  // PLG-07
+    const std::int64_t now = clock_->monotonic_ns();
+    Mapped mapped = map_record(rr, now, nullptr);
+    PipelineInput in;
+    in.arrival_ns = now;
+    in.record = &rr;
+    in.corrected = mapped.corrected;
+    in.correction = mapped.m.correction;
+    if (mapped.refused != nullptr) {
+        {
+            const std::lock_guard lock(mutex_);
+            in.sequence = ++inputs_;
+            ++stats_.records;
+            ++(stats_.*mapped.refused);
+        }
+        bump();
+        emit_input(in);
+        return;
+    }
+    MappedRecord& m = mapped.m;
 
     // Stage 4b: per-carrier state (TST-23: out of order, duplicates, late).
     const std::int64_t t = rr.record.time.monotonic_ns;
     const bool late = now - t > config_.late_after_ns;
+    bool taken = false;
     {
         const std::lock_guard lock(mutex_);
+        in.sequence = ++inputs_;
         ++stats_.records;
-        if (c1_failed) ++stats_.c1_failed;
+        if (mapped.c1_failed) ++stats_.c1_failed;
         const CarrierKey key{rr.plugin_id, rr.device_key, m.provenance.schema_id, m.frequency_hz,
                              m.entry_index};
         auto [it, inserted] = carriers_.try_emplace(key);
         CarrierState& st = it->second;
-        if (!inserted) {
-            const std::int64_t newest = st.latest.record.time.monotonic_ns;
-            if (t < newest) {
-                ++stats_.out_of_order;
-                bump();
-                return;
+        const std::int64_t newest = inserted ? 0 : st.latest.record.time.monotonic_ns;
+        if (!inserted && t < newest) {
+            ++stats_.out_of_order;
+        } else if (!inserted && t == newest && st.latest.flags == m.flags &&
+                   st.latest.record.values == m.record.values) {
+            ++stats_.duplicates;
+        } else {
+            taken = true;
+            st.latest = m;
+            st.input = rr;
+            st.input.radio_schema = nullptr;
+            ++st.fresh;
+            if (late) {
+                st.late = true;
+                ++stats_.late;
             }
-            if (t == newest && st.latest.flags == m.flags && st.latest.record.values == m.record.values) {
-                ++stats_.duplicates;
-                bump();
-                return;
-            }
+            if ((m.flags & sample_flag::kNoSync) == 0) st.sync_lost = false;
+            DeviceState& d = devices_[{rr.plugin_id, rr.device_key}];
+            d.lost = false;
+            d.stopped = false;
+            ++stats_.accepted;
+            if (m.generic) ++stats_.generic;
+            if (m.c1_source == C1Source::Radio) ++stats_.c1_radio;
+            if (m.c1_source == C1Source::Estimated) ++stats_.c1_estimated;
         }
-        st.latest = m;
-        ++st.fresh;
-        if (late) {
-            st.late = true;
-            ++stats_.late;
-        }
-        if ((m.flags & sample_flag::kNoSync) == 0) st.sync_lost = false;
-        DeviceState& d = devices_[{rr.plugin_id, rr.device_key}];
-        d.lost = false;
-        d.stopped = false;
-        ++stats_.accepted;
-        if (m.generic) ++stats_.generic;
-        if (m.c1_source == C1Source::Radio) ++stats_.c1_radio;
-        if (m.c1_source == C1Source::Estimated) ++stats_.c1_estimated;
     }
     bump();
+    emit_input(in);
     // Stage 5: observers (recording, feature plugins), without the lock.
-    for (const auto& o : observers()) o->on_record(m);
+    if (taken)
+        for (const auto& o : observers()) o->on_record(m);
 }
 
 void MeasurementPipeline::on_radio_event(const RadioEvent& ev) {
+    PipelineInput in;
+    in.arrival_ns = clock_->monotonic_ns();
+    in.event = &ev;
     {
         const std::lock_guard lock(mutex_);
+        in.sequence = ++inputs_;
         ++stats_.events;
         auto for_devices = [&](auto f) {
             if (ev.device_key.empty()) {
@@ -400,6 +439,7 @@ void MeasurementPipeline::on_radio_event(const RadioEvent& ev) {
         }
     }
     bump();
+    emit_input(in);
     for (const auto& o : observers()) o->on_event(ev);
 }
 
@@ -412,6 +452,8 @@ void MeasurementPipeline::build_cycle(std::int64_t end_ns, std::int64_t now_ns,
     out.time.monotonic_ns = end_ns;
     out.time.utc_ns = clock_->utc_ns() - (now_ns - end_ns);
     out.time.utc_source = YANTRA_TIME_SOURCE_SYSTEM;
+    out.built_ns = now_ns;
+    out.inputs = inputs_;
     for (auto it = carriers_.begin(); it != carriers_.end();) {
         CarrierState& st = it->second;
         const auto dit = devices_.find({std::get<0>(it->first), std::get<1>(it->first)});
@@ -485,6 +527,78 @@ std::size_t MeasurementPipeline::tick() {
     for (const MeasurementCycle& c : cycles)
         for (const auto& o : obs) o->on_cycle(c);
     return cycles.size();
+}
+
+// --- keyframes (REC-03, REC-07) ---------------------------------------------------------
+
+PipelineState MeasurementPipeline::snapshot(PipelineStats* stats) const {
+    PipelineState out;
+    const std::lock_guard lock(mutex_);
+    out.next_end_ns = next_end_ns_;
+    out.sequence = sequence_;
+    out.inputs = inputs_;
+    out.carriers.reserve(carriers_.size());
+    for (const auto& [key, st] : carriers_) {
+        PipelineState::Carrier c;
+        c.input = st.input;
+        c.arrival_ns = st.latest.arrival_ns;
+        c.correction = st.latest.correction;
+        c.fresh = st.fresh;
+        c.late = st.late;
+        c.sync_lost = st.sync_lost;
+        out.carriers.push_back(std::move(c));
+    }
+    for (const auto& [key, d] : devices_)
+        out.devices.push_back({key.first, key.second, d.lost, d.stopped, d.data_loss});
+    if (stats != nullptr) *stats = stats_;
+    return out;
+}
+
+std::string MeasurementPipeline::restore(const PipelineState& state,
+                                         const std::function<const yr_schema*(const RadioRecord&)>& schema_of,
+                                         const PipelineStats* stats) {
+    const std::lock_guard tick_lock(tick_mutex_);
+    std::map<CarrierKey, CarrierState> carriers;
+    std::string error;
+    for (const PipelineState::Carrier& c : state.carriers) {
+        RadioRecord rr = c.input;
+        rr.radio_schema = schema_of ? schema_of(c.input) : nullptr;
+        Mapped mapped = map_record(rr, c.arrival_ns, &c.correction);
+        if (mapped.refused != nullptr) {
+            error = "a carrier of " + c.input.plugin_id + " (schema " + c.input.record.schema_id +
+                    ") cannot be mapped again";
+            break;
+        }
+        const CarrierKey key{rr.plugin_id, rr.device_key, mapped.m.provenance.schema_id,
+                             mapped.m.frequency_hz, mapped.m.entry_index};
+        CarrierState st;
+        st.latest = std::move(mapped.m);
+        st.input = c.input;
+        st.input.radio_schema = nullptr;
+        st.fresh = c.fresh;
+        st.late = c.late;
+        st.sync_lost = c.sync_lost;
+        if (!carriers.emplace(key, std::move(st)).second) {
+            error = "a carrier is twice in the state";
+            break;
+        }
+    }
+    {
+        const std::lock_guard lock(mutex_);
+        carriers_.clear();
+        devices_.clear();
+        if (error.empty()) {
+            carriers_ = std::move(carriers);
+            for (const PipelineState::Device& d : state.devices)
+                devices_[{d.plugin_id, d.device_key}] = DeviceState{d.lost, d.stopped, d.data_loss};
+            next_end_ns_ = state.next_end_ns;
+            sequence_ = state.sequence;
+            inputs_ = state.inputs;
+            if (stats != nullptr) stats_ = *stats;
+        }
+    }
+    bump();
+    return error;
 }
 
 // --- CycleRunner ---------------------------------------------------------------------

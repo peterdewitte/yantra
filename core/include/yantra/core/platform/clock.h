@@ -61,6 +61,11 @@ public:
     std::int64_t monotonic_ns() const noexcept override { return mono_.load(); }
     std::int64_t utc_ns() const noexcept override { return mono_.load() + utc_offset_.load(); }
     void set(std::int64_t monotonic) noexcept { mono_.store(monotonic); }
+    // Both clocks (replay of a recorded tick: its monotonic time and UTC).
+    void set(std::int64_t monotonic, std::int64_t utc) noexcept {
+        utc_offset_.store(utc - monotonic);
+        mono_.store(monotonic);
+    }
     void advance(std::int64_t ns) noexcept { mono_.fetch_add(ns); }
 
 private:

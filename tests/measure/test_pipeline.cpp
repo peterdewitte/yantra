@@ -848,3 +848,167 @@ TEST_CASE("pipeline: the MS power for C1 must be between 10 and 50 dBm (RF-06)")
         CHECK_FALSE(c.validate().empty());
     }
 }
+
+namespace {
+
+// Every input as on_input gave it (copies; the schemas are static here).
+struct InputLog final : ym::MeasurementObserver {
+    struct Input {
+        std::uint64_t sequence = 0;
+        std::int64_t arrival_ns = 0;
+        std::optional<ym::RadioRecord> record;
+        std::optional<ym::RadioEvent> event;
+        bool corrected = false;
+        ym::LevelCorrection correction;
+    };
+    std::mutex m;
+    std::vector<Input> inputs;
+    std::vector<ym::MeasurementCycle> cycles;
+    void on_input(const ym::PipelineInput& in) override {
+        Input c;
+        c.sequence = in.sequence;
+        c.arrival_ns = in.arrival_ns;
+        if (in.record) c.record = *in.record;
+        if (in.event) c.event = *in.event;
+        c.corrected = in.corrected;
+        c.correction = in.correction;
+        const std::lock_guard lock(m);
+        inputs.push_back(std::move(c));
+    }
+    void on_cycle(const ym::MeasurementCycle& c) override {
+        const std::lock_guard lock(m);
+        cycles.push_back(c);
+    }
+};
+
+// A calibration answer for every dBFS level (offset -20 dB, antenna +1.5 dB).
+struct OffsetCorrector final : ym::LevelCorrector {
+    ym::LevelCorrection correction(const ym::LevelContext& c) const override {
+        ym::LevelCorrection out;
+        out.calibrated = !c.radio_dbm;
+        out.offset_db = c.radio_dbm ? 0.0 : -20.0;
+        out.correction_db = 1.5;
+        out.source = c.radio_dbm ? "radio" : "table";
+        out.key = "drv|sn|";
+        out.calibration_date_unix = 1'790'000'000;
+        return out;
+    }
+};
+
+// Answers what it was told (a replay feeds the recorded corrections).
+struct FixedCorrector final : ym::LevelCorrector {
+    ym::LevelCorrection next;
+    ym::LevelCorrection correction(const ym::LevelContext&) const override { return next; }
+};
+
+const yr_schema* static_schema(const ym::RadioRecord& r) {
+    for (const yr_schema* s : {&kCell, &kScan, &kNeighbour, &kThr})
+        if (r.record.schema_id == s->id) return s;
+    return nullptr;
+}
+
+}  // namespace
+
+TEST_CASE("pipeline: every input is numbered; a restored snapshot fed the same inputs gives the same cycles and stats (REC-03, REC-07)") {
+    Fixture f({}, nullptr, std::make_shared<OffsetCorrector>());
+    auto log = std::make_shared<InputLog>();
+    f.p->add_observer(log);
+    auto feed = [&](std::int64_t dt, const ym::RadioRecord& r) {
+        f.clock->advance(dt);
+        f.p->on_radio_record(r);
+    };
+    std::optional<ym::PipelineState> snap;
+    ym::PipelineStats snap_stats;
+    for (int k = 0; k < 12; ++k) {
+        const std::int64_t t = f.now();
+        feed(100'000'000, cell(t, 390'012'500, -60.0 - k));
+        feed(50'000'000, cell(t, 390'112'500, -70.0 + 0.25 * k, YR_ROLE_NEIGHBOUR));
+        if (k % 3 == 0) feed(1, cell(t, 390'012'500, -60.0 - k));          // duplicate
+        if (k % 4 == 1) feed(1, cell(t - kSecond, 390'012'500, -50.0));    // out of order
+        if (k == 5) feed(1, cell(t, 390'212'500, std::nan("")));           // implausible
+        if (k % 2 == 0) {
+            ym::RadioRecord n = base(kNeighbour, 2, t, 0);
+            n.record.values = {std::uint64_t{390'012'500}, std::uint64_t{0}, std::uint64_t{1},
+                               std::uint64_t{17 + static_cast<unsigned>(k)}};
+            feed(10'000'000, n);
+        }
+        if (k == 7) {
+            f.clock->advance(1);
+            f.p->on_radio_event(event(ym::RadioEvent::Kind::Stream, YR_EVENT_SYNC_LOST, 390'112'500));
+        }
+        if (k == 9) {
+            f.clock->advance(1);
+            f.p->on_radio_event(event(ym::RadioEvent::Kind::Stream, YR_EVENT_DROPPED, 3));
+        }
+        if (k % 3 == 2) f.clock->advance(1'500'000'000);  // two cycles in one tick
+        f.clock->set(std::max(f.now(), f.p->next_cycle_ns()));
+        f.p->tick();
+        if (k == 4) snap = f.p->snapshot(&snap_stats);
+    }
+    REQUIRE(snap);
+    // Inputs are numbered 1..N without gaps, in on_input order per thread.
+    REQUIRE(!log->inputs.empty());
+    for (std::size_t i = 0; i < log->inputs.size(); ++i) CHECK(log->inputs[i].sequence == i + 1);
+    const ym::PipelineStats live = f.p->stats();
+    CHECK(live.records + live.events == log->inputs.size());
+    CHECK(live.duplicates == 4);
+    CHECK(live.out_of_order == 3);
+    CHECK(live.implausible == 1);
+    CHECK(snap->inputs > 0);
+    CHECK(snap->carriers.size() == 3);
+    // The cycles say which inputs they were built from, and when.
+    for (const ym::MeasurementCycle& c : log->cycles) {
+        CHECK(c.built_ns >= c.time.monotonic_ns);
+        CHECK(c.inputs <= log->inputs.size());
+    }
+
+    // A second pipeline from the snapshot, fed the later inputs at their
+    // arrival times with their corrections, ticked when the live one was.
+    auto clock = std::make_shared<ManualClock>(0);
+    auto fixed = std::make_shared<FixedCorrector>();
+    ym::MeasurementPipeline::Options o;
+    o.clock = clock;
+    o.corrector = fixed;
+    ym::MeasurementPipeline g(std::move(o));
+    auto out = std::make_shared<Collector>();
+    g.add_observer(out);
+    REQUIRE(g.restore(*snap, static_schema, &snap_stats).empty());
+    CHECK(g.next_cycle_ns() == snap->next_end_ns);
+    std::size_t next_input = snap->inputs;  // index into log->inputs
+    auto feed_upto = [&](std::uint64_t upto) {
+        while (next_input < log->inputs.size() && log->inputs[next_input].sequence <= upto) {
+            const InputLog::Input& in = log->inputs[next_input++];
+            clock->set(in.arrival_ns);
+            if (in.record) {
+                fixed->next = in.correction;
+                g.on_radio_record(*in.record);
+            } else {
+                g.on_radio_event(*in.event);
+            }
+        }
+    };
+    std::vector<ym::MeasurementCycle> expected;
+    for (const ym::MeasurementCycle& c : log->cycles)
+        if (c.sequence >= snap->sequence) expected.push_back(c);
+    REQUIRE(expected.size() >= 6);
+    for (const ym::MeasurementCycle& c : expected) {
+        feed_upto(c.inputs);
+        if (g.next_cycle_ns() > c.built_ns) continue;  // built by the same tick as the one before
+        clock->set(c.built_ns, c.time.utc_ns + (c.built_ns - c.time.monotonic_ns));
+        g.tick();
+    }
+    feed_upto(log->inputs.size());
+    REQUIRE(out->cycles.size() == expected.size());
+    for (std::size_t i = 0; i < expected.size(); ++i) {
+        const std::string d = ym::cycle_difference(expected[i], out->cycles[i]);
+        CHECK_MESSAGE(d.empty(), d);
+    }
+    CHECK(g.stats() == live);
+    // A changed cycle is reported.
+    ym::MeasurementCycle changed = expected.back();
+    REQUIRE(!changed.samples.empty());
+    changed.samples[0].latest.level += 0.001;
+    CHECK(ym::cycle_difference(expected.back(), changed).find("level") != std::string::npos);
+    // A carrier whose schema is unknown cannot be restored.
+    CHECK_FALSE(g.restore(*snap, [](const ym::RadioRecord&) { return nullptr; }).empty());
+}
