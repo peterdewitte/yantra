@@ -104,6 +104,11 @@ own changes are in its CHANGELOG.md.
 
 ### Radio plugins (yantra-radios)
 
+- 2026-11-05: pinned to yantra-radios **v0.2.4** (commit c41718a): the
+  TETRA terminal plugin (pei 0.1.1) no longer takes the late reply of a
+  stopped session as the answer to the next session's first command, so
+  a self-test no longer passes a terminal that does not answer; the SDR
+  tests are limited in signal time. Radio API 1.0 unchanged.
 - 2026-11-05: pinned to yantra-radios **v0.2.3** (commit 547d834): the
   simulator calculates a project cell on the carrier of one of its
   default cells (390.0 or 390.1 MHz) from the drawn floor; before, the
