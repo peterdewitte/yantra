@@ -7,6 +7,12 @@
 //   yantra-demo --description FILE --out DIR --gen YANTRA_GEN
 //               --scenario-dir DIR --tetra-plugin TETRA_SO
 //               [--work DIR] [--truth-interval S] [--threads N] [--keep-work]
+//               [--sheets DIR | --reference-sheets]
+//
+// Licence-restricted sheets (the MAK example buildings, DEMO-12) are
+// referenced by SHA-256, never copied: --sheets DIR checks them in DIR
+// (the user's cache), --reference-sheets makes the project from the
+// description alone (the build, which never has the files; DEMO-13).
 //
 // DIR/<id>.yantra is the project, DIR/recordings/ its walk recordings.
 // Per floor, the scenario that the floor's example id selects in the
@@ -44,7 +50,7 @@ namespace {
 int usage(std::ostream& out, int code) {
     out << "usage: yantra-demo --description FILE --out DIR --gen YANTRA_GEN --scenario-dir DIR\n"
            "                   --tetra-plugin TETRA_SO [--work DIR] [--truth-interval S]\n"
-           "                   [--threads N] [--keep-work]\n"
+           "                   [--threads N] [--keep-work] [--sheets DIR | --reference-sheets]\n"
            "Makes the demo project of FILE (format yantra-demo-project) in DIR: DIR/<id>.yantra\n"
            "and DIR/recordings/ (DEMO-05, DEMO-06; docs/DEMO.md).\n";
     return code;
@@ -82,11 +88,16 @@ void run_gen(const fs::path& gen, const fs::path& scenario, const fs::path& reco
 int main(int argc, char** argv) {
     std::map<std::string, std::string> opt;
     bool keep_work = false;
+    bool reference_sheets = false;
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
         if (a == "--help" || a == "-h") return usage(std::cout, 0);
         if (a == "--keep-work") {
             keep_work = true;
+            continue;
+        }
+        if (a == "--reference-sheets") {
+            reference_sheets = true;
             continue;
         }
         if (a.rfind("--", 0) != 0 || i + 1 >= argc) return usage(std::cerr, 2);
@@ -106,7 +117,11 @@ int main(int argc, char** argv) {
         fs::remove_all(work);
         fs::create_directories(work);
 
-        auto project = yd::create_project(d, out / (d.id + ".yantra"));
+        yd::CreateOptions co;
+        if (opt.count("sheets")) co.sheet_folder = opt["sheets"];
+        co.require_restricted_sheets = !reference_sheets;
+        if (reference_sheets && opt.count("sheets")) return usage(std::cerr, 2);
+        auto project = yd::create_project(d, out / (d.id + ".yantra"), co);
         const yantra::building::Building b = project->building();
 
         // The walks' ground truth, every floor at once.

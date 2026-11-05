@@ -23,6 +23,12 @@
 // 4. interpolation_request: the ray-tracing interpolation (IND-40..45) of
 //    each floor's walk, stored in the project.
 //
+// The MAK example buildings of the tour (DEMO-12, DEMO-13) use the same
+// format with a licence-restricted sheet: never shipped or copied, the
+// project references it by SHA-256 (IND-03); create_project checks a
+// cached file against the description or, for the build, which never has
+// the file, references it from the description alone (CreateOptions).
+//
 // The steps take their inputs only from the description, the sheets and
 // the record files, so the same inputs give the same project content and
 // the same recording files (tests/demo). The core holds no TETRA or radio
@@ -58,14 +64,35 @@ public:
 inline constexpr const char* kFormat = "yantra-demo-project";
 inline constexpr int kFormatVersion = 1;
 
-/// A plan sheet bundled with the demo (data/demo/<id>/).
+/// Licence and credit of a licence-restricted sheet (DEMO-12), shown with
+/// the plan and in its reports.
+struct DemoCredit {
+    std::string holder;            ///< e.g. "MAK - Museum of Applied Arts, Vienna"
+    std::string designer;
+    std::string year;
+    std::string inventory_number;
+};
+
+/// A plan sheet of the demo: bundled next to the description
+/// (data/demo/<id>/), or licence-restricted (DEMO-12): never shipped,
+/// downloaded by the user's app on first use and referenced by its
+/// SHA-256 (IND-03).
 struct DemoSheet {
     std::string id;
-    std::string file;        ///< file name next to the description
-    std::string sha256;      ///< of the file, checked when the project is made
-    std::string source_url;  ///< where it was fetched (unchanged)
+    std::string file;        ///< file name next to the description (bundled) or in the cache (restricted)
+    std::string sha256;      ///< of the file, checked whenever the file is used
+    std::string source_url;  ///< where it is fetched (unchanged)
     std::string item_url;    ///< the catalogue page
     std::string title;
+    bool restricted = false;  ///< licence-restricted: referenced, never copied (`licence_restricted`)
+    std::uint64_t size_bytes = 0;  ///< restricted: the file's size
+    std::string media_type;        ///< restricted: e.g. image/jpeg
+    int width = 0;                 ///< restricted: page size in pixels (page units)
+    int height = 0;
+    double units_per_inch = 0.0;   ///< the image's stored resolution, 0 unknown
+    std::string licence;           ///< e.g. "CC BY-NC-ND 4.0"
+    std::string licence_url;
+    DemoCredit credit;
 };
 
 struct DemoWalk {
@@ -82,8 +109,13 @@ struct DemoFloor {
     double height_m = 3.0;
     std::string sheet;       ///< DemoSheet::id
     Point2 trim_a, trim_b;   ///< trim rectangle corners, page units of the sheet
+    /// The scale: a scale bar (ends in plan units and its length), or
+    /// metres per plan unit given directly (`scale`: Factor).
     Point2 scale_a, scale_b; ///< the sheet's scale bar ends, plan units
-    double scale_length_m = 0.0;
+    double scale_length_m = 0.0;     ///< > 0 for a scale bar
+    double metres_per_unit = 0.0;    ///< > 0 for a factor
+    bool scale_approximate = false;  ///< DEMO-12: marked "approximate"
+    std::string scale_note;          ///< how the scale was found
     Point2 reference_point;  ///< plan units (IND-09)
     std::vector<building::Wall> walls;
     std::vector<building::Antenna> antennas;
@@ -108,7 +140,10 @@ struct DemoDescription {
     const DemoSheet* find_sheet(const std::string& id) const;
 };
 
-/// Reads and checks a description (DemoError with the reason).
+/// Reads and checks a description (DemoError with the reason): the
+/// fields, each trim inside its sheet (when the sheet's size is
+/// described) and every wall point, antenna, walk waypoint and reference
+/// point inside its floor's trim.
 DemoDescription read_description(const std::filesystem::path& file);
 
 /// RAD-74 / RAD-18: an `example_ids` entry matches an example id exactly,
@@ -121,13 +156,36 @@ bool example_id_matches(const std::string& pattern, const std::string& example_i
 std::optional<std::filesystem::path> scenario_for_example(const std::filesystem::path& scenario_dir,
                                                           const std::string& example_id);
 
+/// Where create_project finds the sheets.
+struct CreateOptions {
+    /// The folder of the licence-restricted sheets (the user's cache,
+    /// files named DemoSheet::file); "" = the description's folder.
+    /// Bundled sheets are always read next to the description.
+    std::filesystem::path sheet_folder;
+    /// False: a restricted sheet that is not in `sheet_folder` is
+    /// referenced by its described name, size and SHA-256 (the build of
+    /// the example projects, which never has the file, DEMO-13); true: it
+    /// must be there.
+    bool require_restricted_sheets = true;
+};
+
 /// Makes a new project file `file` (replacing one that exists) with the
 /// description's building: info, building name and slab default, the
-/// cell database, the sheets (copied in, SHA-256 checked) and the floors
-/// with trim, scale bar, reference point, walls and antennas. DemoError
-/// for a sheet that is missing or not the described file; ProjectError
+/// cell database, the sheets and the floors with trim, scale, reference
+/// point, walls and antennas. Bundled sheets are copied in; restricted
+/// sheets are referenced by SHA-256 (IND-03), never copied, with the page
+/// size of the description. Every sheet file used is checked against its
+/// SHA-256 (and a restricted one against its size and page size).
+/// DemoError for a sheet that is missing or not the described file (the
+/// message names both hashes and where to get the file); ProjectError
 /// from the project.
-std::shared_ptr<project::Project> create_project(const DemoDescription& d, const std::filesystem::path& file);
+std::shared_ptr<project::Project> create_project(const DemoDescription& d, const std::filesystem::path& file,
+                                                 const CreateOptions& options = {});
+
+/// The sheet's file in `folder` checked against the description: nullopt
+/// when it is not there, DemoError when it is not the described file
+/// (SHA-256, and for a restricted sheet its size and page size).
+std::optional<std::filesystem::path> check_sheet_file(const DemoSheet& sheet, const std::filesystem::path& folder);
 
 /// Seconds from the walk's start at which the walker reaches each
 /// waypoint (metres on the floor's scale at the walk's speed).

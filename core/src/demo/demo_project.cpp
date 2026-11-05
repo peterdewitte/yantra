@@ -18,6 +18,7 @@
 #include <iterator>
 #include <map>
 #include <set>
+#include <span>
 #include <sstream>
 
 #include <nlohmann/json.hpp>
@@ -26,6 +27,7 @@
 #include "yantra/core/celldb/csv.h"
 #include "yantra/core/measure/measurement_pipeline.h"
 #include "yantra/core/plan/import.h"
+#include "yantra/core/plan/source.h"
 #include "yantra/core/plan/trim.h"
 #include "yantra/core/platform/clock.h"
 #include "yantra/core/radio/scene_export.h"
@@ -103,10 +105,21 @@ DemoFloor read_floor(const json& j, const fs::path& file, const std::string& whe
     if (!trim.is_array() || trim.size() != 2) fail(file, where + ".trim is not two corners");
     f.trim_a = point(trim[0], file, where + ".trim[0]");
     f.trim_b = point(trim[1], file, where + ".trim[1]");
-    const json& bar = j.at("scale_bar");
-    f.scale_a = point(bar.at("a"), file, where + ".scale_bar.a");
-    f.scale_b = point(bar.at("b"), file, where + ".scale_bar.b");
-    f.scale_length_m = bar.at("length_m").get<double>();
+    if (j.contains("scale_bar") == j.contains("scale")) fail(file, where + " needs either scale_bar or scale");
+    if (j.contains("scale_bar")) {
+        const json& bar = j.at("scale_bar");
+        f.scale_a = point(bar.at("a"), file, where + ".scale_bar.a");
+        f.scale_b = point(bar.at("b"), file, where + ".scale_bar.b");
+        f.scale_length_m = bar.at("length_m").get<double>();
+        if (!(f.scale_length_m > 0.0)) fail(file, where + ".scale_bar.length_m must be > 0");
+    } else {
+        const json& scale = j.at("scale");
+        f.metres_per_unit = scale.at("metres_per_unit").get<double>();
+        f.scale_approximate = scale.value("approximate", false);
+        f.scale_note = scale.value("note", "");
+        if (!(f.metres_per_unit > 0.0 && std::isfinite(f.metres_per_unit)))
+            fail(file, where + ".scale.metres_per_unit must be > 0");
+    }
     f.reference_point = point(j.at("reference_point"), file, where + ".reference_point");
     for (std::size_t i = 0; i < j.value("walls", json::array()).size(); ++i) {
         const json& w = j["walls"][i];
@@ -125,7 +138,6 @@ DemoFloor read_floor(const json& j, const fs::path& file, const std::string& whe
     f.walk.speed_mps = walk.value("speed_mps", 1.0);
     f.walk.waypoints = points(walk.at("waypoints"), file, where + ".walk.waypoints");
     if (f.id.empty() || f.name.empty()) fail(file, where + " needs an id and a name");
-    if (!(f.scale_length_m > 0.0)) fail(file, where + ".scale_bar.length_m must be > 0");
     if (!(f.walk.speed_mps > 0.0 && f.walk.speed_mps <= 10.0)) fail(file, where + ".walk.speed_mps must be in (0, 10]");
     if (f.walk.waypoints.size() < 2) fail(file, where + ".walk needs at least 2 waypoints");
     return f;
@@ -135,6 +147,15 @@ std::string read_text(const fs::path& file) {
     std::ifstream in(file, std::ios::binary);
     if (!in) throw DemoError("cannot read " + file.string());
     return {std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
+}
+
+bool is_sha256(const std::string& h) {
+    return h.size() == 64 &&
+           std::all_of(h.begin(), h.end(), [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); });
+}
+
+std::string where_to_get(const DemoSheet& s) {
+    return s.source_url.empty() ? std::string() : "; get the unaltered file from " + s.source_url;
 }
 
 }  // namespace
@@ -184,6 +205,21 @@ DemoDescription read_description(const fs::path& file) {
             sheet.source_url = s.value("source_url", "");
             sheet.item_url = s.value("item_url", "");
             sheet.title = s.value("title", "");
+            sheet.restricted = s.value("licence_restricted", false);
+            sheet.size_bytes = s.value("size_bytes", std::uint64_t{0});
+            sheet.media_type = s.value("media_type", "");
+            sheet.width = s.value("width", 0);
+            sheet.height = s.value("height", 0);
+            sheet.units_per_inch = s.value("units_per_inch", 0.0);
+            sheet.licence = s.value("licence", "");
+            sheet.licence_url = s.value("licence_url", "");
+            if (s.contains("credit")) {
+                const json& c = s["credit"];
+                sheet.credit.holder = c.value("holder", "");
+                sheet.credit.designer = c.value("designer", "");
+                sheet.credit.year = c.value("year", "");
+                sheet.credit.inventory_number = c.value("inventory_number", "");
+            }
             d.sheets.push_back(std::move(sheet));
         }
         const json& floors = j.at("floors");
@@ -202,9 +238,40 @@ DemoDescription read_description(const fs::path& file) {
         if (!ids.insert(f.id).second) fail(file, "floor id " + f.id + " is used twice");
         if (!d.find_sheet(f.sheet)) fail(file, "floor " + f.id + ": unknown sheet " + f.sheet);
     }
-    for (const DemoSheet& s : d.sheets)
-        if (s.sha256.size() != 64 || s.file.find('/') != std::string::npos)
-            fail(file, "sheet " + s.id + ": needs a file name and a SHA-256");
+    for (const DemoSheet& s : d.sheets) {
+        if (!is_sha256(s.sha256) || s.file.empty() || s.file.find_first_of("/\\") != std::string::npos)
+            fail(file, "sheet " + s.id + ": needs a file name and a SHA-256 (64 lower-case hex digits)");
+        if (s.width < 0 || s.height < 0 || (s.width == 0) != (s.height == 0))
+            fail(file, "sheet " + s.id + ": width and height must both be given and > 0");
+        // DEMO-12: a restricted sheet is never shipped, so the description
+        // holds what the project and the download need.
+        if (s.restricted &&
+            (s.size_bytes == 0 || s.media_type.empty() || s.width == 0 || s.source_url.rfind("https://", 0) != 0 ||
+             s.licence.empty() || s.credit.holder.empty() || s.credit.inventory_number.empty()))
+            fail(file, "sheet " + s.id +
+                           ": a licence-restricted sheet needs size_bytes, media_type, width, height, an https "
+                           "source_url, the licence and the credit (holder, inventory number)");
+    }
+    // Everything drawn lies on its floor's trimmed plan, and each trim on
+    // its sheet.
+    for (const DemoFloor& f : d.floors) {
+        const DemoSheet* s = d.find_sheet(f.sheet);
+        const double w = f.trim_b.x - f.trim_a.x;
+        const double h = f.trim_b.y - f.trim_a.y;
+        if (!(w > 0.0 && h > 0.0)) fail(file, "floor " + f.id + ": the trim's second corner must be right of and below the first");
+        if (s->width > 0 && (f.trim_a.x < 0.0 || f.trim_a.y < 0.0 || f.trim_b.x > s->width || f.trim_b.y > s->height))
+            fail(file, "floor " + f.id + ": the trim is not inside sheet " + s->id);
+        const auto inside = [&](Point2 p, const std::string& what) {
+            if (p.x < 0.0 || p.y < 0.0 || p.x > w || p.y > h)
+                fail(file, "floor " + f.id + ": " + what + " (" + std::to_string(p.x) + ", " + std::to_string(p.y) +
+                               ") is outside the trimmed plan");
+        };
+        for (const building::Wall& wall : f.walls)
+            for (const Point2& p : wall.points) inside(p, "wall " + wall.id);
+        for (const building::Antenna& a : f.antennas) inside(a.position, "antenna " + a.id);
+        for (const Point2& p : f.walk.waypoints) inside(p, "walk waypoint");
+        inside(f.reference_point, "the reference point");
+    }
     return d;
 }
 
@@ -235,7 +302,48 @@ std::optional<fs::path> scenario_for_example(const fs::path& scenario_dir, const
     return std::nullopt;
 }
 
-std::shared_ptr<project::Project> create_project(const DemoDescription& d, const fs::path& file) {
+std::optional<fs::path> check_sheet_file(const DemoSheet& sheet, const fs::path& folder) {
+    const fs::path path = folder / sheet.file;
+    std::error_code ec;
+    if (!fs::is_regular_file(path, ec)) return std::nullopt;
+    const std::string bytes = read_text(path);
+    const std::string got = util::Sha256::of(bytes);
+    if (got != sheet.sha256)
+        throw DemoError("sheet " + sheet.id + ": " + path.string() + " is not the described file (SHA-256 " + got +
+                        ", expected " + sheet.sha256 + ")" + where_to_get(sheet));
+    if (sheet.restricted && bytes.size() != sheet.size_bytes)
+        throw DemoError("sheet " + sheet.id + ": " + path.string() + " has " + std::to_string(bytes.size()) +
+                        " bytes, the description " + std::to_string(sheet.size_bytes));
+    if (sheet.width > 0) {
+        std::unique_ptr<plan::PlanSource> src;
+        try {
+            src = plan::open_plan_source(
+                std::span<const std::uint8_t>(reinterpret_cast<const std::uint8_t*>(bytes.data()), bytes.size()), sheet.file);
+        } catch (const std::exception& e) {
+            throw DemoError("sheet " + sheet.id + ": " + path.string() + " cannot be read: " + e.what());
+        }
+        const plan::PageSize size = src->page_size(0);
+        if (size.width != sheet.width || size.height != sheet.height)
+            throw DemoError("sheet " + sheet.id + ": " + path.string() + " is " + std::to_string(int(size.width)) + " x " +
+                            std::to_string(int(size.height)) + " pixels, the description " + std::to_string(sheet.width) +
+                            " x " + std::to_string(sheet.height));
+    }
+    return path;
+}
+
+std::shared_ptr<project::Project> create_project(const DemoDescription& d, const fs::path& file,
+                                                 const CreateOptions& options) {
+    // The sheets first: nothing is made from a sheet that is not the
+    // described file.
+    const fs::path restricted_folder = options.sheet_folder.empty() ? d.folder : options.sheet_folder;
+    std::map<std::string, std::optional<fs::path>> sheet_file;
+    for (const DemoSheet& s : d.sheets) {
+        auto found = check_sheet_file(s, s.restricted ? restricted_folder : d.folder);
+        if (!found && (!s.restricted || options.require_restricted_sheets))
+            throw DemoError("sheet " + s.id + ": " + ((s.restricted ? restricted_folder : d.folder) / s.file).string() +
+                            " is missing" + where_to_get(s));
+        sheet_file[s.id] = std::move(found);
+    }
     std::error_code ec;
     fs::remove(file, ec);
     fs::remove(fs::path(file.string() + "-wal"), ec);
@@ -251,12 +359,23 @@ std::shared_ptr<project::Project> create_project(const DemoDescription& d, const
     }
     std::map<std::string, std::string> source_of;  // sheet id -> project source id
     for (const DemoSheet& s : d.sheets) {
-        const fs::path path = d.folder / s.file;
-        if (!fs::exists(path)) throw DemoError("sheet " + s.id + ": " + path.string() + " is missing");
-        if (util::Sha256::of(read_text(path)) != s.sha256)
-            throw DemoError("sheet " + s.id + ": " + s.file + " is not the described file (SHA-256 differs)");
-        auto imported = plan::PlanImport::add_file(*p, path);  // records the page size
-        source_of[s.id] = imported->source_id();
+        const std::optional<fs::path>& path = sheet_file.at(s.id);
+        if (!s.restricted) {
+            auto imported = plan::PlanImport::add_file(*p, *path);  // records the page size
+            source_of[s.id] = imported->source_id();
+            continue;
+        }
+        // IND-03, DEMO-12: a reference by SHA-256, never a copy; the same
+        // source whether or not the file was there (its path is a hint).
+        project::SourceReference ref;
+        ref.file_name = s.file;
+        ref.media_type = s.media_type;
+        ref.size = s.size_bytes;
+        ref.sha256 = s.sha256;
+        ref.reference = path ? fs::absolute(*path).lexically_normal().string() : s.file;
+        const std::string id = p->add_source_reference(ref).id;
+        p->set_source_pages(id, {project::SourcePage{double(s.width), double(s.height), s.units_per_inch}});
+        source_of[s.id] = id;
     }
     for (const DemoFloor& df : d.floors) {
         building::Floor f;
@@ -271,8 +390,9 @@ std::shared_ptr<project::Project> create_project(const DemoDescription& d, const
         const plan::PageSize size = plan::TrimTransform(f.trim).floor_size();
         f.plan_width = size.width;
         f.plan_height = size.height;
-        const auto scale = building::scale_bar(df.scale_a, df.scale_b, df.scale_length_m);
-        if (!scale) throw DemoError("floor " + df.id + ": the scale bar is not usable");
+        const auto scale = df.metres_per_unit > 0.0 ? building::factor_scale(df.metres_per_unit)
+                                                    : building::scale_bar(df.scale_a, df.scale_b, df.scale_length_m);
+        if (!scale) throw DemoError("floor " + df.id + ": the scale is not usable");
         f.scale = *scale;
         f.reference_point = df.reference_point;
         f.walls = df.walls;
