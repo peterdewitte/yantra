@@ -40,6 +40,9 @@
 // Threading: a Project may be used from any thread; calls are serialised
 // by an internal lock. Change notifications run on the calling thread,
 // after the change is committed and without the lock held.
+//
+// Copied from yantra-v2 8c7a3e1: core/include/yantra/core/project/project.h,
+// adapted for IND-01/03/04 (building-model floors and sources).
 #pragma once
 
 #include <cstdint>
