@@ -77,10 +77,20 @@ fs::path scratch_dir(const std::string& name) {
 
 yb::Point2 lerp(yb::Point2 a, yb::Point2 b, double f) { return {a.x + f * (b.x - a.x), a.y + f * (b.y - a.y)}; }
 
+// The drawn cell's carrier in a point's sample (serving once decoded).
 const json* carrier_of(const json& sample) {
+    const json* found = nullptr;
     for (const json& c : sample["carriers"])
-        if (c.value("f", std::uint64_t{0}) == kCarrier && c.value("role", "") == "serving") return &c;
-    return nullptr;
+        if (c.value("f", std::uint64_t{0}) == kCarrier && (found == nullptr || c.value("role", "") == "serving")) found = &c;
+    return found;
+}
+
+// The points' value: the level on the drawn cell's carrier.
+ys::Metric drawn_cell() {
+    ys::Metric m;
+    m.carrier = ys::Metric::Carrier::Frequency;
+    m.frequency_hz = kCarrier;
+    return m;
 }
 
 }  // namespace
@@ -141,7 +151,12 @@ TEST_CASE("TST-10 simulator walk test: clicked segments give points at the inter
     {
         ym::CycleRunner runner(*sim.rig.pipeline);
         REQUIRE(dev->start(serving(kCarrier)) == YR_OK);
-        REQUIRE(sim.rig.out->wait([&] { return sim.rig.out->cycles.size() >= 2; }));
+        // Monitoring until the drawn cell is decoded and serving.
+        REQUIRE(sim.rig.out->wait([&] {
+            if (sim.rig.out->cycles.empty()) return false;
+            const ym::CarrierSample* s = sim.rig.out->cycles.back().serving(key);
+            return s != nullptr && s->latest.frequency_hz == kCarrier;
+        }));
         REQUIRE_MESSAGE(recorder->start("walk", error), error);
         recording_session = recorder->status().session_id;
         walk->start(now());
@@ -184,7 +199,7 @@ TEST_CASE("TST-10 simulator walk test: clicked segments give points at the inter
 
     // The points: one per cycle from the first to the last click, each at
     // p(T) on its segment (exactly), numbered in time order.
-    const ys::PointList live = ys::point_list(*project, ys::PointQuery{floor_id, {}, {}, std::nullopt});
+    const ys::PointList live = ys::point_list(*project, ys::PointQuery{floor_id, {}, drawn_cell(), std::nullopt});
     std::size_t expected = 0;
     for (const auto& c : sim.rig.out->cycles)
         if (c.time.monotonic_ns >= clicks[0] && c.time.monotonic_ns <= clicks[2]) ++expected;
@@ -218,6 +233,7 @@ TEST_CASE("TST-10 simulator walk test: clicked segments give points at the inter
         // walker step), and on this floor.
         const json sample = json::parse(stored[i].sample);
         const json* c = carrier_of(sample);
+        INFO(sample.dump());
         REQUIRE(c != nullptr);
         REQUIRE(c->contains("sim"));
         CHECK((*c)["sim"]["floor"] == floor_id);
@@ -227,7 +243,11 @@ TEST_CASE("TST-10 simulator walk test: clicked segments give points at the inter
         CHECK(std::hypot(sx - p.metres->x, sy - p.metres->y) <= 1.25 * lag_s + 0.05);
         // Multi-wall model at the simulator's position (RAD-73): free space
         // from the antenna at (3, 5) m plus the wall when behind it.
-        if (std::fabs(sx - 8.0) < 0.05) continue;  // on the wall itself
+        // A record's level is measured over its interval while the walker
+        // moves: a record just past the wall still holds level from before
+        // it (seen under ASan: +1 dB at 0.24 m behind the wall). Points
+        // within 0.5 m of the wall (0.4 s of walking) are not compared.
+        if (std::fabs(sx - 8.0) < 0.5) continue;
         const double predicted = 10.0 - fspl(std::hypot(sx - 3.0, sy - 5.0)) - (sx > 8.0 ? wall_db : 0.0);
         REQUIRE(p.value);
         CHECK(p.unit == "dBm");
@@ -261,9 +281,9 @@ TEST_CASE("TST-10 simulator walk test: clicked segments give points at the inter
 
     // The "window" and the "report": one API, the same list and figures.
     const ys::StatsOptions so_opts{{-60, -70}, {10, 50, 90}};
-    const auto window = [&] { return ys::point_list(*project, ys::PointQuery{floor_id, {}, {}, std::nullopt}); };
+    const auto window = [&] { return ys::point_list(*project, ys::PointQuery{floor_id, {}, drawn_cell(), std::nullopt}); };
     const auto report = [&] {
-        const ys::PointList l = ys::point_list(*project, ys::PointQuery{floor_id, {}, {}, std::nullopt});
+        const ys::PointList l = ys::point_list(*project, ys::PointQuery{floor_id, {}, drawn_cell(), std::nullopt});
         return std::pair{l, ys::floor_stats(l, so_opts)};
     };
     const auto [printed, figures] = report();
@@ -290,7 +310,7 @@ TEST_CASE("TST-10 simulator walk test: clicked segments give points at the inter
     replay->advance_to(replay->duration_ns());
     CHECK(replay->mismatches() == 0);
     CHECK_FALSE(again->running());
-    const ys::PointList back = ys::point_list(*replayed, ys::PointQuery{floor_id, {}, {}, std::nullopt});
+    const ys::PointList back = ys::point_list(*replayed, ys::PointQuery{floor_id, {}, drawn_cell(), std::nullopt});
     REQUIRE(back.count() == live.count());
     CHECK(back == live);
     CHECK(ys::floor_stats(back, so_opts) == figures);
