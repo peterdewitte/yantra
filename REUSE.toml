@@ -74,3 +74,20 @@ SPDX-License-Identifier = "GPL-3.0-or-later"
 path = ["tests/fixtures/building/*.json"]
 SPDX-FileCopyrightText = "2026 The Yantra contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# Fraunces Tavern floor plans of the demo project (DEMO-05, DEMO-06,
+# DEMO-08): HABS NY-6321 sheets 3 and 4 as served by the Library of
+# Congress, public domain (US federal government work), kept unchanged.
+# Copied from yantra-v2 68ea20a: REUSE.toml (Fraunces entry).
+[[annotations]]
+path = ["data/demo/fraunces/*.png"]
+precedence = "override"
+SPDX-FileCopyrightText = "Historic American Buildings Survey, Library of Congress"
+SPDX-License-Identifier = "LicenseRef-Public-Domain"
+
+# The demo project description, its cell database and the DEMO-09
+# scenario list (JSON and CSV without a kept comment syntax).
+[[annotations]]
+path = ["data/demo/*.json", "data/demo/fraunces/*.json", "data/demo/fraunces/*.csv"]
+SPDX-FileCopyrightText = "2026 The Yantra contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
