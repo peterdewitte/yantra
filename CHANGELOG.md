@@ -35,6 +35,13 @@ own changes are in its CHANGELOG.md.
   project (IND-06, IND-10); trims are kept in the project file (schema
   version 2, older files are migrated) and can be edited later. The plan
   import window itself comes with the desktop UI.
+- 2026-11-05: project schema version 4: the project lists its recording
+  files (name, size, SHA-256, header) and stores its walk tests and
+  manual-point sets per floor (several per floor, with name, date, radio,
+  calibration and notes) and their measured points, with the plan
+  position in plan units and in metres; metres follow the floor scale, a
+  trim edit keeps the points where they were measured on the sheet, and
+  a floor with walk tests is not removed. Older files are migrated.
 
 ### Measurements
 

@@ -24,6 +24,7 @@
 #include <limits>
 #include <map>
 #include <mutex>
+#include <tuple>
 
 #include <unistd.h>
 
@@ -31,6 +32,7 @@
 #include "sqlite.h"
 #include "yantra/core/build_info.h"
 #include "yantra/core/building/edit.h"
+#include "yantra/core/plan/trim.h"
 #include "yantra/core/platform/file.h"
 #include "yantra/core/util/sha256.h"
 
@@ -881,6 +883,56 @@ struct Project::Impl {
         if (rc != SQLITE_OK) sql::fail(rc, db.get(), "read source");
         return data;
     }
+
+    // ---- sessions and points (schema 4) ----------------------------------
+
+    // The points' plan-frame metres follow each floor's current scale
+    // (IND-20: stored in metres and plan units); NULL without a scale.
+    void refresh_point_metres(const building::Building& b) {
+        sql::Stmt with(db, "UPDATE points SET x_m = x * ?2, y_m = y * ?2 "
+                           "WHERE session IN (SELECT id FROM sessions WHERE floor = ?1)");
+        sql::Stmt without(db, "UPDATE points SET x_m = NULL, y_m = NULL "
+                              "WHERE session IN (SELECT id FROM sessions WHERE floor = ?1)");
+        for (const building::Floor& f : b.floors) {
+            if (const auto mpu = b.metres_per_unit(f)) {
+                with.reset();
+                with.bind(1, f.id).bind(2, *mpu).run();
+            } else {
+                without.reset();
+                without.bind(1, f.id).run();
+            }
+        }
+    }
+
+    // A trim edit keeps the measured points where they were on the sheet
+    // (as plan::reanchor_floor does for walls and antennas).
+    void reanchor_points(const std::string& floor_id, const building::Trim& from, const building::Trim& to) {
+        if (from == to) return;
+        std::vector<std::tuple<std::int64_t, std::int64_t, building::Point2>> moved;
+        {
+            sql::Stmt q(db, "SELECT session, sequence, x, y FROM points "
+                            "WHERE session IN (SELECT id FROM sessions WHERE floor = ?1)");
+            q.bind(1, floor_id);
+            while (q.step()) {
+                const building::Point2 page = plan::trim_floor_to_page(from, {q.f64(2), q.f64(3)});
+                moved.emplace_back(q.i64(0), q.i64(1), plan::trim_page_to_floor(to, page));
+            }
+        }
+        sql::Stmt u(db, "UPDATE points SET x = ?3, y = ?4 WHERE session = ?1 AND sequence = ?2");
+        for (const auto& [session, sequence, p] : moved) {
+            u.reset();
+            u.bind(1, session).bind(2, sequence).bind(3, p.x).bind(4, p.y).run();
+        }
+    }
+
+    bool floor_has_sessions(const std::string& floor_id) const {
+        sql::Stmt q(db, "SELECT 1 FROM sessions WHERE floor = ?1 LIMIT 1");
+        q.bind(1, floor_id);
+        return q.step();
+    }
+
+    std::optional<Session> session_locked(std::int64_t id) const;
+    std::vector<Session> sessions_locked(const std::string& floor_id) const;
 };
 
 namespace {
@@ -1141,6 +1193,7 @@ void Project::update_floor(const building::Floor& floor) {
                                                   other->name + "'");
         }
         moved = old->level != floor.level;
+        const building::Trim old_trim = old->trim;
         *old = floor;
         require_valid(b);
         impl_->require_page(floor);
@@ -1155,6 +1208,8 @@ void Project::update_floor(const building::Floor& floor) {
         impl_->delete_content({&floor});
         impl_->insert_content({&floor});
         impl_->bump_content_counters(floor);
+        impl_->reanchor_points(floor.id, old_trim, floor.trim);
+        impl_->refresh_point_metres(b);
         impl_->touch();
         tx.commit();
     }
@@ -1218,6 +1273,9 @@ void Project::remove_floor(const std::string& id) {
         const std::lock_guard l(impl_->mutex);
         impl_->require_open();
         sql::Transaction tx(impl_->db);
+        if (impl_->floor_has_sessions(id)) {
+            throw ProjectError(Code::InUse, "floor " + id + " has walk tests or measured points; remove them first");
+        }
         building::Building b = impl_->building_locked();
         // Another floor may share this floor's scale (a later schema); the
         // model must stay valid.
@@ -1267,6 +1325,9 @@ void Project::replace_building(const building::Building& b) {
         // creation time) or added.
         for (const building::Floor& f : impl_->floors_locked()) {
             if (b.find_floor(f.id) == nullptr) {
+                if (impl_->floor_has_sessions(f.id)) {
+                    throw ProjectError(Code::InUse, "floor '" + f.name + "' has walk tests or measured points");
+                }
                 sql::Stmt d(impl_->db, "DELETE FROM floors WHERE id = ?1");
                 d.bind(1, f.id).run();
             }
@@ -1295,6 +1356,7 @@ void Project::replace_building(const building::Building& b) {
         std::vector<const building::Floor*> all;
         for (const building::Floor& f : b.floors) all.push_back(&f);
         impl_->insert_content(all);
+        impl_->refresh_point_metres(b);
         impl_->touch();
         tx.commit();
     }
@@ -1342,6 +1404,7 @@ void Project::set_scale(const std::string& floor_id, const building::Scale& scal
                                                   " other floor(s): it needs a scale of its own");
         }
         impl_->write_parts(b, {{floor_id}, false, false});
+        impl_->refresh_point_metres(b);
         tx.commit();
     }
     notify({Change::Kind::FloorChanged, floor_id});
@@ -1365,6 +1428,7 @@ void Project::share_scale(const std::string& from_id, const std::vector<std::str
             require_shareable(b, f);
         }
         impl_->write_parts(b, {floor_ids, false, false});
+        impl_->refresh_point_metres(b);
         tx.commit();
     }
     for (const std::string& id : floor_ids) notify({Change::Kind::FloorChanged, id});
@@ -1947,6 +2011,309 @@ std::vector<std::string> Project::check() const {
         }
     }
     return problems;
+}
+
+// ---- recordings (REC-02, REC-03; schema 4) ----------------------------------
+
+namespace {
+
+bool is_hex64(const std::string& s) {
+    return s.size() == 64 &&
+           std::all_of(s.begin(), s.end(), [](char c) { return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'); });
+}
+
+constexpr const char* kRecordingColumns =
+    "id, file_name, session_id, session_name, file_index, sha256, size, reference, header, added_utc";
+
+RecordingFile recording_from(const sql::Stmt& s) {
+    RecordingFile r;
+    r.id = s.i64(0);
+    r.file_name = s.text(1);
+    r.session_id = s.text(2);
+    r.session_name = s.text(3);
+    r.file_index = static_cast<std::uint32_t>(s.i64(4));
+    r.sha256 = s.text(5);
+    r.size = static_cast<std::uint64_t>(std::max<std::int64_t>(0, s.i64(6)));
+    r.reference = s.text(7);
+    r.header = s.text(8);
+    r.added_utc = s.text(9);
+    return r;
+}
+
+constexpr const char* kSessionColumns =
+    "id, floor, kind, name, started_utc, ended_utc, radio, calibration, notes, walk_mode, recording_session, "
+    "plugins, continues";
+
+Session session_from(const sql::Stmt& s) {
+    Session x;
+    x.id = s.i64(0);
+    x.floor_id = s.text(1);
+    x.kind = s.text(2);
+    x.name = s.text(3);
+    x.started_utc = s.text(4);
+    x.ended_utc = s.text(5);
+    x.radio = s.text(6);
+    x.calibration = s.text(7);
+    x.notes = s.text(8);
+    x.walk_mode = s.text(9);
+    x.recording_session = s.text(10);
+    x.plugins = s.text(11);
+    x.continues = s.opt_i64(12);
+    return x;
+}
+
+void require_session_values(const Session& s) {
+    if (s.kind != "walk" && s.kind != "manual" && s.kind != "simulated") {
+        throw ProjectError(Code::Invalid, "session kind '" + s.kind + "' is not walk, manual or simulated");
+    }
+    if (s.walk_mode != "point_and_click" && s.walk_mode != "continuous") {
+        throw ProjectError(Code::Invalid, "walk mode '" + s.walk_mode + "' is not point_and_click or continuous");
+    }
+}
+
+constexpr const char* kPointColumns =
+    "session, sequence, mono_ns, utc_ns, x, y, x_m, y_m, kind, grp, cycles, label, sample";
+
+StoredPoint point_from(const sql::Stmt& s) {
+    StoredPoint p;
+    p.session_id = s.i64(0);
+    p.sequence = s.i64(1);
+    p.time_ns = s.i64(2);
+    p.utc_ns = s.i64(3);
+    p.plan = {s.f64(4), s.f64(5)};
+    if (!s.is_null(6) && !s.is_null(7)) p.metres = building::Point2{s.f64(6), s.f64(7)};
+    p.kind = s.text(8);
+    p.group = static_cast<std::uint32_t>(s.i64(9));
+    p.cycles = static_cast<std::uint32_t>(s.i64(10));
+    p.label = s.text(11);
+    p.sample = s.text(12);
+    return p;
+}
+
+}  // namespace
+
+std::int64_t Project::add_recording(RecordingFile file) {
+    if (file.file_name.empty()) throw ProjectError(Code::Invalid, "a recording needs a file name");
+    if (!is_hex64(file.sha256)) throw ProjectError(Code::Invalid, "recording SHA-256 is not 64 hex digits");
+    std::int64_t id = 0;
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        {
+            sql::Stmt q(impl_->db, "SELECT 1 FROM recordings WHERE file_name = ?1");
+            q.bind(1, file.file_name);
+            if (q.step()) throw ProjectError(Code::Exists, "recording " + file.file_name + " is already listed");
+        }
+        sql::Stmt s(impl_->db, "INSERT INTO recordings (file_name, session_id, session_name, file_index, sha256, "
+                               "size, reference, header, added_utc) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)");
+        s.bind(1, file.file_name).bind(2, file.session_id).bind(3, file.session_name);
+        s.bind(4, static_cast<std::int64_t>(file.file_index)).bind(5, file.sha256);
+        s.bind(6, static_cast<std::int64_t>(file.size)).bind(7, file.reference).bind(8, file.header);
+        s.bind(9, impl_->now()).run();
+        id = impl_->db.last_rowid();
+        impl_->touch();
+        tx.commit();
+    }
+    notify({Change::Kind::Recordings, std::to_string(id)});
+    return id;
+}
+
+std::vector<RecordingFile> Project::recordings() const {
+    const std::lock_guard l(impl_->mutex);
+    impl_->require_open();
+    std::vector<RecordingFile> out;
+    sql::Stmt s(impl_->db, std::string("SELECT ") + kRecordingColumns + " FROM recordings ORDER BY id");
+    while (s.step()) out.push_back(recording_from(s));
+    return out;
+}
+
+void Project::remove_recording(std::int64_t id) {
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        sql::Stmt s(impl_->db, "DELETE FROM recordings WHERE id = ?1");
+        s.bind(1, id).run();
+        if (impl_->db.changes() == 0) throw ProjectError(Code::NotFound, "no recording " + std::to_string(id));
+        impl_->touch();
+        tx.commit();
+    }
+    notify({Change::Kind::Recordings, std::to_string(id)});
+}
+
+// ---- sessions and points (IND-20, IND-30; schema 4) ---------------------------
+
+std::optional<Session> Project::Impl::session_locked(std::int64_t id) const {
+    sql::Stmt s(db, std::string("SELECT ") + kSessionColumns + " FROM sessions WHERE id = ?1");
+    s.bind(1, id);
+    if (!s.step()) return std::nullopt;
+    return session_from(s);
+}
+
+std::vector<Session> Project::Impl::sessions_locked(const std::string& floor_id) const {
+    std::vector<Session> out;
+    sql::Stmt s(db, std::string("SELECT ") + kSessionColumns + " FROM sessions WHERE ?1 = '' OR floor = ?1 ORDER BY id");
+    s.bind(1, floor_id);
+    while (s.step()) out.push_back(session_from(s));
+    return out;
+}
+
+std::int64_t Project::add_session(Session session) {
+    require_session_values(session);
+    std::int64_t id = 0;
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        if (!impl_->floor_locked(session.floor_id)) throw ProjectError(Code::NotFound, "no floor " + session.floor_id);
+        if (session.continues && !impl_->session_locked(*session.continues)) {
+            throw ProjectError(Code::NotFound, "no session " + std::to_string(*session.continues));
+        }
+        if (session.started_utc.empty()) session.started_utc = impl_->now();
+        sql::Stmt s(impl_->db, "INSERT INTO sessions (floor, kind, name, started_utc, ended_utc, radio, calibration, "
+                               "notes, walk_mode, recording_session, plugins, continues) "
+                               "VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)");
+        s.bind(1, session.floor_id).bind(2, session.kind).bind(3, session.name).bind(4, session.started_utc);
+        s.bind(5, session.ended_utc).bind(6, session.radio).bind(7, session.calibration).bind(8, session.notes);
+        s.bind(9, session.walk_mode).bind(10, session.recording_session).bind(11, session.plugins);
+        s.bind(12, session.continues).run();
+        id = impl_->db.last_rowid();
+        impl_->touch();
+        tx.commit();
+    }
+    notify({Change::Kind::Sessions, std::to_string(id)});
+    return id;
+}
+
+void Project::update_session(const Session& session) {
+    require_session_values(session);
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        const auto old = impl_->session_locked(session.id);
+        if (!old) throw ProjectError(Code::NotFound, "no session " + std::to_string(session.id));
+        if (old->floor_id != session.floor_id || old->kind != session.kind) {
+            throw ProjectError(Code::Invalid, "a session keeps its floor and kind");
+        }
+        sql::Stmt s(impl_->db, "UPDATE sessions SET name = ?2, ended_utc = ?3, radio = ?4, calibration = ?5, "
+                               "notes = ?6, walk_mode = ?7, recording_session = ?8, plugins = ?9 WHERE id = ?1");
+        s.bind(1, session.id).bind(2, session.name).bind(3, session.ended_utc).bind(4, session.radio);
+        s.bind(5, session.calibration).bind(6, session.notes).bind(7, session.walk_mode);
+        s.bind(8, session.recording_session).bind(9, session.plugins).run();
+        impl_->touch();
+        tx.commit();
+    }
+    notify({Change::Kind::Sessions, std::to_string(session.id)});
+}
+
+std::optional<Session> Project::session(std::int64_t id) const {
+    const std::lock_guard l(impl_->mutex);
+    impl_->require_open();
+    return impl_->session_locked(id);
+}
+
+std::vector<Session> Project::sessions(const std::string& floor_id) const {
+    const std::lock_guard l(impl_->mutex);
+    impl_->require_open();
+    return impl_->sessions_locked(floor_id);
+}
+
+void Project::remove_session(std::int64_t id) {
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        sql::Stmt s(impl_->db, "DELETE FROM sessions WHERE id = ?1");
+        s.bind(1, id).run();
+        if (impl_->db.changes() == 0) throw ProjectError(Code::NotFound, "no session " + std::to_string(id));
+        impl_->touch();
+        tx.commit();
+    }
+    notify({Change::Kind::Sessions, std::to_string(id)});
+}
+
+void Project::add_points(std::int64_t session_id, std::vector<StoredPoint> points) {
+    if (points.empty()) return;
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        const auto session = impl_->session_locked(session_id);
+        if (!session) throw ProjectError(Code::NotFound, "no session " + std::to_string(session_id));
+        const building::Building b = impl_->building_locked();
+        const building::Floor* f = b.find_floor(session->floor_id);
+        const std::optional<double> mpu = f ? b.metres_per_unit(*f) : std::nullopt;
+        std::int64_t last = 0;
+        {
+            sql::Stmt q(impl_->db, "SELECT max(sequence) FROM points WHERE session = ?1");
+            q.bind(1, session_id);
+            if (q.step() && !q.is_null(0)) last = q.i64(0);
+        }
+        sql::Stmt s(impl_->db, std::string("INSERT INTO points (") + kPointColumns +
+                                   ") VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)");
+        for (StoredPoint& p : points) {
+            if (!std::isfinite(p.plan.x) || !std::isfinite(p.plan.y)) {
+                throw ProjectError(Code::Invalid, "a point needs a finite plan position");
+            }
+            if (p.sequence <= last) {
+                throw ProjectError(Code::Invalid, "point sequence " + std::to_string(p.sequence) +
+                                                      " is not above the session's last (" + std::to_string(last) +
+                                                      ")");
+            }
+            if (p.kind != "walk" && p.kind != "manual" && p.kind != "simulated") {
+                throw ProjectError(Code::Invalid, "point kind '" + p.kind + "' is not walk, manual or simulated");
+            }
+            if (p.cycles < 1) throw ProjectError(Code::Invalid, "a point is made of at least one cycle");
+            last = p.sequence;
+            s.reset();
+            s.bind(1, session_id).bind(2, p.sequence).bind(3, p.time_ns).bind(4, p.utc_ns);
+            s.bind(5, p.plan.x).bind(6, p.plan.y);
+            if (mpu) s.bind(7, p.plan.x * *mpu).bind(8, p.plan.y * *mpu);
+            else s.bind_null(7).bind_null(8);
+            s.bind(9, p.kind).bind(10, static_cast<std::int64_t>(p.group)).bind(11, static_cast<std::int64_t>(p.cycles));
+            s.bind(12, p.label).bind(13, p.sample).run();
+        }
+        impl_->touch();
+        tx.commit();
+    }
+    notify({Change::Kind::Points, std::to_string(session_id)});
+}
+
+std::size_t Project::remove_points(std::int64_t session_id, std::uint32_t group) {
+    std::size_t n = 0;
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        if (!impl_->session_locked(session_id)) throw ProjectError(Code::NotFound, "no session " + std::to_string(session_id));
+        sql::Stmt s(impl_->db, "DELETE FROM points WHERE session = ?1 AND grp = ?2");
+        s.bind(1, session_id).bind(2, static_cast<std::int64_t>(group)).run();
+        n = static_cast<std::size_t>(impl_->db.changes());
+        impl_->touch();
+        tx.commit();
+    }
+    if (n > 0) notify({Change::Kind::Points, std::to_string(session_id)});
+    return n;
+}
+
+std::vector<StoredPoint> Project::points(std::int64_t session_id) const {
+    const std::lock_guard l(impl_->mutex);
+    impl_->require_open();
+    std::vector<StoredPoint> out;
+    sql::Stmt s(impl_->db, std::string("SELECT ") + kPointColumns + " FROM points WHERE session = ?1 ORDER BY sequence");
+    s.bind(1, session_id);
+    while (s.step()) out.push_back(point_from(s));
+    return out;
+}
+
+std::size_t Project::point_count(const std::string& floor_id) const {
+    const std::lock_guard l(impl_->mutex);
+    impl_->require_open();
+    sql::Stmt s(impl_->db, "SELECT count(*) FROM points WHERE session IN (SELECT id FROM sessions WHERE floor = ?1)");
+    s.bind(1, floor_id);
+    return s.step() ? static_cast<std::size_t>(s.i64(0)) : 0;
 }
 
 // ---- testing ----------------------------------------------------------------

@@ -13,9 +13,11 @@
 // floors' non-destructive trims (IND-05..07) and the page sizes of each
 // source (IND-02); version 3 (step 7.3) the rest of the building model:
 // floor scales and alignment points (IND-08/09), the project's wall-class
-// table, walls, cells and antennas (IND-11/12). Recordings, measured
-// points and their provenance (IND-20, PLG-12) and interpolation results
-// come with later schema versions (the hooks are listed in
+// table, walls, cells and antennas (IND-11/12); version 4 (step 7.5) the
+// project's recordings (REC-02/03), its walk tests and manual-point sets
+// (sessions, IND-20, GEO-02, GEO-05) and their measured points, the one
+// point list of IND-30 (core/survey/points.h reads it). Interpolation
+// results come with a later schema version (the hooks are listed in
 // docs/formats/PROJECT.md); no part of a model is ever dropped silently.
 //
 // Storage rules (data safety):
@@ -67,7 +69,7 @@ inline constexpr std::int32_t kApplicationId = 0x594E5452;
 /// The value of the format mark in the meta table.
 inline constexpr const char* kFormat = "yantra-project";
 /// Schema version written by this build (docs/formats/PROJECT.md).
-inline constexpr int kSchemaVersion = 3;
+inline constexpr int kSchemaVersion = 4;
 
 class ProjectError : public std::runtime_error {
 public:
@@ -78,8 +80,8 @@ public:
         Exists,       ///< create/save_as: the target exists
         Damaged,      ///< the file is damaged (corrupt database, wrong hash)
         Io,           ///< reading or writing a file failed
-        NotFound,     ///< no floor or source with that id
-        InUse,        ///< a source, wall class or cell still in use
+        NotFound,     ///< no floor, source, session or recording with that id
+        InUse,        ///< a source, wall class, cell or floor still in use
         Invalid,      ///< an argument is not valid (e.g. an empty name)
         Unsupported,  ///< data this schema version cannot store
         Closed,       ///< the project was closed
@@ -152,10 +154,69 @@ struct Change {
         SourceChanged,    ///< set_source_pages()
         WallClasses,      ///< the wall-class table changed (IND-11)
         Cells,            ///< a cell was added, changed or removed (IND-12)
+        Recordings,       ///< a recording was added or removed (id: its id)
+        Sessions,         ///< a session was added, changed or removed (id: its id)
+        Points,           ///< points of a session were added or removed (id: the session id)
         Saved,            ///< save() or save_as(); path() may have changed
     };
     Kind kind = Kind::Info;
     std::string id;  ///< floor or source id
+};
+
+/// A recording file of the project's walks (REC-02, REC-03; schema 4).
+/// The recording itself is a file of its own (docs/formats/RECORDING.md)
+/// in the project's recordings folder; the project keeps its name, size,
+/// SHA-256 and header, so a moved or changed file is noticed.
+struct RecordingFile {
+    std::int64_t id = 0;            ///< given by add_recording
+    std::string file_name;          ///< e.g. "walk_0000.yrec.zst"; unique in the project
+    std::string session_id;         ///< the recording session id (16 hex digits)
+    std::string session_name;
+    std::uint32_t file_index = 0;
+    std::string sha256;             ///< 64 lower-case hex digits
+    std::uint64_t size = 0;         ///< bytes
+    std::string reference;          ///< the path when it was added (a hint)
+    std::string header;             ///< the header line (JSON)
+    std::string added_utc;          ///< set by add_recording
+    bool operator==(const RecordingFile&) const = default;
+};
+
+/// A walk test or a set of manual points on one floor (IND-20, GEO-02,
+/// GEO-05; schema 4 `sessions`). Several per floor. A walk that changes
+/// floor goes on in a new session on the other floor (`continues`).
+struct Session {
+    std::int64_t id = 0;            ///< given by add_session
+    std::string floor_id;
+    std::string kind = "walk";      ///< "walk" (GEO-02), "manual" (GEO-05) or "simulated" (sim_position, RAD-19)
+    std::string name;
+    std::string started_utc;        ///< ISO 8601; set by add_session when empty
+    std::string ended_utc;          ///< "" while it runs
+    std::string radio;              ///< the radio (plugin, device model and serial; no personal data)
+    std::string calibration;        ///< the calibration in use (JSON text)
+    std::string notes;
+    std::string walk_mode = "point_and_click";  ///< or "continuous"
+    std::string recording_session;  ///< the recording session id ("" without one)
+    std::string plugins;            ///< provenance (PLG-12): JSON object plugin id -> version
+    std::optional<std::int64_t> continues;  ///< the session on the floor before (floor change)
+    bool operator==(const Session&) const = default;
+};
+
+/// A measured point of a session (schema 4 `points`): a sample with a
+/// plan position. The values are the sample's JSON (core/survey/point.h
+/// writes and reads it; the project keeps it as text).
+struct StoredPoint {
+    std::int64_t session_id = 0;
+    std::int64_t sequence = 0;            ///< 1, 2, ... in the session; ascending
+    std::int64_t time_ns = 0;             ///< the sample's time on the pipeline clock (monotonic)
+    std::int64_t utc_ns = 0;
+    building::Point2 plan;                ///< plan units of the floor (pixels for display)
+    std::optional<building::Point2> metres;  ///< plan-frame metres with the floor's current scale; nullopt without one
+    std::string kind = "walk";            ///< walk, manual, simulated
+    std::uint32_t group = 0;              ///< walk segment number / manual point number
+    std::uint32_t cycles = 1;             ///< measurement cycles it is made of (manual: averaged)
+    std::string label;                    ///< manual: the point's label (e.g. a room)
+    std::string sample;                   ///< the values (JSON)
+    bool operator==(const StoredPoint&) const = default;
 };
 
 struct ProjectOptions {
@@ -215,7 +276,11 @@ public:
     /// are recorded). The floor may carry a scale, reference point, walls
     /// and antennas (ids as the building model requires).
     std::string add_floor(building::Floor floor);
-    /// Updates every field but the id (a new level must be free).
+    /// Updates every field but the id (a new level must be free). When
+    /// the trim changes, the floor's measured points are mapped through the
+    /// page to the new trim (they stay where they were measured on the
+    /// sheet, as plan::reanchor_floor does for walls and antennas); their
+    /// metres follow the floor's scale.
     void update_floor(const building::Floor& floor);
     void rename_floor(const std::string& id, const std::string& name);
     /// Sets the level number and, when given, the floor-to-floor height.
@@ -225,7 +290,8 @@ public:
     /// ordered by level; the floors keep the same set of levels, handed
     /// out in the new order.
     void move_floor(const std::string& id, std::size_t index);
-    /// Removes a floor (the UI confirms first, IND-04).
+    /// Removes a floor (the UI confirms first, IND-04). InUse while
+    /// sessions are on it (their measured points would be lost).
     void remove_floor(const std::string& id);
 
     // -- building model ------------------------------------------------
@@ -303,6 +369,42 @@ public:
     /// (plan units of that floor); it goes last in that floor's list.
     void move_antenna(const std::string& antenna_id, const std::string& floor_id, building::Point2 position);
     void remove_antenna(const std::string& antenna_id);
+
+    // -- recordings (REC-02, REC-03; schema 4) ------------------------------
+    /// Adds a recording file and returns its id. Invalid for an empty
+    /// name, a SHA-256 that is not 64 hex digits; Exists when the name is
+    /// already listed.
+    std::int64_t add_recording(RecordingFile file);
+    /// In the order they were added.
+    std::vector<RecordingFile> recordings() const;
+    /// Takes it off the list (the file itself is not touched).
+    void remove_recording(std::int64_t id);
+
+    // -- sessions and points (IND-20, IND-30; schema 4) -------------------
+    /// Adds a session and returns its id. NotFound for an unknown floor
+    /// or `continues`; Invalid for another kind or walk mode.
+    std::int64_t add_session(Session session);
+    /// Updates name, ended_utc, radio, calibration, notes, walk mode,
+    /// recording session and plugins (floor and kind stay).
+    void update_session(const Session& session);
+    std::optional<Session> session(std::int64_t id) const;
+    /// The sessions of a floor ("" = all floors), by id.
+    std::vector<Session> sessions(const std::string& floor_id = {}) const;
+    /// Removes a session and its points.
+    void remove_session(std::int64_t id);
+    /// Adds points to a session in one transaction (all or none). Their
+    /// sequences must be above the session's last; metres are computed
+    /// here from the floor's scale (the given ones are ignored). Invalid
+    /// for non-finite positions, a sequence not ascending or an unknown
+    /// kind; NotFound for an unknown session.
+    void add_points(std::int64_t session_id, std::vector<StoredPoint> points);
+    /// Removes the points of one walk segment / manual point (`group`);
+    /// returns how many.
+    std::size_t remove_points(std::int64_t session_id, std::uint32_t group);
+    /// The points of a session by sequence.
+    std::vector<StoredPoint> points(std::int64_t session_id) const;
+    /// The number of points of a floor's sessions.
+    std::size_t point_count(const std::string& floor_id) const;
 
     // -- source files (IND-03) -------------------------------------------
     /// Copies a file into the project unchanged; its id is

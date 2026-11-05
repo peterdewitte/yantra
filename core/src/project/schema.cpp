@@ -206,6 +206,58 @@ INSERT OR IGNORE INTO meta (key, value) VALUES
   ('next_wall_number', '1'), ('next_antenna_number', '1'), ('next_cell_number', '1');
 )sql";
 
+
+// Version 4 (step 7.5): the project's recordings (REC-02/03), its walk
+// tests and manual-point sets (IND-20, GEO-02, GEO-05) and their measured
+// points, the one point list of the window and the report (IND-30).
+const char* const kV4 = R"sql(
+CREATE TABLE recordings (
+  id           INTEGER PRIMARY KEY,
+  file_name    TEXT NOT NULL UNIQUE CHECK (file_name <> ''),
+  session_id   TEXT NOT NULL DEFAULT '',
+  session_name TEXT NOT NULL DEFAULT '',
+  file_index   INTEGER NOT NULL DEFAULT 0 CHECK (file_index >= 0),
+  sha256       TEXT NOT NULL CHECK (length(sha256) = 64),
+  size         INTEGER NOT NULL CHECK (size >= 0),
+  reference    TEXT NOT NULL DEFAULT '',
+  header       TEXT NOT NULL DEFAULT '',
+  added_utc    TEXT NOT NULL
+);
+CREATE TABLE sessions (
+  id                INTEGER PRIMARY KEY,
+  floor             TEXT NOT NULL REFERENCES floors (id),
+  kind              TEXT NOT NULL CHECK (kind IN ('walk', 'manual', 'simulated')),
+  name              TEXT NOT NULL DEFAULT '',
+  started_utc       TEXT NOT NULL,
+  ended_utc         TEXT NOT NULL DEFAULT '',
+  radio             TEXT NOT NULL DEFAULT '',
+  calibration       TEXT NOT NULL DEFAULT '',
+  notes             TEXT NOT NULL DEFAULT '',
+  walk_mode         TEXT NOT NULL DEFAULT 'point_and_click' CHECK (walk_mode IN ('point_and_click', 'continuous')),
+  recording_session TEXT NOT NULL DEFAULT '',
+  plugins           TEXT NOT NULL DEFAULT '',
+  continues         INTEGER REFERENCES sessions (id) ON DELETE SET NULL
+);
+CREATE INDEX sessions_by_floor ON sessions (floor);
+CREATE TABLE points (
+  session  INTEGER NOT NULL REFERENCES sessions (id) ON DELETE CASCADE,
+  sequence INTEGER NOT NULL CHECK (sequence >= 1),
+  mono_ns  INTEGER NOT NULL,
+  utc_ns   INTEGER NOT NULL,
+  x        REAL NOT NULL,
+  y        REAL NOT NULL,
+  x_m      REAL,
+  y_m      REAL CHECK ((x_m IS NULL) = (y_m IS NULL)),
+  kind     TEXT NOT NULL CHECK (kind IN ('walk', 'manual', 'simulated')),
+  grp      INTEGER NOT NULL DEFAULT 0 CHECK (grp >= 0),
+  cycles   INTEGER NOT NULL DEFAULT 1 CHECK (cycles >= 1),
+  label    TEXT NOT NULL DEFAULT '',
+  sample   TEXT NOT NULL,
+  PRIMARY KEY (session, sequence)
+) WITHOUT ROWID;
+CREATE INDEX points_by_group ON points (session, grp);
+)sql";
+
 }  // namespace
 
 void migrate(sql::Db& db, int from, int to, const std::string& now, const std::string& tool,
@@ -223,6 +275,8 @@ void migrate(sql::Db& db, int from, int to, const std::string& now, const std::s
             db.exec(kV2, what);
         } else if (v == 3) {
             db.exec(kV3, what);
+        } else if (v == 4) {
+            db.exec(kV4, what);
         } else if (v > kSchemaVersion && static_cast<std::size_t>(v - kSchemaVersion) <= extra.size()) {
             db.exec(extra[static_cast<std::size_t>(v - kSchemaVersion - 1)], what);
         } else {

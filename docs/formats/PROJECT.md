@@ -23,7 +23,7 @@ form is the building model of [BUILDING_MODEL.md](../BUILDING_MODEL.md)
 | Item | Value |
 | --- | --- |
 | `PRAGMA application_id` | `0x594E5452` ("YNTR"); other files are refused as "not a Yantra project" |
-| `PRAGMA user_version` | schema version, now **3** |
+| `PRAGMA user_version` | schema version, now **4** |
 | `meta.format` | `yantra-project` |
 
 | Version | Change |
@@ -31,6 +31,7 @@ form is the building model of [BUILDING_MODEL.md](../BUILDING_MODEL.md)
 | 1 | `meta`, `project`, `building`, `sources`, `floors` |
 | 2 | floor trims (IND-05..07): `floors` columns `trim_shape`, `quarter_turns`, `deskew_deg` and the table `floor_outline`; the page sizes of each source (IND-02): `source_pages`. Existing floors get the whole page (`trim_shape` `none`) |
 | 3 | the rest of the building model: `floors` scale columns (`scale_*`, IND-08) and alignment point (`reference_x/y`, IND-09); the project's wall-class table `wall_classes` + `wall_class_bands` with the default classes (IND-11); `walls` + `wall_points` (IND-11); `cells` + `cell_identity`, `antennas` + `antenna_pattern_gains` (IND-12); meta counters `next_wall_number`, `next_antenna_number`, `next_cell_number`. Existing floors get no scale and no reference point |
+| 4 | the project's recordings (`recordings`, REC-02/03), its walk tests and manual-point sets (`sessions`, IND-20, GEO-02, GEO-05) and their measured points (`points`), the one point list of the project window and the report (IND-30). Existing projects get no sessions |
 
 Rules:
 
@@ -54,14 +55,13 @@ Version 1 stores the project-level and floor-level fields of the building
 model and the source files; version 2 adds the floor trims and the source
 page sizes; version 3 the rest of the building model (scale, alignment,
 wall classes, walls, cells, antennas), so the whole model of
-[BUILDING_MODEL.md](../BUILDING_MODEL.md) is stored. The later data come
+[BUILDING_MODEL.md](../BUILDING_MODEL.md) is stored; version 4 the
+recordings, walk tests and measured points. The later data come
 as new versions in the steps that add them; until then the API has no
 call that would store them, so nothing is ever dropped silently.
 
 | Step | Planned content |
 | --- | --- |
-| 7.5 recordings | `recordings` (one row per recording file of the project's walks: name, SHA-256, size, reference, header JSON; REC-*). The recordings themselves are files of their own (7.4, [RECORDING.md](RECORDING.md)) |
-| 7.5 walk tests and points | `provenance` (plugin id, version, technology id; PLG-12), `sessions` (walk or manual, floor, radio, calibration, notes; IND-20), `samples` (session, sequence, time, plan position in metres and plan units, sample JSON) — the one point list of IND-30 |
 | 7.6 cell database | a project copy or reference of the cell database (DB-*) |
 | 8 interpolation | stored interpolation results with their parameters (IND-45) |
 
@@ -97,7 +97,7 @@ call that would store them, so nothing is ever dropped silently.
   the building model: heights in metres, plan sizes in plan units,
   attenuations in dB.
 
-## Tables (version 3)
+## Tables (version 4)
 
 ### `meta`
 
@@ -355,6 +355,70 @@ The gains of a `table` pattern relative to the main direction, one per
 | `idx` | INTEGER >= 0 | entry, from 0 (at idx x step_deg) |
 | `gain_db` | REAL | gain relative to the main direction in dB |
 
+### `recordings`
+
+The recording files of the project's walks (REC-02, REC-03; version 4).
+A recording is a file of its own ([RECORDING.md](RECORDING.md)), kept
+next to the project; the project lists it with its size and SHA-256 so
+a moved, missing or changed file is noticed.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `id` | INTEGER, primary key | recording id |
+| `file_name` | TEXT, unique, not empty | file name, e.g. `walk_0000.yrec.zst` |
+| `session_id` | TEXT | the recording session id (16 hex digits) |
+| `session_name` | TEXT | the recording session name |
+| `file_index` | INTEGER >= 0 | the file number in its session |
+| `sha256` | TEXT | 64 lower-case hex digits of the file |
+| `size` | INTEGER >= 0 | bytes |
+| `reference` | TEXT | the path when it was added (a hint) |
+| `header` | TEXT | the file's header line (JSON) |
+| `added_utc` | TEXT | when it was added |
+
+### `sessions`
+
+A walk test or a set of manual points on one floor (IND-20, GEO-02,
+GEO-05; version 4); several per floor. A walk that changes floor goes on
+in a new session on the other floor (`continues`). A floor with sessions
+cannot be removed.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `id` | INTEGER, primary key | session id |
+| `floor` | TEXT | `floors.id` |
+| `kind` | TEXT | `walk` (point and click, GEO-02), `manual` (manual points, GEO-05) or `simulated` (points at the simulator's positions, RAD-19) |
+| `name` | TEXT | its name |
+| `started_utc`, `ended_utc` | TEXT | its date: start and end (`ended_utc` empty while it runs) |
+| `radio` | TEXT | the radio: plugin, device model and serial |
+| `calibration` | TEXT | the calibration in use (JSON) |
+| `notes` | TEXT | free notes |
+| `walk_mode` | TEXT | `point_and_click` or `continuous` |
+| `recording_session` | TEXT | the recording session id of its recording, or empty |
+| `plugins` | TEXT | provenance (PLG-12): JSON object, plugin id to version, of the plugins whose values it holds |
+| `continues` | INTEGER or NULL | the session on the floor before a floor change |
+
+### `points`
+
+The measured points of a session (version 4): every sample that has a
+plan position. This is the one point list of the project window and the
+report (IND-30): both read it unchanged.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `session` | INTEGER | `sessions.id`; removed with its session |
+| `sequence` | INTEGER >= 1 | the point's number in its session, ascending in time |
+| `mono_ns`, `utc_ns` | INTEGER | the sample's time: the pipeline clock (monotonic, the recording's `mono`) and UTC, nanoseconds |
+| `x`, `y` | REAL | plan position in plan units of the floor (pixels for display) |
+| `x_m`, `y_m` | REAL or NULL | the same in metres in the floor's plan frame (plan units x metres per unit), kept up to date with the floor's scale; NULL when the floor is not to scale |
+| `kind` | TEXT | `walk`, `manual` or `simulated` |
+| `grp` | INTEGER >= 0 | the walk segment number, or the manual point number |
+| `cycles` | INTEGER >= 1 | measurement cycles in the point (manual points: averaged over N seconds) |
+| `label` | TEXT | a manual point's label (e.g. a room) |
+| `sample` | TEXT | the sample's values (JSON) |
+
+When a floor's trim is edited, its points are mapped through the page to
+the new trim, so they stay where they were measured on the sheet.
+
 ## Example
 
 A project with one PDF sheet and two floors, as the `sqlite3` tool shows
@@ -362,13 +426,14 @@ it (`sqlite3 survey.yantra .dump`, content shortened):
 
 ```sql
 PRAGMA application_id = 1498305618;  -- 0x594E5452
-PRAGMA user_version = 3;
+PRAGMA user_version = 4;
 INSERT INTO meta VALUES ('format', 'yantra-project');
 INSERT INTO meta VALUES ('next_floor_number', '3');
 INSERT INTO meta VALUES ('next_source_number', '2');
 INSERT INTO meta VALUES ('schema_1_by', 'Yantra 0.1.0 2026-11-05T09:30:00Z');
 INSERT INTO meta VALUES ('schema_2_by', 'Yantra 0.1.0 2026-11-05T09:30:00Z');
 INSERT INTO meta VALUES ('schema_3_by', 'Yantra 0.1.0 2026-11-05T09:30:00Z');
+INSERT INTO meta VALUES ('schema_4_by', 'Yantra 0.1.0 2026-11-05T09:30:00Z');
 INSERT INTO project VALUES (1, 'Town hall survey', 'Town hall', 'Example network', '',
   '2026-11-05T09:30:00Z', '2026-11-05T09:41:12Z', 'Yantra 0.1.0', 'Yantra 0.1.0');
 INSERT INTO building VALUES (1, 'Town hall', 15.0);
@@ -390,4 +455,11 @@ INSERT INTO cells VALUES (1, 'cell-1', 0, 'Indoor DAS', 'tetra', 'tetra_cell', 3
 INSERT INTO cell_identity VALUES ('cell-1', 'colour_code', 1), ('cell-1', 'la', 100), ...;
 INSERT INTO antennas VALUES (1, 'antenna-1', 'floor-1', 0, 'DAS 1', 'ceiling omni', 'indoor_das',
   120.0, 200.0, 2.8, 2.0, 'omni', 0.0, 65.0, 20.0, 0.0, 10.0, NULL, 0.0, 0.0, 'cell-1', NULL, NULL);
+INSERT INTO recordings VALUES (1, 'walk_0000.yrec.zst', '3f0c9a1b2d4e5f60', 'walk', 0,
+  '5b1d...07c2', 81233, '/home/surveys/walk_0000.yrec.zst', '{"t":"header",...}', '2026-11-05T09:52:30Z');
+INSERT INTO sessions VALUES (1, 'floor-1', 'walk', 'Ground floor walk', '2026-11-05T09:45:00Z',
+  '2026-11-05T09:52:30Z', 'simulator 0.2.2, simulator:0', '{"key":"simulator|0|"}', '', 'point_and_click',
+  '3f0c9a1b2d4e5f60', '{"simulator":"0.2.2","yantra.tetra":"0.1.0"}', NULL);
+INSERT INTO points VALUES (1, 1, 100000000000, 1793872300000000000, 40.0, 200.0, 1.4, 7.0, 'walk', 1, 1, '',
+  '{"carriers":[{"dev":"simulator:0","tech":"tetra","schema":"tetra_cell","role":"serving",...}]}');
 ```

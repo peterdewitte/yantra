@@ -586,7 +586,7 @@ TEST_CASE("project 7.3: the example office round trips and a reopened project ex
     CHECK(p->add_cell(bm::Cell{"", "New", "", "", 0, {}}) == "cell-1");
 }
 
-TEST_CASE("project 7.3: schema 1 and schema 2 files migrate to schema 3 (no scale, the default wall classes)") {
+TEST_CASE("project 7.3: schema 1 and schema 2 files migrate to schema 3 and on (no scale, the default wall classes)") {
     const fs::path dir = scratch("migrate-3");
     for (int version : {1, 2}) {
         CAPTURE(version);
@@ -604,7 +604,7 @@ TEST_CASE("project 7.3: schema 1 and schema 2 files migrate to schema 3 (no scal
         {
             auto p = pj::Project::open(file);
             CHECK(p->opened_version() == version);
-            CHECK(p->meta().schema_version == 3);
+            CHECK(p->meta().schema_version == pj::kSchemaVersion);
             CHECK(p->migration_backup() == fs::path(file.string() + ".schema" + std::to_string(version) + ".bak"));
             const bm::Floor f = *p->floor("floor-1");
             CHECK(f.height_m == 3.5);
@@ -626,7 +626,7 @@ TEST_CASE("project 7.3: schema 1 and schema 2 files migrate to schema 3 (no scal
             CHECK(p->check().empty());
         }
         auto p = pj::Project::open(file);
-        CHECK(p->opened_version() == 3);
+        CHECK(p->opened_version() == pj::kSchemaVersion);
         CHECK(p->floor("floor-1")->walls.size() == 1);
         CHECK(p->floor("floor-1")->scale.metres_per_unit == 0.05);
     }
