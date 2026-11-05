@@ -14,6 +14,7 @@
 #include <yantra/radios/tetra_schemas.hpp>
 
 #include "host.hpp"
+#include "stream_guard.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -139,22 +140,29 @@ struct Fake {
     uint32_t state() { return host->descriptor().stream->state(device); }
 
     StreamResult stream(const yr_plan& plan, const std::function<bool(const Record&)>& on_record,
-                        double seconds, const std::function<bool(const radios::Event&)>& on_event = {})
+                        double signal_s, const std::function<bool(const radios::Event&)>& on_event = {})
     {
+        // At most signal_s of signal: the unpaced fake is CPU-bound, a wall-clock
+        // limit failed on a loaded machine (tests/stream_guard.hpp).
         std::atomic<bool> stop{false};
+        tests::StreamGuard guard(signal_s, stop);
         StreamLimits limits;
-        limits.max_seconds = seconds * YANTRA_TEST_TIME_SCALE;
         limits.interrupt = &stop;
-        return run_stream(
+        StreamResult r = run_stream(
             *host, device, plan, limits,
-            [&](const Record& r) {
-                if (on_record(r))
+            [&](const Record& rec) {
+                guard.record(rec);
+                if (on_record(rec))
                     stop = true;
             },
             [&](const radios::Event& e) {
+                guard.event();
                 if (on_event && on_event(e))
                     stop = true;
             });
+        if (r.stop_reason == "interrupted" && !guard.reason().empty())
+            r.stop_reason = guard.reason() + " guard after " + std::to_string(guard.signal_s()) + " s of signal";
+        return r;
     }
     int field(uint32_t schema, const char* name) const
     {
@@ -465,7 +473,7 @@ TEST_CASE("hackrf: records of the fake HackRF match the generator's truth with o
             return la.size() >= 2 && !lists.empty() && (groups & YR_GROUP_QUALITY) != 0 &&
                    (groups & YR_GROUP_BROADCAST) != 0 && (groups & YR_GROUP_FRAME) != 0;
         },
-        120.0); // a hang guard: about 3 s of signal
+        30.0); // seconds of signal; it needs about 3
     INFO(r.stop_reason);
     CHECK(la[392500000] == 120);
     CHECK(la[392800000] == 120);
@@ -534,7 +542,7 @@ TEST_CASE("hackrf: band scan wider than the span retunes and gives every channel
                 ++serving;
             return done;
         },
-        120.0,
+        60.0, // seconds of signal; dwells of 3.5 s
         [&](const radios::Event& e) {
             if (e.event == YR_EVENT_SCAN_DONE && !done) {
                 done = true;

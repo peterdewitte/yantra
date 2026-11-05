@@ -12,6 +12,7 @@
 #include <yantra/gen/scenario_engine.hpp>
 
 #include "host.hpp"
+#include "stream_guard.hpp"
 
 #include <atomic>
 #include <chrono>
@@ -126,22 +127,29 @@ struct Fake {
     uint32_t state() { return host->descriptor().stream->state(device); }
 
     StreamResult stream(const yr_plan& plan, const std::function<bool(const Record&)>& on_record,
-                        double seconds, const std::function<void(const radios::Event&)>& on_event = {})
+                        double signal_s, const std::function<void(const radios::Event&)>& on_event = {})
     {
+        // At most signal_s of signal: the unpaced fake is CPU-bound, a wall-clock
+        // limit failed on a loaded machine (tests/stream_guard.hpp).
         std::atomic<bool> stop{false};
+        tests::StreamGuard guard(signal_s, stop);
         StreamLimits limits;
-        limits.max_seconds = seconds * YANTRA_TEST_TIME_SCALE;
         limits.interrupt = &stop;
-        return run_stream(
+        StreamResult r = run_stream(
             *host, device, plan, limits,
-            [&](const Record& r) {
-                if (on_record(r))
+            [&](const Record& rec) {
+                guard.record(rec);
+                if (on_record(rec))
                     stop = true;
             },
             [&](const radios::Event& e) {
+                guard.event();
                 if (on_event)
                     on_event(e);
             });
+        if (r.stop_reason == "interrupted" && !guard.reason().empty())
+            r.stop_reason = guard.reason() + " guard after " + std::to_string(guard.signal_s()) + " s of signal";
+        return r;
     }
 };
 
@@ -323,6 +331,34 @@ TEST_CASE("soapysdr: a given serving carrier is followed with one decoder per ca
             CAPTURE(hz);
             CHECK(n == 1);
         }
+}
+
+TEST_CASE("soapysdr: the test streams stop after their signal or when stalled (RAD-90, RAD-92)")
+{
+    // The guard of the streaming cases above: in signal time, so the
+    // machine's load does not decide whether a case gets its records.
+    Fake f(R"(,"paced":false)");
+    f.open();
+    double first = -1.0, last = -1.0;
+    const StreamResult r = f.stream(
+        serving_plan(),
+        [&](const Record& rec) {
+            const double t = static_cast<double>(rec.time.monotonic_ns) * 1e-9;
+            if (first < 0.0)
+                first = t;
+            last = t;
+            return false; // never done: the guard stops it
+        },
+        3.0);
+    INFO(r.stop_reason);
+    CHECK(r.stop_reason.rfind("signal guard", 0) == 0);
+    CHECK(last - first >= 3.0 - 1e-6);
+    CHECK(last - first < 3.0 + 1.5); // one record interval at most beyond
+
+    std::atomic<bool> stop{false};
+    tests::StreamGuard idle(30.0, stop, 0.2 / YANTRA_TEST_TIME_SCALE);
+    CHECK(wait_for([&] { return stop.load(); }, 10.0));
+    CHECK(idle.reason() == "stalled");
 }
 
 TEST_CASE("soapysdr: gain changes move the dBFS levels (RAD-51)")
