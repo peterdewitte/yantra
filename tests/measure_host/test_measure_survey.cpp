@@ -241,22 +241,30 @@ TEST_CASE("TST-10 simulator walk test: clicked segments give points at the inter
         const double sy = (*c)["sim"]["y_m"].get<double>();
         const double lag_s = (*c)["age_ms"].get<double>() / 1e3 + 1.0;
         CHECK(std::hypot(sx - p.metres->x, sy - p.metres->y) <= 1.25 * lag_s + 0.05);
-        // Multi-wall model at the simulator's position (RAD-73): free space
-        // from the antenna at (3, 5) m plus the wall when behind it.
-        // A record's level is measured over its interval while the walker
-        // moves: a record just past the wall still holds level from before
-        // it (seen under ASan: +1 dB at 0.24 m behind the wall). Points
-        // within 0.5 m of the wall (0.4 s of walking) are not compared.
-        if (std::fabs(sx - 8.0) < 0.5) continue;
-        const double predicted = 10.0 - fspl(std::hypot(sx - 3.0, sy - 5.0)) - (sx > 8.0 ? wall_db : 0.0);
+        // Multi-wall model (RAD-73): free space from the antenna at (3, 5) m
+        // plus the wall when behind it. A record's level is measured over
+        // its interval while the walker moves, and under load an interval
+        // lasts up to a second: the level is compared with the model over
+        // the last 1.25 m walked before the record's position (1 s at the
+        // fastest 1.25 m/s; the route only goes in +x from 5 m). Seen
+        // under ASan with ctest -j: +1 dB just behind the wall, +1.3 dB
+        // against the model at the point itself.
+        const auto model = [&](double x) {
+            return 10.0 - fspl(std::hypot(x - 3.0, sy - 5.0)) - (x > 8.0 ? wall_db : 0.0);
+        };
+        double lo = model(sx), hi = lo;
+        for (double x = std::max(5.0, sx - 1.25); x < sx; x += 0.01) {
+            lo = std::min(lo, model(x));
+            hi = std::max(hi, model(x));
+        }
         REQUIRE(p.value);
         CHECK(p.unit == "dBm");
-        const double d = *p.value - predicted;
+        const double d = *p.value < lo ? *p.value - lo : *p.value > hi ? *p.value - hi : 0.0;
         worst = std::max(worst, std::fabs(d));
         sum += d;
         ++measured;
     }
-    MESSAGE("levels against the multi-wall model: worst " << worst << " dB, mean " << sum / static_cast<double>(measured)
+    MESSAGE("levels outside the multi-wall model's range: worst " << worst << " dB, mean " << sum / static_cast<double>(measured)
                                                           << " dB over " << measured << " points");
     // The simulator's channel has no fading on this own-plan cell: the
     // receiver's level estimate is within a few tenths of the model.
