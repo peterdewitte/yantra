@@ -37,14 +37,22 @@ add_library(yantra_core STATIC
   src/plugin/record.cpp
   src/plugin/schema.cpp
   src/plugin/state_store.cpp
+  src/project/project.cpp
+  src/project/schema.cpp
+  src/project/sqlite.cpp
   src/radio/radio_host.cpp
   src/radio/scene_export.cpp
   src/util/sha256.cpp)
 add_library(yantra::core ALIAS yantra_core)
+
+# SQLite 3 (spec 16.2): the project file (IND-01, docs/formats/PROJECT.md),
+# a system library. 3.37 or newer (SQLITE_OPEN_EXRESCODE; VACUUM INTO,
+# upserts and SQLITE_OPEN_NOFOLLOW are older).
+find_package(SQLite3 3.37 REQUIRED)
 
 target_include_directories(yantra_core
   PUBLIC include
   PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
 target_link_libraries(yantra_core
   PUBLIC yantra::plugin_api yantra::radio_api Threads::Threads ${CMAKE_DL_LIBS}
-  PRIVATE yantra::warnings yantra::json)
+  PRIVATE yantra::warnings yantra::json SQLite::SQLite3)

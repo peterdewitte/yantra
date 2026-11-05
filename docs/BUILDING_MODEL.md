@@ -8,7 +8,8 @@ The building of an indoor project (spec section 21): floors with their plan
 source and trim, scale and alignment point, walls with wall classes, antennas
 and the cells they serve. The model is plain data in the core library
 (`core/include/yantra/core/building/model.h`, no UI); the plan import window,
-the project window and the project file come in later phases and use it.
+the project window come in later phases and use it; the project file
+stores it.
 
 Users of the model:
 
@@ -19,7 +20,9 @@ Users of the model:
 - the context callbacks of the radio plugins (PLG-27,
   `context/building_context.h`): floor plan shown, cursor and walk
   position in metres, scene of every floor;
-- the project file (IND-01, NFR-05), which embeds the JSON form below.
+- the project file (IND-01, NFR-05), which stores the model in its tables
+  ([formats/PROJECT.md](formats/PROJECT.md); `project/project.h`
+  `Project::building()`).
 
 The core is technology-neutral (PLG-01): wall classes and antennas are
 generic RF data, and a cell's identity is a set of named key values of a

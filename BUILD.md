@@ -14,8 +14,9 @@ Linux only for now; Windows builds are planned (not yet built).
     ninja -C build
     ctest --test-dir build -j"$(nproc)"
 
-Needed: CMake 3.20+, Ninja, a C++20 compiler (GCC or Clang), Python 3 with
-PyYAML, binutils, and `reuse` for the licence lint test.
+Needed: CMake 3.20+, Ninja, a C++20 compiler (GCC or Clang), SQLite 3.37+
+with its headers (`libsqlite3-dev`; the project file, IND-01), Python 3
+with PyYAML, binutils, and `reuse` for the licence lint test.
 
 ## Radio plugins (PLG-26)
 

@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // JSON form of the building model ("yantra-building", version 1),
-// documented in docs/BUILDING_MODEL.md. The project file (IND-01, NFR-05,
-// a later phase) embeds it; tests and fixtures use it directly.
+// documented in docs/BUILDING_MODEL.md, for tests, fixtures and exchange.
+// The project file (IND-01, docs/formats/PROJECT.md) stores the model in
+// tables of its own.
 //
 // Versioning: a reader refuses another format and a newer version; within
 // version 1 members may be added compatibly, so unknown members are

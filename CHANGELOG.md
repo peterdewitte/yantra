@@ -14,6 +14,18 @@ own changes are in its CHANGELOG.md.
 
 ## [Unreleased]
 
+### Indoor projects
+
+- 2026-11-05: the indoor project file `*.yantra` (an SQLite database,
+  documented in docs/formats/PROJECT.md, schema version 1): project name,
+  site, operator and notes; the building's floors with name, level and
+  height, ordered by level, renamed, reordered and removed; a copy of
+  every plan source file (or, for licence-restricted plans, a reference by
+  SHA-256). Every change is stored at once and survives a crash; New and
+  Save as write whole files; a project is open in one Yantra at a time;
+  older files are migrated after a backup, newer and damaged files are
+  refused with the reason.
+
 ### Measurements
 
 - 2026-11-04: the TETRA technology plugin (`tetra.so`): TETRA cell,

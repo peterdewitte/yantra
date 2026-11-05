@@ -31,6 +31,7 @@ Entries are added together with the code that first uses each library.
 |---|---|---|---|---|
 | yantra-radios | v0.2.1 (commit f359ee1), git submodule `third_party/yantra-radios` | GPL-3.0-or-later; its plugins contain AGPL-3.0 parts (osmo-tetra) and the libraries of its own THIRD_PARTY.md | The yantra-radios project (its README names the public source) | Radio API header `yantra/radio.h` and the radio plugins with their SDR processing and TETRA decoder (PLG-26); its components and licence bundle are listed in its own THIRD_PARTY.md |
 | nlohmann/json | 3.12.0 (single header, vendored unchanged in `third_party/nlohmann_json/`, SHA-256 in its README) | MIT | https://github.com/nlohmann/json | Reading yantra-radios record files (RAD-65, TST-10), the plugin test kit's reports and golden files (PLG-13); header-only, compiled into Yantra |
+| SQLite | 3.37 or newer, system library (`libsqlite3-dev`; tested with 3.46.1), linked into the core | Public domain (blessing) | https://sqlite.org | The indoor project file `*.yantra` (IND-01, IND-03, IND-04; docs/formats/PROJECT.md); later the cell database and survey store (DB-01) |
 | doctest | 2.4.12 (single header, vendored unchanged in `third_party/doctest/`, SHA-256 in its README) | MIT | https://github.com/doctest/doctest | C++ unit tests under ctest (TST-01); tests only, never shipped |
 
 ## Build, test and packaging tools
