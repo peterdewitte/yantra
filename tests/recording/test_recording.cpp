@@ -145,6 +145,8 @@ struct Listener final : rec::ReplayListener {
     std::vector<std::pair<std::int64_t, rec::PositionLine>> positions;
     std::vector<std::size_t> files;
     std::vector<std::int64_t> seeks;
+    std::vector<rec::WalkLine> walks;
+    void on_walk(std::int64_t, const rec::WalkLine& w) override { walks.push_back(w); }
     void on_file(std::size_t i, const rec::File&) override { files.push_back(i); }
     void on_marker(std::int64_t t, const rec::MarkerLine& m) override { markers.emplace_back(t, m); }
     void on_position(std::int64_t t, const rec::PositionLine& p) override { positions.emplace_back(t, p); }
@@ -274,6 +276,8 @@ TEST_CASE("recording: a recorded walk replays through the pipeline to the same c
         live.walk(23);
         CHECK(live.recorder->marker("stairs") == 1);
         live.recorder->add_position({0, "f1", 30.0, 40.0, std::nullopt, std::nullopt, "click", "door"});
+        const rec::WalkLine walk{0, "f1", "point", 12.5, 7.25, std::nullopt, std::nullopt, "", "manual", 5.0, "Room \"2\""};
+        live.recorder->add_walk(walk);
         live.walk(10);
         const ym::PipelineStats stats = live.p->stats();
         live.recorder->stop();
@@ -299,6 +303,11 @@ TEST_CASE("recording: a recorded walk replays through the pipeline to the same c
         CHECK(f.positions[1].label == "door");
         CHECK_FALSE(f.positions[1].x_m);
         CHECK(f.floors.size() == 1);
+        REQUIRE(f.walks.size() == 1);
+        rec::WalkLine expect = walk;
+        expect.time_ns = f.walks[0].time_ns;
+        CHECK(f.walks[0] == expect);
+        CHECK(f.walks[0].time_ns == f.positions[1].time_ns);  // time 0 = the clock now (a ManualClock here)
         CHECK(f.states.size() >= 6);  // the first + one per 5 s
         CHECK(f.end->messages == f.inputs.size());
 
@@ -313,6 +322,9 @@ TEST_CASE("recording: a recorded walk replays through the pipeline to the same c
         CHECK(r->mismatches() == 0);
         CHECK(l->markers.size() == 1);
         CHECK(l->positions.size() == 2);
+        REQUIRE(l->walks.size() == 1);
+        CHECK(l->walks[0] == f.walks[0]);
+        CHECK(r->positions().size() == 3);  // the manual point too (seek by plan position)
         CHECK(r->at_end());
         // Recorded strings, levels and corrections came back exactly.
         bool name_seen = false;
@@ -779,7 +791,7 @@ TEST_CASE("recording: docs/formats/RECORDING.md documents the format version and
     const std::string doc = slurp(fs::path(YANTRA_SOURCE_DIR) / "docs" / "formats" / "RECORDING.md");
     REQUIRE(!doc.empty());
     CHECK(doc.find("`yantra-recording/" + std::to_string(rec::kFormatVersion) + "`") != std::string::npos);
-    for (const char* t : {"header", "source", "cal", "rec", "event", "cycle", "state", "pos", "floor", "marker", "end"})
+    for (const char* t : {"header", "source", "cal", "rec", "event", "cycle", "state", "pos", "floor", "walk", "marker", "end"})
         CHECK_MESSAGE(doc.find("| `" + std::string(t) + "` |") != std::string::npos, t);
     // Every key in the written lines is documented.
     const fs::path dir = scratch("doc");
@@ -788,6 +800,7 @@ TEST_CASE("recording: docs/formats/RECORDING.md documents the format version and
     REQUIRE(live.recorder->start("doc", error));
     live.recorder->set_floor("f1", "F");
     live.recorder->add_position({0, "f1", 1, 2, 3, 4, "click", ""});
+    live.recorder->add_walk({0, "f1", "point", 1.0, 2.0, 3.0, 4.0, "continuous", "manual", 5.0, "room 1"});
     live.walk(12);
     live.recorder->marker("m");
     live.recorder->stop();

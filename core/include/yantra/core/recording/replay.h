@@ -48,6 +48,7 @@ public:
     virtual void on_marker(std::int64_t t, const MarkerLine& marker) { (void)t, (void)marker; }
     virtual void on_position(std::int64_t t, const PositionLine& position) { (void)t, (void)position; }
     virtual void on_floor(std::int64_t t, const FloorLine& floor) { (void)t, (void)floor; }
+    virtual void on_walk(std::int64_t t, const WalkLine& walk) { (void)t, (void)walk; }
     // After seek(): the panels show the state at `t` (Replay::last_cycle()).
     virtual void on_seek(std::int64_t t) { (void)t; }
 };
@@ -81,7 +82,9 @@ public:
     // Replay time of a pipeline-clock time of file `index`.
     std::int64_t time_of(std::size_t index, std::int64_t mono_ns) const;
     // Markers and positions of all files with their replay times (seek by
-    // a click on the plan or the graph, REC-07).
+    // a click on the plan or the graph, REC-07); positions include the
+    // walk-test clicks and manual points (`walk` lines with x, y) as
+    // PositionLines of kind "click" / "point".
     std::vector<std::pair<std::int64_t, MarkerLine>> markers() const;
     std::vector<std::pair<std::int64_t, PositionLine>> positions() const;
     // The replay time of the position nearest to (x, y) on `floor_id`

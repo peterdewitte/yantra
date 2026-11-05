@@ -61,6 +61,7 @@ Each line is an object with its type in `t`.
 | `state` | at the start of every file and every `keyframe_s` | the pipeline's state, for seeking |
 | `pos` | a plan position (IND-20) | floor and position |
 | `floor` | the walk changes floor | floor id and name |
+| `walk` | a walk-test action (IND-20, GEO-02, GEO-05) | what the surveyor did on the plan |
 | `marker` | a marker (REC-05) | number, label, action |
 | `end` | last line of a cleanly closed file | why it was closed |
 
@@ -179,8 +180,31 @@ by input and cycle number.
 |------|------|
 | `pos` | `mono`, `floor` (floor id), `x`, `y` (plan units), `xm`, `ym` (metres, or null), `kind` (`click`, `point`, `simulated`, `cursor`), `label` |
 | `floor` | `mono`, `floor`, `name` |
+| `walk` | `mono`, `floor` (floor id), `action`, `x`, `y` (plan units, or null), `xm`, `ym` (metres, or null), `mode` (`point_and_click` or `continuous`), `kind` (`walk`, `manual` or `simulated`), `seconds` (averaging window of a manual point), `label` |
 | `marker` | `mono`, `n` (number, through the session), `label`, `action` (`mark`, `new_file`, `new_file_pause`) |
 | `end` | `mono`, `reason` (`stop`, `split_time`, `split_count`, `new_file`, `new_file_pause`), `messages` (`rec` + `event` lines in the file), `inputs` (the last input number) |
+
+### Walk-test actions (`walk`)
+
+A walk test (core/survey/walk_test.h, docs/SURVEY.md) writes every action
+of the surveyor as a `walk` line, so a replay of the recording places the
+samples exactly as the live walk test did (the same points, IND-20,
+IND-30). `action` is one of:
+
+| `action` | Meaning | Keys used |
+|----------|---------|-----------|
+| `start` | a walk test begins on `floor` | `kind`, `mode`, `label` (its name) |
+| `click` | a click on the plan (GEO-02 point and click) | `x`, `y`, `xm`, `ym` |
+| `pause` | pause: the open segment is dropped | |
+| `delete_last` | delete last segment | |
+| `mode` | the walk mode changed | `mode` |
+| `point` | a manual point (GEO-05): measure `seconds` at `x`, `y` | `x`, `y`, `xm`, `ym`, `seconds`, `label` |
+| `floor` | the walk moved to `floor` (a new walk test on that floor follows it) | |
+| `end` | the walk test ended | |
+
+Replay feeds the actions in time order together with the cycles; a walk
+test is replayed from the file it started in (a file of a split walk
+holds only the actions made while it was written).
 
 ## Reading
 

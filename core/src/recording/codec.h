@@ -41,6 +41,7 @@ std::string state_line(Declared& d, std::int64_t time_ns, const measure::Pipelin
                        const measure::PipelineStats& stats, std::vector<std::string>& out);
 std::string position_line(const PositionLine& p);
 std::string floor_line(const FloorLine& f);
+std::string walk_line(const WalkLine& w);
 std::string marker_line(const MarkerLine& m);
 std::string end_line(const EndLine& e);
 

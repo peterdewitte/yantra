@@ -167,6 +167,8 @@ public:
     void set_floor(const std::string& floor_id, const std::string& name);
     // A plan position; time 0 = the pipeline clock now.
     void add_position(PositionLine position);
+    // A walk-test action (core/survey/walk_test.h); time 0 = now.
+    void add_walk(WalkLine walk);
 
     // -- measure::MeasurementObserver ------------------------------------
     void on_input(const measure::PipelineInput& input) override;

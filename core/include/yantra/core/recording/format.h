@@ -190,6 +190,27 @@ struct FloorLine {
     std::string name;
 };
 
+// A walk-test action (IND-20, GEO-02, GEO-05; `walk` line): what the
+// surveyor did on the plan, so a replay places the samples exactly as the
+// live walk test did (core/survey/walk_test.h). Actions: "start" (a walk
+// test begins on `floor_id`: `kind` walk/manual/simulated, `mode`,
+// `label` = its name), "click" (a click at x, y), "pause", "delete_last"
+// (delete last segment), "mode" (`mode` changed), "point" (a manual point
+// at x, y averaged over `seconds`), "floor" (the walk moved to `floor_id`)
+// and "end".
+struct WalkLine {
+    std::int64_t time_ns = 0;        // pipeline clock
+    std::string floor_id;
+    std::string action;
+    std::optional<double> x, y;      // plan units (click, point)
+    std::optional<double> x_m, y_m;  // plan-frame metres when the floor is to scale
+    std::string mode;                // "point_and_click", "continuous" (start, mode)
+    std::string kind;                // "walk", "manual", "simulated" (start)
+    double seconds = 0.0;            // point: averaging window
+    std::string label;
+    bool operator==(const WalkLine&) const = default;
+};
+
 enum class MarkerAction { Mark, NewFile, NewFilePause };
 const char* marker_action_name(MarkerAction action) noexcept;  // "mark", "new_file", "new_file_pause"
 
@@ -217,6 +238,7 @@ struct File {
     std::vector<StateLine> states;      // file order; the first is the start
     std::vector<PositionLine> positions;
     std::vector<FloorLine> floors;
+    std::vector<WalkLine> walks;
     std::vector<MarkerLine> markers;
     std::optional<EndLine> end;         // absent: not closed cleanly
     bool truncated = false;             // the last line (or zstd frame) was cut

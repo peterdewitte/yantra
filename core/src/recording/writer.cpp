@@ -478,6 +478,13 @@ void Recorder::add_position(PositionLine position) {
         session_->file->add_line(codec::position_line(position));
 }
 
+void Recorder::add_walk(WalkLine walk) {
+    if (walk.time_ns == 0) walk.time_ns = now_mono();
+    const std::lock_guard lock(mutex_);
+    if (state_ == RecorderState::Recording && session_ && session_->file)
+        session_->file->add_line(codec::walk_line(walk));
+}
+
 void Recorder::on_input(const measure::PipelineInput& input) {
     const std::lock_guard lock(mutex_);
     if (!session_) return;

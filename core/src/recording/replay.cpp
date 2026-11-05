@@ -19,11 +19,11 @@ namespace yantra::recording {
 namespace ym = yantra::measure;
 
 struct Replay::Step {
-    enum class Kind { Input, Cycle, Marker, Position, Floor };
+    enum class Kind { Input, Cycle, Marker, Position, Floor, Walk };
     std::int64_t t = 0;
     Kind kind = Kind::Input;
     std::size_t file = 0;
-    std::size_t index = 0;  // into the file's inputs / cycles / markers / positions / floors
+    std::size_t index = 0;  // into the file's inputs / cycles / markers / positions / floors / walks
 };
 
 // The replay pipeline's observer: passes the output on unless muted and
@@ -224,6 +224,8 @@ bool Replay::prepare(std::string& error) {
                 run.side.push_back({at(i, f.positions[j].time_ns), Step::Kind::Position, i, j});
             for (std::size_t j = 0; j < f.floors.size(); ++j)
                 run.side.push_back({at(i, f.floors[j].time_ns), Step::Kind::Floor, i, j});
+            for (std::size_t j = 0; j < f.walks.size(); ++j)
+                run.side.push_back({at(i, f.walks[j].time_ns), Step::Kind::Walk, i, j});
             run.end = std::max(run.end, at(i, f.last_time_ns()));
         }
         std::stable_sort(run.side.begin(), run.side.end(), [](const auto& x, const auto& y) { return x.t < y.t; });
@@ -332,7 +334,8 @@ std::size_t Replay::run_step(const Step& s) {
     }
     case Step::Kind::Marker:
     case Step::Kind::Position:
-    case Step::Kind::Floor: break;
+    case Step::Kind::Floor:
+    case Step::Kind::Walk: break;
     }
     return 0;
 }
@@ -350,7 +353,8 @@ std::size_t Replay::advance_to(std::int64_t t) {
                 for (const auto& l : listeners_) {
                     if (x.kind == Step::Kind::Marker) l->on_marker(x.t, files_[x.file].markers[x.index]);
                     else if (x.kind == Step::Kind::Position) l->on_position(x.t, files_[x.file].positions[x.index]);
-                    else l->on_floor(x.t, files_[x.file].floors[x.index]);
+                    else if (x.kind == Step::Kind::Floor) l->on_floor(x.t, files_[x.file].floors[x.index]);
+                    else l->on_walk(x.t, files_[x.file].walks[x.index]);
                 }
             continue;
         }
@@ -412,6 +416,13 @@ std::vector<std::pair<std::int64_t, PositionLine>> Replay::positions() const {
     std::vector<std::pair<std::int64_t, PositionLine>> out;
     for (std::size_t i = 0; i < files_.size(); ++i)
         for (const PositionLine& p : files_[i].positions) out.emplace_back(time_of(i, p.time_ns), p);
+    for (std::size_t i = 0; i < files_.size(); ++i)
+        for (const WalkLine& w : files_[i].walks) {
+            if (!w.x || !w.y || (w.action != "click" && w.action != "point")) continue;
+            out.emplace_back(time_of(i, w.time_ns),
+                             PositionLine{w.time_ns, w.floor_id, *w.x, *w.y, w.x_m, w.y_m, w.action, w.label});
+        }
+    std::stable_sort(out.begin(), out.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
     return out;
 }
 

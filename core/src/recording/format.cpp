@@ -25,6 +25,7 @@ std::int64_t File::last_time_ns() const {
     for (const StateLine& s : states) t = std::max(t, s.time_ns);
     for (const PositionLine& p : positions) t = std::max(t, p.time_ns);
     for (const FloorLine& f : floors) t = std::max(t, f.time_ns);
+    for (const WalkLine& w : walks) t = std::max(t, w.time_ns);
     for (const MarkerLine& m : markers) t = std::max(t, m.time_ns);
     if (end) t = std::max(t, end->time_ns);
     return t;

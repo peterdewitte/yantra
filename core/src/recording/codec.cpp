@@ -537,6 +537,22 @@ std::string floor_line(const FloorLine& f) {
     return dump(json{{"t", "floor"}, {"mono", f.time_ns}, {"floor", f.floor_id}, {"name", f.name}});
 }
 
+std::string walk_line(const WalkLine& w) {
+    auto opt = [](const std::optional<double>& v) { return v ? json(*v) : json(nullptr); };
+    return dump(json{{"t", "walk"},
+                     {"mono", w.time_ns},
+                     {"floor", w.floor_id},
+                     {"action", w.action},
+                     {"x", opt(w.x)},
+                     {"y", opt(w.y)},
+                     {"xm", opt(w.x_m)},
+                     {"ym", opt(w.y_m)},
+                     {"mode", w.mode},
+                     {"kind", w.kind},
+                     {"seconds", w.seconds},
+                     {"label", w.label}});
+}
+
 std::string marker_line(const MarkerLine& m) {
     return dump(json{{"t", "marker"},
                      {"mono", m.time_ns},
@@ -741,6 +757,35 @@ bool read_line(const json& j, File& file, ReadContext& c, std::string& error) {
         p.kind = str(j, "kind");
         p.label = str(j, "label");
         file.positions.push_back(std::move(p));
+        return true;
+    }
+    if (t == "walk") {
+        WalkLine w;
+        w.time_ns = i64(j, "mono");
+        w.floor_id = str(j, "floor");
+        w.action = str(j, "action");
+        if (w.action.empty()) {
+            error = "walk line without an action";
+            return false;
+        }
+        auto opt = [&](const char* k) -> std::optional<double> {
+            const auto it = j.find(k);
+            if (it == j.end() || !it->is_number()) return std::nullopt;
+            return it->get<double>();
+        };
+        w.x = opt("x");
+        w.y = opt("y");
+        w.x_m = opt("xm");
+        w.y_m = opt("ym");
+        if (w.x.has_value() != w.y.has_value()) {
+            error = "walk line with only one of x and y";
+            return false;
+        }
+        w.mode = str(j, "mode");
+        w.kind = str(j, "kind");
+        w.seconds = opt("seconds").value_or(0.0);
+        w.label = str(j, "label");
+        file.walks.push_back(std::move(w));
         return true;
     }
     if (t == "floor") {
