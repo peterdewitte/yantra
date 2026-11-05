@@ -16,6 +16,7 @@ add_library(yantra_core STATIC
   src/calibration/corrector.cpp
   src/calibration/table.cpp
   src/calibration/wizard.cpp
+  src/building/edit.cpp
   src/building/geometry.cpp
   src/building/model.cpp
   src/building/model_json.cpp
