@@ -26,6 +26,7 @@
 #include <yantra/core/survey/points.h>
 #include <yantra/core/survey/recordings.h>
 #include <yantra/core/survey/stats.h>
+#include <yantra/core/survey/viewer.h>
 #include <yantra/core/survey/walk_test.h>
 
 #include "measure_rig.h"
@@ -95,7 +96,7 @@ ys::Metric drawn_cell() {
 
 }  // namespace
 
-TEST_CASE("TST-10 simulator walk test: clicked segments give points at the interpolated positions with the levels the multi-wall model predicts; the recorded walk replays to the same points and statistics (IND-20, IND-30, GEO-02, RAD-19, REC-07, TST-34)") {
+TEST_CASE("TST-10 simulator walk test: clicked segments give points at the interpolated positions with the levels the multi-wall model predicts; the recorded walk replays to the same points and statistics and loads into the viewer (IND-20, IND-30, GEO-02, RAD-19, REC-07, TST-34, PP-01)") {
     const fs::path dir = scratch_dir("walk");
     std::string floor_id;
     auto project = office(dir / "live.yantra", floor_id);
@@ -328,5 +329,49 @@ TEST_CASE("TST-10 simulator walk test: clicked segments give points at the inter
         CHECK(stored_back[i] == stored[i]);
     }
     CHECK(replayed->session(again->session_id())->walk_mode == "continuous");
+
+    // PP-01: the recording loaded into the viewer (a project of its own):
+    // the same points, a session tagged with the recording, the files
+    // listed; loading it again is refused (no doubled points).
+    std::string floor3;
+    auto viewed = office(dir / "viewer.yantra", floor3);
+    REQUIRE(floor3 == floor_id);
+    ys::ImportOptions io;
+    io.replay.catalog = sim.rig.catalog;
+    std::vector<fs::path> reversed(files.rbegin(), files.rend());  // any order: sorted by file number
+    const auto imported = ys::import_recordings(viewed, reversed, io);
+    REQUIRE(imported.size() == 1);
+    CHECK(imported[0].recording_session == recording_session);
+    CHECK(imported[0].files == files);
+    CHECK(imported[0].mismatches == 0);
+    CHECK(imported[0].points == live.count());
+    CHECK(imported[0].recording_ids.size() == files.size());
+    CHECK(viewed->recordings().size() == files.size());
+    REQUIRE(imported[0].sessions.size() == 1);
+    const auto vs = viewed->session(imported[0].sessions[0]);
+    CHECK(vs->recording_session == recording_session);
+    CHECK(vs->name == "Office walk");
+    CHECK(vs->walk_mode == "continuous");
+    const ys::PointList shown = ys::point_list(*viewed, ys::PointQuery{floor_id, {}, drawn_cell(), std::nullopt});
+    CHECK(shown == live);
+    CHECK_THROWS_AS(ys::import_recordings(viewed, files, io), ypj::ProjectError);
+    CHECK(viewed->point_count(floor_id) == live.count());
+    // The hover readout of a point in the middle of the walk: its serving
+    // cell is the drawn cell; every neighbour carrier of its sample is listed.
+    const std::size_t mid = shown.count() / 2;
+    const auto hit = ys::nearest_point(shown.points, shown.points[mid].plan, 0.5);
+    REQUIRE(hit);
+    const ys::PointDetail d = ys::point_detail(*viewed, shown.points[*hit]);
+    CHECK(d.point.plan == shown.points[mid].plan);
+    REQUIRE(d.serving);
+    CHECK(d.serving->frequency_hz == kCarrier);
+    CHECK(d.serving->cell.find("la=100") != std::string::npos);
+    REQUIRE(d.strongest);
+    CHECK(d.strongest->level >= d.serving->level);
+    const json sample = json::parse(viewed->point(shown.points[*hit].session_id, shown.points[*hit].sequence)->sample);
+    std::size_t neighbours = 0;
+    for (const json& c : sample["carriers"])
+        neighbours += c["role"] == "neighbour" || c["role"] == "neighbour_entry" ? 1 : 0;
+    CHECK(d.neighbours.size() == neighbours);
     fs::remove_all(dir);
 }
