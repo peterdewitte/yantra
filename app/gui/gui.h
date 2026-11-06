@@ -15,6 +15,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include "plan_canvas.h"
 #include "plan_import_view.h"
@@ -53,6 +54,25 @@ public:
         bool progress = false;          ///< an interpolation progress bar in the panel
     };
     const ToolOverlay& tool_overlay() const { return overlay_; }
+    /// What the survey panels and the status bar drew in the last frame (tests).
+    struct SurveyOverlay {
+        bool panels = false;              ///< the panels under the plan are shown
+        std::string tab;                  ///< "cells", "graphs", "scanner", "events", "stats"
+        std::string serving;              ///< the serving cell line ("" none)
+        std::vector<std::string> large;   ///< UI-01 large values, "label value"
+        std::size_t neighbour_rows = 0;
+        std::size_t listed_only_rows = 0;
+        std::size_t scan_rows = 0;
+        std::size_t event_rows = 0;
+        std::size_t graph_samples = 0;    ///< history samples drawn
+        std::size_t graph_traces = 0;     ///< cells drawn
+        std::size_t threshold_lines = 0;
+        bool cursor = false;              ///< the graphs show a cursor
+        bool interference_banner = false; ///< NFR-07 warning shown
+        std::string stats;                ///< the statistics panel's first line
+        AppState::StatusBar status;       ///< UI-08
+    };
+    const SurveyOverlay& survey_overlay() const { return survey_; }
 
 private:
     void draw_menu_bar();
@@ -80,6 +100,17 @@ private:
     void draw_antenna_dialog();
     void draw_materials_dialog();
     void draw_propagation_dialog();
+    // Survey panels, recording and replay (survey_view.cpp, step 9.5).
+    void draw_survey_section();
+    void draw_recording_controls(LiveSurvey& live);
+    void draw_replay_controls();
+    void draw_survey_panels(float height);
+    void draw_cells_panel(const SurveyFrame& f);
+    void draw_graphs_panel();
+    void draw_scanner_panel(const SurveyFrame& f);
+    void draw_events_panel();
+    void draw_stats_panel();
+    void draw_status_items();
     void run(Action a);
 
     AppState& state_;
@@ -92,6 +123,20 @@ private:
     bool material_editing_ = false;  // the materials dialog shows its form
     std::string new_cell_name_;
     double new_cell_mhz_ = 0.0;
+    // Survey panels (step 9.5).
+    SurveyOverlay survey_;
+    bool panels_ = false;          // the panels under the plan
+    bool panels_auto_ = true;      // shown by themselves when a radio or replay starts
+    bool was_active_ = false;
+    std::string marker_label_;
+    std::string ring_name_;
+    std::string cut_name_;
+    int replay_pick_ = -1;
+    double replay_speed_ = 1.0;
+    bool graph_level_ = true, graph_c1_ = true, graph_quality_ = true;
+    std::vector<std::string> threshold_on_;  // threshold lines shown (field names)
+    PlotData plot_;                          // copied when the monitor's version changes
+    std::uint64_t plot_version_ = ~0ull;
 };
 
 /// The ImGui popup id of a dialog ("New indoor project###dlg.new_project").

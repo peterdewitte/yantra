@@ -15,6 +15,7 @@
 #include <chrono>
 #include <cmath>
 #include <filesystem>
+#include <functional>
 #include <string>
 #include <thread>
 
@@ -119,4 +120,146 @@ TEST_CASE("DEMO-14 in the app: the mouse survey with the simulator, move slowly,
     CHECK_FALSE(state.live()->running());
     CHECK(state.project()->points(session).size() >= 5);
     CHECK(ui.has("walk.start"));
+}
+
+TEST_CASE("UI-01..04, UI-08, UI-11, REC-01, REC-05, REC-07, REC-08, REC-11 in the app: panels, graphs, status bar, recording and replay") {
+    const fs::path sim = fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator.so";
+    if (!fs::exists(sim) || !fs::exists(YANTRA_TEST_DEMO_PROJECT)) return;
+    const fs::path d = fs::path(YANTRA_TEST_SCRATCH_DIR) / "survey_ui";
+    fs::remove_all(d);
+    fs::create_directories(d / "radios");
+    fs::copy_file(sim, d / "radios" / "simulator.so");
+    fs::copy_file(YANTRA_TEST_DEMO_PROJECT, d / "demo.yantra");
+    AppPaths paths;
+    paths.radios.plugin_folders = {YANTRA_TEST_TECH_PLUGIN_DIR};
+    paths.radios.radio_folders = {d / "radios"};
+    paths.interpolation_threads = 2;
+
+    UiHarness ui;
+    AppState state(AppSettings{}, paths);
+    ImGui::SetCurrentContext(ui.context());
+    Gui::apply_style();
+    Gui gui(state);
+    ui.set_draw([&] { gui.draw(); });
+    ui.set_display_size(1400.0F, 1000.0F);
+    REQUIRE(ui.frames(3));
+    REQUIRE(state.open_project(d / "demo.yantra").ok);
+    const bm::Building b = state.project()->building();
+    std::string floor;
+    for (const bm::Floor& f : b.floors)
+        if (b.has_scale(f) && !f.antennas.empty() && floor.empty()) floor = f.id;
+    REQUIRE(state.project_window()->select(floor));
+    REQUIRE(ui.frames(3));
+    // UI-08: the status bar has the radio, recording, disk and power items.
+    CHECK(gui.survey_overlay().status.radio == "Radio: not searched");
+    CHECK(gui.survey_overlay().status.recording == "Monitoring (no file)");
+    CHECK(gui.survey_overlay().status.disk.rfind("Free", 0) == 0);
+    CHECK_FALSE(gui.survey_overlay().status.power.empty());
+
+    // Another page first: the Survey tab is reached from any of them.
+    REQUIRE(ui.click("panel.map"));
+    REQUIRE(ui.frames(2));
+    REQUIRE(ui.click("panel.survey"));
+    REQUIRE(ui.frames(2));
+    REQUIRE(ui.click("survey.find_radios"));
+    REQUIRE(ui.frames(2));
+    REQUIRE(ui.has("survey.radio_start"));
+    REQUIRE(ui.find("rec.record")->disabled);  // no radio measuring yet
+    REQUIRE(ui.click("survey.radio_start"));
+    REQUIRE(ui.frames(2));
+    REQUIRE_MESSAGE(state.live()->radio_running(), state.status());
+    // The panels open by themselves; the serving cell and its large values come.
+    const double deadline = 20.0 * YANTRA_TEST_TIME_SCALE;
+    const auto until = [&](const std::function<bool()>& done) {
+        const auto end = std::chrono::steady_clock::now() + std::chrono::duration<double>(deadline);
+        while (!done()) {
+            if (std::chrono::steady_clock::now() > end) return false;
+            if (!ui.frame()) return false;
+            std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        }
+        return true;
+    };
+    REQUIRE(until([&] { return gui.survey_overlay().panels && !gui.survey_overlay().serving.empty(); }));
+    CHECK(gui.survey_overlay().tab == "cells");
+    REQUIRE_FALSE(gui.survey_overlay().large.empty());
+    CHECK(gui.survey_overlay().large.front().find("Level ") == 0);
+    CHECK(gui.survey_overlay().status.radio.find("measuring") != std::string::npos);
+
+    // Recording with a name and a marker (REC-01, REC-05); Exit is refused (REC-11).
+    REQUIRE(ui.fill("rec.name", "Ui_walk"));
+    REQUIRE(ui.frames(1));
+    REQUIRE(ui.click("rec.record"));
+    REQUIRE(ui.frames(2));
+    REQUIRE_MESSAGE(state.live()->recording(), state.status());
+    CHECK(gui.survey_overlay().status.recording_active);
+    CHECK(gui.survey_overlay().status.recording.find("Ui_walk") != std::string::npos);
+    CHECK_FALSE(state.action(Action::Exit).enabled);
+    CHECK_FALSE(state.request_exit().ok);
+    CHECK(ui.find("rec.voice")->disabled);  // the default copy has no sound device
+    REQUIRE(ui.find("survey.radio_stop")->disabled);
+    const std::uint64_t c0 = state.live()->cycles();
+    REQUIRE(until([&] { return state.live()->cycles() >= c0 + 3; }));
+    REQUIRE(ui.click("rec.marker"));
+    REQUIRE(ui.frames(1));
+    CHECK(state.status() == "Marker 1.");
+    REQUIRE(until([&] { return state.live()->cycles() >= c0 + 5; }));
+
+    // UI-04: the graphs; a click sets the cursor and the cells follow it.
+    REQUIRE(ui.click("survey.graphs"));
+    REQUIRE(until([&] { return gui.survey_overlay().graph_samples >= 3; }));
+    CHECK(gui.survey_overlay().graph_traces >= 1);
+    const auto plot = ui.find("graph.level_plot");
+    REQUIRE(plot);
+    ui.click_at(plot->x0 + (plot->x1 - plot->x0) * 0.98F, plot->cy());
+    REQUIRE(ui.frames(2));
+    CHECK(state.monitor()->cursor());
+    CHECK(gui.survey_overlay().cursor);
+    REQUIRE(ui.click("graph.live"));
+    REQUIRE(ui.frames(1));
+    CHECK_FALSE(state.monitor()->cursor());
+    REQUIRE(ui.click("survey.events"));
+    REQUIRE(ui.frames(2));
+    CHECK(gui.survey_overlay().event_rows >= 2);  // radio started, recording started, marker
+    REQUIRE(ui.click("survey.stats"));
+    REQUIRE(ui.frames(2));
+    CHECK(gui.survey_overlay().stats.find("% of the measurements") != std::string::npos);
+    REQUIRE(ui.click("survey.scanner"));
+    REQUIRE(ui.frames(2));
+    CHECK(gui.survey_overlay().tab == "scanner");
+
+    REQUIRE(ui.click("rec.stop"));
+    REQUIRE(ui.frames(2));
+    CHECK_FALSE(state.live()->recording());
+    CHECK(state.action(Action::Exit).enabled);
+    CHECK(fs::exists(d / "recordings" / "Ui_walk_0000.yrec"));
+
+    // Replay (REC-07): choose, open (the radio stops), play to the end, cut (REC-08).
+    REQUIRE(ui.click("replay.item.0"));
+    REQUIRE(ui.frames(1));
+    REQUIRE(ui.click("replay.open"));
+    REQUIRE(ui.frames(2));
+    REQUIRE_MESSAGE(state.replay()->is_open(), state.status());
+    CHECK_FALSE(state.live()->radio_running());
+    CHECK(gui.survey_overlay().status.radio == "Replay: Ui_walk");
+    REQUIRE(ui.click("survey.graphs"));
+    REQUIRE(ui.frames(2));
+    CHECK(gui.survey_overlay().graph_samples >= 5);
+    CHECK(gui.survey_overlay().cursor);
+    const auto rplot = ui.find("graph.level_plot");
+    REQUIRE(rplot);
+    ui.click_at(rplot->cx(), rplot->cy());  // seek to the middle
+    REQUIRE(state.replay()->wait([](auto, auto t) { return t > 0; }, static_cast<int>(deadline * 1000)));
+    REQUIRE(ui.fill("replay.cut_name", "Ui_head"));
+    REQUIRE(ui.frames(1));
+    REQUIRE(ui.click("replay.cut_head"));
+    REQUIRE(ui.frames(1));
+    INFO(state.status());
+    CHECK(fs::exists(d / "recordings" / "Ui_head_0000.yrec"));
+    REQUIRE(ui.click("replay.play"));
+    REQUIRE(ui.frames(1));
+    REQUIRE(state.replay()->wait([](auto s, auto) { return s != yantra::recording::ReplayPlayer::State::Playing; },
+                                 static_cast<int>(deadline * 4000)));
+    REQUIRE(ui.click("replay.close"));
+    REQUIRE(ui.frames(2));
+    CHECK_FALSE(state.replay()->is_open());
 }

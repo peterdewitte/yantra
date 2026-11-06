@@ -271,6 +271,9 @@ public:
     /// Opens a recording for replay: the live radio stops first (refused
     /// while a walk test or a recording runs).
     Result open_replay(const RecordingChoice& recording);
+    /// The window's close button (REC-11): refused while a recording runs
+    /// (the status line says why); ok = close now.
+    Result request_exit();
     Result close_replay();
     /// UI-08: disk space where recordings go and the power state (read at
     /// most every 2 s; `now_s` is the UI clock).

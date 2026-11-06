@@ -247,6 +247,17 @@ void Gui::draw_project_screen() {
     if (ImGui::Button("-###plan.zoom_out")) canvas_->zoom(0.8);
     text_tooltip("Zoom out [mouse wheel]");
     ImGui::SameLine();
+    // The survey panels under the plan (step 9.5): shown by themselves when
+    // a radio or a replay starts, until the user hides them.
+    {
+        const bool active = (state_.live() != nullptr && state_.live()->radio_running()) ||
+                            (state_.replay() != nullptr && state_.replay()->is_open());
+        if (active && !was_active_ && panels_auto_) panels_ = true;
+        was_active_ = active;
+        if (ImGui::Checkbox("Panels###survey.panels", &panels_)) panels_auto_ = false;
+        text_tooltip("Show the survey panels under the plan: cells, graphs, scanner, events, statistics.");
+    }
+    ImGui::SameLine();
     ImGui::TextDisabled("%s", state_.floor_editor() && state_.floor_editor()->wants_left_button()
                                   ? "Middle or right drag pans, wheel zooms"
                                   : "Drag to pan, wheel to zoom");
@@ -257,7 +268,8 @@ void Gui::draw_project_screen() {
     ImGui::BeginChild("###layers", ImVec2(panel, avail.y), ImGuiChildFlags_Borders);
     // The side panel's pages: the layers (9.2) and the tools (9.4).
     overlay_.progress = false;
-    if (ImGui::BeginTabBar("###panel.tabs")) {
+    // Shrink, never scroll: every page's tab stays in view on a narrow panel.
+    if (ImGui::BeginTabBar("###panel.tabs", ImGuiTabBarFlags_FittingPolicyShrink)) {
         if (ImGui::BeginTabItem("Layers###panel.layers")) {
             draw_layer_panel(*w, c);
             ImGui::EndTabItem();
@@ -274,12 +286,18 @@ void Gui::draw_project_screen() {
             draw_interpolation_section(c);
             ImGui::EndTabItem();
         }
+        if (ImGui::BeginTabItem("Survey###panel.survey")) {
+            draw_survey_section();
+            ImGui::EndTabItem();
+        }
         ImGui::EndTabBar();
     }
     ImGui::EndChild();
     ImGui::SameLine();
-    ImGui::BeginChild("###plan", ImVec2(0.0F, avail.y), ImGuiChildFlags_None,
-                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    ImGui::BeginGroup();
+    const float panels_h = panels_ ? std::clamp(avail.y * 0.42F, 160.0F, 420.0F) : 0.0F;
+    ImGui::BeginChild("###plan", ImVec2(0.0F, avail.y - panels_h - (panels_ ? ImGui::GetStyle().ItemSpacing.y : 0.0F)),
+                      ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     // The layer panel may have changed the content (another map chosen).
     c = w->content(state_.settings().layers.bin_size_m);
     if (c != nullptr) {
@@ -291,6 +309,8 @@ void Gui::draw_project_screen() {
         handle_canvas_input();
     }
     ImGui::EndChild();
+    if (panels_) draw_survey_panels(panels_h);
+    ImGui::EndGroup();
 }
 
 void Gui::draw_floor_tabs(ProjectWindow& w) {
@@ -415,6 +435,7 @@ void Gui::draw_status_bar() {
             ImGui::TextColored(kErrorColour, "%s", s.c_str());
         else
             ImGui::TextUnformatted(s.empty() ? "Ready" : s.c_str());
+        draw_status_items();
     }
     ImGui::End();
 }
@@ -754,6 +775,7 @@ void Gui::draw_dialogs() {
 }
 
 void Gui::draw() {
+    survey_ = SurveyOverlay{};
     UserTexture::collect();
     state_.tick();
     handle_shortcuts();

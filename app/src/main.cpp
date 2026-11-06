@@ -15,12 +15,14 @@
 #include <stb_image_write.h>
 
 #include <cstdio>
+#include <cstdlib>
 #include <exception>
 #include <filesystem>
 #include <string>
 #include <vector>
 
 #include "gui.h"
+#include "miniaudio_io.h"
 #include "yantra/app/app_icon.h"
 #include "yantra/app/app_state.h"
 #include "yantra/app/cli.h"
@@ -130,6 +132,12 @@ int main(int argc, char** argv) {
         paths.radios.plugin_folders = pf.plugins;
         paths.radios.radio_folders = pf.radios;
         paths.radios.calibration_table = yantra::calibration::default_table_path();
+        // REC-09: the ring buffer's temporary files in the user's cache folder.
+        if (!screenshot) {
+            const char* cache = std::getenv("XDG_CACHE_HOME");
+            if (cache != nullptr && fs::path(cache).is_absolute()) paths.radios.ring_folder = fs::path(cache) / "yantra" / "ring";
+            else if (!paths.home.empty()) paths.radios.ring_folder = paths.home / ".cache" / "yantra" / "ring";
+        }
     }
 
     // Window system (NFR-10).
@@ -175,6 +183,8 @@ int main(int argc, char** argv) {
     int rc = 0;
     {
         app::AppState state(settings, paths);
+        // REC-06: voice notes through miniaudio (none for a screenshot).
+        if (!screenshot) state.set_audio(app::make_miniaudio_io());
         if (cli.project) {
             const app::Result r = state.open_project(*cli.project);
             if (!r.ok) std::fprintf(stderr, "yantra: %s\n", r.message.c_str());
@@ -198,7 +208,12 @@ int main(int argc, char** argv) {
         const int capture_frame = 5;
         for (int frame = 1;; ++frame) {
             glfwPollEvents();
-            if (glfwWindowShouldClose(window) != 0 || state.quit_requested()) break;
+            if (glfwWindowShouldClose(window) != 0) {
+                // REC-11: no accidental exit while recording.
+                if (state.request_exit().ok) break;
+                glfwSetWindowShouldClose(window, GLFW_FALSE);
+            }
+            if (state.quit_requested()) break;
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
             // A screenshot advances a fixed time per frame, so popups have

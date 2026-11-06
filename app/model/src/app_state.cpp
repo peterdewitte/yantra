@@ -287,7 +287,10 @@ Result AppState::trigger(Action a) {
     case Action::CloseProject: return close_project();
     case Action::About:
     case Action::HelpAbout: dialog_ = Dialog::About; return Result{};
-    case Action::Exit: quit_ = true; return Result{};
+    case Action::Exit:
+        if (const Result r = request_exit(); !r.ok) return r;
+        quit_ = true;
+        return Result{};
     default: break;
     }
     return fail(v.label + ": not available");
@@ -921,6 +924,12 @@ Result AppState::open_replay(const RecordingChoice& recording) {
     if (live_->radio_running()) (void)live_->stop_radio();
     replay_->set_catalog(live_->catalog());
     return show(replay_->open(recording));
+}
+
+Result AppState::request_exit() {
+    if (live_ && live_->exit_guard())
+        return fail("A recording is running: stop it first (Survey > Recording), then close Yantra.");
+    return {};
 }
 
 Result AppState::close_replay() {
