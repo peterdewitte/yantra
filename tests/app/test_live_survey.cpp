@@ -37,6 +37,10 @@ fs::path scratch(const std::string& name) {
     return d;
 }
 
+/// The longest wait for the simulator (seconds; the sanitizer trees run
+/// it several times slower).
+constexpr double kDeadline = 20.0 * YANTRA_TEST_TIME_SCALE;
+
 /// Polls `done` until it holds or `seconds` pass (an observable condition,
 /// not a fixed sleep); `step` runs between polls (e.g. the cursor moving).
 bool wait_for(const std::function<bool()>& done, double seconds, const std::function<void()>& step = {}) {
@@ -133,10 +137,12 @@ TEST_CASE("DEMO-14: the mouse survey stores points where the simulator measured,
     const auto clock0 = std::chrono::steady_clock::now();
     auto step = [&] {
         t = std::chrono::duration<double>(std::chrono::steady_clock::now() - clock0).count();
-        fx = std::min(0.70, 0.30 + 0.02 * t);
+        // Back and forth between 0.3 and 0.7 of the width (never parks).
+        const double u = std::fmod(0.02 * t, 0.8);
+        fx = 0.30 + (u < 0.4 ? u : 0.8 - u);
         live.cursor(at(f, fx, 0.5), t);
     };
-    REQUIRE(wait_for([&] { return live.view().points >= 6; }, 20.0, step));
+    REQUIRE(wait_for([&] { return live.view().points >= 6; }, kDeadline, step));
     v = live.view();
     CHECK(v.speed_mps < live.form().max_speed_mps);
     CHECK_FALSE(v.too_fast);
@@ -195,7 +201,7 @@ TEST_CASE("GEO-02, GEO-05: a point-and-click walk and manual points with the sim
     REQUIRE(live.click(at(f, 0.3, 0.5)).ok);
     REQUIRE(live.view().open_start);
     const std::uint64_t c0 = live.cycles();
-    REQUIRE(wait_for([&] { return live.cycles() >= c0 + 3; }, 20.0));
+    REQUIRE(wait_for([&] { return live.cycles() >= c0 + 3; }, kDeadline));
     const Result end = live.click(at(f, 0.6, 0.5));
     CHECK(end.message == "Segment 1 ended.");
     v = live.view();
@@ -222,7 +228,7 @@ TEST_CASE("GEO-02, GEO-05: a point-and-click walk and manual points with the sim
     REQUIRE(live.start(r.floor).ok);
     REQUIRE(live.click(at(f, 0.4, 0.4)).ok);
     CHECK(live.view().manual_point);
-    REQUIRE(wait_for([&] { return live.view().points >= 1; }, 20.0));
+    REQUIRE(wait_for([&] { return live.view().points >= 1; }, kDeadline));
     const std::int64_t manual = live.view().session;
     REQUIRE(live.stop().ok);
     const auto pts = r.project->points(manual);

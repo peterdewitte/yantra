@@ -13,6 +13,7 @@
 #include <imgui.h>
 
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <string>
 #include <thread>
@@ -77,10 +78,13 @@ TEST_CASE("DEMO-14 in the app: the mouse survey with the simulator, move slowly,
 
     // Move the mouse slowly along the middle of the plan until points come.
     const std::size_t drawn0 = gui.canvas().stats().points;
-    double fx = 0.30;
-    const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+    // Back and forth between 0.3 and 0.7 of the width (never parks); the
+    // deadline grows in the sanitizer trees.
+    double u = 0.0;
+    const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(30 * YANTRA_TEST_TIME_SCALE);
     while (state.live()->view().points < 5 && std::chrono::steady_clock::now() < end) {
-        fx = std::min(0.70, fx + 0.0005);
+        u = std::fmod(u + 0.0005, 0.8);
+        const double fx = 0.30 + (u < 0.4 ? u : 0.8 - u);
         const ImVec2 p = gui.canvas().screen_of({f.plan_width * fx, f.plan_height * 0.5});
         ui.mouse_move(p.x, p.y);
         REQUIRE(ui.frame());
