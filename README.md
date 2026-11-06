@@ -57,7 +57,7 @@ and how: [DEVICES.md](DEVICES.md) (none on real hardware yet).
 
 ## Status
 
-Release 0.2.5 (2026-11-06, tag v0.2.5; [CHANGELOG.md](CHANGELOG.md)): the simulator's records keep the host's time when the computer simulates slower than real time.
+Release 0.2.6 (2026-11-06, tag v0.2.6; [CHANGELOG.md](CHANGELOG.md)): the simulator stamps a slowly simulated record with the time its position was taken again (0.2.5 taken back).
 Linux x86-64 is built and tested; Linux arm64 is in the nightly CI; the
 Windows build (MSYS2 UCRT64, `.dll`) is written and not yet run. The
 screenshots of the radio windows Yantra generates from the plugins'

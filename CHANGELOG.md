@@ -30,6 +30,37 @@ marked:
 Record file (RAD-65) and scene JSON (RAD-36) versions are listed here as
 well; they change independently of the radio API version.
 
+## [0.2.6] - 2026-11-06
+
+A patch release (tag v0.2.6, RAD-98) that takes back the simulator
+change of 0.2.5. No API or format change: radio API 1.0, record files 1,
+scene JSON 1.1 and scenario files 1 as in 0.2.0.
+
+### Radio API
+
+- **Radio API 1.0**: no change.
+
+### Fixed
+
+- Simulator plugin 0.2.4 (RAD-61, RAD-19, RAD-27): 0.2.5 stamped the
+  records of a slowly simulated interval near the interval's end, but
+  their levels are calculated for the position read at its start
+  (sim_position): a record claimed a later time than its position's, and
+  Yantra's walk test saw the simulated position lag the walker by more
+  than the record's age allows. The time base moves with the lag only at
+  the interval start again (as in 0.2.4): on a computer slower than real
+  time the records arrive late, by up to an interval's processing time,
+  and the host flags them late.
+
+### Tests
+
+- The 0.2.5 test (records reach the host soon after their time) is
+  replaced by "simulator: slower than real time, a record's time is when
+  its position was taken": at ten times real time the cursor jumps
+  between two points after every second record, and every record's time
+  lies within the cursor's stay at its own position. It fails with the
+  0.2.5 simulator.
+
 ## [0.2.5] - 2026-11-06
 
 A patch release (tag v0.2.5, RAD-98): the simulator's records keep the
