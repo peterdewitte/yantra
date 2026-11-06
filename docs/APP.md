@@ -16,6 +16,7 @@ decoder code (PLG-01).
 | `yantra_app_model` | `app/model` | core only | everything a test needs: `AppState` (screens, actions, dialogs and their forms, commands, status line), command line, settings, window-system choice (NFR-10), data folders, the application icon, the in-app file browser |
 | `yantra_imgui` | `third_party/imgui` + `app/gui/ui_probe.cpp` | nothing | Dear ImGui core, built with `IMGUI_ENABLE_TEST_ENGINE`; `UiProbe` implements the item hooks |
 | `yantra_app_gui` | `app/gui` | an ImGui context | `Gui`: draws what `AppState` returns and calls its commands, no logic of its own |
+| `yantra_audio` | `app/audio` + `third_party/miniaudio` | a sound back-end at run time (loaded by miniaudio) | `make_miniaudio_io()`: the `AudioIo` for voice notes (REC-06); a null back-end for tests |
 | `yantra_imgui_backends` | `third_party/imgui/backends` | GLFW, OpenGL | Dear ImGui's GLFW and OpenGL 3 backends |
 | `yantra` | `app/src/main.cpp` | all of the above | window, GL context (3.1, `#version 140`), main loop, window icon, `--screenshot`, `--frames` |
 
@@ -260,6 +261,83 @@ Tests: `test_app` (`test_floor_editor.cpp`, `test_interpolation_runner.cpp`),
 tree in a radio folder of its own, on a copy of the Fraunces demo; real
 time, waits on conditions with a deadline; one ctest per case). Combo
 boxes have no probe label: tests set their value through the model.
+
+## Survey panels, recording and replay (step 9.5)
+
+One model feeds every survey panel: `SurveyMonitor`
+(`app/model/survey_monitor.h`), a `MeasurementObserver` that `AppState`
+owns (`monitor()`) and gives to the live radio and to the replay. It keeps
+the frame the panels show (newest cycle, the cycle at the live graph
+cursor `set_cursor()`, or the replay's cycle `show_cycle()`), the graphs'
+history (serving + up to 31 neighbours, level, C1, the serving cell's
+first quality value; cell names and colours from the project's cell
+database by its match fields, else a 12-colour palette), the event list,
+the statistics (UI-11; coverage threshold `survey.threshold`) and the
+NFR-07 self-interference warning (core `measure/self_interference.h`).
+Rows hold the technology schema's fields as text (PLG-01); threshold
+lines are the serving record's SYSTEM_INFO fields in dBm (level graph)
+or dB (C1 graph).
+
+Panels (`Gui::draw_survey_panels`, under the plan; `survey.panels`
+shows or hides them, they open by themselves when a radio or a replay
+starts): tabs `survey.cells` (UI-01 large values, UI-02 serving cell and
+broadcast parameters, UI-03 neighbours: listed and received, received
+only, listed only in different colours), `survey.graphs` (UI-04:
+`graph.level|c1|quality`, threshold lines `graph.th.<field>`; a click
+or drag on `graph.level_plot` etc. sets the cursor: live
+`SurveyMonitor::set_cursor`, replay `ReplaySession::seek_mono`;
+`graph.live` follows the newest again), `survey.scanner` (scan channels
+and other carriers by frequency), `survey.events` (newest first),
+`survey.stats`. The NFR-07 warning is a line above the tabs and an item
+of the status bar.
+
+Side panel page `panel.survey` (`draw_survey_section`):
+
+- radio: `survey.find_radios`, `survey.radio_start` /
+  `survey.radio_stop` (monitoring without a walk:
+  `LiveSurvey::start_radio()`; the Walk page still chooses the radio);
+- recording (`LiveSurvey`, core `recording::Recorder`, files in
+  `<project folder>/recordings/`, listed in the project when they stop):
+  `rec.name`, `rec.notes`, `rec.split` (minutes), `rec.compress`,
+  `rec.record`, `rec.quick`, `rec.stop`, `rec.marker_label`,
+  `rec.marker`, `rec.new_file`, `rec.new_file_pause`, `rec.resume`,
+  `rec.voice` / `rec.voice_stop` (REC-06: through `AppState::
+  set_audio()`; main() gives `make_miniaudio_io()`, tests `FakeAudio`;
+  the WAV goes next to the recording file). A walk test always has a
+  recording file (REC-03): it records into the running recording or
+  starts one named after the walk (`_2`, `_3` ... when the name is in
+  use) and stops it at the end; its session links to the recording
+  session id. The period cannot change while recording (walk 1 s, mouse
+  survey 0.2 s). REC-11: Exit, Close project and the window's close
+  button are refused while recording (`AppState::request_exit()`).
+- ring buffer (REC-09): `rec.ring`, `rec.ring_minutes` (2..60, files of
+  one minute in `RadioPaths::ring_folder`, main(): `$XDG_CACHE_HOME/
+  yantra/ring` or `~/.cache/yantra/ring`; old ring files there go when it
+  starts); `rec.ring_name` + `rec.ring_save` cut the kept files into a
+  recording of the project (core `recording/cut.h`).
+- replay (`ReplaySession`, `AppState::open_replay()`; the live radio
+  stops first): `replay.item.<n>` + `replay.open`; one pass over the
+  whole recording fills the graphs, events and statistics, then the
+  monitor's history is frozen and the core `ReplayPlayer` only moves the
+  frame. `replay.play|pause|stop|again`, `replay.speed` (0 = as fast as
+  possible), `replay.position`, `replay.marker.<t>` (seek), voice notes
+  are played at their instant (`ReplaySession::tick()` from
+  `AppState::tick()`), `replay.cut_name` + `replay.cut_head` /
+  `replay.cut_tail` (REC-08: start to cursor, cursor to end, listed in
+  the project), `replay.close`.
+
+Status bar (UI-08, `AppState::status_bar()`): the last message, then
+radio state (or the replay), recording state, records dropped (when
+any), self-interference, free disk space where the project is and the
+battery or mains (`read_system_status()`: `/sys/class/power_supply`,
+read at most every 2 s); warnings in amber.
+
+Tests: `test_app` (`test_survey_monitor.cpp`: synthetic cycles, graph
+arithmetic, power-supply folder, `FakeAudio`, miniaudio's null back-end),
+`test_app_live` (`test_live_survey.cpp`: monitoring, recording with a
+marker and a voice note, replay and cut, the walk's recording file, the
+ring buffer; `test_live_ui.cpp`: the panels, graphs and cursor, status
+bar, recording and replay driven through the harness).
 
 ## Headless UI tests (tests/app/harness)
 
