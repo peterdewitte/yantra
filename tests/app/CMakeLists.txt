@@ -55,8 +55,9 @@ set_tests_properties(test_app_ui PROPERTIES LABELS "fast;app" TIMEOUT ${_app_tim
 
 # The walk-test view with the simulator (step 9.4): real time, one ctest
 # per case; the technology plugins and the simulator of the build tree.
-add_executable(test_app_live test_live_survey.cpp)
-target_link_libraries(test_app_live PRIVATE yantra_test_main yantra_warnings yantra::app_model yantra::core)
+add_executable(test_app_live test_live_survey.cpp test_live_ui.cpp)
+target_link_libraries(test_app_live PRIVATE yantra_test_main yantra_warnings yantra_ui_harness yantra::app_gui
+                                            yantra::app_model yantra::core)
 target_compile_definitions(test_app_live PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scratch}/test_app_live"
                                                  YANTRA_TEST_TECH_PLUGIN_DIR="${PROJECT_BINARY_DIR}/lib/yantra/plugins"
                                                  YANTRA_TEST_RADIO_PLUGIN_DIR="${YANTRA_RADIO_PLUGIN_DIR}")

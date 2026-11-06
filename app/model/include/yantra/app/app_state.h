@@ -109,6 +109,9 @@ enum class Dialog {
     About,       ///< name, version, licence, links (UI-15; logos, credits, plugins in 9.7)
     FloorProperties,  ///< rename a floor, its level and height (IND-04)
     RemoveFloor,      ///< the confirmation before a floor is removed (IND-04)
+    AntennaProperties,  ///< the selected antenna's properties (IND-12): floor_editor()->antenna_form()
+    Materials,          ///< the wall-class table (IND-11): floor_editor()->materials()
+    Propagation,        ///< the ray-tracing settings (IND-40, IND-44): interpolation()->settings_form()
 };
 
 /// What the file browser was opened for.
@@ -291,6 +294,14 @@ public:
     Result set_bin_size(double size_m);
 
     // -- editing, walk test, interpolation (IND-11, IND-12, IND-20, IND-41..45) --
+    /// Opens the antenna properties of the selected antenna, the wall-class
+    /// table or the propagation settings (their dialogs).
+    Result edit_antenna();
+    Result edit_materials();
+    Result edit_propagation();
+    /// Applies the open dialog's form (antenna, propagation) and closes it on success.
+    Result confirm_antenna();
+    Result confirm_propagation();
     /// Runs the interpolation of the selected floor (again with the shown
     /// map's request when `again`, e.g. a stale map).
     Result run_interpolation(bool again);

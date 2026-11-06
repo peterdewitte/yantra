@@ -44,6 +44,15 @@ public:
     const PlanCanvas& canvas() const { return *canvas_; }
     /// The plan import window's view (tests: what it drew).
     const PlanImportView& import_view() const { return import_view_; }
+    /// What the editing and walk-test overlay drew in the last frame (tests).
+    struct ToolOverlay {
+        std::size_t draft_corners = 0;  ///< corners of the wall being drawn
+        bool selection = false;         ///< the selection outline
+        std::string hint;               ///< the walk-test hint on the plan (DEMO-14)
+        bool move_slower = false;       ///< the DEMO-14 warning
+        bool progress = false;          ///< an interpolation progress bar in the panel
+    };
+    const ToolOverlay& tool_overlay() const { return overlay_; }
 
 private:
     void draw_menu_bar();
@@ -62,6 +71,15 @@ private:
     void draw_add_floor();
     void draw_plan_import();
     void draw_about();
+    // Editing, walk test and interpolation (gui_tools.cpp, step 9.4).
+    void draw_edit_section();
+    void draw_walk_section(const FloorContent* c);
+    void draw_interpolation_section(const FloorContent* c);
+    void draw_plan_overlay(ImDrawList* dl);
+    void handle_canvas_input();
+    void draw_antenna_dialog();
+    void draw_materials_dialog();
+    void draw_propagation_dialog();
     void run(Action a);
 
     AppState& state_;
@@ -70,6 +88,10 @@ private:
     PlanImportView import_view_;
     std::string shown_floor_;  // the floor tab shown last frame
     std::string tab_order_;    // the floor ids of the tabs, in order
+    ToolOverlay overlay_;
+    bool material_editing_ = false;  // the materials dialog shows its form
+    std::string new_cell_name_;
+    double new_cell_mhz_ = 0.0;
 };
 
 /// The ImGui popup id of a dialog ("New indoor project###dlg.new_project").

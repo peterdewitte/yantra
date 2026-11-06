@@ -4,6 +4,7 @@
 // ImGui drawing of the app shell, see gui.h.
 // Copied from yantra-v2 68ea20a: app/src/gui.cpp, adapted.
 #include "gui.h"
+#include "gui_widgets.h"
 
 #include <imgui.h>
 #include <imgui_internal.h>  // ImGuiTabBar::TabsAddedNew (tab order)
@@ -15,73 +16,7 @@
 
 namespace yantra::app {
 
-namespace {
-
-constexpr float kTouchTarget = 48.0F;  // UI-13: >= 48 px targets
-const ImVec4 kBannerColour{0.95F, 0.62F, 0.07F, 1.0F};
-const ImVec4 kErrorColour{1.0F, 0.45F, 0.40F, 1.0F};
-
-/// The hover text of the last item, also when it is disabled (DOC-07 b, c).
-void item_tooltip(const ActionView& a) {
-    if (!ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) return;
-    ImGui::BeginTooltip();
-    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
-    ImGui::TextUnformatted(a.tooltip.c_str());
-    if (!a.enabled) {
-        ImGui::Spacing();
-        ImGui::TextColored(kBannerColour, "%s", a.disabled_reason.c_str());
-    }
-    ImGui::PopTextWrapPos();
-    ImGui::EndTooltip();
-}
-
-void text_tooltip(const char* text) {
-    if (!ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) return;
-    ImGui::BeginTooltip();
-    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
-    ImGui::TextUnformatted(text);
-    ImGui::PopTextWrapPos();
-    ImGui::EndTooltip();
-}
-
-/// A dimmed "(?)" marker with an explanation on hover (DOC-07 a).
-void help_marker(const char* text) {
-    ImGui::SameLine();
-    ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
-        ImGui::BeginTooltip();
-        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
-        ImGui::TextUnformatted(text);
-        ImGui::PopTextWrapPos();
-        ImGui::EndTooltip();
-    }
-}
-
-std::string item_label(const ActionView& a) { return a.label + "###" + a.id; }
-
-/// ImGui::InputText on a std::string (no imgui_stdlib needed).
-bool input_text(const char* label, std::string& s, std::size_t capacity = 1024) {
-    std::string buf = s;
-    buf.resize(std::max(capacity, s.size() + 1), '\0');
-    const bool changed = ImGui::InputText(label, buf.data(), buf.size());
-    if (changed) s = std::string(buf.c_str());
-    return changed;
-}
-
-bool dialog_button(const char* label, const char* tooltip, float width = 140.0F) {
-    const bool pressed = ImGui::Button(label, ImVec2(width, kTouchTarget * 0.8F));
-    text_tooltip(tooltip);
-    return pressed;
-}
-
-void error_line(const AppState& state) {
-    if (!state.status_is_error()) return;
-    ImGui::PushTextWrapPos(0.0F);
-    ImGui::TextColored(kErrorColour, "%s", state.status().c_str());
-    ImGui::PopTextWrapPos();
-}
-
-}  // namespace
+using namespace gui_detail;
 
 const char* dialog_id(Dialog d, const AppState& state) {
     switch (d) {
@@ -99,6 +34,9 @@ const char* dialog_id(Dialog d, const AppState& state) {
     case Dialog::About: return "About Yantra###dlg.about";
     case Dialog::FloorProperties: return "Floor properties###dlg.floor_properties";
     case Dialog::RemoveFloor: return "Remove floor?###dlg.remove_floor";
+    case Dialog::AntennaProperties: return "Antenna properties###dlg.antenna";
+    case Dialog::Materials: return "Wall classes###dlg.materials";
+    case Dialog::Propagation: return "Propagation settings###dlg.propagation";
     case Dialog::None: break;
     }
     return "###dlg.none";
@@ -309,20 +247,49 @@ void Gui::draw_project_screen() {
     if (ImGui::Button("-###plan.zoom_out")) canvas_->zoom(0.8);
     text_tooltip("Zoom out [mouse wheel]");
     ImGui::SameLine();
-    ImGui::TextDisabled("Drag to pan, wheel to zoom");
+    ImGui::TextDisabled("%s", state_.floor_editor() && state_.floor_editor()->wants_left_button()
+                                  ? "Middle or right drag pans, wheel zooms"
+                                  : "Drag to pan, wheel to zoom");
 
     // Layers on the left, the plan on the right (narrower on small windows).
     const ImVec2 avail = ImGui::GetContentRegionAvail();
     const float panel = std::clamp(avail.x * 0.28F, 200.0F, 320.0F);
     ImGui::BeginChild("###layers", ImVec2(panel, avail.y), ImGuiChildFlags_Borders);
-    draw_layer_panel(*w, c);
+    // The side panel's pages: the layers (9.2) and the tools (9.4).
+    overlay_.progress = false;
+    if (ImGui::BeginTabBar("###panel.tabs")) {
+        if (ImGui::BeginTabItem("Layers###panel.layers")) {
+            draw_layer_panel(*w, c);
+            ImGui::EndTabItem();
+        }
+        if (c != nullptr && ImGui::BeginTabItem("Edit###panel.edit")) {
+            draw_edit_section();
+            ImGui::EndTabItem();
+        }
+        if (c != nullptr && ImGui::BeginTabItem("Walk###panel.walk")) {
+            draw_walk_section(c);
+            ImGui::EndTabItem();
+        }
+        if (c != nullptr && ImGui::BeginTabItem("Map###panel.map")) {
+            draw_interpolation_section(c);
+            ImGui::EndTabItem();
+        }
+        ImGui::EndTabBar();
+    }
     ImGui::EndChild();
     ImGui::SameLine();
     ImGui::BeginChild("###plan", ImVec2(0.0F, avail.y), ImGuiChildFlags_None,
                       ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     // The layer panel may have changed the content (another map chosen).
     c = w->content(state_.settings().layers.bin_size_m);
-    if (c != nullptr) canvas_->draw(*w, *c, state_.settings().layers, ImGui::GetContentRegionAvail());
+    if (c != nullptr) {
+        const bool walking = state_.live() != nullptr && state_.live()->running();
+        const bool editing = state_.floor_editor() != nullptr && state_.floor_editor()->wants_left_button();
+        canvas_->set_left_pans(!walking && !editing);
+        canvas_->set_overlay([this](ImDrawList* dl) { draw_plan_overlay(dl); });
+        canvas_->draw(*w, *c, state_.settings().layers, ImGui::GetContentRegionAvail());
+        handle_canvas_input();
+    }
     ImGui::EndChild();
 }
 
@@ -732,6 +699,9 @@ void Gui::draw_dialog_body(Dialog d) {
     case Dialog::About: draw_about(); break;
     case Dialog::FloorProperties: draw_floor_properties(); break;
     case Dialog::RemoveFloor: draw_remove_floor(); break;
+    case Dialog::AntennaProperties: draw_antenna_dialog(); break;
+    case Dialog::Materials: draw_materials_dialog(); break;
+    case Dialog::Propagation: draw_propagation_dialog(); break;
     case Dialog::None: break;
     }
 }
@@ -759,8 +729,11 @@ void Gui::draw_dialogs() {
         ImGui::SetNextWindowSize(ImVec2(vp->WorkSize.x * 0.96F, vp->WorkSize.y * 0.94F), ImGuiCond_Appearing);
     } else {
         // Dialogs fit small windows too (UI-13).
-        const float width = std::min(d == Dialog::Browse ? 820.0F : 600.0F, vp->WorkSize.x * 0.95F);
-        ImGui::SetNextWindowSize(ImVec2(width, 0.0F), ImGuiCond_Appearing);
+        const float width = std::min(d == Dialog::Browse || d == Dialog::Materials ? 820.0F : 600.0F, vp->WorkSize.x * 0.95F);
+        // Dialogs whose content grows (the class form, the walls' own
+        // value) fit their height every frame.
+        const bool grows = d == Dialog::Materials || d == Dialog::AntennaProperties;
+        ImGui::SetNextWindowSize(ImVec2(width, 0.0F), grows ? ImGuiCond_Always : ImGuiCond_Appearing);
     }
     ImGui::SetNextWindowPos(vp->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5F, 0.5F));
     if (!ImGui::BeginPopupModal(id, nullptr, ImGuiWindowFlags_NoSavedSettings)) {
@@ -782,6 +755,7 @@ void Gui::draw_dialogs() {
 
 void Gui::draw() {
     UserTexture::collect();
+    state_.tick();
     handle_shortcuts();
     draw_menu_bar();
     const ImGuiViewport* vp = ImGui::GetMainViewport();

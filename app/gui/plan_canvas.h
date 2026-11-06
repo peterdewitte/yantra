@@ -17,6 +17,8 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <functional>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
@@ -37,12 +39,33 @@ struct CanvasStats {
     std::size_t bins = 0;
     bool interpolation = false;
     bool stale_badge = false;
+    std::size_t estimated_sources = 0;  ///< IND-42 markers drawn
     std::vector<Layer> drawn;  ///< the layers drawn, bottom first
     ScaleBar scale;
 };
 
+/// The mouse over the canvas in the last frame, for the editing tools and
+/// the walk test (plan units of the floor).
+struct CanvasInput {
+    bool hovered = false;
+    std::optional<Point2> mouse;  ///< over the canvas (also outside the plan rectangle)
+    double tolerance = 0.0;       ///< 8 screen pixels in plan units (hit tests)
+    bool pressed = false;         ///< left button went down on the canvas (not a double click)
+    bool dragging = false;        ///< left button held since a press on the canvas
+    bool released = false;        ///< left button went up after a press on the canvas
+    bool double_clicked = false;
+};
+
 class PlanCanvas {
 public:
+    /// Whether a left drag pans (else the left button goes to a tool;
+    /// middle and right drag always pan, a double click does not fit).
+    void set_left_pans(bool on) { left_pans_ = on; }
+    /// Drawn over the layers, inside the canvas clip (editing and walk overlays).
+    void set_overlay(std::function<void(ImDrawList*)> overlay) { overlay_ = std::move(overlay); }
+    /// The screen position of a plan point in the last frame.
+    ImVec2 screen_of(Point2 plan) const { return to_screen(origin_, plan); }
+    const CanvasInput& input() const { return input_; }
     /// Screenshots and tests: wait for every requested tile before drawing.
     void set_wait_for_tiles(bool on) { wait_for_tiles_ = on; }
     /// Draws the floor into a region of `size` at the cursor.
@@ -80,6 +103,10 @@ private:
     plan::PlanView view_;
     bool fitted_ = false;
     bool wait_for_tiles_ = false;
+    bool left_pans_ = true;
+    std::function<void(ImDrawList*)> overlay_;
+    ImVec2 origin_{0.0F, 0.0F};
+    CanvasInput input_;
     UserTexture interpolation_;
     std::uint64_t interpolation_generation_ = 0;
     std::int64_t interpolation_id_ = 0;

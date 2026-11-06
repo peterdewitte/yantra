@@ -121,6 +121,20 @@ void PlanCanvas::draw_interpolation(ImDrawList* dl, ImVec2 origin, const FloorCo
     dl->AddImage(interpolation_.ref(), to_screen(origin, in.min), to_screen(origin, in.max), ImVec2(0, 0),
                  ImVec2(1, 1), IM_COL32(255, 255, 255, 215));
     stats_.interpolation = true;
+    // IND-42: estimated sources, hollow and dashed (they are not placed antennas).
+    for (const PlanAntenna& a : in.sources) {
+        const ImVec2 p = to_screen(origin, a.position);
+        constexpr int kDashes = 12;
+        for (int i = 0; i < kDashes; i += 2) {
+            const float a0 = 6.2831853F * static_cast<float>(i) / kDashes;
+            const float a1 = 6.2831853F * static_cast<float>(i + 1) / kDashes;
+            dl->PathArcTo(p, 11.0F, a0, a1, 6);
+            dl->PathStroke(IM_COL32(150, 40, 170, 255), 2.5F);
+        }
+        dl->AddText(ImVec2(p.x - 3.5F, p.y - 7.0F), IM_COL32(150, 40, 170, 255), "?");
+        dl->AddText(ImVec2(p.x + 14.0F, p.y - 7.0F), IM_COL32(110, 20, 130, 255), a.label.c_str());
+        ++stats_.estimated_sources;
+    }
 }
 
 void PlanCanvas::draw_binned(ImDrawList* dl, ImVec2 origin, const FloorContent& c) {
@@ -277,13 +291,25 @@ void PlanCanvas::draw(ProjectWindow& window, const FloorContent& c, const LayerS
                            ImGuiButtonFlags_MouseButtonLeft | ImGuiButtonFlags_MouseButtonMiddle |
                                ImGuiButtonFlags_MouseButtonRight);
     const bool hovered = ImGui::IsItemHovered();
-    if (ImGui::IsItemActive() && (ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0F) ||
+    origin_ = origin;
+    input_ = CanvasInput{};
+    if (ImGui::IsItemActive() && ((left_pans_ && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0F)) ||
                                   ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0F) ||
                                   ImGui::IsMouseDragging(ImGuiMouseButton_Right, 0.0F)))
         view_.pan_by(Point2{io.MouseDelta.x, io.MouseDelta.y});
     const Point2 mouse{io.MousePos.x - origin.x, io.MousePos.y - origin.y};
     if (hovered && io.MouseWheel != 0.0F) view_.zoom_at(std::pow(1.2, static_cast<double>(io.MouseWheel)), mouse);
-    if (hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) fit();
+    if (hovered && left_pans_ && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) fit();
+    if (view_.zoom() > 0.0) {
+        input_.hovered = hovered;
+        input_.tolerance = 8.0 / view_.zoom();
+        if (hovered || ImGui::IsItemActive()) input_.mouse = view_.screen_to_page(mouse);
+        const bool dbl = hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
+        input_.double_clicked = dbl;
+        input_.pressed = hovered && !dbl && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
+        input_.dragging = ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left);
+        input_.released = ImGui::IsItemDeactivated() && ImGui::IsMouseReleased(ImGuiMouseButton_Left);
+    }
 
     // Hover readout (IND-43; a point's short readout, PP-01 in 9.8).
     hover_ = HoverReadout{};
@@ -318,6 +344,7 @@ void PlanCanvas::draw(ProjectWindow& window, const FloorContent& c, const LayerS
         if (after > before) stats_.drawn.push_back(l);
     }
     dl->AddRect(f0, f1, IM_COL32(120, 120, 120, 255));
+    if (overlay_) overlay_(dl);
     draw_overlay(dl, origin, size, c, layers);
     dl->PopClipRect();
 

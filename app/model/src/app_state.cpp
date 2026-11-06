@@ -589,6 +589,8 @@ Result AppState::close_project() {
     if (dialog_ == Dialog::AddFloor || dialog_ == Dialog::Browse || dialog_ == Dialog::FloorProperties ||
         dialog_ == Dialog::RemoveFloor || dialog_ == Dialog::PlanImport)
         cancel_dialog();
+    if (dialog_ == Dialog::AntennaProperties || dialog_ == Dialog::Materials || dialog_ == Dialog::Propagation)
+        dialog_ = Dialog::None;
     import_window_.reset();
     drop_tools();
     window_.reset();
@@ -820,6 +822,41 @@ void AppState::drop_tools() {
     live_.reset();
     runner_.reset();
     editor_.reset();
+}
+
+Result AppState::edit_antenna() {
+    if (!editor_ || !editor_->selected_antenna()) return fail("Select an antenna first.");
+    dialog_ = Dialog::AntennaProperties;
+    return {};
+}
+
+Result AppState::confirm_antenna() {
+    if (!editor_) return fail("No project is open.");
+    const Result r = editor_->apply_antenna_form();
+    if (!r.ok) return fail(r.message);
+    dialog_ = Dialog::None;
+    return done("Antenna properties stored.");
+}
+
+Result AppState::edit_materials() {
+    if (!editor_) return fail("No project is open.");
+    dialog_ = Dialog::Materials;
+    return {};
+}
+
+Result AppState::edit_propagation() {
+    if (!runner_) return fail("No project is open.");
+    runner_->open_settings();
+    dialog_ = Dialog::Propagation;
+    return {};
+}
+
+Result AppState::confirm_propagation() {
+    if (!runner_) return fail("No project is open.");
+    const Result r = runner_->apply_settings();
+    if (!r.ok) return fail(r.message);
+    dialog_ = Dialog::None;
+    return done(r.message);
 }
 
 Result AppState::run_interpolation(bool again) {
