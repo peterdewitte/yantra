@@ -1386,13 +1386,22 @@ void Project::move_floor(const std::string& id, std::size_t index) {
     notify({Change::Kind::FloorsReordered, id});
 }
 
-void Project::remove_floor(const std::string& id) {
+void Project::remove_floor(const std::string& id) { remove_floor(id, false); }
+
+void Project::remove_floor(const std::string& id, bool with_sessions) {
+    bool sessions_removed = false;
     {
         const std::lock_guard l(impl_->mutex);
         impl_->require_open();
         sql::Transaction tx(impl_->db);
         if (impl_->floor_has_sessions(id)) {
-            throw ProjectError(Code::InUse, "floor " + id + " has walk tests or measured points; remove them first");
+            if (!with_sessions)
+                throw ProjectError(Code::InUse, "floor " + id + " has walk tests or measured points; remove them first");
+            // Points go with their sessions (ON DELETE CASCADE); a later
+            // session that continues one of them loses the link only.
+            sql::Stmt del(impl_->db, "DELETE FROM sessions WHERE floor = ?1");
+            del.bind(1, id).run();
+            sessions_removed = true;
         }
         building::Building b = impl_->building_locked();
         // Another floor may share this floor's scale (a later schema); the
@@ -1407,6 +1416,7 @@ void Project::remove_floor(const std::string& id) {
         impl_->touch();
         tx.commit();
     }
+    if (sessions_removed) notify({Change::Kind::Sessions, {}});
     notify({Change::Kind::FloorRemoved, id});
 }
 

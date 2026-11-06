@@ -279,6 +279,48 @@ TEST_CASE("project 7.5: point metres follow the floor's scale, a trim edit keeps
     CHECK(p->floors().size() == 1);
 }
 
+TEST_CASE("project 9.2: a floor removed with its sessions takes their points along, in one transaction (IND-04)") {
+    const fs::path dir = scratch("remove-with-sessions");
+    auto p = pj::Project::create(dir / "p.yantra", pj::ProjectInfo{"Hall", "", "", ""});
+    bm::Floor g;
+    g.name = "Ground floor";
+    const std::string g_id = p->add_floor(g);
+    bm::Floor up;
+    up.name = "First floor";
+    up.level = 1;
+    const std::string up_id = p->add_floor(up);
+    pj::Session s;
+    s.floor_id = g_id;
+    const std::int64_t a = p->add_session(s);
+    p->add_points(a, {point(1, 10, 10), point(2, 20, 10)});
+    const std::int64_t b = p->add_session(s);
+    p->add_points(b, {point(1, 30, 10)});
+    // A session upstairs continues the walk of the ground floor.
+    pj::Session cont;
+    cont.floor_id = up_id;
+    cont.continues = b;
+    const std::int64_t c = p->add_session(cont);
+    p->add_points(c, {point(1, 5, 5)});
+    std::vector<pj::Change::Kind> seen;
+    p->subscribe([&](const pj::Change& ch) { seen.push_back(ch.kind); });
+
+    CHECK(code_of([&] { p->remove_floor(g_id, false); }) == Code::InUse);
+    CHECK(p->sessions(g_id).size() == 2);
+    p->remove_floor(g_id, true);
+    CHECK_FALSE(p->floor(g_id));
+    CHECK(p->sessions().size() == 1);
+    CHECK_FALSE(p->session(a));
+    CHECK(p->points(c).size() == 1);
+    CHECK_FALSE(p->session(c)->continues);
+    CHECK(p->point_count(up_id) == 1);
+    CHECK(seen == std::vector<pj::Change::Kind>{pj::Change::Kind::Sessions, pj::Change::Kind::FloorRemoved});
+    CHECK(code_of([&] { p->remove_floor(g_id, true); }) == Code::NotFound);
+    // Without sessions both forms do the same.
+    p->remove_floor(up_id, true);
+    CHECK(p->floors().empty());
+    CHECK(p->check().empty());
+}
+
 TEST_CASE("project 7.5: schema 1, 2 and 3 files migrate to schema 4 and then store walk tests and points") {
     const fs::path dir = scratch("migrate-4");
     for (int version : {1, 2, 3}) {

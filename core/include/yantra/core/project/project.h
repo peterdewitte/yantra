@@ -169,7 +169,7 @@ struct Change {
         WallClasses,      ///< the wall-class table changed (IND-11)
         Cells,            ///< a cell was added, changed or removed (IND-12)
         Recordings,       ///< a recording was added or removed (id: its id)
-        Sessions,         ///< a session was added, changed or removed (id: its id)
+        Sessions,         ///< a session was added, changed or removed (id: its id; "" for those removed with their floor)
         Points,           ///< points of a session were added or removed (id: the session id)
         Saved,            ///< save() or save_as(); path() may have changed
         Propagation,      ///< the ray-tracing settings (IND-40)
@@ -352,6 +352,11 @@ public:
     /// Removes a floor (the UI confirms first, IND-04). InUse while
     /// sessions are on it (their measured points would be lost).
     void remove_floor(const std::string& id);
+    /// The same; with `with_sessions` the floor's sessions and their
+    /// points go with it, in the same transaction (all or none; the UI's
+    /// confirmation names them). A session on another floor that
+    /// `continues` one of them keeps its points and loses the link.
+    void remove_floor(const std::string& id, bool with_sessions);
 
     // -- building model ------------------------------------------------
     /// The building model of the project: name, slab default, the
