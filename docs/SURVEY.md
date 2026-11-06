@@ -31,7 +31,7 @@ cycles' `time.monotonic_ns`.
 | `walk`, point and click (GEO-02) | click the start point, walk, click the end point; the next click starts a new segment | on the segment from click A (tA, pA) to click B (tB, pB) when tA <= T <= tB: p(T) = pA + (T - tA) / (tB - tA) (pB - pA), so samples at a steady rate are spread evenly. A cycle at a click lies on the clicked point. |
 | `walk`, continuous | every click ends the open segment and starts the next | the same; a cycle at a joint is placed once, on the segment it ends |
 | `manual` (GEO-05) | click a chosen point (e.g. a room) and stand there N seconds | the cycles with T in (t, t + N] (at least the first cycle after t) become one point at the click, averaged (below) |
-| `simulated` | nothing: the simulator's position is used (RAD-19) | at the cycle's simulator position (`sim_position` fields) when it is on the walk's floor |
+| `simulated` | nothing: the simulator's position is used (RAD-19) | at the cycle's simulator position (`sim_position` fields) when it is on the walk's floor; with `min_spacing_m` > 0 (the mouse survey, DEMO-14) at most one point per that distance from the last stored point |
 
 The rules of a walk:
 

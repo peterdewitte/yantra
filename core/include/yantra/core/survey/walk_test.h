@@ -16,7 +16,8 @@
 //   become one point (sample.h average_samples), stored when a cycle with
 //   T >= t + N arrives, a new point starts, or the test ends.
 // - simulated: every cycle whose simulator position (RAD-19) is on the
-//   floor is a point at that position (demos and tests without clicks).
+//   floor is a point at that position (demos and tests without clicks),
+//   at most one per min_spacing_m (the mouse survey, DEMO-14).
 //
 // A floor change (GEO-06) ends the session and goes on in a new one on
 // the other floor that `continues` it; an open segment is dropped there
@@ -67,6 +68,10 @@ struct WalkTestOptions {
     std::shared_ptr<recording::Recorder> recorder;  ///< optional
     std::function<void(const std::optional<context::FloorPoint>&)> walker;  ///< optional
     std::string device;  ///< simulated: only this device's position; "" any
+    /// Simulated (the mouse survey, DEMO-14): at most one point per this
+    /// distance in metres; a position closer than that to the last stored
+    /// point of the session is not stored. 0: every position.
+    double min_spacing_m = 0.0;
     /// The recording session the points come from (`sessions.recording_session`)
     /// without a recorder, e.g. when a recording is imported (PP-01, viewer.h).
     std::string recording_session;
@@ -151,6 +156,7 @@ private:
     std::map<std::string, std::string> plugins_;  // provenance (PLG-12)
     std::string radio_;
     std::optional<std::pair<std::int64_t, std::int64_t>> last_cycle_;  // pipeline time, UTC
+    std::optional<Point2> last_sim_m_;  // simulated: the last stored position (metres)
 };
 
 /// Replay listener feeding a recording's walk lines into a WalkTest (the

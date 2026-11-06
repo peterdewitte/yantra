@@ -249,6 +249,30 @@ TEST_CASE("RAD-19 simulated walk: each cycle with a simulator position on the fl
     CHECK(pts[1].kind == "simulated");
 }
 
+TEST_CASE("DEMO-14 simulated walk with a minimum spacing: at most one point per min_spacing_m metres") {
+    Fixture fx("simulated-spacing");
+    ys::WalkTestOptions o;
+    o.project = fx.p;
+    o.floor_id = fx.ground;
+    o.kind = "simulated";
+    o.min_spacing_m = 0.25;
+    auto w = std::make_shared<ys::WalkTest>(o);
+    w->start(0);
+    // 0.1 m apart: only every third position (0, 0.3, 0.6 m) is far enough
+    // from the last stored one; a position back near the last one is not.
+    for (int i = 0; i <= 6; ++i)
+        w->on_cycle(cycle((1 + i) * kS, {Carrier{}.w_sim_floor(fx.ground).w_sim_x(1.0 + 0.1 * i).w_sim_y(1.0)}));
+    w->on_cycle(cycle(8 * kS, {Carrier{}.w_sim_floor(fx.ground).w_sim_x(1.5).w_sim_y(1.1)}));
+    w->on_cycle(cycle(9 * kS, {Carrier{}.w_sim_floor(fx.ground).w_sim_x(1.6).w_sim_y(1.25)}));
+    const auto pts = fx.p->points(w->session_id());
+    REQUIRE(pts.size() == 4);
+    CHECK(pts[0].metres->x == doctest::Approx(1.0));
+    CHECK(pts[1].metres->x == doctest::Approx(1.3));
+    CHECK(pts[2].metres->x == doctest::Approx(1.6));
+    CHECK(pts[3].metres->y == doctest::Approx(1.25));
+    CHECK(pts[3].time_ns == 9 * kS);
+}
+
 TEST_CASE("IND-30 sample values: what a point keeps of its cycle") {
     const ym::MeasurementCycle c =
         cycle(3 * kS, {Carrier{}.w_level(-71.5).w_c1(12.0).w_sim_floor("floor-1").w_sim_x(1).w_sim_y(2),

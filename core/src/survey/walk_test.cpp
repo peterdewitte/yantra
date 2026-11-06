@@ -103,6 +103,7 @@ void WalkTest::begin_session(std::int64_t t, std::optional<std::int64_t> continu
     session_ = o_.project->add_session(s);
     sessions_.push_back(session_);
     next_sequence_ = 1;
+    last_sim_m_.reset();
     const building::Building b = o_.project->building();
     const building::Floor* f = b.find_floor(floor_);
     mpu_ = f ? b.metres_per_unit(*f) : std::nullopt;
@@ -268,7 +269,12 @@ void WalkTest::on_cycle(const measure::MeasurementCycle& c) {
             if (!car.contains("sim") || (!o_.device.empty() && car.value("dev", "") != o_.device)) continue;
             const json& sp = car["sim"];
             if (sp.value("floor", "") != floor_ || !mpu_ || *mpu_ <= 0.0) break;
-            store(t, c.time.utc_ns, {sp.value("x_m", 0.0) / *mpu_, sp.value("y_m", 0.0) / *mpu_}, 1, 1, {}, sample);
+            const Point2 m{sp.value("x_m", 0.0), sp.value("y_m", 0.0)};
+            if (o_.min_spacing_m > 0.0 && last_sim_m_ &&
+                std::hypot(m.x - last_sim_m_->x, m.y - last_sim_m_->y) < o_.min_spacing_m)
+                break;
+            last_sim_m_ = m;
+            store(t, c.time.utc_ns, {m.x / *mpu_, m.y / *mpu_}, 1, 1, {}, sample);
             break;
         }
         return;
