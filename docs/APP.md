@@ -339,6 +339,98 @@ marker and a voice note, replay and cut, the walk's recording file, the
 ring buffer; `test_live_ui.cpp`: the panels, graphs and cursor, status
 bar, recording and replay driven through the harness).
 
+## Radio windows (step 9.6)
+
+Yantra builds every radio window itself from the radio API (PLG-16,
+RAD-40..48): the same code for every radio plugin, no per-plugin UI.
+The model is `RadioWindows` (`app/model/radio_windows.h`, owned by
+`AppState`, `radio_windows()`, with the project; ticked by
+`AppState::tick()`); drawing is `app/gui/radio_view.cpp`. All radio
+calls (`RadioDevice` methods wait for the plugin's control thread) run
+on the model's worker thread, which publishes a snapshot; records,
+events and cycles of the open device come through a pipeline observer
+(`LiveSurvey::add_observer`). The windows follow
+`LiveSurvey::device_generation()` (the host is rebuilt when the period
+changes).
+
+Connection (`LiveSurvey`): `connect()` opens the chosen radio without
+measuring, `disconnect()` closes it (refused while measuring); after
+Stop radio or the end of a walk a connected device stays open. Opening a
+radio window for a radio chooses and connects it.
+
+Radio menu `menu.radio` (between File and Help; disabled on the start
+screen): `radio.list` (the Radios window), `radio.find`,
+`radio.settings`, `radio.debug`, `radio.calibration`, `radio.info`
+(enabled once a radio is chosen). Windows `win.radio.list|settings|
+debug|calibration|info`:
+
+- Radios: `radio.list.find`, `radio.row.<n>` (choose),
+  `radio.list.connect`, `radio.list.disconnect`,
+  `radio.list.settings|debug|calibration|info`, `radio.list.plugins`
+  (the plugin entries with status, API, licence, capabilities).
+- Settings: a section per group (`set.group.<name>`), the settings by
+  sort order; widgets by type (`widget_of`): BOOL checkbox
+  `set.<key>`, ENUM combo `set.<key>` with items `set.<key>.item.<name>`,
+  INT/UINT/DOUBLE with a closed range a slider `set.<key>` plus the
+  input field `set.<key>.input`, an open range only the field, STRING
+  the field, ACTION a button `set.<key>` with its result text. Typed
+  values are checked by `parse_setting` (type, range, step for INT/UINT,
+  255 bytes) before the radio sees them and applied when the field is
+  left after an edit (Enter, Tab or a click elsewhere). The
+  value read back is shown when it differs (RAD-41). UNAVAILABLE rows are
+  greyed with the plugin's reason; WARNING asks first
+  (`dlg.radio.confirm`, `radio.confirm.ok|cancel`); RESTART asks while
+  the radio measures (the host stops, applies and restarts); ADVANCED
+  rows behind `set.advanced`; presets `preset.<id>`; `set.reset` (Reset
+  to defaults, asks). Translations `setting.<key>.*`, `preset.<id>.*`,
+  `sensor.<key>.*`, `selftest.<name>.label` in the language of
+  `RadioWindows::set_language()` (default English; the app language
+  arrives with step 9.9). Rebuilt on settings_changed (RAD-44).
+- Debug: device state, host and plugin counters (RAD-24), the latest
+  record per carrier with every field, flags and the rate over 10 s
+  (`dbg.rec.<n>`), sensors (at most once a second, RAD-45), events
+  (RAD-25), the plugin log (RAD-14), context calls (PLG-27). No IQ.
+- Calibration (RF-02, HW-01b): the key and its status, the table entries
+  of this device (`cal.remove.<n>`), the level wizard (core
+  `calibration/wizard.h`; `cal.freqs`, `cal.levels`, `cal.days`,
+  `cal.readings`, `cal.method.generator|reference`, `cal.start`,
+  `cal.measure`, `cal.skip`, `cal.cancel`, `cal.save`; readings are the
+  radio's own dBFS records within 12.5 kHz of the target, so the radio
+  must measure; a simulated radio makes a `practice` entry; a
+  self-calibrated radio needs none), `cal.verify`, `cal.ppm` (frequency
+  error from a known carrier's `freq_error_hz`), `cal.file` +
+  `cal.import|export` (merge: the newer entry wins). Saving writes
+  `RadioPaths::calibration_table` and sets the pipeline's corrector.
+- Reference noise (NFR-07, in the calibration window): `cal.noise.take`
+  takes the median noise of 5 cycles into
+  `SurveyMonitor::set_interference_reference()` (antenna away from the
+  PC; the radio must deliver dBm: self-calibrated or calibrated),
+  `cal.noise.clear` goes back to the thermal floor.
+- Device info: the self-test `info.self_test` (RAD-46; refused while
+  measuring), the plugin entry, the device entry (RAD-30), the
+  calibration key, sensors.
+
+Stored device settings (RAD-47, NFR-05): `RadioPaths::plugin_state`
+(main(): `plugin_state.json` in the user's config folder next to
+`app.json`; "" = in memory), written atomically after each change by
+`PluginStateFile`:
+`{"format":"yantra-plugin-state","version":1,"enabled":{id:bool},
+"settings":{id:{key:text}},"devices":[{"plugin","device","settings":
+[{"key","type":"bool|int|uint|double|string|enum","value"}]}]}`. A file
+that cannot be read is reported and never overwritten.
+
+Hooks for the next steps: the plugin manager (9.7) uses
+`RadioWindows::list_view().plugins` and the `enabled` part of the state
+file; the language (9.9) calls `RadioWindows::set_language()`.
+
+Tests: `test_app` (`test_radio_windows.cpp`: widgets, validation, texts,
+groups, translations, the state file), `test_app_live`
+(`test_radio_windows_live.cpp`: the simulator, beacon, `soapysdr_fake`,
+`hackrf_fake` with a WARNING setting; `test_radio_ui.cpp`: every window
+by clicking for the simulator, SoapySDR, HackRF and PEI plugins), and
+`test_app_live_pei` (the PEI cases under `yantra-pei-sim`). The fakes
+are test builds of yantra-radios (`YANTRA_RADIOS_FAKE_SDR`).
+
 ## Headless UI tests (tests/app/harness)
 
 `yantra::test::UiHarness` (library `yantra_ui_harness`) runs a real
