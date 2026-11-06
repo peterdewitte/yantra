@@ -41,6 +41,8 @@
 #   YANTRA_RADIO_PLUGIN_DIR       the shipped radio plugin folder above
 #   YANTRA_RADIO_TEST_PLUGIN_DIR  the beacon folder above
 #   YANTRA_RADIOS_KIND            build | prebuilt | none
+#   YANTRA_RADIOS_PEI_SIM, YANTRA_RADIOS_PEI_SCENARIO  tests: the simulated
+#                                 PEI terminal and its scenario (build only)
 #   target yantra_radio_plugins   builds/copies the plugins (ALL)
 
 include(ExternalProject)
@@ -196,10 +198,11 @@ ExternalProject_Add_Step(yantra_radios copy_plugins
   ALWAYS ON
   COMMENT "Radio plugins into ${YANTRA_RADIO_PLUGIN_DIR} (PLG-26)")
 
-# Test only: the generic SoapySDR plugin built with yantra-radios' fake
-# SoapySDR module in place of the real modules (soapysdr_fake, RAD-92),
-# for the radio host's unplug/replug test (NFR-04): the fake module unplugs
-# a device when a control file appears. A build of its own with the
+# Test only: the generic SoapySDR plugin and the HackRF plugin built with
+# yantra-radios' fake SoapySDR module in place of the real modules
+# (soapysdr_fake, hackrf_fake, RAD-92), for the radio host's unplug/replug
+# test (NFR-04; the fake module unplugs a device when a control file
+# appears) and the radio windows' tests (step 9.6). A build of its own with the
 # submodule's tests switched on, of that one target only (its closure:
 # about half a minute); after the main radios build, with the same
 # bundled libraries. Never installed or shipped.
@@ -213,10 +216,13 @@ if(YANTRA_RADIOS_FAKE_SDR)
     DOWNLOAD_COMMAND ""
     UPDATE_COMMAND ""
     CMAKE_ARGS ${_yr_fake_args}
-    BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --target soapysdr_fake
+    BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --target soapysdr_fake hackrf_fake
     INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_if_different
                     <BINARY_DIR>/tests/plugins/soapysdr_fake.so
                     ${YANTRA_RADIO_TEST_PLUGIN_DIR}/soapysdr_fake.so
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                    <BINARY_DIR>/tests/plugins/hackrf_fake.so
+                    ${YANTRA_RADIO_TEST_PLUGIN_DIR}/hackrf_fake.so
     DEPENDS yantra_radios
     BUILD_ALWAYS ON
     LOG_CONFIGURE ON
@@ -226,5 +232,9 @@ if(YANTRA_RADIOS_FAKE_SDR)
   set(_yr_fake_target yantra_radios_fake_sdr)
   set(YANTRA_RADIOS_FAKE_SDR_SCENARIO ${YANTRA_RADIOS_DIR}/tests/fixtures/soapy/fake_two_cells.json)
 endif()
+# Test only: the simulated TETRA terminal behind a pseudo-terminal for the
+# PEI plugin (the radio windows' tests, step 9.6); built by the radios build.
+set(YANTRA_RADIOS_PEI_SIM ${YANTRA_RADIOS_BINARY_DIR}/bin/yantra-pei-sim)
+set(YANTRA_RADIOS_PEI_SCENARIO ${YANTRA_RADIOS_DIR}/tests/fixtures/pei/terminal_cells.json)
 add_custom_target(yantra_radio_plugins ALL DEPENDS yantra_radios ${_yr_fake_target})
 message(STATUS "Radio plugins: built from ${YANTRA_RADIOS_DIR} (${_yr_commit})")
