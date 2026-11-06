@@ -140,6 +140,12 @@ own changes are in its CHANGELOG.md.
 
 ### Radio plugins (yantra-radios)
 
+- 2026-11-06: pinned to yantra-radios **v0.2.5** (commit ba7814c): the
+  simulator (plugin 0.2.3) keeps its record times on the host clock when
+  the computer simulates slower than real time; before, each record came
+  an interval's processing time after its time, was flagged late and
+  stale, and on a loaded machine the serving carrier left the cycles
+  between two records. Radio API 1.0 unchanged.
 - 2026-11-05: pinned to yantra-radios **v0.2.4** (commit c41718a): the
   TETRA terminal plugin (pei 0.1.1) no longer takes the late reply of a
   stopped session as the answer to the next session's first command, so

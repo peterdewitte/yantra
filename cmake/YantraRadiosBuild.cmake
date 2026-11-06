@@ -132,6 +132,11 @@ else()
     set_property(DIRECTORY ${PROJECT_SOURCE_DIR} APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_yr_head})
   endif()
 endif()
+# A file that changes only with the radios commit: build steps that use the
+# radio tools' output (the demo projects from yantra-gen) depend on it, so
+# a moved pin makes them again (the radios build itself is BUILD_ALWAYS).
+set(YANTRA_RADIOS_COMMIT_STAMP ${PROJECT_BINARY_DIR}/radios/commit.txt)
+file(CONFIGURE OUTPUT ${YANTRA_RADIOS_COMMIT_STAMP} CONTENT "${_yr_commit}\n")
 
 set(_yr_args
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}

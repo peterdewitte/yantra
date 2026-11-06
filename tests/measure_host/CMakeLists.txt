@@ -34,7 +34,8 @@ target_compile_definitions(test_measure_host PRIVATE
 # TST-10 record files of the radios' scenarios, written into the build
 # tree by the submodule's yantra-gen and yantra-radio-host when the radio
 # plugins are built (or a prebuilt package has the tools); the cases skip
-# without them. Regenerated when a scenario or the script changes.
+# without them. Regenerated when a scenario, the script or the radios pin
+# changes.
 set(_e2e_records ${CMAKE_CURRENT_BINARY_DIR}/records)
 set(_e2e_gen ${YANTRA_RADIOS_STAGE}/bin/yantra-gen)
 set(_e2e_host ${YANTRA_RADIOS_STAGE}/bin/yantra-radio-host)
@@ -47,6 +48,12 @@ if(YANTRA_RADIOS_KIND STREQUAL "build" OR (YANTRA_RADIOS_KIND STREQUAL "prebuilt
          ${_e2e_records}/${_id}.truth.csv)
   endforeach()
   file(GLOB _e2e_scenario_files ${YANTRA_RADIOS_DIR}/data/scenarios/*.json)
+  # Made again when the radios pin moves (or the prebuilt generator changes).
+  if(YANTRA_RADIOS_KIND STREQUAL "build")
+    list(APPEND _e2e_scenario_files ${YANTRA_RADIOS_COMMIT_STAMP})
+  else()
+    list(APPEND _e2e_scenario_files ${_e2e_gen})
+  endif()
   add_custom_command(OUTPUT ${_e2e_outputs}
     COMMAND ${CMAKE_COMMAND} -DGEN=${_e2e_gen} -DHOST=${_e2e_host} -DOUT=${_e2e_records}
             "-DSCENARIOS=${_e2e_scenarios}" -DDBFS=fraunces -P ${_dir}/gen_records.cmake
