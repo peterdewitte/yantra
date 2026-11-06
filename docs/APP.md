@@ -361,7 +361,9 @@ radio window for a radio chooses and connects it.
 Radio menu `menu.radio` (between File and Help; disabled on the start
 screen): `radio.list` (the Radios window), `radio.find`,
 `radio.settings`, `radio.debug`, `radio.calibration`, `radio.info`
-(enabled once a radio is chosen). Windows `win.radio.list|settings|
+(enabled once a radio is chosen), then per plugin with devices found
+Radio > `radio.p.<plugin id>` > `radio.d.<n>` >
+`radio.d.<n>.settings|debug|calibration|info`. Windows `win.radio.list|settings|
 debug|calibration|info`:
 
 - Radios: `radio.list.find`, `radio.row.<n>` (choose),

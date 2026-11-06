@@ -134,6 +134,20 @@ void walk_windows(App& a) {
     REQUIRE(a.ui.click("radio.list.connect"));
     REQUIRE(a.until([&] { return a.state->live()->connected(); }));
     CHECK(a.until([&] { return !a.ui.find("radio.list.disconnect")->disabled; }));
+    // Radio > <plugin> > <device> > Device info opens the same window.
+    {
+        const std::string plugin = "radio.p." + a.rw().list_view().radios.front().plugin_id;
+        REQUIRE(a.ui.click("menu.radio"));
+        REQUIRE(a.until([&] { return a.ui.has(plugin); }));
+        REQUIRE(a.ui.click(plugin));
+        REQUIRE(a.until([&] { return a.ui.has("radio.d.0"); }));
+        REQUIRE(a.ui.click("radio.d.0"));
+        REQUIRE(a.until([&] { return a.ui.has("radio.d.0.info"); }));
+        REQUIRE(a.ui.click("radio.d.0.info"));
+        REQUIRE(a.ui.wait_window("win.radio.info"));
+        a.rw().close(RadioWindow::Info);
+        REQUIRE(a.ui.wait_window_closed("win.radio.info"));
+    }
 
     // Settings: every row drawn from the descriptors.
     REQUIRE(a.ui.click("radio.list.settings"));

@@ -158,6 +158,37 @@ void Gui::draw_radio_menu() {
         a.disabled_reason = reason;
         item_tooltip(a);
     }
+    // PLG-16: Radio > <plugin> > <device> > window, for every radio found.
+    bool first = true;
+    for (const PluginRow& p : v.plugins) {
+        bool any = false;
+        for (const RadioRow& r : v.radios) any = any || r.plugin_id == p.id;
+        if (!any) continue;
+        if (first) ImGui::Separator();
+        first = false;
+        if (!ImGui::BeginMenu((p.name + "###radio.p." + p.id).c_str())) continue;
+        for (const RadioRow& r : v.radios) {
+            if (r.plugin_id != p.id) continue;
+            const std::string id = "radio.d." + std::to_string(r.index);
+            if (!ImGui::BeginMenu((r.label + "###" + id).c_str(), r.usable)) {
+                if (!r.usable) text_tooltip(r.reason.c_str());
+                continue;
+            }
+            const struct {
+                RadioWindow w;
+                const char* label;
+                const char* suffix;
+            } items[] = {{RadioWindow::Settings, "Settings...", ".settings"},
+                         {RadioWindow::Debug, "Debug...", ".debug"},
+                         {RadioWindow::Calibration, "Calibration...", ".calibration"},
+                         {RadioWindow::Info, "Device info and self-test...", ".info"}};
+            for (const auto& e : items)
+                if (ImGui::MenuItem((std::string(e.label) + "###" + id + e.suffix).c_str()))
+                    (void)rw->open(e.w, r.index);
+            ImGui::EndMenu();
+        }
+        ImGui::EndMenu();
+    }
     ImGui::EndMenu();
 }
 
