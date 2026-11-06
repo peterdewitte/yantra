@@ -65,6 +65,15 @@ const char* state_text(DeviceState state) noexcept {
     return "unknown";
 }
 
+const char* test_result_text(std::uint32_t result) noexcept {
+    switch (result) {
+    case YR_TEST_PASS: return "pass";
+    case YR_TEST_WARN: return "warn";
+    case YR_TEST_FAIL: return "fail";
+    default: return "skipped";
+    }
+}
+
 std::string capabilities_text(std::uint32_t caps) {
     static const std::pair<std::uint32_t, const char*> names[] = {
         {YR_CAP_SCAN, "scan"},           {YR_CAP_HOTPLUG, "hotplug"},
@@ -95,6 +104,29 @@ plugin::Value value_from_c(const yr_value& v) {
     case YR_TYPE_ENUM: return plugin::EnumValue{v.u.i64};
     default: return std::monostate{};
     }
+}
+
+// A setting or sensor definition, copied (RAD-40, RAD-45).
+SettingDef setting_from_c(const yr_setting_def& sd) {
+    SettingDef d;
+    d.key = text(sd.key);
+    d.type = sd.type;
+    d.flags = sd.flags;
+    d.label = text(sd.label);
+    d.unit = text(sd.unit);
+    d.help = text(sd.help);
+    d.group = text(sd.group);
+    d.unavailable_reason = text(sd.unavailable_reason);
+    d.warning = text(sd.warning);
+    if (sd.type == YR_TYPE_ENUM && sd.items != nullptr)
+        for (std::uint32_t i = 0; i < sd.item_count; ++i)
+            d.items.push_back(EnumItem{sd.items[i].value, text(sd.items[i].name), text(sd.items[i].label)});
+    d.minimum = sd.minimum;
+    d.maximum = sd.maximum;
+    d.step = sd.step;
+    d.default_value = value_from_c(sd.default_value);
+    d.sort_order = sd.sort_order;
+    return d;
 }
 
 // A yr_value with its string storage.
@@ -161,6 +193,8 @@ struct PluginRt {
     yr_host handle{this};
     yr_host_api api{};
     std::vector<std::shared_ptr<const std::vector<std::string>>> field_names;
+    // RAD-48 translations: "<lang>\n<text key>" -> text (immutable after load).
+    std::map<std::string, std::string> translations;
     std::unique_ptr<detail::ControlThread> control;
     std::atomic<bool> failed{false};
     std::atomic<std::uint64_t> devices_changed{0};
@@ -470,8 +504,18 @@ struct RadioHost::Impl : std::enable_shared_from_this<RadioHost::Impl> {
 
     bool on_main_thread() const { return std::this_thread::get_id() == main_thread; }
 
+    // The newest log lines per plugin id (debug window, PLG-16).
+    mutable std::mutex log_mutex;
+    mutable std::map<std::string, std::deque<LogLine>> log_rings;
+
     void log(const std::string& id, const std::string& key, std::uint32_t level,
              const std::string& message) const {
+        if (!id.empty()) {
+            const std::lock_guard lock(log_mutex);
+            std::deque<LogLine>& ring = log_rings[id];
+            ring.push_back(LogLine{platform::utc_now_ns(), level, key, message});
+            while (ring.size() > RadioHost::kLogLines) ring.pop_front();
+        }
         if (config.log) config.log(id, key, level, message);
     }
 
@@ -1434,6 +1478,12 @@ RadioPluginEntry RadioHost::load_file(const std::filesystem::path& path) {
     e.capabilities = d->capabilities;
     e.uses_context = (d->capabilities & YR_CAP_SCENE) != 0;
     e.status = RadioPluginStatus::Disabled;
+    if (d->translations != nullptr)
+        for (std::uint32_t i = 0; i < d->translation_count; ++i) {
+            const yr_translation& t = d->translations[i];
+            if (t.key != nullptr && t.lang != nullptr && t.text != nullptr)
+                rt->translations[std::string(t.lang) + "\n" + t.key] = t.text;
+        }
     for (std::uint32_t i = 0; i < d->schema_count; ++i) {
         auto names = std::make_shared<std::vector<std::string>>();
         for (std::uint32_t f = 0; f < d->schemas[i]->field_count; ++f)
@@ -1596,6 +1646,21 @@ std::uint64_t RadioHost::devices_changed_count(const std::string& plugin_id) con
     return rt != nullptr ? rt->devices_changed.load() : 0;
 }
 
+std::string RadioHost::translation(const std::string& plugin_id, const std::string& text_key,
+                                   const std::string& lang) const {
+    const PluginRt* rt = impl_->find(plugin_id);
+    if (rt == nullptr) return {};
+    const auto it = rt->translations.find(lang + "\n" + text_key);
+    return it != rt->translations.end() ? it->second : std::string{};
+}
+
+std::vector<LogLine> RadioHost::log_lines(const std::string& plugin_id) const {
+    const std::lock_guard lock(impl_->log_mutex);
+    const auto it = impl_->log_rings.find(plugin_id);
+    if (it == impl_->log_rings.end()) return {};
+    return {it->second.begin(), it->second.end()};
+}
+
 std::uint64_t RadioHost::settings_changed_count(const std::string& plugin_id) const {
     const PluginRt* rt = impl_->find(plugin_id);
     return rt != nullptr ? rt->settings_changed.load() : 0;
@@ -1701,7 +1766,6 @@ yr_status RadioDevice::set_setting(const std::string& key, const plugin::Value& 
     const std::lock_guard op(d.op);
     auto host = d.host.lock();
     if (!host || d.rt == nullptr) return YR_ERR_NOT_FOUND;
-    host->state->set_device_setting(d.plugin_id, d.key, key, value);
     PluginRt& rt = *d.rt;
     auto apply = [&] {
         const CValue c = value_to_c(value);
@@ -1728,7 +1792,10 @@ yr_status RadioDevice::set_setting(const std::string& key, const plugin::Value& 
     }
     // HW-01b: a CALIBRATION setting (or one that changes one) makes a new
     // key for the records measured from now on.
-    if (st == YR_OK) host->refresh_key(rt, d, platform::monotonic_ns(), false);
+    if (st == YR_OK) {
+        host->state->set_device_setting(d.plugin_id, d.key, key, value);
+        host->refresh_key(rt, d, platform::monotonic_ns(), false);
+    }
     return st;
 }
 
@@ -1794,6 +1861,146 @@ DeviceStats RadioDevice::stats() const {
         out.plugin = *stats;
     }
     return out;
+}
+
+namespace {
+
+// Collects definitions through a yr_setting_cb.
+void collect_def(void* user, const yr_setting_def* sd) {
+    if (sd == nullptr || sd->key == nullptr) return;
+    try {
+        static_cast<std::vector<SettingDef>*>(user)->push_back(setting_from_c(*sd));
+    } catch (...) {
+    }
+}
+
+}  // namespace
+
+// The device control calls of the radio windows (RAD-40..46): each one a
+// control call with its RAD-15 limit, like the stream control.
+template <class F>
+static yr_status device_call(RadioDevice::Impl& d, const char* name, bool long_call, F f) {
+    const std::lock_guard op(d.op);
+    auto host = d.host.lock();
+    if (!host || d.rt == nullptr || d.dev == nullptr) return YR_ERR_NOT_FOUND;
+    return host->call(*d.rt, name, long_call, [f, desc = d.rt->d, dev = d.dev] { return f(desc, dev); });
+}
+
+yr_status RadioDevice::list_settings(std::vector<SettingDef>& out) {
+    auto defs = std::make_shared<std::vector<SettingDef>>();
+    const yr_status st = device_call(*impl_, "list_settings", false, [defs](const yr_descriptor* desc, yr_device* dev) {
+        return desc->device->list_settings(dev, collect_def, defs.get());
+    });
+    if (st == YR_OK) out = *defs;
+    return st;
+}
+
+yr_status RadioDevice::run_action(const std::string& key, std::string& result) {
+    auto text_out = std::make_shared<std::string>();
+    const yr_status st = device_call(*impl_, "run_action", true, [key, text_out](const yr_descriptor* desc, yr_device* dev) {
+        if (desc->device->run_action == nullptr) return YR_ERR_UNSUPPORTED;
+        char b[1024] = {};
+        const yr_status s = desc->device->run_action(dev, key.c_str(), b, sizeof b);
+        *text_out = b;
+        return s;
+    });
+    result = *text_out;
+    // An action may change settings (and with them the calibration key).
+    if (st == YR_OK) {
+        Impl& d = *impl_;
+        const std::lock_guard op(d.op);
+        if (auto host = d.host.lock(); host && d.rt != nullptr) host->refresh_key(*d.rt, d, platform::monotonic_ns(), false);
+    }
+    return st;
+}
+
+yr_status RadioDevice::list_presets(std::vector<Preset>& out) {
+    auto presets = std::make_shared<std::vector<Preset>>();
+    const yr_status st = device_call(*impl_, "list_presets", false, [presets](const yr_descriptor* desc, yr_device* dev) {
+        if (desc->device->list_presets == nullptr) return YR_ERR_UNSUPPORTED;
+        return desc->device->list_presets(
+            dev,
+            [](void* user, const yr_preset* p) {
+                if (p == nullptr || p->id == nullptr) return;
+                try {
+                    static_cast<std::vector<Preset>*>(user)->push_back(Preset{text(p->id), text(p->label), text(p->help)});
+                } catch (...) {
+                }
+            },
+            presets.get());
+    });
+    if (st == YR_OK) out = *presets;
+    return st;
+}
+
+yr_status RadioDevice::apply_preset(const std::string& id) {
+    Impl& d = *impl_;
+    const std::lock_guard op(d.op);
+    const yr_status st = device_call(d, "apply_preset", false, [id](const yr_descriptor* desc, yr_device* dev) {
+        if (desc->device->apply_preset == nullptr) return YR_ERR_UNSUPPORTED;
+        return desc->device->apply_preset(dev, id.c_str());
+    });
+    if (st != YR_OK) return st;
+    // RAD-47: the values the preset set are stored like the user's own,
+    // so the next open applies them again.
+    auto host = d.host.lock();
+    if (!host || d.rt == nullptr) return st;
+    std::vector<SettingDef> defs;
+    if (list_settings(defs) == YR_OK) {
+        const auto stored = host->state->device_settings(d.plugin_id, d.key);
+        for (const SettingDef& s : defs) {
+            if (s.type == YR_TYPE_ACTION || s.has(YR_SETTING_READ_ONLY) || s.has(YR_SETTING_UNAVAILABLE)) continue;
+            plugin::Value v;
+            if (get_setting(s.key, v) != YR_OK) continue;
+            const bool known = std::any_of(stored.begin(), stored.end(), [&](const auto& kv) { return kv.first == s.key; });
+            if (known || !(v == s.default_value)) host->state->set_device_setting(d.plugin_id, d.key, s.key, v);
+        }
+    }
+    host->refresh_key(*d.rt, d, platform::monotonic_ns(), false);
+    return st;
+}
+
+yr_status RadioDevice::list_sensors(std::vector<SettingDef>& out) {
+    auto defs = std::make_shared<std::vector<SettingDef>>();
+    const yr_status st = device_call(*impl_, "list_sensors", false, [defs](const yr_descriptor* desc, yr_device* dev) {
+        if (desc->device->list_sensors == nullptr) return YR_ERR_UNSUPPORTED;
+        return desc->device->list_sensors(dev, collect_def, defs.get());
+    });
+    if (st == YR_OK) out = *defs;
+    return st;
+}
+
+yr_status RadioDevice::read_sensor(const std::string& key, plugin::Value& out) {
+    auto result = std::make_shared<plugin::Value>();
+    const yr_status st = device_call(*impl_, "read_sensor", false, [key, result](const yr_descriptor* desc, yr_device* dev) {
+        if (desc->device->read_sensor == nullptr) return YR_ERR_UNSUPPORTED;
+        yr_value v = yr_value_none();
+        char b[1024] = {};
+        const yr_status s = desc->device->read_sensor(dev, key.c_str(), &v, b, sizeof b);
+        if (s == YR_OK) *result = value_from_c(v);
+        return s;
+    });
+    if (st == YR_OK) out = *result;
+    return st;
+}
+
+yr_status RadioDevice::self_test(std::vector<SelfTestItem>& out) {
+    auto items = std::make_shared<std::vector<SelfTestItem>>();
+    const yr_status st = device_call(*impl_, "self_test", true, [items](const yr_descriptor* desc, yr_device* dev) {
+        return desc->device->self_test(
+            dev,
+            [](void* user, const yr_selftest_item* i) {
+                if (i == nullptr) return;
+                try {
+                    static_cast<std::vector<SelfTestItem>*>(user)->push_back(
+                        SelfTestItem{i->result, text(i->name), text(i->label), text(i->detail), text(i->remedy)});
+                } catch (...) {
+                }
+            },
+            items.get());
+    });
+    out = *items;
+    return st;
 }
 
 std::string RadioDevice::last_error() const {

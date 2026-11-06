@@ -115,6 +115,61 @@ struct Plan {
     std::uint64_t scan_step_hz = 0;
 };
 
+// Device-specific control as data (RAD-40..46), copied from the plugin's
+// definitions; Yantra builds the radio windows from these (PLG-16,
+// RAD-49). Texts are the plugin's English ones (RadioHost::translation
+// gives the RAD-48 translations).
+struct EnumItem {
+    std::int64_t value = 0;
+    std::string name;   // machine name (translation key part)
+    std::string label;
+};
+
+// A setting or a sensor (yr_setting_def).
+struct SettingDef {
+    std::string key;
+    std::uint32_t type = YR_TYPE_NONE;  // YR_TYPE_BOOL..ACTION
+    std::uint32_t flags = 0;            // YR_SETTING_*
+    std::string label;
+    std::string unit;
+    std::string help;
+    std::string group;
+    std::string unavailable_reason;     // with UNAVAILABLE
+    std::string warning;                // with WARNING
+    std::vector<EnumItem> items;        // ENUM
+    double minimum = 0.0;               // NaN when open
+    double maximum = 0.0;               // NaN when open
+    double step = 0.0;                  // 0: continuous
+    plugin::Value default_value;        // monostate: none (ACTION, sensors)
+    std::int32_t sort_order = 0;
+    bool has(std::uint32_t flag) const noexcept { return (flags & flag) != 0; }
+};
+
+struct Preset {
+    std::string id;
+    std::string label;
+    std::string help;
+};
+
+// One self-test item (RAD-46).
+struct SelfTestItem {
+    std::uint32_t result = YR_TEST_SKIPPED;  // YR_TEST_*
+    std::string name;
+    std::string label;
+    std::string detail;
+    std::string remedy;
+};
+const char* test_result_text(std::uint32_t result) noexcept;  // "pass", "warn", "fail", "skipped"
+
+// A line of a plugin's log (RAD-14) or of the host about it, for the
+// debug window (PLG-16).
+struct LogLine {
+    std::int64_t utc_ns = 0;
+    std::uint32_t level = YR_LOG_INFO;  // YR_LOG_*
+    std::string device_key;             // "" for plugin-level lines
+    std::string message;
+};
+
 enum class DeviceState { Closed, Open, Streaming, Lost, Failed };
 const char* state_text(DeviceState state) noexcept;
 
@@ -181,9 +236,9 @@ public:
     yr_status stop();
     void close();
 
-    // Stores a setting for this device (PLG-25 "stored settings") and
-    // applies it; a RESTART setting while streaming stops, applies and
-    // restarts (RAD-41).
+    // Applies a setting and, when the device took it, stores it for this
+    // device (PLG-25 "stored settings", RAD-47); a RESTART setting while
+    // streaming stops, applies and restarts (RAD-41).
     yr_status set_setting(const std::string& key, const plugin::Value& value);
     yr_status get_setting(const std::string& key, plugin::Value& out);
     // The device's current calibration key (HW-01b): driver and serial
@@ -198,6 +253,20 @@ public:
 
     DeviceStats stats() const;
     std::string last_error() const;
+
+    // Device control as data (RAD-40..46) for the radio windows (PLG-16).
+    // An optional function the plugin does not have gives
+    // YR_ERR_UNSUPPORTED.
+    yr_status list_settings(std::vector<SettingDef>& out);
+    // Runs an ACTION setting (RAD-42); `result` is its one-line text.
+    yr_status run_action(const std::string& key, std::string& result);
+    yr_status list_presets(std::vector<Preset>& out);
+    // Applies a preset (RAD-43) and stores the values it set (RAD-47).
+    yr_status apply_preset(const std::string& id);
+    yr_status list_sensors(std::vector<SettingDef>& out);
+    yr_status read_sensor(const std::string& key, plugin::Value& out);
+    // The self-test (RAD-46); YR_ERR_BUSY while streaming.
+    yr_status self_test(std::vector<SelfTestItem>& out);
 
     struct Impl;
     explicit RadioDevice(std::shared_ptr<Impl> impl);
@@ -245,6 +314,15 @@ public:
     // devices_changed and settings_changed calls of a plugin so far.
     std::uint64_t devices_changed_count(const std::string& plugin_id) const;
     std::uint64_t settings_changed_count(const std::string& plugin_id) const;
+
+    // The plugin's translation of a text key (RAD-48: "setting.<key>.label",
+    // ...) into "nl", "fr" or "de"; "" when it has none. Thread-safe.
+    std::string translation(const std::string& plugin_id, const std::string& text_key,
+                            const std::string& lang) const;
+    // The newest log lines of a plugin (its own and the host's about it),
+    // oldest first, at most kLogLines kept. Thread-safe.
+    static constexpr std::size_t kLogLines = 500;
+    std::vector<LogLine> log_lines(const std::string& plugin_id) const;
 
     struct Impl;
 
