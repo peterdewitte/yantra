@@ -179,6 +179,31 @@ void UiHarness::click_at(float x, float y) {
     frame();
 }
 
+void UiHarness::drag(float x0, float y0, float x1, float y1, int button, int steps) {
+    mouse_move(x0, y0);
+    frame();
+    ImGui::SetCurrentContext(ctx_);
+    ImGui::GetIO().AddMouseButtonEvent(button, true);
+    frame();
+    steps = steps < 1 ? 1 : steps;
+    for (int i = 1; i <= steps; ++i) {
+        const float t = static_cast<float>(i) / static_cast<float>(steps);
+        mouse_move(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t);
+        frame();
+    }
+    ImGui::SetCurrentContext(ctx_);
+    ImGui::GetIO().AddMouseButtonEvent(button, false);
+    frame();
+}
+
+void UiHarness::wheel(float x, float y, float delta) {
+    mouse_move(x, y);
+    frame();
+    ImGui::SetCurrentContext(ctx_);
+    ImGui::GetIO().AddMouseWheelEvent(0.0F, delta);
+    frame();
+}
+
 void UiHarness::mouse_move(float x, float y) {
     ImGui::SetCurrentContext(ctx_);
     ImGui::GetIO().AddMousePosEvent(x, y);

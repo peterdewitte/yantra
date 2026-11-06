@@ -87,6 +87,11 @@ public:
     /// A left click at a display position (e.g. on empty space, which
     /// closes an open menu as it does for a user).
     void click_at(float x, float y);
+    /// Presses a mouse button (0 left, 1 right, 2 middle) at (x0, y0),
+    /// moves to (x1, y1) in `steps` frames and releases it (pan, draw).
+    void drag(float x0, float y0, float x1, float y1, int button = 0, int steps = 4);
+    /// Turns the mouse wheel by `delta` notches at (x, y) (zoom).
+    void wheel(float x, float y, float delta);
     /// Hovers the item (moves the mouse to its centre and runs frames
     /// until the hover delay of tooltips passed). False if not found.
     bool hover(std::string_view key, std::string_view window_key = {}, int frames = 30);

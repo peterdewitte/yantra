@@ -93,6 +93,14 @@ yantra_app_launch_test(app_about
 yantra_app_launch_test(app_file_browser
   PATTERNS "^yantra: first frame" "^yantra: screenshot .*file_browser\\.png \\(1024x700\\)"
   COMMAND $<TARGET_FILE:yantra> --dialog open-project --size 1024x700 --screenshot ${_scratch}/file_browser.png)
+# The project window of the demo (step 9.2): plan tiles, layers, DEMO
+# banner, on a copy of the generated project (the app opens it live).
+if(TARGET demo_fraunces)
+  yantra_app_launch_test(app_project_demo
+    PATTERNS "^yantra: first frame" "^yantra: screenshot .*project_demo\\.png \\(1280x800\\)"
+    COMMAND sh -c "rm -rf \"$1\" && cp -r \"$0\" \"$1\" && exec \"$2\" --size 1280x800 --screenshot \"$1/project_demo.png\" \"$1/fraunces.yantra\""
+            ${YANTRA_DEMO_FRAUNCES_DIR} ${_scratch}/project_demo $<TARGET_FILE:yantra>)
+endif()
 
 # Command line errors exit with 2 and say why (no window needed).
 add_test(NAME app_bad_option COMMAND sh -c "\"$0\" --no-such-option; test $? -eq 2" $<TARGET_FILE:yantra>)
