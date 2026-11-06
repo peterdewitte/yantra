@@ -64,6 +64,16 @@
 namespace yantra::project {
 class Project;
 }
+namespace yantra::radio {
+class RadioHost;
+class RadioDevice;
+}
+namespace yantra::plugin {
+class PluginStateStore;
+}
+namespace yantra::calibration {
+class Table;
+}
 
 namespace yantra::app {
 
@@ -74,6 +84,9 @@ struct RadioPaths {
     std::vector<std::filesystem::path> plugin_folders;  ///< technology plugins (plugin.h)
     std::vector<std::filesystem::path> radio_folders;   ///< radio plugins
     std::filesystem::path calibration_table;            ///< "" none (levels stay dBFS)
+    /// The radio devices' stored settings (RAD-47) and the plugins' enabled
+    /// state, a JSON file (docs/APP.md "Radio windows"); "" = kept in memory.
+    std::filesystem::path plugin_state;
     /// The ring buffer's temporary recordings (REC-09; main(): the user's
     /// cache folder). "" = no ring buffer.
     std::filesystem::path ring_folder;
@@ -234,6 +247,38 @@ public:
     Result voice_stop(const std::string& label = {});
     bool voice_recording() const;
     double voice_seconds() const;
+
+    // -- connection and the radio windows (PLG-16, step 9.6) -------------------------
+    /// Opens the chosen radio without measuring, for its windows (settings,
+    /// debug, calibration, device info). A radio that measures is connected.
+    Result connect();
+    /// Closes the chosen radio (refused while it measures).
+    Result disconnect();
+    /// The chosen radio is open (connected or measuring).
+    bool connected() const;
+    /// The open device (nullptr none). Its methods wait for the plugin:
+    /// call them from a worker thread (radio_windows.h does).
+    std::shared_ptr<radio::RadioDevice> device() const;
+    /// The plugin and key of the open device ("" none).
+    std::string device_plugin() const;
+    std::string device_key() const;
+    /// Changes whenever the open device changes (connect, disconnect, a
+    /// radio host rebuilt for another cycle period).
+    std::uint64_t device_generation() const;
+    /// The radio host (nullptr before find_radios). One per process.
+    radio::RadioHost* host();
+    /// Observers of the measurement pipeline (the radio windows); kept when
+    /// the pipeline is rebuilt.
+    void add_observer(std::shared_ptr<measure::MeasurementObserver> observer);
+    void remove_observer(const std::shared_ptr<measure::MeasurementObserver>& observer);
+    /// The calibration table that corrects the levels (RF-02; nullptr none).
+    std::shared_ptr<const calibration::Table> calibration_table() const;
+    /// Uses `table` from now on and saves it as the user's table
+    /// (RadioPaths::calibration_table; in memory only when that is "").
+    Result set_calibration_table(const calibration::Table& table);
+    const RadioPaths& paths() const;
+    /// The stored settings of the radio devices (RAD-47).
+    plugin::PluginStateStore& state();
 
     /// Tests: the last cycle time the walk test saw (pipeline clock), the
     /// pipeline's cycle count, and whether the plugin has taken the latest context.

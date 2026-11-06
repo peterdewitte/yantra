@@ -23,7 +23,7 @@ set(_scratch ${CMAKE_CURRENT_BINARY_DIR}/scratch)
 file(MAKE_DIRECTORY ${_scratch})
 
 add_executable(test_app test_app_model.cpp test_file_browser.cpp test_floor_editor.cpp test_interpolation_runner.cpp test_plan_import_window.cpp test_project_window.cpp
-                        test_survey_monitor.cpp)
+                        test_radio_windows.cpp test_survey_monitor.cpp)
 target_link_libraries(test_app PRIVATE yantra_test_main yantra_warnings yantra::app_model yantra::audio yantra::core
                                        yantra_plan_fixtures yantra::json)
 target_compile_definitions(test_app PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scratch}/test_app"
@@ -56,12 +56,15 @@ set_tests_properties(test_app_ui PROPERTIES LABELS "fast;app" TIMEOUT ${_app_tim
 
 # The walk-test view with the simulator (step 9.4): real time, one ctest
 # per case; the technology plugins and the simulator of the build tree.
-add_executable(test_app_live test_live_survey.cpp test_live_ui.cpp)
+add_executable(test_app_live test_live_survey.cpp test_live_ui.cpp test_radio_windows_live.cpp)
 target_link_libraries(test_app_live PRIVATE yantra_test_main yantra_warnings yantra_ui_harness yantra::app_gui
                                             yantra::app_model yantra::core)
 target_compile_definitions(test_app_live PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scratch}/test_app_live"
                                                  YANTRA_TEST_TECH_PLUGIN_DIR="${PROJECT_BINARY_DIR}/lib/yantra/plugins"
-                                                 YANTRA_TEST_RADIO_PLUGIN_DIR="${YANTRA_RADIO_PLUGIN_DIR}")
+                                                 YANTRA_TEST_RADIO_PLUGIN_DIR="${YANTRA_RADIO_PLUGIN_DIR}"
+                                                 YANTRA_TEST_RADIO_TEST_PLUGIN_DIR="${YANTRA_RADIO_TEST_PLUGIN_DIR}"
+                                                 YANTRA_TEST_FAKE_SDR_SCENARIO="${YANTRA_RADIOS_FAKE_SDR_SCENARIO}"
+                                                 YANTRA_TEST_FAKE_SDR_CONTROL_DIR="${_scratch}/fake_sdr_control")
 if(TARGET yantra_radio_plugins)
   add_dependencies(test_app_live yantra_radio_plugins)
 endif()
@@ -75,6 +78,16 @@ else()
   target_compile_definitions(test_app_live PRIVATE YANTRA_TEST_DEMO_PROJECT="")
 endif()
 yantra_doctest_tests(test_app_live GROUP test_app_live LABELS "fast;app" TIMEOUT ${_app_timeout} PROCESSORS 2)
+# The PEI plugin's radio windows against the simulated terminal (step 9.6):
+# yantra-pei-sim serves it on a pseudo-terminal and runs the case with
+# YANTRA_PEI_PORTS set (without it the case skips).
+if(YANTRA_RADIOS_PEI_SIM)
+  file(MAKE_DIRECTORY ${_scratch}/pei)
+  add_test(NAME test_app_live_pei
+           COMMAND ${YANTRA_RADIOS_PEI_SIM} --link ${_scratch}/pei/pei0 --scenario ${YANTRA_RADIOS_PEI_SCENARIO}
+                   -- $<TARGET_FILE:test_app_live> "-tc=*the PEI plugin's windows against the simulated terminal")
+  set_tests_properties(test_app_live_pei PROPERTIES LABELS "fast;app" TIMEOUT ${_app_timeout} PROCESSORS 2)
+endif()
 
 set(_xvfb ${CMAKE_CURRENT_SOURCE_DIR}/with_xvfb.sh)
 set(_expect ${CMAKE_CURRENT_SOURCE_DIR}/expect_output.sh)

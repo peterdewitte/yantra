@@ -36,7 +36,9 @@ add_library(yantra_app_model STATIC
   model/src/interpolation_runner.cpp
   model/src/live_survey.cpp
   model/src/plan_import_window.cpp
+  model/src/plugin_state_file.cpp
   model/src/project_window.cpp
+  model/src/radio_windows.cpp
   model/src/replay_session.cpp
   model/src/settings.cpp
   model/src/survey_monitor.cpp

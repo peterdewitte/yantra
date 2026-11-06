@@ -132,6 +132,9 @@ int main(int argc, char** argv) {
         paths.radios.plugin_folders = pf.plugins;
         paths.radios.radio_folders = pf.radios;
         paths.radios.calibration_table = yantra::calibration::default_table_path();
+        // RAD-47 / NFR-05: the radios' stored settings next to the app settings
+        // (a screenshot run keeps them in memory).
+        if (!screenshot && !config.empty()) paths.radios.plugin_state = config / "plugin_state.json";
         // REC-09: the ring buffer's temporary files in the user's cache folder.
         if (!screenshot) {
             const char* cache = std::getenv("XDG_CACHE_HOME");

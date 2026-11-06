@@ -23,6 +23,7 @@
 #include "yantra/core/plugin/folders.h"
 #include "yantra/core/plugin/loader.h"
 #include "yantra/core/plugin/state_store.h"
+#include "yantra/app/plugin_state_file.h"
 #include "yantra/core/project/project.h"
 #include "yantra/core/radio/radio_host.h"
 #include "yantra/core/recording/cut.h"
@@ -87,10 +88,14 @@ struct LiveSurvey::Impl {
     std::shared_ptr<std::atomic<bool>> building_dirty = std::make_shared<std::atomic<bool>>(true);
 
     // Technology plugins (schema mapping, C1) and the plugin settings.
-    std::shared_ptr<plugin::MemoryStateStore> state = std::make_shared<plugin::MemoryStateStore>();
+    std::shared_ptr<plugin::PluginStateStore> state;
     std::unique_ptr<plugin::PluginLoader> loader;
     std::shared_ptr<measure::TechnologyCatalog> catalog = std::make_shared<measure::TechnologyCatalog>();
-    std::shared_ptr<calibration::Table> table;
+    std::shared_ptr<const calibration::Table> table;
+    // Observers of every pipeline (radio windows) and the device generation.
+    std::vector<std::shared_ptr<measure::MeasurementObserver>> observers;
+    std::uint64_t device_generation = 0;
+    bool connected = false;  // connect(): the device stays open without measuring
 
     // The plugins' context.
     std::shared_ptr<context::ContextPublisher> publisher = std::make_shared<context::ContextPublisher>();
@@ -145,10 +150,23 @@ struct LiveSurvey::Impl {
         if (device) {
             (void)device->stop();
             device->close();
+            ++device_generation;
         }
         runner.reset();
         device.reset();
         device_label.clear();
+        radio_by_walk = false;
+    }
+
+    // Stops measuring; a connected radio stays open (its windows go on).
+    void release_radio() {
+        if (!connected || !device) {
+            close_radio();
+            return;
+        }
+        stop_ring();
+        (void)device->stop();
+        runner.reset();
         radio_by_walk = false;
     }
 
@@ -214,23 +232,32 @@ struct LiveSurvey::Impl {
         ring.reset();
     }
 
-    // Opens and starts the radio with this cycle period.
-    std::string open_radio(const RadioChoice& radio, std::int64_t period) {
+    // Opens the radio (with this cycle period's host) unless it is open.
+    std::string open_device(const RadioChoice& radio, std::int64_t period) {
         ensure_host(period);
+        if (device && device_plugin == radio.plugin_id && device_key == radio.device_key) return {};
+        if (device) close_radio();
         std::string error;
         device = host->open(radio.plugin_id, radio.device_key, error);
         if (!device) return "The radio could not be opened: " + error;
+        ++device_generation;
+        device_label = radio.label;
+        device_plugin = radio.plugin_id;
+        device_key = radio.device_key;
+        return {};
+    }
+
+    // Opens and starts the radio with this cycle period.
+    std::string open_radio(const RadioChoice& radio, std::int64_t period) {
+        if (std::string e = open_device(radio, period); !e.empty()) return e;
         runner = std::make_unique<measure::CycleRunner>(*pipeline);
         radio::Plan plan;
         plan.type = YR_PLAN_SERVING;
         if (const yr_status st = device->start(plan); st != YR_OK) {
             const std::string why = device->last_error();
-            close_radio();
+            release_radio();
             return "The radio did not start: " + (why.empty() ? std::string("error ") + std::to_string(st) : why);
         }
-        device_label = radio.label;
-        device_plugin = radio.plugin_id;
-        device_key = radio.device_key;
         return {};
     }
 
@@ -244,8 +271,15 @@ struct LiveSurvey::Impl {
         walk.reset();
     }
 
+    void ensure_state() {
+        if (state) return;
+        if (!paths.plugin_state.empty()) state = std::make_shared<PluginStateFile>(paths.plugin_state);
+        else state = std::make_shared<plugin::MemoryStateStore>();
+    }
+
     void ensure_loader() {
         if (loader) return;
+        ensure_state();
         plugin::PluginLoaderConfig c;
         c.folders = paths.plugin_folders;
         c.state = state;
@@ -275,6 +309,7 @@ struct LiveSurvey::Impl {
         if (table) o.corrector = std::make_shared<calibration::TableCorrector>(table, calibration::AntennaSettings{});
         pipeline = std::make_shared<measure::MeasurementPipeline>(std::move(o));
         pipeline->add_observer(monitor);
+        for (const auto& ob : observers) pipeline->add_observer(ob);
         radio::RadioHostConfig c;
         c.folders = paths.radio_folders;
         c.state = state;
@@ -304,6 +339,8 @@ LiveSurvey::~LiveSurvey() = default;
 Result LiveSurvey::find_radios() {
     if (running()) return Result{false, "Stop the walk test first."};
     if (radio_running()) return Result{false, "Stop the radio first."};
+    impl_->close_radio();
+    impl_->connected = false;
     searched_ = true;
     radios_.clear();
     chosen_.reset();
@@ -357,8 +394,91 @@ Result LiveSurvey::choose_radio(std::size_t index) {
     if (radio_running()) return Result{false, "Stop the radio first."};
     if (index >= radios_.size()) return Result{false, "There is no such radio."};
     if (!radios_[index].usable) return Result{false, radios_[index].reason};
+    if (chosen_ != index && impl_->device) {
+        impl_->close_radio();
+        impl_->connected = false;
+    }
     chosen_ = index;
     return {};
+}
+
+// -- connection and the radio windows ------------------------------------------------------
+
+Result LiveSurvey::connect() {
+    Impl& m = *impl_;
+    if (!searched_) return Result{false, "Find the radios first."};
+    const RadioChoice* r = chosen();
+    if (r == nullptr) return Result{false, radio_note_.empty() ? std::string("Choose a radio first.") : radio_note_};
+    if (m.device) {
+        m.connected = true;
+        return Result{true, r->label + " is connected."};
+    }
+    try {
+        if (std::string e = m.open_device(*r, m.period_ns != 0 ? m.period_ns : kWalkPeriodNs); !e.empty())
+            return Result{false, e};
+    } catch (const std::exception& e) {
+        return Result{false, std::string("The radio could not be opened: ") + e.what()};
+    }
+    m.connected = true;
+    m.monitor->note(EventKind::Radio, r->label + " connected.");
+    return Result{true, r->label + " is connected."};
+}
+
+Result LiveSurvey::disconnect() {
+    Impl& m = *impl_;
+    if (m.running_radio()) return Result{false, "Stop the radio first: it is measuring."};
+    if (!m.device) {
+        m.connected = false;
+        return Result{false, "No radio is connected."};
+    }
+    const std::string label = m.device_label;
+    m.close_radio();
+    m.connected = false;
+    m.monitor->note(EventKind::Radio, label + " disconnected.");
+    return Result{true, label + " disconnected."};
+}
+
+bool LiveSurvey::connected() const { return impl_->device != nullptr; }
+std::shared_ptr<radio::RadioDevice> LiveSurvey::device() const { return impl_->device; }
+std::string LiveSurvey::device_plugin() const { return impl_->device ? impl_->device_plugin : std::string(); }
+std::string LiveSurvey::device_key() const { return impl_->device ? impl_->device_key : std::string(); }
+std::uint64_t LiveSurvey::device_generation() const { return impl_->device_generation; }
+radio::RadioHost* LiveSurvey::host() { return impl_->host.get(); }
+
+void LiveSurvey::add_observer(std::shared_ptr<measure::MeasurementObserver> observer) {
+    if (!observer) return;
+    impl_->observers.push_back(observer);
+    if (impl_->pipeline) impl_->pipeline->add_observer(std::move(observer));
+}
+
+void LiveSurvey::remove_observer(const std::shared_ptr<measure::MeasurementObserver>& observer) {
+    std::erase(impl_->observers, observer);
+    if (impl_->pipeline) impl_->pipeline->remove_observer(observer);
+}
+
+std::shared_ptr<const calibration::Table> LiveSurvey::calibration_table() const { return impl_->table; }
+
+Result LiveSurvey::set_calibration_table(const calibration::Table& table) {
+    Impl& m = *impl_;
+    if (!m.paths.calibration_table.empty()) {
+        std::error_code ec;
+        fs::create_directories(m.paths.calibration_table.parent_path(), ec);
+        std::string error;
+        if (!table.save(m.paths.calibration_table, error))
+            return Result{false, "The calibration table could not be saved: " + error};
+    }
+    auto t = std::make_shared<const calibration::Table>(table);
+    m.table = t;
+    if (m.pipeline) m.pipeline->set_corrector(std::make_shared<calibration::TableCorrector>(t, calibration::AntennaSettings{}));
+    return Result{true, m.paths.calibration_table.empty() ? std::string("Calibration table updated (not saved: no file).")
+                                                          : "Calibration table saved to " + m.paths.calibration_table.string() + "."};
+}
+
+const RadioPaths& LiveSurvey::paths() const { return impl_->paths; }
+
+plugin::PluginStateStore& LiveSurvey::state() {
+    impl_->ensure_state();
+    return *impl_->state;
 }
 
 const RadioChoice* LiveSurvey::chosen() const { return chosen_ ? &radios_[*chosen_] : nullptr; }
@@ -562,7 +682,7 @@ Result LiveSurvey::stop() {
     const std::size_t n = m.walk->stored();
     m.stop_walk();
     if (m.recording_by_walk) (void)m.end_recording();
-    if (m.radio_by_walk) m.close_radio();
+    if (m.radio_by_walk) m.release_radio();
     m.open_start.reset();
     m.manual_point.reset();
     return Result{true, "Walk test stopped: " + std::to_string(n) + (n == 1 ? " point" : " points") + " stored."};
@@ -613,7 +733,7 @@ Result LiveSurvey::start_radio() {
         if (std::string e = m.open_radio(*r, m.period_ns != 0 ? m.period_ns : kWalkPeriodNs); !e.empty())
             return Result{false, e};
     } catch (const std::exception& e) {
-        m.close_radio();
+        m.release_radio();
         return Result{false, std::string("The radio could not start: ") + e.what()};
     }
     std::string note;
@@ -629,7 +749,7 @@ Result LiveSurvey::stop_radio() {
     if (m.recorder) return Result{false, "Stop the recording first."};
     if (!m.running_radio()) return Result{false, "The radio is not measuring."};
     const std::string label = m.device_label;
-    m.close_radio();
+    m.release_radio();
     m.monitor->note(EventKind::Radio, label + " stopped.");
     return Result{true, label + " stopped."};
 }
