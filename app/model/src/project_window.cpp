@@ -309,6 +309,13 @@ void ProjectWindow::build_interpolation(FloorContent& c, const building::Buildin
     layer.stale_reasons = st.reasons;
     layer.rms_db = in->quality.rms_db;
     layer.fit_points = in->quality.points;
+    layer.estimated_sources = in->estimated_sources;
+    if (in->estimated_sources)
+        for (const building::Antenna& a : in->sources) {
+            std::string label = "estimated";
+            if (a.eirp_dbm) label += ", EIRP " + fixed(*a.eirp_dbm, 1, " dBm");
+            layer.sources.push_back(PlanAntenna{a.position, label, false, std::nullopt});
+        }
     layer.data = std::move(*in);
     c.interpolation = std::move(layer);
 }

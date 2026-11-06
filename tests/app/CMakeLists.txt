@@ -22,7 +22,7 @@ endif()
 set(_scratch ${CMAKE_CURRENT_BINARY_DIR}/scratch)
 file(MAKE_DIRECTORY ${_scratch})
 
-add_executable(test_app test_app_model.cpp test_file_browser.cpp test_plan_import_window.cpp test_project_window.cpp)
+add_executable(test_app test_app_model.cpp test_file_browser.cpp test_floor_editor.cpp test_interpolation_runner.cpp test_plan_import_window.cpp test_project_window.cpp)
 target_link_libraries(test_app PRIVATE yantra_test_main yantra_warnings yantra::app_model yantra::core
                                        yantra_plan_fixtures yantra::json)
 target_compile_definitions(test_app PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scratch}/test_app"
@@ -52,6 +52,27 @@ if(TARGET demo_fraunces)
 endif()
 add_test(NAME test_app_ui COMMAND test_app_ui)
 set_tests_properties(test_app_ui PROPERTIES LABELS "fast;app" TIMEOUT ${_app_timeout})
+
+# The walk-test view with the simulator (step 9.4): real time, one ctest
+# per case; the technology plugins and the simulator of the build tree.
+add_executable(test_app_live test_live_survey.cpp)
+target_link_libraries(test_app_live PRIVATE yantra_test_main yantra_warnings yantra::app_model yantra::core)
+target_compile_definitions(test_app_live PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scratch}/test_app_live"
+                                                 YANTRA_TEST_TECH_PLUGIN_DIR="${PROJECT_BINARY_DIR}/lib/yantra/plugins"
+                                                 YANTRA_TEST_RADIO_PLUGIN_DIR="${YANTRA_RADIO_PLUGIN_DIR}")
+if(TARGET yantra_radio_plugins)
+  add_dependencies(test_app_live yantra_radio_plugins)
+endif()
+if(TARGET yantra_tetra)
+  add_dependencies(test_app_live yantra_tetra)
+endif()
+if(TARGET demo_fraunces)
+  add_dependencies(test_app_live demo_fraunces)
+  target_compile_definitions(test_app_live PRIVATE YANTRA_TEST_DEMO_PROJECT="${YANTRA_DEMO_FRAUNCES_DIR}/fraunces.yantra")
+else()
+  target_compile_definitions(test_app_live PRIVATE YANTRA_TEST_DEMO_PROJECT="")
+endif()
+yantra_doctest_tests(test_app_live GROUP test_app_live LABELS "fast;app" TIMEOUT ${_app_timeout} PROCESSORS 2)
 
 set(_xvfb ${CMAKE_CURRENT_SOURCE_DIR}/with_xvfb.sh)
 set(_expect ${CMAKE_CURRENT_SOURCE_DIR}/expect_output.sh)

@@ -122,6 +122,10 @@ struct InterpolationLayer {
     std::vector<std::string> stale_reasons;
     double rms_db = 0.0;
     std::size_t fit_points = 0;
+    /// IND-42: the sources the model estimated (no antenna reached the
+    /// floor), drawn as estimated markers with their fitted EIRP.
+    bool estimated_sources = false;
+    std::vector<PlanAntenna> sources;
     survey::Interpolation data;  ///< for the hover readout
 };
 

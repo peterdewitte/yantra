@@ -25,6 +25,8 @@
 #include "yantra/app/app_state.h"
 #include "yantra/app/cli.h"
 #include "yantra/app/data_paths.h"
+#include "yantra/core/calibration/table.h"
+#include "yantra/core/plugin/folders.h"
 #include "yantra/app/settings.h"
 #include "yantra/app/window_system.h"
 #include "yantra/core/build_info.h"
@@ -121,6 +123,14 @@ int main(int argc, char** argv) {
     paths.data_folders = app::data_folders(inputs);
     paths.user_data = app::user_data_folder(inputs);
     if (fs::path(inputs.home).is_absolute()) paths.home = inputs.home;
+    {
+        // The walk-test view's radios (PLG-09 folder rule) and the user's
+        // calibration table (RF-02).
+        const yantra::plugin::PluginFolders pf = yantra::plugin::plugin_folders(yantra::plugin::folder_inputs_from_environment());
+        paths.radios.plugin_folders = pf.plugins;
+        paths.radios.radio_folders = pf.radios;
+        paths.radios.calibration_table = yantra::calibration::default_table_path();
+    }
 
     // Window system (NFR-10).
     const app::WindowSystemChoice ws =

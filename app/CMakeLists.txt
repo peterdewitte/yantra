@@ -31,6 +31,9 @@ add_library(yantra_app_model STATIC
   model/src/cli.cpp
   model/src/data_paths.cpp
   model/src/file_browser.cpp
+  model/src/floor_editor.cpp
+  model/src/interpolation_runner.cpp
+  model/src/live_survey.cpp
   model/src/plan_import_window.cpp
   model/src/project_window.cpp
   model/src/settings.cpp

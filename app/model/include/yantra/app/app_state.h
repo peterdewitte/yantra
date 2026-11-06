@@ -29,6 +29,9 @@
 #include <vector>
 
 #include "yantra/app/file_browser.h"
+#include "yantra/app/floor_editor.h"
+#include "yantra/app/interpolation_runner.h"
+#include "yantra/app/live_survey.h"
 #include "yantra/app/plan_import_window.h"
 #include "yantra/app/project_window.h"
 #include "yantra/app/result.h"
@@ -202,6 +205,11 @@ struct AppPaths {
     std::filesystem::path user_data;
     /// The user's home folder (file browser "Home"; default file names).
     std::filesystem::path home;
+    /// The plugin folders and the calibration table of the walk-test view
+    /// (empty: no radios; main() fills them from the plugin folder rule).
+    RadioPaths radios;
+    /// Worker threads of an interpolation run (0: all cores).
+    unsigned interpolation_threads = 0;
 };
 
 class AppState {
@@ -242,6 +250,12 @@ public:
     project::Project* project() { return project_.get(); }
     /// The project window's model (nullptr on the start screen).
     ProjectWindow* project_window() { return window_.get(); }
+    /// The wall and antenna editing of the project window (IND-11, IND-12).
+    FloorEditor* floor_editor() { return editor_.get(); }
+    /// The interpolation commands (IND-41..45) and the settings dialog.
+    InterpolationRunner* interpolation() { return runner_.get(); }
+    /// The walk-test view's model (IND-20, GEO-02, GEO-05, DEMO-14).
+    LiveSurvey* live() { return live_.get(); }
 
     // -- commands -------------------------------------------------------
     /// Runs an action: opens its dialog, runs it, or refuses it with the
@@ -275,6 +289,14 @@ public:
     void set_layer_visible(Layer layer, bool visible);
     Result move_layer(Layer layer, int steps);
     Result set_bin_size(double size_m);
+
+    // -- editing, walk test, interpolation (IND-11, IND-12, IND-20, IND-41..45) --
+    /// Runs the interpolation of the selected floor (again with the shown
+    /// map's request when `again`, e.g. a stale map).
+    Result run_interpolation(bool again);
+    /// Each frame: an ended interpolation shows its message and its map;
+    /// the shown floor goes to the plugins' context.
+    void tick();
 
     // -- add floor and plan import (IND-02, IND-05..10) ---------------------
     /// The plans already in the project (Add floor).
@@ -341,8 +363,13 @@ private:
     AppPaths paths_;
     std::string find_demo_label() const;
 
-    std::unique_ptr<project::Project> project_;
+    void drop_tools();
+
+    std::shared_ptr<project::Project> project_;
     std::unique_ptr<ProjectWindow> window_;
+    std::unique_ptr<FloorEditor> editor_;
+    std::unique_ptr<InterpolationRunner> runner_;
+    std::unique_ptr<LiveSurvey> live_;
     std::unique_ptr<PlanImportWindow> import_window_;
     std::string demo_label_;
     NewProjectForm form_;

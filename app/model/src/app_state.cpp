@@ -104,6 +104,7 @@ void remove_project_file(const fs::path& target, std::error_code& ec) {
 AppState::AppState(AppSettings settings, AppPaths paths) : settings_(std::move(settings)), paths_(std::move(paths)) {}
 
 AppState::~AppState() {
+    drop_tools();
     window_.reset();
     try {
         if (project_) project_->close();
@@ -294,6 +295,7 @@ void AppState::cancel_dialog() {
 
 Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& verb) {
     import_window_.reset();
+    drop_tools();
     window_.reset();
     if (project_) {
         try {
@@ -304,6 +306,9 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     }
     project_ = std::move(p);
     window_ = std::make_unique<ProjectWindow>(*project_);
+    editor_ = std::make_unique<FloorEditor>(*project_);
+    runner_ = std::make_unique<InterpolationRunner>(project_, InterpolationRunner::Options{paths_.interpolation_threads});
+    live_ = std::make_unique<LiveSurvey>(project_, paths_.radios);
     demo_label_ = find_demo_label();
     add_recent_project(settings_, project_->path());
     settings_changed_ = true;
@@ -585,6 +590,7 @@ Result AppState::close_project() {
         dialog_ == Dialog::RemoveFloor || dialog_ == Dialog::PlanImport)
         cancel_dialog();
     import_window_.reset();
+    drop_tools();
     window_.reset();
     demo_label_.clear();
     try {
@@ -804,6 +810,43 @@ bool AppState::save_settings(std::string& error) {
     if (!app::save_settings(paths_.settings_file, settings_, error)) return false;
     settings_changed_ = false;
     return true;
+}
+
+// -- editing, walk test, interpolation ------------------------------------------------------
+
+void AppState::drop_tools() {
+    // The walk first (its cycle thread stores points), then a running
+    // interpolation (cancelled and waited for), then the editor.
+    live_.reset();
+    runner_.reset();
+    editor_.reset();
+}
+
+Result AppState::run_interpolation(bool again) {
+    if (!runner_ || !window_) return fail("No project is open.");
+    const std::string floor = window_->selected();
+    const FloorContent* c = window_->content(settings_.layers.bin_size_m);
+    const survey::Interpolation* shown = again && c && c->interpolation ? &c->interpolation->data : nullptr;
+    return show(runner_->run(floor, shown));
+}
+
+void AppState::tick() {
+    if (runner_) {
+        std::int64_t id = 0;
+        if (const auto r = runner_->poll(&id)) {
+            if (window_) {
+                window_->invalidate();
+                if (id != 0) (void)window_->show_interpolation(id);
+            }
+            (void)show(*r);
+        }
+    }
+    if (live_ && window_) {
+        const std::string& f = window_->selected();
+        live_->show_floor(f.empty() ? std::nullopt : std::optional<std::string>(f));
+        live_->update();
+    }
+    if (editor_ && window_) editor_->set_floor(window_->selected());
 }
 
 }  // namespace yantra::app
