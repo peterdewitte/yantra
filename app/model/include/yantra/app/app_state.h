@@ -36,6 +36,7 @@
 #include "yantra/app/system_status.h"
 #include "yantra/app/plan_import_window.h"
 #include "yantra/app/project_window.h"
+#include "yantra/app/radio_windows.h"
 #include "yantra/app/result.h"
 #include "yantra/app/settings.h"
 
@@ -261,6 +262,8 @@ public:
     InterpolationRunner* interpolation() { return runner_.get(); }
     /// The walk-test view's model (IND-20, GEO-02, GEO-05, DEMO-14).
     LiveSurvey* live() { return live_.get(); }
+    /// The radio windows' model (PLG-16, step 9.6; nullptr on the start screen).
+    RadioWindows* radio_windows() { return radios_.get(); }
     /// The survey panels' model (UI-01..04, UI-11, NFR-07): live or replay.
     const std::shared_ptr<SurveyMonitor>& monitor() const { return monitor_; }
     /// Replay of the project's recordings (REC-06..08; nullptr on the start screen).
@@ -408,6 +411,7 @@ private:
     std::unique_ptr<FloorEditor> editor_;
     std::unique_ptr<InterpolationRunner> runner_;
     std::unique_ptr<LiveSurvey> live_;
+    std::unique_ptr<RadioWindows> radios_;  // uses live_: dropped first
     std::shared_ptr<SurveyMonitor> monitor_ = std::make_shared<SurveyMonitor>();
     std::unique_ptr<ReplaySession> replay_;
     std::shared_ptr<AudioIo> audio_ = make_no_audio("Sound is not set up in this copy of Yantra.");

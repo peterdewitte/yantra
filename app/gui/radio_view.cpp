@@ -1,0 +1,671 @@
+// SPDX-FileCopyrightText: 2026 The Yantra contributors
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+// The Radio menu and the radio windows (step 9.6; docs/APP.md "Radio
+// windows"): Radios (selection, connect, disconnect), Settings, Debug,
+// Calibration (with the NFR-07 reference noise) and Device info with the
+// self-test (PLG-16, RAD-40..48, RF-02, HW-01b). Drawing only: the model
+// is RadioWindows (app/model), built from the radio API's descriptors,
+// the same code for every radio plugin.
+#include <imgui.h>
+#include <imgui_internal.h>
+
+#include <algorithm>
+#include <cmath>
+#include <cstdio>
+#include <string>
+#include <variant>
+
+#include <yantra/radio.h>
+
+#include "gui.h"
+#include "gui_widgets.h"
+#include "yantra/core/calibration/table.h"
+
+namespace yantra::app {
+
+using namespace gui_detail;
+
+namespace {
+
+const ImVec4 kOkColour{0.45F, 0.85F, 0.45F, 1.0F};
+const ImVec4 kWarnColour{1.0F, 0.75F, 0.25F, 1.0F};
+
+/// Gives a combo box its label in the UI tests' probe (ImGui reports none
+/// for it): the "###" id, as for the other items.
+void probe_label(ImGuiID id, const char* label) {
+#ifdef IMGUI_ENABLE_TEST_ENGINE
+    ImGuiContext& g = *GImGui;
+    IMGUI_TEST_ENGINE_ITEM_INFO(id, label, 0);
+#else
+    (void)id;
+    (void)label;
+#endif
+}
+
+constexpr RadioWindow kWindows[] = {RadioWindow::List, RadioWindow::Settings, RadioWindow::Debug,
+                                    RadioWindow::Calibration, RadioWindow::Info};
+
+/// A button that is disabled with `reason` (DOC-07 c); true when pressed.
+bool reason_button(const std::string& label, const char* tooltip, const std::string& reason) {
+    ImGui::BeginDisabled(!reason.empty());
+    const bool pressed = ImGui::Button(label.c_str());
+    ImGui::EndDisabled();
+    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) {
+        ImGui::BeginTooltip();
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
+        ImGui::TextUnformatted(tooltip);
+        if (!reason.empty()) {
+            ImGui::Spacing();
+            ImGui::TextColored(kBannerColour, "%s", reason.c_str());
+        }
+        ImGui::PopTextWrapPos();
+        ImGui::EndTooltip();
+    }
+    return pressed && reason.empty();
+}
+
+void wrapped(const std::string& text, const ImVec4* colour = nullptr) {
+    if (text.empty()) return;
+    ImGui::PushTextWrapPos(0.0F);
+    if (colour != nullptr) ImGui::TextColored(*colour, "%s", text.c_str());
+    else ImGui::TextUnformatted(text.c_str());
+    ImGui::PopTextWrapPos();
+}
+
+/// The device line and message every radio window starts with; false
+/// when there is no open device (the reason is shown).
+bool draw_header(const DeviceHeader& h) {
+    if (!h.connected) {
+        wrapped(h.reason, &kBannerColour);
+        if (!h.message.empty()) wrapped(h.message, h.message_error ? &kErrorColour : nullptr);
+        return false;
+    }
+    ImGui::Text("Radio: %s%s", h.title.c_str(), h.busy ? "  (working...)" : "");
+    if (!h.message.empty()) wrapped(h.message, h.message_error ? &kErrorColour : &kOkColour);
+    ImGui::Separator();
+    return true;
+}
+
+void row_text(const char* label, const std::string& value) {
+    ImGui::TextDisabled("%s", label);
+    ImGui::SameLine(200.0F);
+    ImGui::TextUnformatted(value.empty() ? "-" : value.c_str());
+}
+
+std::string number_text(double x, int decimals, const char* unit) {
+    if (!std::isfinite(x)) return "unknown";
+    char b[64];
+    std::snprintf(b, sizeof b, "%.*f %s", decimals, x, unit);
+    return b;
+}
+
+void sensors_table(const std::vector<SensorRow>& sensors, const char* id) {
+    if (sensors.empty()) {
+        ImGui::TextDisabled("This radio has no sensors.");
+        return;
+    }
+    if (!ImGui::BeginTable(id, 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) return;
+    for (const SensorRow& s : sensors) {
+        ImGui::TableNextRow();
+        ImGui::TableNextColumn();
+        ImGui::TextUnformatted(s.label.c_str());
+        if (!s.help.empty()) help_marker(s.help.c_str());
+        ImGui::TableNextColumn();
+        ImGui::TextUnformatted(s.value.empty() ? "-" : s.value.c_str());
+    }
+    ImGui::EndTable();
+}
+
+}  // namespace
+
+// -- menu ---------------------------------------------------------------------------------------
+
+void Gui::draw_radio_menu() {
+    RadioWindows* rw = state_.radio_windows();
+    if (!ImGui::BeginMenu("Radio###menu.radio", rw != nullptr)) {
+        if (rw == nullptr) text_tooltip("Open or create a project first: the radio windows work with its walk test.");
+        return;
+    }
+    const RadioListView v = rw->list_view();
+    if (ImGui::MenuItem("Radios...###radio.list")) (void)rw->open(RadioWindow::List);
+    text_tooltip("The radio plugins and their devices: choose, connect and disconnect a radio (PLG-16).");
+    if (ImGui::MenuItem("Find radios###radio.find")) (void)rw->find_radios();
+    text_tooltip("Ask every radio plugin which devices it sees now (RAD-30).");
+    ImGui::Separator();
+    std::optional<std::size_t> chosen;
+    for (const RadioRow& r : v.radios)
+        if (r.chosen) chosen = r.index;
+    const std::string reason = !v.searched      ? "Find the radios first."
+                               : !chosen        ? "Choose a radio first (Radio > Radios...)."
+                                                : std::string();
+    const struct {
+        RadioWindow w;
+        const char* label;
+        const char* tip;
+    } entries[] = {
+        {RadioWindow::Settings, "Settings...###radio.settings", "The chosen radio's settings, built from its descriptors (RAD-40..44)."},
+        {RadioWindow::Debug, "Debug...###radio.debug", "The radio's records, counters, events, sensors and log (RAD-14, RAD-24, RAD-25)."},
+        {RadioWindow::Calibration, "Calibration...###radio.calibration",
+         "The level calibration table, the wizard, verify, frequency error and the reference noise (RF-02, NFR-07)."},
+        {RadioWindow::Info, "Device info and self-test...###radio.info", "The plugin, the device and its self-test (RAD-30, RAD-46)."},
+    };
+    for (const auto& e : entries) {
+        if (ImGui::MenuItem(e.label, nullptr, false, reason.empty())) (void)rw->open(e.w, chosen);
+        ActionView a;
+        a.tooltip = e.tip;
+        a.enabled = reason.empty();
+        a.disabled_reason = reason;
+        item_tooltip(a);
+    }
+    ImGui::EndMenu();
+}
+
+// -- windows ------------------------------------------------------------------------------------------
+
+void Gui::draw_radio_windows() {
+    RadioWindows* rw = state_.radio_windows();
+    if (rw == nullptr) return;
+    const ImGuiViewport* vp = ImGui::GetMainViewport();
+    float offset = 0.0F;
+    for (RadioWindow w : kWindows) {
+        offset += 28.0F;
+        if (!rw->is_open(w)) continue;
+        ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + 80.0F + offset, vp->WorkPos.y + 40.0F + offset), ImGuiCond_FirstUseEver);
+        ImGui::SetNextWindowSize(ImVec2(640.0F, std::max(360.0F, std::min(780.0F, vp->WorkSize.y - 80.0F - offset))),
+                                 ImGuiCond_FirstUseEver);
+        bool open = true;
+        const std::string name = std::string(radio_window_title(w)) + "###win." + radio_window_id(w);
+        if (ImGui::Begin(name.c_str(), &open, ImGuiWindowFlags_NoSavedSettings)) {
+            switch (w) {
+            case RadioWindow::List: draw_radio_list(*rw); break;
+            case RadioWindow::Settings: draw_radio_settings(*rw); break;
+            case RadioWindow::Debug: draw_radio_debug(*rw); break;
+            case RadioWindow::Calibration: draw_radio_calibration(*rw); break;
+            case RadioWindow::Info: draw_radio_info(*rw); break;
+            }
+        }
+        ImGui::End();
+        if (!open) rw->close(w);
+    }
+    draw_radio_confirmation(*rw);
+}
+
+void Gui::draw_radio_confirmation(RadioWindows& rw) {
+    static constexpr const char* kId = "Confirm###dlg.radio.confirm";
+    const std::optional<Confirmation>& c = rw.confirmation();
+    if (c && !ImGui::IsPopupOpen(kId)) ImGui::OpenPopup(kId);
+    if (!ImGui::BeginPopupModal(kId, nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) return;
+    if (!c) {
+        ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+        return;
+    }
+    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 28.0F);
+    ImGui::TextUnformatted(c->text.c_str());
+    ImGui::PopTextWrapPos();
+    ImGui::Spacing();
+    const char* ok = c->kind == Confirmation::Kind::Reset     ? "Reset###radio.confirm.ok"
+                     : c->kind == Confirmation::Kind::Restart ? "Restart and apply###radio.confirm.ok"
+                                                              : "Apply###radio.confirm.ok";
+    if (dialog_button(ok, "Apply the change.")) {
+        (void)rw.confirm();
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::SameLine();
+    if (dialog_button("Cancel###radio.confirm.cancel", "Keep the current value.") || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+        rw.cancel_confirmation();
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
+}
+
+void Gui::draw_radio_list(RadioWindows& rw) {
+    const RadioListView v = rw.list_view();
+    if (ImGui::Button("Find radios###radio.list.find")) (void)rw.find_radios();
+    text_tooltip("Ask every radio plugin which devices it sees now (RAD-30).");
+    ImGui::SameLine();
+    ImGui::TextUnformatted(v.state.c_str());
+    wrapped(v.note);
+    const SettingsView h = rw.settings_view();
+    if (!h.header.message.empty()) wrapped(h.header.message, h.header.message_error ? &kErrorColour : &kOkColour);
+    ImGui::Separator();
+    if (!v.searched) {
+        wrapped("Press Find radios: the radio plugins list the devices they see.", &kBannerColour);
+    } else if (v.radios.empty()) {
+        wrapped("No radio found. The plugins below say why.", &kBannerColour);
+    }
+    for (const RadioRow& r : v.radios) {
+        ImGui::BeginDisabled(!r.usable);
+        std::string label = r.label + (r.connected ? (r.measuring ? "  (measuring)" : "  (connected)") : "") +
+                            "###radio.row." + std::to_string(r.index);
+        if (ImGui::RadioButton(label.c_str(), r.chosen) && !r.chosen) (void)rw.choose(r.index);
+        ImGui::EndDisabled();
+        text_tooltip((r.plugin_id + " " + r.device_key + (r.simulated ? " (simulated)" : "") +
+                      (r.usable ? std::string() : "\n" + r.reason))
+                         .c_str());
+    }
+    ImGui::Spacing();
+    if (reason_button("Connect###radio.list.connect", "Open the chosen radio without measuring, for its windows.",
+                      v.connect_reason))
+        (void)rw.connect();
+    ImGui::SameLine();
+    if (reason_button("Disconnect###radio.list.disconnect", "Close the radio.", v.disconnect_reason)) (void)rw.disconnect();
+    bool any_connected = false;
+    for (const RadioRow& r : v.radios) any_connected = any_connected || r.connected;
+    const std::string open_reason = any_connected ? std::string() : "Connect a radio first.";
+    ImGui::SameLine();
+    if (reason_button("Settings###radio.list.settings", "Open the settings window.", open_reason))
+        (void)rw.open(RadioWindow::Settings);
+    ImGui::SameLine();
+    if (reason_button("Debug###radio.list.debug", "Open the debug window.", open_reason)) (void)rw.open(RadioWindow::Debug);
+    ImGui::SameLine();
+    if (reason_button("Calibration###radio.list.calibration", "Open the calibration window.", open_reason))
+        (void)rw.open(RadioWindow::Calibration);
+    ImGui::SameLine();
+    if (reason_button("Info###radio.list.info", "Open the device info and self-test window.", open_reason))
+        (void)rw.open(RadioWindow::Info);
+    ImGui::Separator();
+    if (ImGui::CollapsingHeader("Radio plugins###radio.list.plugins")) {
+        for (std::size_t i = 0; i < v.plugins.size(); ++i) {
+            const PluginRow& p = v.plugins[i];
+            ImGui::PushID(static_cast<int>(i));
+            ImGui::Text("%s %s (%s)", p.name.c_str(), p.version.c_str(), p.status.c_str());
+            text_tooltip((p.id + "\nAPI " + p.api + ", " + p.licence + "\n" + p.author + "\nCapabilities: " +
+                          (p.capabilities.empty() ? std::string("none") : p.capabilities))
+                             .c_str());
+            if (!p.message.empty()) wrapped("  " + p.message, &kBannerColour);
+            ImGui::PopID();
+        }
+    }
+}
+
+// -- settings -------------------------------------------------------------------------------------------
+
+void Gui::draw_setting_row(RadioWindows& rw, const SettingRow& r) {
+    const radio::SettingDef& d = r.def;
+    const std::string id = "###set." + d.key;
+    ImGui::PushID(d.key.c_str());
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted(d.label.c_str());
+    std::string help = d.help;
+    if (!d.unit.empty()) help += (help.empty() ? "" : "\n") + std::string("Unit: ") + d.unit;
+    if (d.has(YR_SETTING_RESTART)) help += (help.empty() ? "" : "\n") + std::string("Changes restart the stream.");
+    if (d.has(YR_SETTING_CALIBRATION)) help += (help.empty() ? "" : "\n") + std::string("Part of the calibration key (HW-01b).");
+    if (!help.empty()) help_marker(help.c_str());
+    ImGui::SameLine(260.0F);
+    ImGui::BeginDisabled(!r.enabled);
+    const char* tip = r.enabled ? (d.help.empty() ? d.label.c_str() : d.help.c_str()) : r.disabled_reason.c_str();
+    // The input field of a number or text, applied with Enter.
+    auto input_field = [&](float width) {
+        const std::string key = d.key;
+        if (setting_editing_ != key) setting_text_[key] = setting_edit_text(d, r.requested);
+        ImGui::SetNextItemWidth(width);
+        std::string& text = setting_text_[key];
+        const bool enter = input_text((id + ".input").c_str(), text, d.type == YR_TYPE_STRING ? YR_MAX_STRING_VALUE_BYTES + 1 : 64);
+        text_tooltip(tip);
+        if (ImGui::IsItemActive()) setting_editing_ = key;
+        if (ImGui::IsItemDeactivatedAfterEdit() || (enter && ImGui::IsKeyPressed(ImGuiKey_Enter))) {
+            std::string error;
+            if (const auto v = parse_setting(d, text, error)) {
+                setting_input_error_.erase(key);
+                (void)rw.request(key, *v);
+            } else {
+                setting_input_error_[key] = error;
+            }
+            setting_editing_.clear();
+        } else if (!ImGui::IsItemActive() && setting_editing_ == key) {
+            setting_editing_.clear();
+        }
+    };
+    switch (r.widget) {
+    case SettingWidget::Checkbox: {
+        bool on = std::holds_alternative<bool>(r.requested) && std::get<bool>(r.requested);
+        if (ImGui::Checkbox(id.c_str(), &on)) (void)rw.request(d.key, on);
+        text_tooltip(tip);
+        break;
+    }
+    case SettingWidget::Combo: {
+        ImGui::SetNextItemWidth(240.0F);
+        const ImGuiID cid = ImGui::GetID(id.c_str());
+        const bool open = ImGui::BeginCombo(id.c_str(), r.requested_text.c_str());
+        probe_label(cid, id.c_str());
+        if (open) {
+            for (const radio::EnumItem& it : d.items) {
+                const bool sel = std::holds_alternative<plugin::EnumValue>(r.requested) &&
+                                 std::get<plugin::EnumValue>(r.requested).value == it.value;
+                const std::string l = (it.label.empty() ? it.name : it.label) + "###set." + d.key + ".item." + it.name;
+                if (ImGui::Selectable(l.c_str(), sel)) (void)rw.request(d.key, plugin::EnumValue{it.value});
+            }
+            ImGui::EndCombo();
+        }
+        text_tooltip(tip);
+        break;
+    }
+    case SettingWidget::Slider: {
+        ImGui::SetNextItemWidth(200.0F);
+        bool done = false;
+        plugin::Value v;
+        if (d.type == YR_TYPE_DOUBLE) {
+            double x = std::holds_alternative<double>(r.requested) ? std::get<double>(r.requested) : d.minimum;
+            ImGui::SliderScalar(id.c_str(), ImGuiDataType_Double, &x, &d.minimum, &d.maximum, "%.3g");
+            if (d.step > 0.0) x = d.minimum + std::round((x - d.minimum) / d.step) * d.step;
+            v = x;
+        } else if (d.type == YR_TYPE_INT) {
+            std::int64_t x = std::holds_alternative<std::int64_t>(r.requested) ? std::get<std::int64_t>(r.requested)
+                                                                                : static_cast<std::int64_t>(d.minimum);
+            const auto lo = static_cast<std::int64_t>(d.minimum), hi = static_cast<std::int64_t>(d.maximum);
+            ImGui::SliderScalar(id.c_str(), ImGuiDataType_S64, &x, &lo, &hi);
+            v = x;
+        } else {
+            std::uint64_t x = std::holds_alternative<std::uint64_t>(r.requested) ? std::get<std::uint64_t>(r.requested)
+                                                                                  : static_cast<std::uint64_t>(d.minimum);
+            const auto lo = static_cast<std::uint64_t>(d.minimum), hi = static_cast<std::uint64_t>(d.maximum);
+            ImGui::SliderScalar(id.c_str(), ImGuiDataType_U64, &x, &lo, &hi);
+            v = x;
+        }
+        done = ImGui::IsItemDeactivatedAfterEdit();
+        text_tooltip(tip);
+        if (done) (void)rw.request(d.key, v);
+        ImGui::SameLine();
+        input_field(90.0F);
+        break;
+    }
+    case SettingWidget::Number: input_field(160.0F); break;
+    case SettingWidget::Text: input_field(240.0F); break;
+    case SettingWidget::Button:
+        if (ImGui::Button((d.label + id).c_str())) (void)rw.run_action(d.key);
+        text_tooltip(tip);
+        break;
+    }
+    if (!d.unit.empty() && r.widget != SettingWidget::Button && r.widget != SettingWidget::Checkbox) {
+        ImGui::SameLine();
+        ImGui::TextUnformatted(d.unit.c_str());
+    }
+    ImGui::EndDisabled();
+    if (!r.enabled) {
+        ImGui::SameLine();
+        ImGui::TextDisabled("(%s)", r.disabled_reason.c_str());
+    }
+    if (r.differs) {
+        ImGui::Indent(260.0F);
+        ImGui::TextColored(kWarnColour, "Device uses: %s", r.actual_text.c_str());
+        text_tooltip("The radio took another value than asked (RAD-41): it rounded or limited it.");
+        ImGui::Unindent(260.0F);
+    }
+    const auto ie = setting_input_error_.find(d.key);
+    const std::string& error = ie != setting_input_error_.end() ? ie->second : r.error;
+    if (!error.empty()) {
+        ImGui::Indent(260.0F);
+        wrapped(error, &kErrorColour);
+        ImGui::Unindent(260.0F);
+    }
+    if (!r.result.empty()) {
+        ImGui::Indent(260.0F);
+        wrapped(r.result);
+        ImGui::Unindent(260.0F);
+    }
+    ImGui::PopID();
+}
+
+void Gui::draw_radio_settings(RadioWindows& rw) {
+    const SettingsView v = rw.settings_view();
+    if (!draw_header(v.header)) return;
+    bool advanced = v.advanced;
+    if (ImGui::Checkbox("Advanced settings###set.advanced", &advanced)) rw.set_advanced(advanced);
+    text_tooltip("Show the settings the radio marks as advanced.");
+    if (!v.advanced && v.advanced_hidden != 0) {
+        ImGui::SameLine();
+        ImGui::TextDisabled("(%zu hidden)", v.advanced_hidden);
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Reset to defaults###set.reset")) (void)rw.reset_defaults();
+    text_tooltip("Set every setting back to the radio's default (asks first).");
+    if (!v.presets.empty()) {
+        ImGui::TextUnformatted("Presets:");
+        for (const PresetRow& p : v.presets) {
+            ImGui::SameLine();
+            if (ImGui::Button((p.label + "###preset." + p.id).c_str())) (void)rw.apply_preset(p.id);
+            text_tooltip(p.help.empty() ? p.label.c_str() : p.help.c_str());
+        }
+    }
+    ImGui::Separator();
+    if (v.sections.empty()) ImGui::TextDisabled(v.header.busy ? "Reading the settings..." : "This radio has no settings.");
+    ImGui::BeginChild("###set.list", ImVec2(0.0F, 0.0F));
+    for (const SettingSection& s : v.sections) {
+        const std::string title = (s.name.empty() ? std::string("General") : s.name) + "###set.group." + s.name;
+        if (!ImGui::CollapsingHeader(title.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) continue;
+        for (const SettingRow& r : s.rows) draw_setting_row(rw, r);
+    }
+    ImGui::EndChild();
+}
+
+// -- debug ------------------------------------------------------------------------------------------------
+
+void Gui::draw_radio_debug(RadioWindows& rw) {
+    const DebugView v = rw.debug_view();
+    if (!draw_header(v.header)) return;
+    row_text("Device state", v.state);
+    if (v.stats_valid) {
+        const radio::DeviceStats& s = v.stats;
+        row_text("Records delivered", std::to_string(s.sink.delivered));
+        row_text("Dropped (host)", std::to_string(s.sink.dropped) + " dropped, " + std::to_string(s.sink.invalid) +
+                                       " invalid, " + std::to_string(s.sink.late) + " late");
+        row_text("Streams / reopens", std::to_string(s.streams) + " / " + std::to_string(s.reopens));
+        if (s.plugin_ok) {
+            row_text("Plugin counters", std::to_string(s.plugin.records_delivered) + " records, " +
+                                            std::to_string(s.plugin.records_dropped) + " dropped, " +
+                                            std::to_string(s.plugin.samples_dropped) + " samples dropped, " +
+                                            std::to_string(s.plugin.overflows) + " overflows");
+            row_text("Receiver load", number_text(s.plugin.receiver_load * 100.0, 0, "%"));
+            row_text("Sample rate", number_text(s.plugin.sample_rate_hz / 1e6, 3, "MS/s"));
+        }
+        for (const std::string& p : s.sink.problems) wrapped(p, &kErrorColour);
+    }
+    if (ImGui::CollapsingHeader("Records###dbg.records", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (v.records.empty()) ImGui::TextDisabled("No records yet: start the radio (Survey > Start radio).");
+        for (std::size_t i = 0; i < v.records.size(); ++i) {
+            const RecordRow& r = v.records[i];
+            char head[200];
+            std::snprintf(head, sizeof head, "%s %s  %.1f/s  %.1f s ago###dbg.rec.%zu", r.carrier.c_str(), r.role.c_str(),
+                          r.rate_hz, r.age_s, i);
+            if (!ImGui::TreeNode(head)) continue;
+            ImGui::TextDisabled("%s  flags: %s", r.schema.c_str(), r.flags.empty() ? "none" : r.flags.c_str());
+            for (const auto& [name, value] : r.fields) row_text(name.c_str(), value);
+            ImGui::TreePop();
+        }
+    }
+    if (ImGui::CollapsingHeader("Sensors###dbg.sensors")) sensors_table(v.sensors, "###dbg.sensor_table");
+    if (ImGui::CollapsingHeader("Events###dbg.events")) {
+        if (v.events.empty()) ImGui::TextDisabled("No events yet.");
+        for (auto it = v.events.rbegin(); it != v.events.rend(); ++it) ImGui::TextUnformatted(it->c_str());
+    }
+    if (ImGui::CollapsingHeader("Plugin log###dbg.log")) {
+        ImGui::BeginChild("###dbg.log_lines", ImVec2(0.0F, 180.0F), ImGuiChildFlags_Borders);
+        for (const radio::LogLine& l : v.log) {
+            const ImVec4* c = l.level >= YR_LOG_ERROR ? &kErrorColour : l.level >= YR_LOG_WARNING ? &kWarnColour : nullptr;
+            if (c != nullptr) ImGui::TextColored(*c, "%s", l.message.c_str());
+            else ImGui::TextUnformatted(l.message.c_str());
+        }
+        ImGui::EndChild();
+    }
+    if (!v.context_calls.empty() && ImGui::CollapsingHeader("Context calls###dbg.context")) {
+        for (const auto& [name, n] : v.context_calls) row_text(name.c_str(), std::to_string(n));
+    }
+}
+
+// -- calibration -------------------------------------------------------------------------------------------
+
+void Gui::draw_radio_calibration(RadioWindows& rw) {
+    const CalibrationView v = rw.calibration_view();
+    CalibrationForm& f = rw.calibration_form();
+    if (!draw_header(v.header)) return;
+    row_text("Calibration key", v.key_text);
+    row_text("Status", v.key_status);
+    row_text("Table", v.table_file);
+    if (v.simulated) wrapped("Simulated radio: practice calibration, never applied to a real radio.", &kWarnColour);
+
+    if (ImGui::CollapsingHeader("Entries of this device###cal.entries", ImGuiTreeNodeFlags_DefaultOpen)) {
+        if (v.entries.empty()) ImGui::TextDisabled("No calibration of this device yet.");
+        for (std::size_t i = 0; i < v.entries.size(); ++i) {
+            const CalibrationEntryRow& e = v.entries[i];
+            ImGui::PushID(static_cast<int>(i));
+            ImGui::Text("%s%s  %s, %zu points, %s until %s%s", e.current ? "> " : "  ", e.date.c_str(), e.method.c_str(),
+                        e.points, e.status.c_str(), e.expires.c_str(), e.simulated ? " (simulated)" : "");
+            text_tooltip((e.key_id + "\nSerial " + e.serial + "\nSettings: " + e.settings).c_str());
+            ImGui::SameLine();
+            if (ImGui::SmallButton(("Remove###cal.remove." + std::to_string(i)).c_str())) (void)rw.remove_entry(e.key_id);
+            text_tooltip("Remove this entry from the calibration table.");
+            ImGui::PopID();
+        }
+    }
+
+    if (ImGui::CollapsingHeader("Level calibration wizard###cal.wizard", ImGuiTreeNodeFlags_DefaultOpen)) {
+        ImGui::BeginDisabled(v.wizard);
+        ImGui::SetNextItemWidth(260.0F);
+        input_text("Frequencies (MHz)###cal.freqs", f.frequencies_mhz);
+        text_tooltip("The generator's frequencies, comma separated.");
+        ImGui::SetNextItemWidth(260.0F);
+        input_text("Levels (dBm)###cal.levels", f.levels_dbm);
+        text_tooltip("The generator's levels at the radio's input, comma separated.");
+        ImGui::SetNextItemWidth(120.0F);
+        ImGui::InputInt("Valid (days)###cal.days", &f.valid_days);
+        text_tooltip("How long the calibration stays valid (RF-02).");
+        int readings = static_cast<int>(f.readings);
+        ImGui::SetNextItemWidth(120.0F);
+        if (ImGui::InputInt("Readings per point###cal.readings", &readings)) f.readings = static_cast<std::size_t>(std::max(1, readings));
+        text_tooltip("Records averaged per point.");
+        const bool reference = f.method == calibration::kMethodReference;
+        if (ImGui::RadioButton("Signal generator###cal.method.generator", !reference)) f.method = calibration::kMethodGenerator;
+        ImGui::SameLine();
+        if (ImGui::RadioButton("Reference radio###cal.method.reference", reference)) f.method = calibration::kMethodReference;
+        ImGui::EndDisabled();
+        if (reason_button("Start###cal.start", "Start the calibration with these points.", v.start_reason)) (void)rw.start_calibration();
+        if (v.wizard) {
+            wrapped(v.target);
+            if (reason_button("Measure###cal.measure", "Average the radio's records at this point.", v.measure_reason))
+                (void)rw.measure_point();
+            ImGui::SameLine();
+            if (ImGui::Button("Skip###cal.skip")) (void)rw.skip_point();
+            text_tooltip("Leave this point out.");
+            ImGui::SameLine();
+            if (ImGui::Button("Cancel###cal.cancel")) (void)rw.cancel_calibration();
+            text_tooltip("Stop the calibration; nothing is stored.");
+            ImGui::SameLine();
+            if (reason_button("Save###cal.save", "Store the result in the calibration table.",
+                              v.result && !v.result->points.empty() ? std::string() : "No accepted points yet."))
+                (void)rw.save_calibration();
+            if (v.collecting.active)
+                ImGui::ProgressBar(v.collecting.want == 0 ? 0.0F : static_cast<float>(v.collecting.have) / v.collecting.want,
+                                   ImVec2(260.0F, 0.0F));
+            for (const calibration::Reading& r : v.readings) {
+                if (r.accepted)
+                    ImGui::Text("%.4f MHz %.1f dBm: %.2f dBFS", r.frequency_hz / 1e6, r.level_dbm, r.measured_dbfs);
+                else
+                    ImGui::TextColored(kErrorColour, "%.4f MHz %.1f dBm: %s", r.frequency_hz / 1e6, r.level_dbm, r.problem.c_str());
+            }
+        }
+    }
+
+    if (ImGui::CollapsingHeader("Verify and frequency error###cal.verify_section")) {
+        ImGui::SetNextItemWidth(140.0F);
+        ImGui::InputDouble("MHz###cal.verify_mhz", &f.verify_mhz, 0.0, 0.0, "%.4f");
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(100.0F);
+        ImGui::InputDouble("dBm###cal.verify_dbm", &f.verify_dbm, 0.0, 0.0, "%.1f");
+        ImGui::SameLine();
+        if (reason_button("Verify###cal.verify", "Measure a known level and compare with the table.", v.verify_reason))
+            (void)rw.verify();
+        if (v.verify_error_db) ImGui::Text("Table error: %+.2f dB", *v.verify_error_db);
+        ImGui::SetNextItemWidth(140.0F);
+        ImGui::InputDouble("Known carrier (MHz)###cal.carrier_mhz", &f.carrier_mhz, 0.0, 0.0, "%.4f");
+        ImGui::SameLine();
+        if (reason_button("Measure ppm###cal.ppm",
+                          "The radio's frequency error from a carrier of known frequency (its records' frequency error).",
+                          v.ppm_reason))
+            (void)rw.measure_ppm();
+        if (v.ppm) ImGui::Text("Frequency error: %+.3f ppm", *v.ppm);
+    }
+
+    if (ImGui::CollapsingHeader("Reference noise (NFR-07)###cal.noise", ImGuiTreeNodeFlags_DefaultOpen)) {
+        wrapped("Take the reference with the antenna away from the PC: the self-interference warning compares the "
+                "measured noise with it (else with the thermal floor).");
+        row_text("Thermal floor", number_text(v.thermal_dbm, 1, "dBm"));
+        row_text("Reference", v.noise_reference_dbm ? number_text(*v.noise_reference_dbm, 1, "dBm") : std::string("not taken"));
+        row_text("Noise now", v.last_noise_dbm ? number_text(*v.last_noise_dbm, 1, "dBm") : std::string("unknown"));
+        if (reason_button("Take reference###cal.noise.take", "Median of the noise over 5 cycles.", v.noise_reason))
+            (void)rw.take_noise_reference();
+        ImGui::SameLine();
+        if (reason_button("Clear###cal.noise.clear", "Use the thermal floor again.",
+                          v.noise_reference_dbm ? std::string() : "No reference taken."))
+            (void)rw.clear_noise_reference();
+        if (v.collecting.active && !v.wizard)
+            ImGui::ProgressBar(v.collecting.want == 0 ? 0.0F : static_cast<float>(v.collecting.have) / v.collecting.want,
+                               ImVec2(260.0F, 0.0F));
+    }
+
+    if (ImGui::CollapsingHeader("Import and export###cal.files")) {
+        ImGui::SetNextItemWidth(360.0F);
+        input_text("File###cal.file", f.file);
+        text_tooltip("A calibration table file (JSON).");
+        const std::string why = f.file.empty() ? "Enter a file name." : std::string();
+        if (reason_button("Import###cal.import", "Merge the file's entries (the newer entry wins).", why))
+            (void)rw.import_table(f.file);
+        ImGui::SameLine();
+        if (reason_button("Export###cal.export", "Write the whole calibration table to the file.", why))
+            (void)rw.export_table(f.file);
+    }
+}
+
+// -- device info -----------------------------------------------------------------------------------------------
+
+void Gui::draw_radio_info(RadioWindows& rw) {
+    const InfoView v = rw.info_view();
+    if (!draw_header(v.header)) return;
+    // The self-test first: the sections below change size as sensors come.
+    ImGui::SeparatorText("Self-test");
+    if (reason_button("Run self-test###info.self_test", "Check the device (RAD-46).", v.self_test_reason)) (void)rw.run_self_test();
+    if (v.self_test_ran && v.self_test.empty()) ImGui::TextDisabled("The radio reported no test items.");
+    if (v.self_test_ran && !v.self_test.empty() &&
+        ImGui::BeginTable("###info.self_test_table", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) {
+        for (const radio::SelfTestItem& i : v.self_test) {
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn();
+            const ImVec4& c = i.result == YR_TEST_FAIL ? kErrorColour : i.result == YR_TEST_WARN ? kWarnColour : kOkColour;
+            ImGui::TextColored(c, "%s", radio::test_result_text(i.result));
+            ImGui::TableNextColumn();
+            ImGui::TextUnformatted(i.label.c_str());
+            ImGui::TableNextColumn();
+            wrapped(i.detail);
+            if (!i.remedy.empty()) wrapped(i.remedy, &kWarnColour);
+        }
+        ImGui::EndTable();
+    }
+    if (v.plugin_known) {
+        ImGui::SeparatorText("Plugin");
+        row_text("Name", v.plugin.name);
+        row_text("Id", v.plugin.id);
+        row_text("Version", v.plugin.version);
+        row_text("API", std::to_string(v.plugin.api_version.major) + "." + std::to_string(v.plugin.api_version.minor));
+        row_text("Author", v.plugin.author);
+        row_text("Licence", v.plugin.licence);
+        row_text("Source", v.plugin.source_url);
+        row_text("Capabilities", radio::capabilities_text(v.plugin.capabilities));
+        row_text("File", v.plugin.path.string());
+    }
+    if (v.device) {
+        ImGui::SeparatorText("Device");
+        row_text("Label", v.device->label);
+        row_text("Key", v.device->key);
+        row_text("Driver", v.device->driver);
+        row_text("Serial", v.device->serial);
+        row_text("Module", v.device->module_version);
+        row_text("Hardware", v.device->hardware_info);
+        row_text("Flags", v.device_flags + (v.device->flags_reason.empty() ? "" : ": " + v.device->flags_reason));
+    }
+    row_text("Calibration key", v.calibration_key);
+    ImGui::SeparatorText("Sensors");
+    sensors_table(v.sensors, "###info.sensor_table");
+}
+
+}  // namespace yantra::app

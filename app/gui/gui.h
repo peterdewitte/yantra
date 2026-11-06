@@ -13,6 +13,7 @@
 // step 9.1; project window 9.2, plan import 9.3; no radio list yet).
 #pragma once
 
+#include <map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -112,6 +113,16 @@ private:
     void draw_stats_panel();
     void draw_status_items();
     void run(Action a);
+    // Radio windows (step 9.6, radio_view.cpp).
+    void draw_radio_menu();
+    void draw_radio_windows();
+    void draw_radio_list(RadioWindows& rw);
+    void draw_radio_settings(RadioWindows& rw);
+    void draw_setting_row(RadioWindows& rw, const SettingRow& r);
+    void draw_radio_debug(RadioWindows& rw);
+    void draw_radio_calibration(RadioWindows& rw);
+    void draw_radio_info(RadioWindows& rw);
+    void draw_radio_confirmation(RadioWindows& rw);
 
     AppState& state_;
     Dialog shown_ = Dialog::None;  // the dialog whose popup is open
@@ -137,6 +148,11 @@ private:
     std::vector<std::string> threshold_on_;  // threshold lines shown (field names)
     PlotData plot_;                          // copied when the monitor's version changes
     std::uint64_t plot_version_ = ~0ull;
+    // Radio windows (step 9.6): the input fields' text while typed.
+    std::map<std::string, std::string> setting_text_;
+    std::map<std::string, std::string> setting_input_error_;
+    std::string setting_editing_;  // the field being typed into
+    std::string calibration_file_;
 };
 
 /// The ImGui popup id of a dialog ("New indoor project###dlg.new_project").

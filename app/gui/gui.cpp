@@ -92,7 +92,10 @@ void Gui::handle_shortcuts() {
 void Gui::draw_menu_bar() {
     if (!ImGui::BeginMainMenuBar()) return;
     for (const Menu& m : state_.menus()) {
-        if (!ImGui::BeginMenu((m.label + "###menu." + m.id).c_str())) continue;
+        if (!ImGui::BeginMenu((m.label + "###menu." + m.id).c_str())) {
+            if (m.id == "file") draw_radio_menu();  // PLG-16: between File and Help
+            continue;
+        }
         for (const MenuEntry& e : m.entries) {
             switch (e.kind) {
             case MenuEntry::Kind::Separator: ImGui::Separator(); break;
@@ -118,6 +121,7 @@ void Gui::draw_menu_bar() {
             }
         }
         ImGui::EndMenu();
+        if (m.id == "file") draw_radio_menu();  // PLG-16: between File and Help
     }
     ImGui::EndMainMenuBar();
 }
@@ -800,6 +804,7 @@ void Gui::draw() {
     ImGui::End();
     ImGui::PopStyleVar();
     draw_status_bar();
+    draw_radio_windows();
     draw_dialogs();
 }
 

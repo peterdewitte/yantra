@@ -12,6 +12,7 @@
 
 #include "yantra/app/data_paths.h"
 #include "yantra/core/build_info.h"
+#include "yantra/core/platform/clock.h"
 #include "yantra/core/demo/demo_project.h"
 #include "yantra/core/project/project.h"
 
@@ -187,8 +188,9 @@ std::vector<Menu> AppState::menus() const {
                     sep,                        item(Action::CloseProject), sep,
                     item(Action::Export),       item(Action::Report),      sep,
                     item(Action::About),        sep,                       item(Action::Exit)};
-    // Enabled plugins add their own entries here (UI-14, PLG-16): the
-    // radio windows arrive with step 9.6.
+    // The Radio menu (PLG-16, step 9.6) is drawn between File and Help
+    // from RadioWindows (app/gui/radio_view.cpp): its entries follow the
+    // radios found. Enabled plugins add their own entries (UI-14).
     Menu help{"help", "Help", {}};
     help.entries = {item(Action::Tour),          item(Action::UserManual), item(Action::QuickStarts), sep,
                     item(Action::ResetSettings), sep,                      item(Action::HelpAbout)};
@@ -325,6 +327,7 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     monitor_->clear();
     live_->set_monitor(monitor_);
     live_->set_audio(audio_);
+    radios_ = std::make_unique<RadioWindows>(*live_);
     replay_ = std::make_unique<ReplaySession>(project_, monitor_);
     replay_->set_audio(audio_);
     demo_label_ = find_demo_label();
@@ -839,6 +842,7 @@ void AppState::drop_tools() {
     // The walk first (its cycle thread stores points), then a running
     // interpolation (cancelled and waited for), then the editor.
     replay_.reset();
+    radios_.reset();
     live_.reset();
     monitor_->clear();
     runner_.reset();
@@ -904,6 +908,7 @@ void AppState::tick() {
         live_->show_floor(f.empty() ? std::nullopt : std::optional<std::string>(f));
         live_->update();
     }
+    if (radios_) radios_->tick(static_cast<double>(platform::monotonic_ns()) / 1e9);
     if (editor_ && window_) editor_->set_floor(window_->selected());
     if (replay_) replay_->tick();
 }
