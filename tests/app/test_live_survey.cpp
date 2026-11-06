@@ -307,7 +307,10 @@ TEST_CASE("REC-01, REC-02, REC-05, REC-06, REC-11: monitoring fills the panels; 
     INFO(vn.message);
     REQUIRE(vn.ok);
     CHECK(live.recording_status().voice_notes == 1);
-    REQUIRE(wait_for([&] { return live.cycles() >= c0 + 4; }, kDeadline));
+    // cycles() counts a tick before its observers (the recorder) are done:
+    // two more cycles make sure four whole ones went into the recording.
+    REQUIRE(wait_for([&] { return live.cycles() >= c0 + 6; }, kDeadline));
+    const std::uint64_t recorded_at_stop = 4;
     const Result stop = live.stop_recording();
     INFO(stop.message);
     REQUIRE(stop.ok);
@@ -339,7 +342,14 @@ TEST_CASE("REC-01, REC-02, REC-05, REC-06, REC-11: monitoring fills the panels; 
     INFO(opened.message);
     REQUIRE(opened.ok);
     CHECK(monitor->history_frozen());
-    CHECK(monitor->plot().samples.size() >= 4);
+    // The pass gives one graph sample per recorded cycle.
+    std::size_t recorded_cycles = 0;
+    {
+        std::ifstream in(folder / "Lobby_0000.yrec");
+        for (std::string line; std::getline(in, line);) recorded_cycles += line.find("\"t\":\"cycle\"") != std::string::npos ? 1 : 0;
+    }
+    CHECK(recorded_cycles >= recorded_at_stop);
+    CHECK(monitor->plot().samples.size() == recorded_cycles);
     ReplayView v = replay.view();
     CHECK(v.duration_ns > 0);
     REQUIRE(v.markers.size() == 1);
