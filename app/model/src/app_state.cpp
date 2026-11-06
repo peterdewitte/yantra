@@ -151,6 +151,16 @@ ActionView AppState::action(Action a) const {
         if (!open) {
             v.enabled = false;
             v.disabled_reason = "No project is open: create one (File > New indoor project) or open one first.";
+        } else if (a == Action::CloseProject && live_ && live_->exit_guard()) {
+            v.enabled = false;
+            v.disabled_reason = "A recording is running: stop it first (Survey > Recording).";
+        }
+        break;
+    case Action::Exit:
+        // REC-11: no accidental exit while recording.
+        if (live_ && live_->exit_guard()) {
+            v.enabled = false;
+            v.disabled_reason = "A recording is running: stop it first (Survey > Recording).";
         }
         break;
     case Action::OpenDemo:
@@ -309,6 +319,11 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     editor_ = std::make_unique<FloorEditor>(*project_);
     runner_ = std::make_unique<InterpolationRunner>(project_, InterpolationRunner::Options{paths_.interpolation_threads});
     live_ = std::make_unique<LiveSurvey>(project_, paths_.radios);
+    monitor_->clear();
+    live_->set_monitor(monitor_);
+    live_->set_audio(audio_);
+    replay_ = std::make_unique<ReplaySession>(project_, monitor_);
+    replay_->set_audio(audio_);
     demo_label_ = find_demo_label();
     add_recent_project(settings_, project_->path());
     settings_changed_ = true;
@@ -585,6 +600,7 @@ Result AppState::add_floor(const std::string& name, int level, double height_m) 
 
 Result AppState::close_project() {
     if (!project_) return fail("No project is open.");
+    if (live_ && live_->exit_guard()) return fail("A recording is running: stop it first (REC-11).");
     const std::string path = project_->path().string();
     if (dialog_ == Dialog::AddFloor || dialog_ == Dialog::Browse || dialog_ == Dialog::FloorProperties ||
         dialog_ == Dialog::RemoveFloor || dialog_ == Dialog::PlanImport)
@@ -819,7 +835,9 @@ bool AppState::save_settings(std::string& error) {
 void AppState::drop_tools() {
     // The walk first (its cycle thread stores points), then a running
     // interpolation (cancelled and waited for), then the editor.
+    replay_.reset();
     live_.reset();
+    monitor_->clear();
     runner_.reset();
     editor_.reset();
 }
@@ -884,6 +902,74 @@ void AppState::tick() {
         live_->update();
     }
     if (editor_ && window_) editor_->set_floor(window_->selected());
+    if (replay_) replay_->tick();
+}
+
+// -- survey panels, replay, status bar (UI-01..04, UI-08, UI-11, REC-06..09) ------------------
+
+void AppState::set_audio(std::shared_ptr<AudioIo> audio) {
+    if (!audio) return;
+    audio_ = std::move(audio);
+    if (live_) live_->set_audio(audio_);
+    if (replay_) replay_->set_audio(audio_);
+}
+
+Result AppState::open_replay(const RecordingChoice& recording) {
+    if (!replay_ || !live_) return fail("No project is open.");
+    if (live_->running()) return fail("Stop the walk test first.");
+    if (live_->recording()) return fail("Stop the recording first.");
+    if (live_->radio_running()) (void)live_->stop_radio();
+    replay_->set_catalog(live_->catalog());
+    return show(replay_->open(recording));
+}
+
+Result AppState::close_replay() {
+    if (!replay_ || !replay_->is_open()) return fail("No recording is open.");
+    replay_->close();
+    return done("Replay closed.");
+}
+
+const SystemStatus& AppState::system_status(double now_s) {
+    if (now_s - system_read_s_ >= 2.0 || now_s < system_read_s_) {
+        system_read_s_ = now_s;
+        const std::filesystem::path where = project_ ? project_->path().parent_path() : home();
+        system_ = read_system_status(where);
+    }
+    return system_;
+}
+
+AppState::StatusBar AppState::status_bar(double now_s) {
+    StatusBar b;
+    const SystemStatus& s = system_status(now_s);
+    b.disk = s.disk_text();
+    b.disk_warning = s.disk_low();
+    b.power = s.power_text();
+    b.power_warning = s.battery_low();
+    if (replay_ && replay_->is_open()) {
+        b.radio = "Replay: " + replay_->view().name;
+    } else if (live_) {
+        const RadioState r = live_->radio_state();
+        b.radio = r.text;
+        b.radio_warning = r.lost;
+    } else {
+        b.radio = "No project";
+    }
+    if (live_ && live_->recording()) {
+        const recording::RecorderStatus st = live_->recording_status();
+        b.recording_active = st.state == recording::RecorderState::Recording;
+        b.recording = std::string(st.state == recording::RecorderState::Paused ? "Paused: " : "Recording: ") + st.name +
+                      " file " + std::to_string(st.file_index);
+        if (!st.error.empty()) b.recording += " (" + st.error + ")";
+    } else {
+        b.recording = "Monitoring (no file)";
+    }
+    const SurveyStats st = monitor_->stats();
+    b.dropped = "Dropped " + std::to_string(st.records_dropped);
+    b.dropped_warning = st.records_dropped > 0 || st.data_loss_cycles > 0;
+    const measure::SelfInterferenceWarning w = monitor_->interference();
+    b.interference_warning = w.active;
+    b.interference = w.active ? "Self-interference" : "";
+    return b;
 }
 
 }  // namespace yantra::app

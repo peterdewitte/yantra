@@ -32,6 +32,8 @@
 #include "yantra/app/floor_editor.h"
 #include "yantra/app/interpolation_runner.h"
 #include "yantra/app/live_survey.h"
+#include "yantra/app/replay_session.h"
+#include "yantra/app/system_status.h"
 #include "yantra/app/plan_import_window.h"
 #include "yantra/app/project_window.h"
 #include "yantra/app/result.h"
@@ -259,6 +261,28 @@ public:
     InterpolationRunner* interpolation() { return runner_.get(); }
     /// The walk-test view's model (IND-20, GEO-02, GEO-05, DEMO-14).
     LiveSurvey* live() { return live_.get(); }
+    /// The survey panels' model (UI-01..04, UI-11, NFR-07): live or replay.
+    const std::shared_ptr<SurveyMonitor>& monitor() const { return monitor_; }
+    /// Replay of the project's recordings (REC-06..08; nullptr on the start screen).
+    ReplaySession* replay() { return replay_.get(); }
+    /// The sound device (REC-06): main() gives miniaudio; default none.
+    void set_audio(std::shared_ptr<AudioIo> audio);
+    const std::shared_ptr<AudioIo>& audio() const { return audio_; }
+    /// Opens a recording for replay: the live radio stops first (refused
+    /// while a walk test or a recording runs).
+    Result open_replay(const RecordingChoice& recording);
+    Result close_replay();
+    /// UI-08: disk space where recordings go and the power state (read at
+    /// most every 2 s; `now_s` is the UI clock).
+    const SystemStatus& system_status(double now_s);
+    /// The status bar's line (UI-08): radio, recording, records dropped,
+    /// disk, power; and whether it shows a warning.
+    struct StatusBar {
+        std::string radio, recording, dropped, disk, power, interference;
+        bool radio_warning = false, recording_active = false, dropped_warning = false, disk_warning = false,
+             power_warning = false, interference_warning = false;
+    };
+    StatusBar status_bar(double now_s);
 
     // -- commands -------------------------------------------------------
     /// Runs an action: opens its dialog, runs it, or refuses it with the
@@ -381,6 +405,11 @@ private:
     std::unique_ptr<FloorEditor> editor_;
     std::unique_ptr<InterpolationRunner> runner_;
     std::unique_ptr<LiveSurvey> live_;
+    std::shared_ptr<SurveyMonitor> monitor_ = std::make_shared<SurveyMonitor>();
+    std::unique_ptr<ReplaySession> replay_;
+    std::shared_ptr<AudioIo> audio_ = make_no_audio("Sound is not set up in this copy of Yantra.");
+    SystemStatus system_;
+    double system_read_s_ = -1e9;
     std::unique_ptr<PlanImportWindow> import_window_;
     std::string demo_label_;
     NewProjectForm form_;

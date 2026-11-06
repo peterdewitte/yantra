@@ -27,6 +27,7 @@ set(YANTRA_SOURCE_URL "https://github.com/peterdewitte/yantra" CACHE STRING
 
 add_library(yantra_app_model STATIC
   model/src/app_icon.cpp
+  model/src/audio.cpp
   model/src/app_state.cpp
   model/src/cli.cpp
   model/src/data_paths.cpp
@@ -36,7 +37,10 @@ add_library(yantra_app_model STATIC
   model/src/live_survey.cpp
   model/src/plan_import_window.cpp
   model/src/project_window.cpp
+  model/src/replay_session.cpp
   model/src/settings.cpp
+  model/src/survey_monitor.cpp
+  model/src/system_status.cpp
   model/src/window_system.cpp)
 add_library(yantra::app_model ALIAS yantra_app_model)
 target_include_directories(yantra_app_model PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/model/include)
@@ -64,6 +68,15 @@ add_library(yantra::app_gui ALIAS yantra_app_gui)
 target_include_directories(yantra_app_gui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/gui)
 target_link_libraries(yantra_app_gui PUBLIC yantra::app_model yantra_imgui PRIVATE yantra::warnings)
 
+# Sound (REC-06; spec 16.2): miniaudio, vendored in third_party/miniaudio.
+# The back-ends are loaded at run time (no build dependency).
+add_library(yantra_audio STATIC audio/miniaudio_io.cpp audio/miniaudio_impl.c)
+add_library(yantra::audio ALIAS yantra_audio)
+target_include_directories(yantra_audio PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/audio)
+target_include_directories(yantra_audio SYSTEM PRIVATE ${PROJECT_SOURCE_DIR}/third_party/miniaudio)
+target_link_libraries(yantra_audio PUBLIC yantra::app_model PRIVATE ${CMAKE_DL_LIBS} Threads::Threads m)
+set_source_files_properties(audio/miniaudio_impl.c PROPERTIES COMPILE_OPTIONS "-w")
+
 add_library(yantra_imgui_backends STATIC
   ${_imgui}/backends/imgui_impl_glfw.cpp ${_imgui}/backends/imgui_impl_opengl3.cpp)
 target_include_directories(yantra_imgui_backends SYSTEM PUBLIC ${_imgui}/backends)
@@ -71,7 +84,7 @@ target_link_libraries(yantra_imgui_backends PUBLIC yantra_imgui glfw OpenGL::GL 
 
 add_executable(yantra src/main.cpp src/stb_image_write_impl.c)
 target_include_directories(yantra SYSTEM PRIVATE ${PROJECT_SOURCE_DIR}/third_party/stb)
-target_link_libraries(yantra PRIVATE yantra::app_gui yantra_imgui_backends yantra::core yantra::warnings)
+target_link_libraries(yantra PRIVATE yantra::app_gui yantra::audio yantra_imgui_backends yantra::core yantra::warnings)
 if(YANTRA_SANITIZER STREQUAL "asan-ubsan")
   # stb_image_write passes NULL with size 0 to memcpy (as stb_image, core/).
   set_source_files_properties(src/stb_image_write_impl.c PROPERTIES COMPILE_OPTIONS -fno-sanitize=nonnull-attribute)

@@ -21,8 +21,20 @@
 //   (sim_position, RAD-19), at most one per spacing_m; a "move slower"
 //   warning above max_speed_mps (plan scale); a click runs the
 //   interpolation (the caller's InterpolationRunner); Esc stops.
-// The points are a session of the floor in the project (IND-20); the
-// recording file of a walk (REC-03) is step 9.5's.
+// The points are a session of the floor in the project (IND-20).
+//
+// Monitoring and recording (REC-01..03, REC-05, REC-06, REC-09, REC-11;
+// step 9.5): the chosen radio can measure without a walk (start_radio:
+// Monitoring, the survey panels fill); record() / quick_record() write a
+// recording session (core recording::Recorder) into the project's
+// `recordings/` folder, listed in the project when it stops. A walk test
+// always has a recording file (REC-03): it records into the running
+// session, or starts one named after the walk and stops it at the end.
+// Markers (REC-05), voice notes through the app's AudioIo (REC-06) and a
+// ring buffer of the last minutes while the radio runs (REC-09, in
+// RadioPaths::ring_folder; save_ring() cuts it into a recording).
+// Every cycle goes to the survey panels' model (monitor(), UI-01..04,
+// UI-11, NFR-07); the cell database for its names is the project's.
 //
 // The pipeline's cycle is 1 s for walk tests (RF-01) and 0.2 s for the
 // mouse survey, so a slowly moved mouse gives a dense trail; the radio
@@ -43,8 +55,11 @@
 #include <string>
 #include <vector>
 
+#include "yantra/app/audio.h"
 #include "yantra/app/result.h"
+#include "yantra/app/survey_monitor.h"
 #include "yantra/core/building/model.h"
+#include "yantra/core/recording/writer.h"
 
 namespace yantra::project {
 class Project;
@@ -59,6 +74,31 @@ struct RadioPaths {
     std::vector<std::filesystem::path> plugin_folders;  ///< technology plugins (plugin.h)
     std::vector<std::filesystem::path> radio_folders;   ///< radio plugins
     std::filesystem::path calibration_table;            ///< "" none (levels stay dBFS)
+    /// The ring buffer's temporary recordings (REC-09; main(): the user's
+    /// cache folder). "" = no ring buffer.
+    std::filesystem::path ring_folder;
+};
+
+/// The recording settings (REC-01..03, REC-09).
+struct RecordingForm {
+    std::string name;            ///< Record: the session name ("" = quick-record name)
+    std::string notes;           ///< operator notes in the header (REC-03)
+    double split_minutes = 0.0;  ///< 0 = off, 1..60 (REC-02)
+    bool compress = false;       ///< zstd (REC-03)
+    bool ring = false;           ///< REC-09: loop the last minutes while the radio runs
+    double ring_minutes = 10.0;  ///< 2..60: kept as files of one minute
+    /// Tests: ring files split by this many messages instead of a minute (0 = by time).
+    std::uint64_t ring_messages_per_file = 0;
+};
+
+/// The radio part of the status bar (UI-08).
+struct RadioState {
+    bool chosen = false;
+    bool running = false;    ///< measuring (monitoring or a walk)
+    bool lost = false;       ///< unplugged (NFR-04)
+    std::string label;
+    std::string text;        ///< "Simulator (sim:0): measuring", "No radio", ...
+    std::uint64_t cycles = 0;
 };
 
 /// A radio the walk test can use: a device of a radio plugin.
@@ -150,6 +190,51 @@ public:
     bool running() const;
     WalkView view() const;
 
+    // -- monitoring (REC-01) -------------------------------------------------------
+    /// The chosen radio measures without a walk (the survey panels fill).
+    Result start_radio();
+    /// Stops the radio (refused while a walk or a recording runs).
+    Result stop_radio();
+    bool radio_running() const;
+    RadioState radio_state() const;
+    /// The survey panels' model (shared with the replay; set by AppState).
+    void set_monitor(std::shared_ptr<SurveyMonitor> monitor);
+    const std::shared_ptr<SurveyMonitor>& monitor() const;
+    /// The technology plugins (loaded on first use), for a replay.
+    std::shared_ptr<measure::TechnologyCatalog> catalog();
+
+    // -- recording (REC-01..03, REC-05, REC-06, REC-09, REC-11) ----------------------
+    RecordingForm& recording_form() { return recording_form_; }
+    /// The project's recordings folder: `<project folder>/recordings`.
+    std::filesystem::path recordings_folder() const;
+    /// Why a recording cannot start ("" when it can).
+    std::string record_reason() const;
+    /// Record (the form's name) or Quick-record (`quick` or an empty name).
+    Result record(bool quick = false);
+    /// Closes the session; its files are listed in the project.
+    Result stop_recording();
+    /// A numbered marker (REC-05); NewFile / NewFilePause split the file.
+    Result marker(const std::string& label, recording::MarkerAction action = recording::MarkerAction::Mark);
+    /// After "new file + pause".
+    Result resume_recording();
+    recording::RecorderStatus recording_status() const;
+    bool recording() const;
+    /// REC-11: a recording is open (Recording or Paused): the app asks before it exits.
+    bool exit_guard() const;
+    /// REC-09: the ring buffer's files now (empty when off).
+    std::vector<std::filesystem::path> ring_files() const;
+    /// Applies recording_form().ring now (also when the radio starts).
+    Result apply_ring();
+    /// Saves the ring buffer's minutes as recording `name` (a cut, REC-08).
+    Result save_ring(const std::string& name);
+    /// Voice notes (REC-06): the sound device; start, then stop stores it.
+    void set_audio(std::shared_ptr<AudioIo> audio);
+    std::string voice_reason() const;
+    Result voice_start();
+    Result voice_stop(const std::string& label = {});
+    bool voice_recording() const;
+    double voice_seconds() const;
+
     /// Tests: the last cycle time the walk test saw (pipeline clock), the
     /// pipeline's cycle count, and whether the plugin has taken the latest context.
     std::uint64_t cycles() const;
@@ -163,6 +248,7 @@ private:
     std::string radio_note_;
     std::optional<std::size_t> chosen_;
     WalkForm form_;
+    RecordingForm recording_form_;
 };
 
 }  // namespace yantra::app

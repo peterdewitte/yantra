@@ -14,13 +14,18 @@
 #include <chrono>
 #include <cmath>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>
 
+#include "yantra/app/audio.h"
 #include "yantra/app/interpolation_runner.h"
 #include "yantra/app/live_survey.h"
+#include "yantra/app/replay_session.h"
 #include "yantra/core/project/project.h"
 
 namespace fs = std::filesystem;
@@ -236,4 +241,199 @@ TEST_CASE("GEO-02, GEO-05: a point-and-click walk and manual points with the sim
     CHECK(pts[0].kind == "manual");
     CHECK(pts[0].plan.x == doctest::Approx(f.plan_width * 0.4));
     CHECK(pts[0].plan.y == doctest::Approx(f.plan_height * 0.4));
+}
+
+// -- step 9.5: monitoring, recording, markers, voice notes, ring buffer, replay, cut ------------
+
+namespace {
+
+std::size_t yrec_files(const fs::path& folder) {
+    std::size_t n = 0;
+    std::error_code ec;
+    for (const auto& e : fs::directory_iterator(folder, ec)) n += e.path().string().find(".yrec") != std::string::npos ? 1 : 0;
+    return n;
+}
+
+/// The project's listed recording file `name` (nullopt when not listed).
+std::optional<pj::RecordingFile> listed_file(const pj::Project& p, const std::string& name) {
+    for (const pj::RecordingFile& f : p.recordings())
+        if (f.file_name == name) return f;
+    return std::nullopt;
+}
+
+}  // namespace
+
+TEST_CASE("REC-01, REC-02, REC-05, REC-06, REC-11: monitoring fills the panels; a recording with a marker and a voice note is listed") {
+    Rig r("record");
+    if (!r.ok) return;
+    const std::size_t listed_before = r.project->recordings().size();
+    LiveSurvey live(r.project, r.paths);
+    auto audio = std::make_shared<FakeAudio>();
+    live.set_audio(audio);
+    CHECK_FALSE(live.record_reason().empty());  // no radio yet
+    CHECK_FALSE(live.start_radio().ok);          // not searched
+    REQUIRE(live.find_radios().ok);
+    live.show_floor(r.floor);
+    const Result started = live.start_radio();
+    INFO(started.message);
+    REQUIRE(started.ok);
+    CHECK(live.radio_running());
+    CHECK(live.radio_state().text.find("measuring") != std::string::npos);
+    CHECK_FALSE(live.find_radios().ok);  // the radio is measuring
+    const auto& monitor = live.monitor();
+    REQUIRE(wait_for([&] { return monitor->frame().valid; }, kDeadline));
+    CHECK_FALSE(live.voice_reason().empty());  // no recording
+    CHECK_FALSE(live.marker("x").ok);
+
+    live.recording_form().name = "Lobby";
+    live.recording_form().notes = "monitoring test";
+    const Result rec = live.record();
+    INFO(rec.message);
+    REQUIRE(rec.ok);
+    CHECK(live.recording());
+    CHECK(live.exit_guard());
+    CHECK_FALSE(live.stop_radio().ok);  // recording
+    CHECK_FALSE(live.record().ok);      // one at a time
+    const std::uint64_t c0 = live.cycles();
+    REQUIRE(wait_for([&] { return live.cycles() >= c0 + 2; }, kDeadline));
+    const Result mk = live.marker("door");
+    CHECK(mk.message == "Marker 1: door.");
+    REQUIRE(live.voice_reason().empty());
+    REQUIRE(live.voice_start().ok);
+    CHECK(live.voice_recording());
+    audio->advance(1.0);
+    CHECK(live.voice_seconds() == doctest::Approx(1.0).epsilon(0.01));
+    const Result vn = live.voice_stop("stairs");
+    INFO(vn.message);
+    REQUIRE(vn.ok);
+    CHECK(live.recording_status().voice_notes == 1);
+    REQUIRE(wait_for([&] { return live.cycles() >= c0 + 4; }, kDeadline));
+    const Result stop = live.stop_recording();
+    INFO(stop.message);
+    REQUIRE(stop.ok);
+    CHECK_FALSE(live.exit_guard());
+    const fs::path folder = live.recordings_folder();
+    CHECK(folder == r.project->path().parent_path() / "recordings");
+    CHECK(fs::exists(folder / "Lobby_0000.yrec"));
+    CHECK(fs::exists(folder / "Lobby_0000_voice_001.wav"));
+    CHECK(r.project->recordings().size() == listed_before + 1);
+    CHECK(listed_file(*r.project, "Lobby_0000.yrec"));
+    std::size_t markers = 0, voices = 0;
+    for (const SurveyEvent& e : monitor->events()) {
+        markers += e.kind == EventKind::Marker ? 1 : 0;
+        voices += e.kind == EventKind::VoiceNote ? 1 : 0;
+    }
+    CHECK(markers == 1);
+    CHECK(voices == 1);
+    REQUIRE(live.stop_radio().ok);
+    CHECK_FALSE(live.radio_running());
+
+    // Replay (REC-07): the pass fills the graphs; the player plays the voice note; cut (REC-08).
+    ReplaySession replay(r.project, monitor);
+    replay.set_catalog(live.catalog());
+    replay.set_audio(audio);
+    const auto sessions = replay.recordings();
+    REQUIRE(sessions.size() == 1);  // the demo's recordings are elsewhere
+    CHECK(sessions[0].name == "Lobby");
+    const Result opened = replay.open(sessions[0]);
+    INFO(opened.message);
+    REQUIRE(opened.ok);
+    CHECK(monitor->history_frozen());
+    CHECK(monitor->plot().samples.size() >= 4);
+    ReplayView v = replay.view();
+    CHECK(v.duration_ns > 0);
+    REQUIRE(v.markers.size() == 1);
+    CHECK(v.markers[0].second == "1 door");
+    CHECK(v.voice_notes == 1);
+    REQUIRE(replay.play(0.0).ok);
+    REQUIRE(replay.wait([](auto s, auto) { return s != yantra::recording::ReplayPlayer::State::Playing; },
+                        static_cast<int>(kDeadline * 1000)));
+    replay.tick();
+    CHECK(audio->played() == 1);
+    CHECK(replay.view().voice_played == 1);
+    REQUIRE(replay.seek(v.duration_ns / 2).ok);
+    REQUIRE(replay.wait([&](auto, auto t) { return t == v.duration_ns / 2; }, static_cast<int>(kDeadline * 1000)));
+    CHECK(monitor->frame().valid);
+    const Result head = replay.cut(true, "Lobby_head");
+    INFO(head.message);
+    REQUIRE(head.ok);
+    CHECK(fs::exists(folder / "Lobby_head_0000.yrec"));
+    CHECK(r.project->recordings().size() == listed_before + 2);
+    CHECK_FALSE(replay.cut(false, "a/b").ok);
+    replay.close();
+    CHECK_FALSE(monitor->history_frozen());
+    CHECK(monitor->plot().samples.empty());
+}
+
+TEST_CASE("REC-03: a walk test writes its recording file and links its session to it") {
+    Rig r("walkfile");
+    if (!r.ok) return;
+    const bm::Floor f = r.data();
+    LiveSurvey live(r.project, r.paths);
+    REQUIRE(live.find_radios().ok);
+    live.form().kind = WalkKind::PointAndClick;
+    live.form().name = "East wing";
+    const Result s = live.start(r.floor);
+    INFO(s.message);
+    REQUIRE(s.ok);
+    CHECK(live.recording());
+    CHECK(live.recording_status().name == "East_wing");
+    CHECK_FALSE(live.stop_recording().ok);  // the walk records into it
+    REQUIRE(live.click(at(f, 0.3, 0.5)).ok);
+    const std::uint64_t c0 = live.cycles();
+    REQUIRE(wait_for([&] { return live.cycles() >= c0 + 3; }, kDeadline));
+    REQUIRE(live.click(at(f, 0.6, 0.5)).ok);
+    const std::int64_t session = live.view().session;
+    REQUIRE(live.stop().ok);
+    CHECK_FALSE(live.recording());
+    CHECK_FALSE(live.radio_running());
+    const fs::path file = live.recordings_folder() / "East_wing_0000.yrec";
+    REQUIRE(fs::exists(file));
+    const auto listed = listed_file(*r.project, "East_wing_0000.yrec");
+    REQUIRE(listed);
+    std::string linked;
+    for (const pj::Session& x : r.project->sessions(r.floor))
+        if (x.id == session) linked = x.recording_session;
+    CHECK_FALSE(linked.empty());
+    CHECK(linked == listed->session_id);
+    // The file holds the walk's lines (start, segment, stop).
+    std::ifstream in(file);
+    const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    CHECK(text.find("\"t\":\"walk\"") != std::string::npos);
+    // A second walk of the same name gets its own file.
+    REQUIRE(live.start(r.floor).ok);
+    CHECK(live.recording_status().name == "East_wing_2");
+    REQUIRE(live.stop().ok);
+}
+
+TEST_CASE("REC-09: the ring buffer keeps the newest files while the radio runs and is saved as a recording") {
+    Rig r("ring");
+    if (!r.ok) return;
+    r.paths.ring_folder = r.project->path().parent_path() / "ring";
+    LiveSurvey live(r.project, r.paths);
+    REQUIRE(live.find_radios().ok);
+    live.show_floor(r.floor);
+    live.recording_form().ring = true;
+    live.recording_form().ring_minutes = 2.0;           // two files
+    live.recording_form().ring_messages_per_file = 8;   // tests: small files
+    CHECK(live.save_ring("x").ok == false);             // empty
+    const Result st = live.start_radio();
+    INFO(st.message);
+    REQUIRE(st.ok);
+    // Wait until the ring has deleted files (more than two were written).
+    REQUIRE(wait_for([&] { return yrec_files(r.paths.ring_folder) >= 2 && live.ring_files().size() >= 2 &&
+                                  live.ring_files().front().filename().string() != "ring_0000.yrec"; },
+                     kDeadline * 2));
+    CHECK(live.ring_files().size() <= 2);
+    CHECK(yrec_files(r.paths.ring_folder) <= 3);  // the oldest goes when a new one opens
+    const Result saved = live.save_ring("Last_minutes");
+    INFO(saved.message);
+    REQUIRE(saved.ok);
+    CHECK(fs::exists(live.recordings_folder() / "Last_minutes_0000.yrec"));
+    CHECK(listed_file(*r.project, "Last_minutes_0000.yrec"));
+    REQUIRE(live.stop_radio().ok);
+    // After the stop the kept files can still be saved.
+    CHECK_FALSE(live.ring_files().empty());
+    live.recording_form().ring = false;
+    CHECK(live.apply_ring().ok);
 }
