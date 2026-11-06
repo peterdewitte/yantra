@@ -60,6 +60,15 @@ precedence = "override"
 SPDX-FileCopyrightText = "2017 Sean Barrett"
 SPDX-License-Identifier = "MIT OR Unlicense"
 
+# miniaudio 0.11.25, vendored unchanged from https://github.com/mackron/miniaudio
+# (Unlicense OR MIT-0, the user's choice; stated in its LICENSE and at the
+# end of miniaudio.h, without SPDX tags).
+[[annotations]]
+path = ["third_party/miniaudio/miniaudio.h", "third_party/miniaudio/LICENSE"]
+precedence = "override"
+SPDX-FileCopyrightText = "2025 David Reid"
+SPDX-License-Identifier = "Unlicense OR MIT-0"
+
 # Dear ImGui 1.92.9b, vendored unchanged from https://github.com/ocornut/imgui
 # (release tag v1.92.9b) with its GLFW and OpenGL 3 backends for the desktop
 # app (UI-13, spec 16.2). MIT (LICENSE.txt), without SPDX tags. Its bundled
