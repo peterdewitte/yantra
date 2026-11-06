@@ -140,6 +140,11 @@ own changes are in its CHANGELOG.md.
 
 ### Radio plugins (yantra-radios)
 
+- 2026-11-06: pinned to yantra-radios **v0.2.6** (commit 5394318): the
+  simulator change of 0.2.5 is taken back (plugin 0.2.4): a slowly
+  simulated record has the time its position was taken again, so its
+  sim_position matches its time; such records arrive late and are flagged
+  late. Radio API 1.0 unchanged.
 - 2026-11-06: pinned to yantra-radios **v0.2.5** (commit ba7814c): the
   simulator (plugin 0.2.3) keeps its record times on the host clock when
   the computer simulates slower than real time; before, each record came
