@@ -65,6 +65,63 @@ opened. `installed.json` stamps the copy with the installed file's size
 and time; the copy is reused until the installed project changes. A
 project in that folder is a demo (`[DEMO]` in the title).
 
+## Project window (step 9.2)
+
+`ProjectWindow` (`app/model`, no GUI library) is the model of the window
+of an open project; `AppState::project_window()` holds it while a
+project is open. It listens to the project (`Project::subscribe`) and
+rebuilds what changed on the next call:
+
+- `tabs()`: the floors ordered by level (`Name (level)`, points and scale
+  in the tooltip); `select()`, `selected()`.
+- `content(bin_size_m)`: the selected floor's layers in plan units - walls
+  (colour by attenuation), antennas, the measured points
+  (`survey::point_list`, exactly the shared list, IND-30), the binned view
+  (`survey::bin_points`, with its label, PP-05; needs a scale) and the
+  newest stored interpolation (or the one `show_interpolation()` chose)
+  as RGBA cells with alpha = confidence, with its staleness (IND-43,
+  IND-45). `generation` changes when the content does.
+- `layer_rows(LayerSettings)`: the layer panel rows, top layer first,
+  with notes ("Stale: ...", "Needs a scale ...").
+- `hover(plan point, radius, layers)`: the readout (a point first, then
+  the map).
+- floor commands: `rename_floor`, `set_level`, `move_floor` (swaps
+  levels), `request_remove` / `confirm_remove` / `cancel_remove`
+  (`Project::remove_floor(id, true)` removes the floor with its walk
+  tests in one transaction).
+- `plan_tiles(floor, budget)`: the floor's `plan::TileRenderer`.
+
+Layer order, visibility and the square size are app settings
+(`AppSettings::layers`, JSON `"layers"`), not project data. Layers,
+bottom first by default: `plan`, `interpolation`, `binned` (hidden),
+`walls`, `antennas`, `points`.
+
+The Gui draws it (`draw_project_screen`): DEMO banner (`demo_banner`,
+label from the demo description, `AppState::demo_label()`), floor tabs
+`tab.<floor id>` and `floors.add`, buttons `floor.properties`,
+`floor.down`, `floor.up`, `floor.remove`, `plan.fit`, `plan.zoom_in`,
+`plan.zoom_out`, the layer panel (`layer.<key>` checkboxes,
+`layer.<key>.up` / `.down`, `layer.bin_size`,
+`layer.interpolation.choose`) and the canvas `plan.canvas` (drag pans,
+wheel zooms, double click fits). Dialogs `dlg.floor_properties` (fields
+`name`, `level`, `height`) and `dlg.remove_floor`, both with `dlg.ok` /
+`dlg.cancel`.
+
+`PlanCanvas` (`app/gui`) draws the content in the user's layer order over
+the plan tiles (coarsest level first, then the level of the zoom),
+badges (map label, `STALE`, binned label, "Not to scale"), the scale bar
+(`scale_bar()`), the legend and the hover tooltip. `stats()` says what the
+last frame drew (tests). Pictures are `UserTexture`s: registered ImGui
+user textures the renderer (or the harness) creates and destroys, so the
+GUI layer has no GL. `main()` shuts the renderer down before the `Gui`
+frees them; `UserTexture::live_count()` checks for leaks.
+
+The project file is live (7.1): each change is its own transaction, File
+> Save is a checkpoint (the file is complete on its own), there is no
+Save/Discard on close. A file open in another Yantra (or another window)
+is refused with the lock message naming it. Recent files keep the last
+opened; a missing file leaves the list when chosen.
+
 ## Headless UI tests (tests/app/harness)
 
 `yantra::test::UiHarness` (library `yantra_ui_harness`) runs a real
@@ -88,8 +145,8 @@ an ImGui id (label, rectangle, window, disabled) per frame. Plain
 `click()` refuses disabled or missing items (returns false); `find()`
 gives an item's rectangle and state; `dump()` lists the last frame's
 items for failure messages; `set_display_size()` checks small windows
-(UI-13); `key()`, `type()`, `hover()` and `click_at()` give the other
-input. Everything is frame-counted, nothing sleeps. Every `*.cpp` in
+(UI-13); `key()`, `type()`, `hover()`, `click_at()`, `drag()` and `wheel()`
+give the other input. Everything is frame-counted, nothing sleeps. Every `*.cpp` in
 `tests/app/ui/` is part of `test_app_ui`; a step adds its own file there
 (`test_ui_<window>.cpp`) and links nothing new.
 
@@ -105,4 +162,6 @@ a private Xvfb (`with_xvfb.sh`, skipped with 77 without Xvfb) with private
 `yantra: window system ...`, `yantra: window icon set ...`,
 `yantra: first frame (<platform>, OpenGL <version>, <renderer>)`,
 `yantra: screenshot <file> (<w>x<h>)`. `app_screenshot_gl31` renders
-under Mesa llvmpipe limited to OpenGL 3.1 (TST-04).
+under Mesa llvmpipe limited to OpenGL 3.1 (TST-04); `app_project_demo`
+renders a copy of the generated demo project (project window, plan
+tiles, layers).
