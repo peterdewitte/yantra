@@ -19,6 +19,9 @@
 # Copied from yantra-v2 68ea20a: app/CMakeLists.txt, adapted (headless GUI
 # library and probe).
 
+find_package(glfw3 3.3 REQUIRED)
+find_package(OpenGL REQUIRED)
+
 set(YANTRA_SOURCE_URL "https://github.com/peterdewitte/yantra" CACHE STRING
     "Source code link shown in the About dialog (NFR-01, NFR-09, UI-15)")
 
@@ -37,6 +40,37 @@ target_link_libraries(yantra_app_model
   PUBLIC yantra::core
   PRIVATE yantra::json yantra::warnings)
 
-add_executable(yantra src/main.cpp)
-target_link_libraries(yantra PRIVATE yantra::core yantra::warnings)
-install(TARGETS yantra RUNTIME DESTINATION bin)
+set(_imgui ${PROJECT_SOURCE_DIR}/third_party/imgui)
+add_library(yantra_ui_probe OBJECT gui/ui_probe.cpp)
+target_include_directories(yantra_ui_probe SYSTEM PRIVATE ${_imgui})
+target_compile_definitions(yantra_ui_probe PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS IMGUI_ENABLE_TEST_ENGINE)
+target_link_libraries(yantra_ui_probe PRIVATE yantra::warnings)
+add_library(yantra_imgui STATIC
+  ${_imgui}/imgui.cpp ${_imgui}/imgui_draw.cpp ${_imgui}/imgui_tables.cpp ${_imgui}/imgui_widgets.cpp
+  $<TARGET_OBJECTS:yantra_ui_probe>)
+target_include_directories(yantra_imgui SYSTEM PUBLIC ${_imgui})
+target_include_directories(yantra_imgui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/gui)
+# The same definitions for every user: IMGUI_ENABLE_TEST_ENGINE changes
+# imgui_internal.h enums (ui_probe.h).
+target_compile_definitions(yantra_imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS IMGUI_ENABLE_TEST_ENGINE)
+
+add_library(yantra_app_gui STATIC gui/gui.cpp)
+add_library(yantra::app_gui ALIAS yantra_app_gui)
+target_include_directories(yantra_app_gui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/gui)
+target_link_libraries(yantra_app_gui PUBLIC yantra::app_model yantra_imgui PRIVATE yantra::warnings)
+
+add_library(yantra_imgui_backends STATIC
+  ${_imgui}/backends/imgui_impl_glfw.cpp ${_imgui}/backends/imgui_impl_opengl3.cpp)
+target_include_directories(yantra_imgui_backends SYSTEM PUBLIC ${_imgui}/backends)
+target_link_libraries(yantra_imgui_backends PUBLIC yantra_imgui glfw OpenGL::GL ${CMAKE_DL_LIBS})
+
+add_executable(yantra src/main.cpp src/stb_image_write_impl.c)
+target_include_directories(yantra SYSTEM PRIVATE ${PROJECT_SOURCE_DIR}/third_party/stb)
+target_link_libraries(yantra PRIVATE yantra::app_gui yantra_imgui_backends yantra::core yantra::warnings)
+if(YANTRA_SANITIZER STREQUAL "asan-ubsan")
+  # stb_image_write passes NULL with size 0 to memcpy (as stb_image, core/).
+  set_source_files_properties(src/stb_image_write_impl.c PROPERTIES COMPILE_OPTIONS -fno-sanitize=nonnull-attribute)
+endif()
+
+include(GNUInstallDirs)
+install(TARGETS yantra RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
