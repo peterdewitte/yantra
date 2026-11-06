@@ -6,7 +6,7 @@
 # tools and the test suite. C++20, CMake >= 3.20, Ninja; gcc or clang on
 # Linux, gcc in MSYS2 UCRT64 on Windows (RAD-131).
 cmake_minimum_required(VERSION 3.20)
-project(YantraRadios VERSION 0.2.4 LANGUAGES C CXX)
+project(YantraRadios VERSION 0.2.5 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

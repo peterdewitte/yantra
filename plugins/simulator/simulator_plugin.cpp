@@ -573,7 +573,7 @@ extern "C" YR_EXPORT const yr_descriptor* yantra_radio_entry(void)
         YR_CAP_SIMULATED | YR_CAP_SCENE,
         "simulator",
         "Demo (simulated network)",
-        "0.2.2",
+        "0.2.3",
         "The Yantra contributors",
         "GPL-3.0-or-later AND AGPL-3.0-or-later", // the receiver uses osmo-tetra (RAD-05)
         "Simulated TETRA network: generated signal, decoded by the real receiver (RAD-61)",

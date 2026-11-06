@@ -30,6 +30,40 @@ marked:
 Record file (RAD-65) and scene JSON (RAD-36) versions are listed here as
 well; they change independently of the radio API version.
 
+## [0.2.5] - 2026-11-06
+
+A patch release (tag v0.2.5, RAD-98): the simulator's records keep the
+host's time when the computer simulates slower than real time. No API
+or format change: radio API 1.0, record files 1, scene JSON 1.1 and
+scenario files 1 as in 0.2.0.
+
+### Radio API
+
+- **Radio API 1.0**: no change.
+
+### Fixed
+
+- Simulator plugin 0.2.3 (RAD-61, RAD-27): a computer slower than real
+  time (sanitizer builds, a loaded machine, a high playback speed) moved
+  the simulation's time base only when a record interval started, so
+  every record carried a time from the start of its interval and reached
+  the host the whole interval's processing time later. Yantra flagged
+  such records late and stale, and once an interval took about 5 s to
+  simulate, its measurement cycles lost the serving carrier between two
+  records (its 10 s drop limit counts from the record time) although
+  the stream still delivered. The lag now moves the time base before
+  every block; the interval being simulated moves with it, so its
+  records keep their position and ground truth (RAD-19). In real time
+  nothing changes.
+
+### Tests
+
+- New: "simulator: slower than real time, the records keep the host's
+  time and their position" runs ten times real time at 2 Msps: a record
+  reaches the host at most a quarter of an interval's processing time
+  (plus 0.2 s) after its time, in time order and with its sim_position.
+  It fails before the fix (delays of the whole interval).
+
 ## [0.2.4] - 2026-11-05
 
 A patch release (tag v0.2.4, RAD-98): the TETRA terminal plugin no
