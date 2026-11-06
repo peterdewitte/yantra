@@ -176,6 +176,91 @@ floor's sheet with that floor selected.
   `PlanImportWindow::restricted()`/`SourceFile::plan.embedded == false`
   to leave a restricted plan's image out and print its credit.
 
+## Editing, walk test and interpolation (step 9.4)
+
+The side panel of the project window has pages `panel.layers` (above),
+`panel.edit`, `panel.walk` and `panel.map`. Their logic is in three
+`app/model` classes that `AppState` creates with the project (the project
+is a `shared_ptr` now) and drops before it; `AppState::tick()` runs each
+frame.
+
+`FloorEditor` (`floor_editor()`, IND-11, IND-12) edits the selected floor
+through the project and core `building/edit`:
+
+- tools `edit.tool.pan|select|wall|antenna|aim` (keys P, S, W, A; Aim
+  needs a selected directional antenna or outdoor donor); `pointer_down /
+  move / up`, `double_click`, `hover` in plan units with a hit tolerance
+  (8 screen pixels);
+- draw wall: a click per corner (snaps to other walls' corners), Enter or
+  double click ends it, Backspace removes the last corner, Esc drops it;
+  the class of new walls is `edit.draw_class`;
+- select: an antenna, a corner of the selected wall, or a wall; a drag
+  moves it (preview `drag_wall()` / `drag_antenna()`, one stored change
+  on release); double click on the selected wall adds a corner;
+  `edit.split` at an inner corner; `edit.delete` / Delete (a corner; a
+  wall of two corners goes as a whole);
+- forms: `wall_form()` (class, own value 0..100 dB), `antenna_form()`
+  (dialog `dlg.antenna`: name, model, outdoor, height, gain, pattern,
+  azimuth, beamwidth, front-to-back, direction, EIRP known, cable loss,
+  cell, `add_cell`), the wall-class table (dialog `dlg.materials`:
+  `mat.new`, `mat.edit.<id>`, `mat.remove.<id>` (disabled while used),
+  `mat.reset`, the form `mat.id`, `mat.name`, `mat.band.<n>.mhz|db`,
+  `mat.apply`);
+- undo / redo (`edit.undo`, `edit.redo`, Ctrl+Z, Ctrl+Y): each edit is a
+  snapshot of the floor's walls and antennas and the project's classes
+  and cells, put back with `Project::update_floor` (ids and order kept).
+  When the floor was changed elsewhere the history is dropped with a
+  note (`undo_note()`).
+
+`InterpolationRunner` (`interpolation()`, IND-41..45, OA-03) runs
+`survey::InterpolationJob` in the background: `run(floor)` (metric: the
+serving carrier's level), `run(floor, &shown)` (the shown map's request,
+`interp.rerun`, marked "(stale)" when stale), `cancel` (`interp.cancel`),
+`progress()` (copied from the job's listener: stage and fraction for the
+progress bar), `poll()` (the message once; `tick()` then shows the new
+map). `run_reason()` says why a floor cannot run (no scale, no points, a
+run going on). A run with the same request replaces the stored map of
+that key. The settings dialog `dlg.propagation` (`interp.settings`) edits
+`PropagationSettings` and the dB per floor (`grid`, `reflections`,
+`exponent`, `ref_distance`, `reflection_loss`, `rx_height`,
+`default_eirp`, `other_floors`, `floor_attenuation`; `prop.defaults`).
+Maps with estimated sources (IND-42) draw them as dashed markers with
+their fitted EIRP (`InterpolationLayer::sources`).
+
+`LiveSurvey` (`live()`, IND-20, GEO-02, GEO-05, PLG-27, DEMO-14) holds
+the radios and one walk test:
+
+- `walk.find_radios`: loads the technology plugins and the radio
+  plugins of `AppPaths::radios` (main(): the plugin folder rule and the
+  calibration table) through the core radio host and lists every device;
+  a simulated radio that uses the context is chosen by default. Levels
+  are calibrated with the user's table when present, else dBFS.
+- the plugins' context: the shown floor, the mouse (`cursor()`), the walk
+  position and the scene, re-exported when walls or antennas change.
+- kinds (`form()`): point and click, continuous (GEO-02: clicks on the
+  plan close segments; `walk.pause`, `walk.delete_last`), manual (GEO-05:
+  a click measures there for `walk.seconds`), mouse survey (DEMO-14: the
+  simulator measures where the mouse is; at most one point per
+  `walk.spacing` m (`WalkTestOptions::min_spacing_m`); "Move slower"
+  above `walk.max_speed` m/s; a click on the plan runs the interpolation;
+  Esc or `walk.stop` stops). The pipeline cycles every 1 s for walks and
+  every 0.2 s for the mouse survey. Points go into a session of the floor
+  and are drawn as they come.
+- While a walk runs the editing tools are off and the left button goes to
+  the walk.
+
+`PlanCanvas::set_left_pans(false)` gives the left button to a tool
+(middle and right drag still pan); `input()` is the mouse in plan units
+for the frame; `set_overlay()` draws the tools' overlay. `Gui::
+tool_overlay()` says what it drew (tests).
+
+Tests: `test_app` (`test_floor_editor.cpp`, `test_interpolation_runner.cpp`),
+`test_app_ui` (`ui/test_ui_edit.cpp`) and `test_app_live`
+(`test_live_survey.cpp`, `test_live_ui.cpp`: the simulator from the build
+tree in a radio folder of its own, on a copy of the Fraunces demo; real
+time, waits on conditions with a deadline; one ctest per case). Combo
+boxes have no probe label: tests set their value through the model.
+
 ## Headless UI tests (tests/app/harness)
 
 `yantra::test::UiHarness` (library `yantra_ui_harness`) runs a real
