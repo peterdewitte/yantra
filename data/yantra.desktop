@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+[Desktop Entry]
+Type=Application
+Name=Yantra
+GenericName=Indoor coverage survey
+Comment=Indoor TETRA coverage measurement on a software-defined radio
+Exec=yantra %f
+Icon=yantra
+Terminal=false
+Categories=Utility;Science;Engineering;
+Keywords=TETRA;coverage;survey;indoor;SDR;

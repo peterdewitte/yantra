@@ -67,7 +67,12 @@ def main() -> int:
             problems.append(f"installed outside usr/ or into etc/: {f}")
         if os.path.basename(f) in TEST_ONLY:
             problems.append(f"test plugin installed: {f}")
-    expected = EXPECTED + (["usr/bin/yantra"] if a.app else [])
+    # The app with its desktop entry and the logo as icon (BRD-06).
+    app = ["usr/bin/yantra", "usr/share/applications/yantra.desktop",
+           "usr/share/icons/hicolor/16x16/apps/yantra.png", "usr/share/icons/hicolor/512x512/apps/yantra.png",
+           "usr/share/yantra/logo/png/yantra_logo_16.png", "usr/share/yantra/logo/png/yantra_logo_256.png",
+           "usr/share/yantra/logo/yantra_logo.svg"]
+    expected = EXPECTED + (app if a.app else [])
     for f in expected:
         if f not in files:
             problems.append(f"missing: {f}")

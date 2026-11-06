@@ -74,3 +74,15 @@ endif()
 
 include(GNUInstallDirs)
 install(TARGETS yantra RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+# BRD-06: the logo for the window icon and the About dialog, and the
+# desktop entry with its icon in the hicolor theme at 16..512 px (NFR-09).
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/data/logo/png DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra/logo
+        FILES_MATCHING PATTERN "yantra_logo_*.png")
+install(FILES ${PROJECT_SOURCE_DIR}/data/logo/yantra_logo.svg ${PROJECT_SOURCE_DIR}/data/logo/yantra_logo_square.svg
+              ${PROJECT_SOURCE_DIR}/data/logo/yantra_glyph.svg
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra/logo)
+foreach(_size 16 24 32 48 64 128 256 512)
+  install(FILES ${PROJECT_SOURCE_DIR}/data/logo/png/yantra_logo_${_size}.png
+          DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${_size}x${_size}/apps RENAME yantra.png)
+endforeach()
+install(FILES ${PROJECT_SOURCE_DIR}/data/yantra.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)

@@ -18,7 +18,13 @@ Needed: CMake 3.20+, Ninja, a C++20 compiler (GCC or Clang), SQLite 3.37+
 with its headers (`libsqlite3-dev`; the project file, IND-01), zstd 1.4+
 with its headers and pkg-config (`libzstd-dev`, `pkg-config`; compressed
 recordings, REC-03), Python 3
-with PyYAML, binutils, and `reuse` for the licence lint test.
+with PyYAML, binutils, and `reuse` for the licence lint test. The desktop
+app (`YANTRA_BUILD_APP`, ON by default) needs GLFW 3.3+ and OpenGL
+headers (`libglfw3-dev`, `libgl-dev`); Dear ImGui is vendored
+(third_party/imgui). Its launch tests run the app on a private Xvfb
+(`xvfb`) with Mesa software OpenGL (`libgl1-mesa-dri`) and report Skipped
+without Xvfb. `-DYANTRA_BUILD_APP=OFF` builds the core, tools and plugins
+without any GUI library.
 
 PDF floor plans (IND-02) use a pinned prebuilt PDFium (THIRD_PARTY.md).
 The first configure downloads it (about 4 MB) into `build/_deps/` and
@@ -62,7 +68,10 @@ Example with a yantra-radios release built next to yantra:
     cmake -S . -B build -G Ninja \
       -DYANTRA_RADIOS_PREBUILT=$HOME/yantra-radios/build/release/v0.2.1
 
-`ninja -C build install` installs `bin/yantra`, the radio plugins in
+`ninja -C build install` installs `bin/yantra` with its desktop entry
+(`share/applications/yantra.desktop`), the logo as its icon
+(`share/icons/hicolor/<size>/apps/yantra.png`, `share/yantra/logo`, BRD-06),
+the demo project (`share/yantra/demo/fraunces`), the radio plugins in
 `lib/yantra/plugins/radios`, yantra-radios' licence bundle in
 `share/licenses/yantra-radios` and its udev rules and RTL-SDR blacklist in
 `lib/udev/rules.d` and `lib/modprobe.d` (packages: later). The ctest
