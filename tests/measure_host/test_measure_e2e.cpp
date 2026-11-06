@@ -549,12 +549,8 @@ TEST_CASE("TST-10 simulator: a scenario through RadioHost, pipeline and TETRA pl
            (cs[i].serving(sim.key) == nullptr || cs[i].serving(sim.key)->latest.frequency_hz != serving_hz))
         ++i;
     REQUIRE(i < cs.size());
-    for (; i < cs.size(); ++i) {
-        const ym::CarrierSample* s = cs[i].serving(sim.key);
-        if (s == nullptr) break;  // after the stop
-        CHECK(s->latest.frequency_hz == serving_hz);
-    }
-    for (; i < cs.size(); ++i) CHECK(cs[i].serving(sim.key) == nullptr);
+    // (but for the drop limit when the simulator delivered nothing for that long)
+    check_serving_until_stop(cs, i, sim.key, serving_hz, sim.rig.pipeline->config());
     check_cadence(cs);
 }
 

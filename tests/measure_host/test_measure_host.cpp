@@ -153,15 +153,13 @@ TEST_CASE("measurement host: the simulator end to end gives a serving sample eve
         const std::lock_guard lock(rig.out->m);
         const auto& cs = rig.out->cycles;
         while (cs[first].serving(key) == nullptr) ++first;
-        // From its first sample on, the serving carrier is in every cycle (no gaps).
-        bool gone = false;  // after the stop the device's carriers leave for good
+        // From its first sample on, the serving carrier is in every cycle
+        // until the stop, but for the pipeline's drop limit when the
+        // simulator delivered nothing for that long (check_serving_until_stop).
+        check_serving_until_stop(cs, first, key, 0, rig.pipeline->config());
         for (std::size_t i = first; i < cs.size(); ++i) {
             const ym::CarrierSample* s = cs[i].serving(key);
-            CHECK_MESSAGE(!(gone && s != nullptr), "cycle " << i << ": serving carrier after a gap");
-            if (s == nullptr) {
-                gone = true;
-                continue;
-            }
+            if (s == nullptr) continue;
             CHECK((s->flags & (sf::kSimulated | sf::kUncalibrated)) == (sf::kSimulated | sf::kUncalibrated));
             CHECK((s->flags & sf::kDeviceLost) == 0);
             CHECK(std::isfinite(s->latest.level));

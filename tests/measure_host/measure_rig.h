@@ -220,6 +220,59 @@ inline std::vector<ym::MappedRecord> records_since(Rig& rig, std::size_t from) {
             rig.out->records.end()};
 }
 
+// TST-31/RF-01 continuity of a live stream's serving carrier, from cycle
+// `first` (a cycle with it; on `hz`, 0 = any carrier) to the stream's stop:
+// every cycle has it, held when no record came, except where the
+// pipeline's drop rule removed it (PipelineConfig::drop_after_ns: the
+// newest record was older than that at the cycle end, the radio having
+// delivered nothing for that long). That rule is the pipeline's behaviour
+// and not wall-clock luck: the TSan tree under a full ctest -j load
+// simulates 20-40x slower than real time, up to ~10 s per record interval,
+// so "no cycle without it" held only while the simulator kept up. A gap
+// with the carrier still in the cycle (another role) or while it was
+// younger than the drop limit fails. After the last cycle with it (the
+// stop) none has it. Returns the number of cycles it was dropped from.
+inline std::size_t check_serving_until_stop(const std::vector<ym::MeasurementCycle>& cs, std::size_t first,
+                                            const std::string& key, std::uint64_t hz,
+                                            const ym::PipelineConfig& cfg) {
+    auto on_hz = [&](const ym::CarrierSample* s) { return s != nullptr && (hz == 0 || s->latest.frequency_hz == hz); };
+    REQUIRE(first < cs.size());
+    REQUIRE(on_hz(cs[first].serving(key)));
+    std::size_t last = first;
+    for (std::size_t i = first; i < cs.size(); ++i)
+        if (cs[i].serving(key) != nullptr) last = i;
+    std::size_t dropped = 0;
+    const ym::CarrierSample* before = nullptr;  // the newest serving sample
+    bool in_gap = false;
+    for (std::size_t i = first; i <= last; ++i) {
+        CAPTURE(i);
+        const ym::CarrierSample* s = cs[i].serving(key);
+        if (s != nullptr) {
+            CHECK(on_hz(s));
+            if (in_gap) CHECK(s->records_in_cycle > 0);  // back with a new record
+            before = s;
+            in_gap = false;
+            continue;
+        }
+        // Gone from this cycle: only by the drop limit, and wholly.
+        REQUIRE(before != nullptr);
+        if (!in_gap) {
+            CAPTURE(before->age_ns);
+            CHECK_MESSAGE(before->age_ns + cs[i].period_ns > cfg.drop_after_ns,
+                          "the serving carrier left a cycle before the drop limit");
+        }
+        for (const ym::CarrierSample& o : cs[i].samples)
+            CHECK_MESSAGE(!(o.latest.device_key == key && o.latest.frequency_hz == before->latest.frequency_hz),
+                          "the serving carrier is in the cycle with another role");
+        in_gap = true;
+        ++dropped;
+    }
+    for (std::size_t i = last + 1; i < cs.size(); ++i) CHECK(cs[i].serving(key) == nullptr);
+    if (dropped > 0)
+        MESSAGE(dropped << " cycles without the serving carrier: the radio delivered nothing within the drop limit");
+    return dropped;
+}
+
 inline ycal::Entry flat_entry(const ycal::Key& key, double offset_db, bool simulated = false) {
     ycal::Entry e;
     e.key = key;
