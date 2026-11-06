@@ -32,6 +32,18 @@ void UiProbe::begin_frame() { current_.clear(); }
 void UiProbe::end_frame() { done_.swap(current_); }
 
 void UiProbe::add(std::uint32_t id, float x0, float y0, float x1, float y1, bool disabled, const char* window) {
+    // Tab items report their label before their rectangle (and an empty
+    // rectangle on the frame they appear): fill in the entry they made.
+    if (!current_.empty() && current_.back().id == id && current_.back().x1 <= current_.back().x0) {
+        ProbeItem& last = current_.back();
+        last.x0 = x0;
+        last.y0 = y0;
+        last.x1 = x1;
+        last.y1 = y1;
+        last.disabled = disabled;
+        if (window != nullptr) last.window = window;
+        return;
+    }
     ProbeItem it;
     it.id = id;
     it.x0 = x0;
