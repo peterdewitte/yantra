@@ -9,7 +9,7 @@
 // playback speed) with a simulated device buffer that overflows like a
 // real one when the sink is too slow (RAD-24, RAD-25). A computer too slow
 // for real time does not drop samples: the simulation then runs slower,
-// with its record times moved to the host clock at each interval start.
+// with its record times moved to the host clock before each block.
 //
 // Records: every record interval (1 / record_rate_hz of signal) the
 // position is read once and held, so all records of an interval carry the
@@ -574,20 +574,31 @@ void Stream::run()
                 discontinuity_ = true;
             build();
         }
-        if (in_interval_ == 0) {
+        {
             // A computer slower than real time: the lag not caused by the
             // sink moves the time base (no drop, no discontinuity), so the
-            // records keep the host's time.
+            // records keep the host's time. Checked before every block, not
+            // only at an interval start: an interval that takes several
+            // seconds to simulate would otherwise get the time it started
+            // and reach the host that much late (kLate, stale, and gone
+            // from Yantra's cycles after its drop limit while the stream
+            // still delivers). The interval being simulated moves with the
+            // base, so its records still find their position and truth.
             const auto due = base_wall_ + std::chrono::duration_cast<Clock::duration>(
                                               std::chrono::duration<double>(
                                                   static_cast<double>(n_) / speed_rate()));
             const double cpu_lag =
                 std::chrono::duration<double>(Clock::now() - due).count() - sink_wait_s_;
             if (cpu_lag > kCpuLagS) {
+                const auto lag_ns = static_cast<int64_t>(std::llround(cpu_lag * 1e9));
                 base_wall_ += std::chrono::duration_cast<Clock::duration>(
                     std::chrono::duration<double>(cpu_lag));
-                base_mono_ += static_cast<int64_t>(std::llround(cpu_lag * 1e9));
+                base_mono_ += lag_ns;
                 need_base_ = true;
+                if (in_interval_ != 0 && !history_.empty()) {
+                    history_.back().start_ns += lag_ns;
+                    history_.back().end_ns += lag_ns;
+                }
                 if (!warned_cpu_) {
                     log(*d_->plugin, d_, YR_LOG_WARNING,
                         "the simulation runs slower than real time on this computer (lower the "
@@ -595,6 +606,8 @@ void Stream::run()
                     warned_cpu_ = true;
                 }
             }
+        }
+        if (in_interval_ == 0) {
             if ((pending & (1u << YR_CONTEXT_SCENE_CHANGED)) != 0)
                 reload_scene();
             pending = 0; // positions are read at every interval start

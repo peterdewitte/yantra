@@ -108,4 +108,7 @@ floor plan.
   `mak-beer-house-*`, `mak-haus-claeson-*` and `mak-villa-bunzl-*`
   (owner question: which ids Yantra sends).
 - Under sanitizers or on a slow computer the simulation runs slower than
-  real time (sensor `receiver_load` above 1); nothing is dropped.
+  real time (sensor `receiver_load` above 1); nothing is dropped. The
+  record times follow the host clock: the lag moves the time base before
+  every block, so a record reaches the host about as soon after its time
+  as in real time, not an interval's processing time late.

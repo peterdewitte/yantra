@@ -869,6 +869,59 @@ TEST_CASE("simulator: a slow sink gives OVERFLOW and DROPPED and the stream goes
     CHECK(r.stats.samples_dropped > 0);
 }
 
+TEST_CASE("simulator: slower than real time, the records keep the host's time and their position (RAD-61, RAD-27, RAD-19)")
+{
+    // Ten times real time at the highest sample rate and one record per
+    // second of signal: an interval takes longer to simulate than its share
+    // of real time (in the sanitizer trees and under load by far). Its
+    // records must still reach the host about as soon after their time as
+    // in real time: the lag moves the time base before every block, not
+    // only when an interval starts (records stamped from the interval's
+    // start reached Yantra a whole interval's processing time late, were
+    // flagged late and stale and left its cycles after the drop limit while
+    // the stream still ran).
+    const PlanPoint a{4, 5};
+    Sim sim(fraunces_plan({a}));
+    sim.set_double("playback_speed", 10.0);
+    sim.set_double("record_rate_hz", 1.0);
+    sim.set_enum("receiver_rate", "r2m");
+    const yr_host_api& api = sim.host->host_api();
+    struct Seen {
+        int64_t arrival_ns, time_ns;
+    };
+    std::vector<Seen> seen;
+    std::size_t lost_position = 0;
+    sim.stream(
+        [&](const Record& r) {
+            if (!sim.is_cell(r, kT1Hz))
+                return false;
+            if (!sim.has_position(r) || sim.x(r) != a.x_m)
+                ++lost_position;
+            seen.push_back({api.monotonic_ns(api.host), r.time.monotonic_ns});
+            return seen.size() >= 8;
+        },
+        120.0);
+    REQUIRE(seen.size() >= 8);
+    // The busy time per signal second: above 0.1 the simulation is slower
+    // than ten times real time.
+    MESSAGE("receiver load " << sim.sensor("receiver_load").f64);
+    // Every record still finds the interval (position, truth) it was made in.
+    CHECK(lost_position == 0);
+    for (std::size_t i = 2; i < seen.size(); ++i) {
+        const double gap_s = static_cast<double>(seen[i].arrival_ns - seen[i - 1].arrival_ns) / 1e9;
+        const double delay_s = static_cast<double>(seen[i].arrival_ns - seen[i].time_ns) / 1e9;
+        CAPTURE(i);
+        CAPTURE(gap_s);
+        CAPTURE(delay_s);
+        // In time order, and on the host's time: at most the half interval
+        // of signal (0.05 s at 10x), the last block's share of the
+        // interval's processing time (1/50) and the delivery; a delay of
+        // the interval's whole processing time (the gap) was the bug.
+        CHECK(seen[i].time_ns > seen[i - 1].time_ns);
+        CHECK(delay_s <= 0.25 * gap_s + 0.2);
+    }
+}
+
 TEST_CASE("simulator: pause and resume, live settings and the simulated fault (RAD-34, RAD-61)")
 {
     Sim sim;
