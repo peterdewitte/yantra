@@ -246,7 +246,7 @@ TEST_CASE("plan import: a licence-restricted plan shows its credit and licence (
     const fs::path d = scratch("restricted");
     const fs::path file = d / "cache" / "example_sheet.png";
     fs::create_directories(file.parent_path());
-    write(file, fx::png(fx::pattern(1680, 1565)));
+    write(file, fx::png(pl::Raster(1680, 1565, 255)));  // uniform: cheap to encode and draw
     std::ifstream in(file, std::ios::binary);
     const std::string bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
     const fs::path data = d / "data";
