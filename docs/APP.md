@@ -122,6 +122,60 @@ Save/Discard on close. A file open in another Yantra (or another window)
 is refused with the lock message naming it. Recent files keep the last
 opened; a missing file leaves the list when chosen.
 
+## Plan import window (step 9.3)
+
+Add floor (`dlg.add_floor`) offers three ways to make a floor: a new plan
+file (`af.plan_file`, the in-app browser with `plan_file_filters()`), a
+plan already in the project (`af.src.<source id>`, disabled with the
+reason when a referenced file is gone) or a blank floor (`dlg.ok`). A
+plan opens the plan import window `dlg.plan_import`, a large modal; the
+project window's `floor.plan` ("Plan and scale...") opens it again for a
+floor's sheet with that floor selected.
+
+- Model: `PlanImportWindow` (app/model/include/yantra/app/plan_import_window.h)
+  holds the editing state over core `plan::PlanImport`: tools
+  (`ImportTool`, `tools()` with enabled flag and reason), pointer input in
+  page units (`pointer_down/move/up`), trim commands, Add as floor
+  (`begin_add_floor`/`confirm_add_floor`, the window stays open), floors
+  of this sheet (`placed()`, select, edit with `apply_edit` reanchoring
+  walls/antennas/scale points/reference in core, remove after a question),
+  scale (`ScaleForm`: two points, scale bar, drawing scale 1:N when
+  `drawing_scale_available()`), sharing within one sheet, the reference
+  point. `trim_generation()` changes with every trim change (the view
+  re-renders the preview then). AppState: `import_plan_file`,
+  `import_plan_source`, `edit_floor_plan`, `plan_import()`,
+  `close_plan_import()` (selects the last added floor in the project
+  window).
+- Licence-restricted plans (IND-03, DEMO-12): `open_file` hashes the file
+  and looks for a restricted sheet with that SHA-256 in
+  `<data folder>/demo/*/*.json` (`find_restricted_sheet`). A match is added
+  with `add_source_reference` (no copy) and `restricted()` gives title,
+  credit, licence and the approximate-scale note that the window shows.
+  `referenced()` is true for every non-embedded source.
+- View: `PlanImportView` (app/gui/plan_import_view.h) draws the side
+  panel and the canvas; tiles come from `PlanImport::page_tiles()` as
+  `UserTexture` quads (the page turns with the trim), the preview from
+  `PlanImport::preview(240)`. `stats()` tells tests what was drawn
+  (tiles, thumbnails, placed outlines, preview size, credit, canvas
+  origin). Ids: `pi.page.<n>`, `pi.tool.<pan|rectangle|polygon|deskew|
+  scale_line|scale_bar|reference>`, `pi.rot_left`, `pi.rot_right`,
+  `pi.reset`, `pi.deskew`, `pi.finish`, `pi.undo`, `pi.cancel_poly`,
+  `pi.add`, `pi.add_name`, `pi.add_level`, `pi.add_height`, `pi.add_ok`,
+  `pi.add_cancel`, `pi.apply_edit`, `pi.cancel_edit`, `pi.floor.<id>`,
+  `pi.edit.<id>`, `pi.remove.<id>`, `pi.confirm_remove`, `pi.keep`,
+  `pi.distance`, `pi.scale_apply`, `pi.ratio`, `pi.ratio_apply`,
+  `pi.scale_clear`, `pi.share.<id>`, `pi.ref_clear`, the canvas
+  `pi.canvas`, Close `dlg.cancel`.
+- Tests drag on the canvas at `stats().canvas_origin +
+  view().page_to_screen(page point)`. The side panel scrolls: tests that
+  click its lower items use a tall display (clipped items are not
+  clickable). Fixtures are generated (`yantra_plan_fixtures`: `fx::png`,
+  `fx::png_with_dpi`, `fx::pdf`); PDF cases return early without PDFium.
+- Hooks: 9.4 edits walls and antennas on the floor in the project window
+  (the trim's reanchoring already moves them); phase 10 exports must use
+  `PlanImportWindow::restricted()`/`SourceFile::plan.embedded == false`
+  to leave a restricted plan's image out and print its credit.
+
 ## Headless UI tests (tests/app/harness)
 
 `yantra::test::UiHarness` (library `yantra_ui_harness`) runs a real
