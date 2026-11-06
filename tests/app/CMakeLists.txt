@@ -22,7 +22,7 @@ endif()
 set(_scratch ${CMAKE_CURRENT_BINARY_DIR}/scratch)
 file(MAKE_DIRECTORY ${_scratch})
 
-add_executable(test_app test_app_model.cpp test_file_browser.cpp)
+add_executable(test_app test_app_model.cpp test_file_browser.cpp test_project_window.cpp)
 target_link_libraries(test_app PRIVATE yantra_test_main yantra_warnings yantra::app_model yantra::core)
 target_compile_definitions(test_app PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scratch}/test_app")
 if(TARGET demo_fraunces)

@@ -8,6 +8,12 @@
 // the actions they explain (DOC-07 b, c). The app calls the core only
 // (project::Project); no radio or plugin code here yet.
 //
+// The project file is live (7.1): every change is stored at once, Save
+// folds the log into the file (a checkpoint), Close and Exit never ask
+// about unsaved changes. A file open elsewhere is refused with the lock
+// message (open_project). The project window (IND-04) is the model in
+// project_window.h, owned here while a project is open.
+//
 // Actions a later step wires carry that step in ActionView::planned_step
 // and are disabled with a reason until then (e.g. Tour 9.10, Reset all
 // settings 9.7); docs/APP.md lists the hooks.
@@ -23,6 +29,7 @@
 #include <vector>
 
 #include "yantra/app/file_browser.h"
+#include "yantra/app/project_window.h"
 #include "yantra/app/result.h"
 #include "yantra/app/settings.h"
 
@@ -95,6 +102,8 @@ enum class Dialog {
     Browse,      ///< the file browser (browser(), browse_purpose())
     AddFloor,    ///< a new floor (IND-10); its plan import comes with 9.3
     About,       ///< name, version, licence, links (UI-15; logos, credits, plugins in 9.7)
+    FloorProperties,  ///< rename a floor, its level and height (IND-04)
+    RemoveFloor,      ///< the confirmation before a floor is removed (IND-04)
 };
 
 /// What the file browser was opened for.
@@ -123,6 +132,14 @@ struct AddFloorForm {
     double height_m = 3.0;
 };
 
+/// The Floor properties form (IND-04).
+struct FloorForm {
+    std::string floor_id;
+    std::string name;
+    int level = 0;
+    double height_m = 3.0;
+};
+
 struct StartScreenView {
     std::string title;
     std::string intro;
@@ -142,6 +159,12 @@ struct ProjectView {
     std::filesystem::path path;
     std::vector<FloorView> floors;
     bool demo = false;  ///< the user's copy of the demo project (DEMO-05, DEMO-07)
+    /// DEMO-07: the permanent banner of a demo project ("DEMO - simulated
+    /// data", from the demo description's label); "" for a real project.
+    std::string demo_label;
+    /// The live-file note next to the file name (7.1): changes are stored
+    /// as they are made.
+    std::string file_note;
 };
 
 /// The About dialog's text (UI-15). Step 9.7 adds the logos, credits and
@@ -178,6 +201,12 @@ public:
     Screen screen() const;
     /// The open project is the user's copy of the demo project.
     bool demo() const;
+    /// DEMO-07: the banner text when the open project is a demo project
+    /// (the demo copy, or a project whose floors are bundled example
+    /// floors, e.g. a "Save as" copy of the demo or an example building);
+    /// "" otherwise. From the label of the demo description in the data
+    /// folders (data/demo/*/*.json), else "DEMO - simulated data".
+    const std::string& demo_label() const { return demo_label_; }
     std::string window_title() const;
     std::vector<Menu> menus() const;
     ActionView action(Action a) const;
@@ -197,6 +226,8 @@ public:
     /// The open project (nullptr on the start screen), for the windows of
     /// later steps (project window 9.2, ...), which call the core on it.
     project::Project* project() { return project_.get(); }
+    /// The project window's model (nullptr on the start screen).
+    ProjectWindow* project_window() { return window_.get(); }
 
     // -- commands -------------------------------------------------------
     /// Runs an action: opens its dialog, runs it, or refuses it with the
@@ -212,6 +243,24 @@ public:
     AddFloorForm& add_floor_form() { return floor_form_; }
     /// Confirms the Add floor dialog with the form.
     Result confirm_add_floor();
+
+    // -- project window (IND-04) --------------------------------------------
+    /// Opens Floor properties for a floor (dialog FloorProperties).
+    Result edit_floor(const std::string& floor_id);
+    FloorForm& floor_properties_form() { return props_form_; }
+    /// Confirms Floor properties: name, then level and height.
+    Result confirm_floor_properties();
+    /// Moves a floor one place up (+1) or down (-1) in the level order.
+    Result move_floor(const std::string& floor_id, int steps);
+    /// Asks before a floor is removed (dialog RemoveFloor; the question
+    /// is project_window()->pending_remove()).
+    Result request_remove_floor(const std::string& floor_id);
+    Result confirm_remove_floor();
+    /// Shows or hides a layer, moves it in the drawing order, sets the
+    /// binned view's square size (kept in the settings).
+    void set_layer_visible(Layer layer, bool visible);
+    Result move_layer(Layer layer, int steps);
+    Result set_bin_size(double size_m);
 
     // -- file browser ---------------------------------------------------
     /// Opens the browser (dialog Browse) for a purpose.
@@ -255,9 +304,14 @@ private:
 
     AppSettings settings_;
     AppPaths paths_;
+    std::string find_demo_label() const;
+
     std::unique_ptr<project::Project> project_;
+    std::unique_ptr<ProjectWindow> window_;
+    std::string demo_label_;
     NewProjectForm form_;
     AddFloorForm floor_form_;
+    FloorForm props_form_;
     std::optional<FileBrowser> browser_;
     BrowsePurpose purpose_ = BrowsePurpose::OpenProject;
     Dialog browse_return_ = Dialog::None;

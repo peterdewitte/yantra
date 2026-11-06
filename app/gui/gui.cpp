@@ -6,6 +6,7 @@
 #include "gui.h"
 
 #include <imgui.h>
+#include <imgui_internal.h>  // ImGuiTabBar::TabsAddedNew (tab order)
 
 #include <algorithm>
 #include <cstring>
@@ -94,12 +95,21 @@ const char* dialog_id(Dialog d, const AppState& state) {
         break;
     case Dialog::AddFloor: return "Add floor###dlg.add_floor";
     case Dialog::About: return "About Yantra###dlg.about";
+    case Dialog::FloorProperties: return "Floor properties###dlg.floor_properties";
+    case Dialog::RemoveFloor: return "Remove floor?###dlg.remove_floor";
     case Dialog::None: break;
     }
     return "###dlg.none";
 }
 
-Gui::Gui(AppState& state) : state_(state) {}
+Gui::Gui(AppState& state) : state_(state), canvas_(std::make_unique<PlanCanvas>()) {}
+
+Gui::~Gui() {
+    canvas_.reset();
+    UserTexture::release_all();
+}
+
+void Gui::set_wait_for_tiles(bool on) { canvas_->set_wait_for_tiles(on); }
 
 void Gui::apply_style() {
     ImGui::StyleColorsDark();
@@ -214,28 +224,199 @@ void Gui::draw_start_screen() {
 
 void Gui::draw_project_screen() {
     const auto p = state_.project_view();
-    if (!p) return;
+    ProjectWindow* w = state_.project_window();
+    if (!p || w == nullptr) return;
+    // DEMO-07: a permanent banner on a demo project, above everything.
+    if (!p->demo_label.empty()) {
+        const ImVec2 a = ImGui::GetCursorScreenPos();
+        const float bh = ImGui::GetTextLineHeight() + 10.0F;
+        ImGui::GetWindowDrawList()->AddRectFilled(a, ImVec2(a.x + ImGui::GetContentRegionAvail().x, a.y + bh),
+                                                  ImGui::GetColorU32(kBannerColour), 3.0F);
+        ImGui::SetCursorScreenPos(ImVec2(a.x + 10.0F, a.y + 5.0F));
+        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(20, 20, 20, 255));
+        ImGui::TextUnformatted(p->demo_label.c_str());
+        ImGui::PopStyleColor();
+        ImGui::SetCursorScreenPos(a);
+        ImGui::InvisibleButton("###demo_banner", ImVec2(std::max(1.0F, ImGui::GetContentRegionAvail().x), bh));
+        text_tooltip("This is a demo project: its measurements are simulated, not real. Its exports and reports carry "
+                     "the same label.");
+    }
     ImGui::PushFont(nullptr, ImGui::GetStyle().FontSizeBase * 1.3F);
     ImGui::TextUnformatted(p->name.c_str());
     ImGui::PopFont();
-    ImGui::SameLine();
     ImGui::TextDisabled("%s", p->path.string().c_str());
-    if (p->demo) {
-        ImGui::TextColored(kBannerColour, "DEMO - simulated data");
-        text_tooltip("Your copy of the demo project: its measurements are simulated, not real.");
-    }
-    // The project window with floor tabs and layers replaces this list
-    // in step 9.2.
-    ImGui::SeparatorText("Floors");
-    if (p->floors.empty()) {
+    text_tooltip(p->path.string().c_str());
+    ImGui::SameLine();
+    ImGui::TextDisabled("- %s", p->file_note.c_str());
+    help_marker("A project file is live: every change is written to it at once, so nothing is lost when Yantra "
+                "stops, and there is nothing to discard. File > Save makes the file complete on its own (ready to "
+                "copy); Save as continues with a copy. While it is open here, no other Yantra can open it.");
+
+    draw_floor_tabs(*w);
+    const FloorContent* c = w->content(state_.settings().layers.bin_size_m);
+    if (c == nullptr) {
         ImGui::PushTextWrapPos(0.0F);
         ImGui::TextDisabled("%s", state_.no_floor_hint().c_str());
         ImGui::PopTextWrapPos();
+        return;
     }
-    for (auto it = p->floors.rbegin(); it != p->floors.rend(); ++it) {
-        ImGui::BulletText("%s", it->name.c_str());
+    // Floor commands (IND-04).
+    const std::string id = c->floor_id;
+    const auto& tabs = w->tabs();
+    const auto it = std::find_if(tabs.begin(), tabs.end(), [&](const FloorTab& t) { return t.id == id; });
+    const bool lowest = it == tabs.begin();
+    const bool highest = it != tabs.end() && std::next(it) == tabs.end();
+    if (ImGui::Button("Properties...###floor.properties")) (void)state_.edit_floor(id);
+    text_tooltip("Rename the floor, or change its level number and floor-to-floor height.");
+    ImGui::SameLine();
+    ImGui::BeginDisabled(lowest);
+    if (ImGui::Button("Move down###floor.down")) (void)state_.move_floor(id, -1);
+    ImGui::EndDisabled();
+    text_tooltip(lowest ? "Move the floor one place down in the level order. It is already the lowest."
+                        : "Move the floor one place down in the level order (the floors swap levels).");
+    ImGui::SameLine();
+    ImGui::BeginDisabled(highest);
+    if (ImGui::Button("Move up###floor.up")) (void)state_.move_floor(id, +1);
+    ImGui::EndDisabled();
+    text_tooltip(highest ? "Move the floor one place up in the level order. It is already the highest."
+                         : "Move the floor one place up in the level order (the floors swap levels).");
+    ImGui::SameLine();
+    if (ImGui::Button("Remove...###floor.remove")) (void)state_.request_remove_floor(id);
+    text_tooltip("Remove the floor with its walls, antennas and walk tests (you are asked first).");
+    ImGui::SameLine();
+    ImGui::TextDisabled("|");
+    ImGui::SameLine();
+    if (ImGui::Button("Fit###plan.fit")) canvas_->fit();
+    text_tooltip("Show the whole floor [double click on the plan]");
+    ImGui::SameLine();
+    if (ImGui::Button("+###plan.zoom_in")) canvas_->zoom(1.25);
+    text_tooltip("Zoom in [mouse wheel]");
+    ImGui::SameLine();
+    if (ImGui::Button("-###plan.zoom_out")) canvas_->zoom(0.8);
+    text_tooltip("Zoom out [mouse wheel]");
+    ImGui::SameLine();
+    ImGui::TextDisabled("Drag to pan, wheel to zoom");
+
+    // Layers on the left, the plan on the right (narrower on small windows).
+    const ImVec2 avail = ImGui::GetContentRegionAvail();
+    const float panel = std::clamp(avail.x * 0.28F, 200.0F, 320.0F);
+    ImGui::BeginChild("###layers", ImVec2(panel, avail.y), ImGuiChildFlags_Borders);
+    draw_layer_panel(*w, c);
+    ImGui::EndChild();
+    ImGui::SameLine();
+    ImGui::BeginChild("###plan", ImVec2(0.0F, avail.y), ImGuiChildFlags_None,
+                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    // The layer panel may have changed the content (another map chosen).
+    c = w->content(state_.settings().layers.bin_size_m);
+    if (c != nullptr) canvas_->draw(*w, *c, state_.settings().layers, ImGui::GetContentRegionAvail());
+    ImGui::EndChild();
+}
+
+void Gui::draw_floor_tabs(ProjectWindow& w) {
+    const std::string model = w.selected();
+    const bool force = model != shown_floor_;
+    std::string visible;
+    if (ImGui::BeginTabBar("###floors", ImGuiTabBarFlags_FittingPolicyScroll | ImGuiTabBarFlags_NoCloseWithMiddleMouseButton)) {
+        for (const FloorTab& t : w.tabs()) {
+            const ImGuiTabItemFlags f = (force && t.id == model) ? ImGuiTabItemFlags_SetSelected : 0;
+            const bool open = ImGui::BeginTabItem((t.label + "###tab." + t.id).c_str(), nullptr, f);
+            text_tooltip(t.tooltip.c_str());
+            if (open) {
+                visible = t.id;
+                ImGui::EndTabItem();
+            }
+        }
+        // A floor moved: Dear ImGui keeps a tab bar's first order unless a
+        // tab is new, so have it sort the tabs by this frame's order.
+        std::string order;
+        for (const FloorTab& t : w.tabs()) order += t.id + '\n';
+        if (order != tab_order_) {
+            if (ImGuiTabBar* bar = ImGui::GetCurrentTabBar()) bar->TabsAddedNew = true;
+            tab_order_ = order;
+        }
+        // IND-10: "+" next to the floor tabs.
+        const ActionView add = state_.action(Action::AddFloor);
+        if (ImGui::TabItemButton("+###floors.add", ImGuiTabItemFlags_Trailing | ImGuiTabItemFlags_NoTooltip))
+            run(Action::AddFloor);
+        item_tooltip(add);
+        ImGui::EndTabBar();
+    }
+    // A tab the user clicked selects its floor; a floor selected by a
+    // command (added, removed) is shown on the next frame.
+    if (!force && !visible.empty() && visible != model) (void)w.select(visible);
+    shown_floor_ = force || visible.empty() ? model : visible;
+}
+
+void Gui::draw_layer_panel(ProjectWindow& w, const FloorContent* c) {
+    ImGui::SeparatorText("Layers");
+    help_marker("Show or hide each layer; the arrows change the drawing order (the top of the list is drawn on "
+                "top). These are your viewing settings: they do not change the project or its report.");
+    for (const LayerRow& r : w.layer_rows(state_.settings().layers)) {
+        ImGui::PushID(r.id.c_str());
+        bool on = r.visible;
+        if (ImGui::Checkbox((r.label + "###" + r.id).c_str(), &on)) state_.set_layer_visible(r.layer, on);
+        text_tooltip(r.tooltip.c_str());
+        const float arrows = ImGui::GetFrameHeight() * 2.0F + ImGui::GetStyle().ItemSpacing.x;
+        ImGui::SameLine(std::max(ImGui::GetCursorPosX(), ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - arrows));
+        ImGui::BeginDisabled(!r.can_move_up);
+        if (ImGui::ArrowButton(("###" + r.id + ".up").c_str(), ImGuiDir_Up)) (void)state_.move_layer(r.layer, +1);
+        ImGui::EndDisabled();
+        text_tooltip(r.can_move_up ? "Draw this layer above the next one." : "This layer is drawn on top.");
         ImGui::SameLine();
-        ImGui::TextDisabled("level %d%s", it->level, it->has_plan ? "" : ", no plan");
+        ImGui::BeginDisabled(!r.can_move_down);
+        if (ImGui::ArrowButton(("###" + r.id + ".down").c_str(), ImGuiDir_Down)) (void)state_.move_layer(r.layer, -1);
+        ImGui::EndDisabled();
+        text_tooltip(r.can_move_down ? "Draw this layer below the previous one." : "This layer is drawn at the bottom.");
+        if (!r.note.empty()) {
+            ImGui::Indent();
+            ImGui::PushTextWrapPos(0.0F);
+            if (r.layer == Layer::Interpolation && c && c->interpolation && c->interpolation->stale)
+                ImGui::TextColored(kBannerColour, "%s", r.note.c_str());
+            else
+                ImGui::TextDisabled("%s", r.note.c_str());
+            ImGui::PopTextWrapPos();
+            ImGui::Unindent();
+        }
+        if (r.layer == Layer::Binned && c != nullptr && c->metres_per_unit) {
+            ImGui::Indent();
+            float size = static_cast<float>(state_.settings().layers.bin_size_m);
+            ImGui::SetNextItemWidth(ImGui::GetFontSize() * 9.0F);
+            if (ImGui::InputFloat("Square (m)###layer.bin_size", &size, 0.5F, 1.0F, "%.1f",
+                                  ImGuiInputTextFlags_EnterReturnsTrue))
+                (void)state_.set_bin_size(static_cast<double>(size));
+            text_tooltip("The side of the squares in metres (0.5 to 50). Each square shows the median of its points.");
+            ImGui::Unindent();
+        }
+        if (r.layer == Layer::Interpolation && c != nullptr && c->interpolation) {
+            ImGui::Indent();
+            ImGui::TextDisabled("Fit: RMS %.1f dB over %zu points", c->interpolation->rms_db, c->interpolation->fit_points);
+            if (c->interpolations.size() > 1) {
+                ImGui::SetNextItemWidth(-1.0F);
+                if (ImGui::BeginCombo("###layer.interpolation.choose", c->interpolation->key.c_str())) {
+                    for (const auto& [iid, key] : c->interpolations)
+                        if (ImGui::Selectable((key + "###layer.map." + std::to_string(iid)).c_str(),
+                                              iid == c->interpolation->id))
+                            (void)w.show_interpolation(iid);
+                    ImGui::EndCombo();
+                }
+                text_tooltip("The floor has several stored maps (one per metric and cell): choose the one shown.");
+            }
+            ImGui::Unindent();
+        }
+        ImGui::PopID();
+    }
+    if (c != nullptr) {
+        ImGui::SeparatorText("Floor");
+        ImGui::TextDisabled("%zu measured points", c->points.count());
+        if (c->metres_per_unit)
+            ImGui::TextDisabled("Scale: %.4g m per plan unit", *c->metres_per_unit);
+        else
+            ImGui::TextColored(kBannerColour, "Not to scale");
+        if (!canvas_->tile_error().empty() && c->has_plan) {
+            ImGui::PushTextWrapPos(0.0F);
+            ImGui::TextColored(kErrorColour, "%s", canvas_->tile_error().c_str());
+            ImGui::PopTextWrapPos();
+        }
     }
 }
 
@@ -461,12 +642,52 @@ void Gui::draw_about() {
         state_.cancel_dialog();
 }
 
+void Gui::draw_floor_properties() {
+    FloorForm& f = state_.floor_properties_form();
+    if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+    input_text("Name###name", f.name);
+    text_tooltip("For example \"Ground floor\" or \"Basement\".");
+    ImGui::InputInt("Level###level", &f.level);
+    text_tooltip("0 = ground floor, 1 = first floor, -1 = basement. Every floor has its own level; the tabs are "
+                 "ordered by level.");
+    float height = static_cast<float>(f.height_m);
+    if (ImGui::InputFloat("Height (m)###height", &height, 0.1F, 0.5F, "%.2f")) f.height_m = static_cast<double>(height);
+    text_tooltip("Floor-to-floor height in metres (more than 0, at most 50), used for the slab between floors.");
+    ImGui::Spacing();
+    if (dialog_button("Apply###dlg.ok", "Store the changes [Enter]") ||
+        (ImGui::IsKeyPressed(ImGuiKey_Enter) && !ImGui::GetIO().WantTextInput))
+        (void)state_.confirm_floor_properties();
+    ImGui::SameLine();
+    if (dialog_button("Cancel###dlg.cancel", "Close without changes [Esc]") || ImGui::IsKeyPressed(ImGuiKey_Escape))
+        state_.cancel_dialog();
+    error_line(state_);
+}
+
+void Gui::draw_remove_floor() {
+    ProjectWindow* w = state_.project_window();
+    if (w == nullptr || !w->pending_remove()) {
+        state_.cancel_dialog();
+        return;
+    }
+    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 34.0F);
+    ImGui::TextUnformatted(w->pending_remove()->question.c_str());
+    ImGui::PopTextWrapPos();
+    ImGui::Spacing();
+    if (dialog_button("Remove###dlg.ok", "Remove the floor and everything on it"))
+        (void)state_.confirm_remove_floor();
+    ImGui::SameLine();
+    if (dialog_button("Keep it###dlg.cancel", "Do not remove the floor [Esc]") || ImGui::IsKeyPressed(ImGuiKey_Escape))
+        state_.cancel_dialog();
+}
+
 void Gui::draw_dialog_body(Dialog d) {
     switch (d) {
     case Dialog::NewProject: draw_new_project(); break;
     case Dialog::Browse: draw_browser(); break;
     case Dialog::AddFloor: draw_add_floor(); break;
     case Dialog::About: draw_about(); break;
+    case Dialog::FloorProperties: draw_floor_properties(); break;
+    case Dialog::RemoveFloor: draw_remove_floor(); break;
     case Dialog::None: break;
     }
 }
@@ -505,6 +726,7 @@ void Gui::draw_dialogs() {
 }
 
 void Gui::draw() {
+    UserTexture::collect();
     handle_shortcuts();
     draw_menu_bar();
     const ImGuiViewport* vp = ImGui::GetMainViewport();
@@ -516,10 +738,13 @@ void Gui::draw() {
                                    ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus;
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(24.0F, 20.0F));
     if (ImGui::Begin(kMainWindow, nullptr, flags)) {
-        if (state_.screen() == Screen::Start)
+        if (state_.screen() == Screen::Start) {
+            canvas_->close();
+            shown_floor_.clear();
             draw_start_screen();
-        else
+        } else {
             draw_project_screen();
+        }
     }
     ImGui::End();
     ImGui::PopStyleVar();

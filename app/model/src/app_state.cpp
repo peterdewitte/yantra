@@ -12,6 +12,7 @@
 
 #include "yantra/app/data_paths.h"
 #include "yantra/core/build_info.h"
+#include "yantra/core/demo/demo_project.h"
 #include "yantra/core/project/project.h"
 
 #ifndef YANTRA_SOURCE_URL
@@ -100,6 +101,7 @@ void remove_project_file(const fs::path& target, std::error_code& ec) {
 AppState::AppState(AppSettings settings, AppPaths paths) : settings_(std::move(settings)), paths_(std::move(paths)) {}
 
 AppState::~AppState() {
+    window_.reset();
     try {
         if (project_) project_->close();
     } catch (...) {
@@ -117,7 +119,7 @@ bool AppState::demo() const {
 std::string AppState::window_title() const {
     std::string t = "Yantra";
     if (project_) t += " - " + project_->meta().info.name;
-    if (demo()) t += " [DEMO]";
+    if (!demo_label_.empty()) t += " [DEMO]";
     return t;
 }
 
@@ -204,6 +206,8 @@ std::optional<ProjectView> AppState::project_view() const {
     v.name = project_->meta().info.name;
     v.path = project_->path();
     v.demo = demo();
+    v.demo_label = demo_label_;
+    v.file_note = "Changes are stored in the file as you make them.";
     for (const building::Floor& f : project_->floors())
         v.floors.push_back(FloorView{f.id, f.name, f.level, !f.source.empty()});
     return v;
@@ -276,11 +280,13 @@ Result AppState::trigger(Action a) {
 }
 
 void AppState::cancel_dialog() {
+    if (dialog_ == Dialog::RemoveFloor && window_) window_->cancel_remove();
     dialog_ = Dialog::None;
     browser_.reset();
 }
 
 Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& verb) {
+    window_.reset();
     if (project_) {
         try {
             project_->close();
@@ -289,6 +295,8 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
         }
     }
     project_ = std::move(p);
+    window_ = std::make_unique<ProjectWindow>(*project_);
+    demo_label_ = find_demo_label();
     add_recent_project(settings_, project_->path());
     settings_changed_ = true;
     dialog_ = Dialog::None;
@@ -468,6 +476,19 @@ Result AppState::open_project(const fs::path& file) {
     }
     try {
         return opened(project::Project::open(file), "Opened");
+    } catch (const project::ProjectError& e) {
+        using Code = project::ProjectError::Code;
+        switch (e.code()) {
+        case Code::Locked:
+            // 7.1: the file is live and locked while it is open.
+            return fail(file.string() +
+                        " is open in another Yantra window or program. A project is a live file that can be open "
+                        "in one place only: close it there, then open it here.");
+        case Code::TooNew:
+            return fail("Cannot open " + file.string() + ": it was saved by a newer Yantra. Open it with that "
+                        "version (this one does not change it).");
+        default: return fail("Cannot open " + file.string() + ": " + e.what());
+        }
     } catch (const std::exception& e) {
         return fail("Cannot open " + file.string() + ": " + e.what());
     }
@@ -533,7 +554,8 @@ Result AppState::add_floor(const std::string& name, int level, double height_m) 
         f.name = name;
         f.level = level;
         f.height_m = height_m;
-        (void)project_->add_floor(f);
+        const std::string id = project_->add_floor(f);
+        if (window_) (void)window_->select(id);
         dialog_ = Dialog::None;
         return done("Added floor " + name);
     } catch (const std::exception& e) {
@@ -544,7 +566,11 @@ Result AppState::add_floor(const std::string& name, int level, double height_m) 
 Result AppState::close_project() {
     if (!project_) return fail("No project is open.");
     const std::string path = project_->path().string();
-    if (dialog_ == Dialog::AddFloor || dialog_ == Dialog::Browse) cancel_dialog();
+    if (dialog_ == Dialog::AddFloor || dialog_ == Dialog::Browse || dialog_ == Dialog::FloorProperties ||
+        dialog_ == Dialog::RemoveFloor)
+        cancel_dialog();
+    window_.reset();
+    demo_label_.clear();
     try {
         project_->close();
     } catch (const std::exception& e) {
@@ -553,6 +579,103 @@ Result AppState::close_project() {
     }
     project_.reset();
     return done("Closed " + path);
+}
+
+std::string AppState::find_demo_label() const {
+    if (!project_) return {};
+    std::vector<std::string> examples;
+    for (const building::Floor& f : project_->floors())
+        if (!f.example_id.empty()) examples.push_back(f.example_id);
+    if (!demo() && examples.empty()) return {};
+    // The label of the description whose floors these are (DEMO-07).
+    for (const fs::path& folder : paths_.data_folders) {
+        std::error_code ec;
+        const fs::path demo_dir = folder / "demo";
+        if (!fs::is_directory(demo_dir, ec)) continue;
+        for (const auto& sub : fs::directory_iterator(demo_dir, ec)) {
+            if (!sub.is_directory()) continue;
+            for (const auto& e : fs::directory_iterator(sub.path(), ec)) {
+                if (e.path().extension() != ".json") continue;
+                try {
+                    const demo::DemoDescription d = demo::read_description(e.path());
+                    const bool match = std::any_of(d.floors.begin(), d.floors.end(), [&](const demo::DemoFloor& f) {
+                        return std::find(examples.begin(), examples.end(), f.example_id) != examples.end();
+                    });
+                    if (match && !d.label.empty()) return d.label;
+                } catch (const std::exception&) {
+                    // Not a demo description (e.g. a scenario list).
+                }
+            }
+        }
+    }
+    return "DEMO - simulated data";
+}
+
+Result AppState::edit_floor(const std::string& floor_id) {
+    if (!project_) return fail("No project is open.");
+    const std::optional<building::Floor> f = project_->floor(floor_id);
+    if (!f) return fail("No such floor.");
+    props_form_ = FloorForm{f->id, f->name, f->level, f->height_m};
+    dialog_ = Dialog::FloorProperties;
+    return Result{};
+}
+
+Result AppState::confirm_floor_properties() {
+    if (!window_) return fail("No project is open.");
+    const FloorForm f = props_form_;
+    const std::optional<building::Floor> now = project_->floor(f.floor_id);
+    if (!now) return fail("The floor no longer exists.");
+    if (f.name.empty()) return fail("The floor needs a name.");
+    if (f.name != now->name) {
+        const Result r = window_->rename_floor(f.floor_id, f.name);
+        if (!r.ok) return fail(r.message);
+    }
+    if (f.level != now->level || f.height_m != now->height_m) {
+        const Result r = window_->set_level(f.floor_id, f.level, f.height_m);
+        if (!r.ok) return fail(r.message);
+    }
+    dialog_ = Dialog::None;
+    return done("Floor " + f.name + ": level " + std::to_string(f.level));
+}
+
+Result AppState::move_floor(const std::string& floor_id, int steps) {
+    if (!window_) return fail("No project is open.");
+    return show(window_->move_floor(floor_id, steps));
+}
+
+Result AppState::request_remove_floor(const std::string& floor_id) {
+    if (!window_) return fail("No project is open.");
+    const Result r = window_->request_remove(floor_id);
+    if (!r.ok) return fail(r.message);
+    dialog_ = Dialog::RemoveFloor;
+    return Result{};
+}
+
+Result AppState::confirm_remove_floor() {
+    if (!window_) return fail("No project is open.");
+    const Result r = window_->confirm_remove();
+    dialog_ = Dialog::None;
+    return show(r);
+}
+
+void AppState::set_layer_visible(Layer layer, bool visible) {
+    if (settings_.layers.visible(layer) == visible) return;
+    settings_.layers.set_visible(layer, visible);
+    settings_changed_ = true;
+}
+
+Result AppState::move_layer(Layer layer, int steps) {
+    if (!settings_.layers.move(layer, steps))
+        return fail(steps > 0 ? "The layer is already on top." : "The layer is already at the bottom.");
+    settings_changed_ = true;
+    return Result{};
+}
+
+Result AppState::set_bin_size(double size_m) {
+    if (!(size_m >= 0.5 && size_m <= 50.0)) return fail("The square size must be from 0.5 to 50 m.");
+    settings_.layers.bin_size_m = size_m;
+    settings_changed_ = true;
+    return Result{};
 }
 
 fs::path AppState::suggested_project_file(const std::string& name) const {

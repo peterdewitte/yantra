@@ -179,6 +179,8 @@ int main(int argc, char** argv) {
             if (!r.ok) std::fprintf(stderr, "yantra: --dialog %s: %s\n", cli.dialog.c_str(), r.message.c_str());
         }
         app::Gui gui(state);
+        // A screenshot shows the plan with its tiles, not while they render.
+        gui.set_wait_for_tiles(screenshot);
 
         std::string title;
         // A screenshot is taken after a few frames, so that windows and
@@ -228,10 +230,11 @@ int main(int argc, char** argv) {
             std::string error;
             if (!state.save_settings(error)) std::fprintf(stderr, "yantra: %s\n", error.c_str());
         }
+        // The renderer destroys every texture, the plan's too, before the
+        // Gui frees them (app/gui/user_texture.h).
+        ImGui_ImplOpenGL3_Shutdown();
+        ImGui_ImplGlfw_Shutdown();
     }
-
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
     glfwDestroyWindow(window);
     glfwTerminate();
