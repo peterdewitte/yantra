@@ -221,6 +221,19 @@ struct MarkerLine {
     MarkerAction action = MarkerAction::Mark;
 };
 
+// A voice note (REC-06; `voice` line): a short microphone recording made
+// at `time_ns`, stored as a WAV file (16-bit PCM mono, wav.h) in the
+// recording's folder and played back at that instant during replay.
+struct VoiceLine {
+    std::int64_t time_ns = 0;   // pipeline clock: when the note was started
+    std::uint32_t number = 0;   // 1, 2, ... within the session
+    std::string file;           // WAV file name in the recording's folder (no folder)
+    double seconds = 0.0;       // its length
+    std::uint32_t sample_rate = 0;
+    std::string label;
+    bool operator==(const VoiceLine&) const = default;
+};
+
 struct EndLine {
     std::int64_t time_ns = 0;
     std::string reason;          // stop, split_time, split_count, new_file, new_file_pause
@@ -240,6 +253,7 @@ struct File {
     std::vector<FloorLine> floors;
     std::vector<WalkLine> walks;
     std::vector<MarkerLine> markers;
+    std::vector<VoiceLine> voices;      // REC-06
     std::optional<EndLine> end;         // absent: not closed cleanly
     bool truncated = false;             // the last line (or zstd frame) was cut
     std::size_t damaged_lines = 0;      // lines in the middle that could not be read (skipped)
@@ -258,5 +272,11 @@ std::string quick_name(std::int64_t utc_ns);
 // A session name is usable as a file name stem (1..120 characters, no
 // path separators or control characters).
 bool valid_session_name(const std::string& name);
+// The WAV file name of voice note `number` of file `index` of a session
+// (REC-06): "<session>_<index:04>_voice_<number:03>.wav".
+std::string voice_file_name(const std::string& session, std::uint32_t index, std::uint32_t number);
+// A voice note's file name is a plain name in the recording's folder
+// (no folder, no "..", ends in .wav): reading never leaves the folder.
+bool valid_voice_file_name(const std::string& name);
 
 }  // namespace yantra::recording

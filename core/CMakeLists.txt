@@ -60,6 +60,8 @@ add_library(yantra_core STATIC
   src/recording/reader.cpp
   src/recording/replay.cpp
   src/recording/writer.cpp
+  src/recording/wav.cpp
+  src/recording/cut.cpp
   src/radio/scene_export.cpp
   src/raytrace/fit.cpp
   src/raytrace/kernels.cpp

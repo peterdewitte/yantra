@@ -156,6 +156,11 @@ std::string RecorderConfig::validate() const {
     if (!session_id.empty() &&
         (session_id.size() != 16 || session_id.find_first_not_of("0123456789abcdef") != std::string::npos))
         return "a session id has 16 lower-case hex digits";
+    if (ring_files != 0) {
+        if (ring_files < 2 || ring_files > 1000) return "a ring buffer keeps 2..1000 files (REC-09)";
+        if (split_minutes == 0.0 && split_messages == 0)
+            return "a ring buffer needs a split by time or message count (REC-09)";
+    }
     return {};
 }
 
@@ -168,6 +173,7 @@ struct Recorder::Session {
     std::int64_t started_utc = 0;
     bool continued = false;  // for the next file opened
     std::uint32_t next_marker = 1;
+    std::uint32_t voices = 0;
     std::shared_ptr<FileWriter> file;
     codec::Declared declared;
     std::int64_t file_mono0 = 0;
@@ -290,6 +296,7 @@ bool Recorder::open_file(Session& s, std::string& error) {
     h.split_messages = config_.split_messages;
     h.keyframe_s = config_.keyframe_s;
     h.compression = config_.compression;
+    h.cut = config_.cut;
     const fs::path path = config_.folder / file_name(s.name, s.index, config_.compression);
     std::unique_ptr<FileWriter> w = FileWriter::create(path, h, error);
     if (!w) return false;
@@ -310,6 +317,16 @@ bool Recorder::open_file(Session& s, std::string& error) {
         s.file->add_line(codec::floor_line({h.started_mono_ns, floor_id_, floor_name_}));
     if (!s.file->flush(error)) return false;
     files_.push_back(path);
+    // REC-09: the ring keeps the newest files only (with their voice notes).
+    while (config_.ring_files > 0 && files_.size() > config_.ring_files) {
+        const fs::path old = files_.front();
+        files_.erase(files_.begin());
+        fs::remove(old, ec);
+        const std::string prefix = old.filename().string().substr(0, s.name.size() + 5) + "_voice_";
+        for (const auto& e : fs::directory_iterator(config_.folder, ec))
+            if (e.path().filename().string().rfind(prefix, 0) == 0) fs::remove(e.path(), ec);
+        ++ring_deleted_;
+    }
     return true;
 }
 
@@ -380,6 +397,7 @@ bool Recorder::open_session(const std::string& name, bool continued, std::string
         s->started_utc = now_utc();
     }
     files_.clear();
+    ring_deleted_ = 0;
     if (!open_file(*s, error)) return false;
     session_ = std::move(s);
     state_ = RecorderState::Recording;
@@ -447,7 +465,9 @@ RecorderStatus Recorder::status() const {
     st.dropped = dropped_;
     st.error = error_;
     st.files = files_;
+    st.ring_deleted = ring_deleted_;
     if (session_) {
+        st.voice_notes = session_->voices;
         st.name = session_->name;
         st.session_id = session_->id;
         st.file_index = session_->index;
@@ -486,6 +506,38 @@ void Recorder::add_walk(WalkLine walk) {
     const std::lock_guard lock(mutex_);
     if (state_ == RecorderState::Recording && session_ && session_->file)
         session_->file->add_line(codec::walk_line(walk));
+}
+
+void Recorder::copy_marker(MarkerLine marker) {
+    if (marker.time_ns == 0) marker.time_ns = now_mono();
+    marker.action = MarkerAction::Mark;
+    const std::lock_guard lock(mutex_);
+    if (state_ == RecorderState::Recording && session_ && session_->file)
+        session_->file->add_line(codec::marker_line(marker));
+}
+
+std::optional<VoiceLine> Recorder::add_voice(const Audio& audio, std::int64_t time_ns, const std::string& label,
+                                             std::string& error) {
+    if (time_ns == 0) time_ns = now_mono();
+    const std::lock_guard lock(mutex_);
+    if (state_ != RecorderState::Recording || !session_ || !session_->file) {
+        error = "voice notes are recorded while a recording runs";
+        return std::nullopt;
+    }
+    Session& s = *session_;
+    VoiceLine v;
+    v.time_ns = time_ns;
+    v.number = s.voices + 1;
+    v.file = voice_file_name(s.name, s.index, v.number);
+    v.seconds = audio.seconds();
+    v.sample_rate = audio.sample_rate;
+    v.label = label;
+    // The WAV is small (at most kMaxVoiceSeconds): written under the lock
+    // so the line never names a file that is not there.
+    if (!write_wav(config_.folder / v.file, audio, error)) return std::nullopt;
+    s.voices = v.number;
+    s.file->add_line(codec::voice_line(v));
+    return v;
 }
 
 void Recorder::on_input(const measure::PipelineInput& input) {

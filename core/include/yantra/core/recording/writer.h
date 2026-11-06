@@ -41,6 +41,7 @@
 
 #include "yantra/core/measure/measurement_pipeline.h"
 #include "yantra/core/recording/format.h"
+#include "yantra/core/recording/wav.h"
 
 namespace yantra::recording {
 
@@ -108,6 +109,12 @@ struct RecorderConfig {
     // random one. Generated data (the demo walks, DEMO-06) uses a fixed id
     // so the same inputs give the same files.
     std::string session_id;
+    // REC-09 ring buffer ("loop monitoring temp file"): > 0 keeps only the
+    // newest `ring_files` files of a session; older ones are deleted as
+    // the session splits (needs a split by time or count; 2..1000).
+    std::uint32_t ring_files = 0;
+    // Written into every header: the file is cut from another (REC-08, cut.h).
+    std::optional<CutInfo> cut;
 
     // "" when valid, else what is wrong.
     std::string validate() const;
@@ -123,7 +130,9 @@ struct RecorderStatus {
     std::uint64_t durable_inputs = 0; // the last input number known to be on disk
     std::uint64_t dropped = 0;        // inputs that could not be stored (paused, write error)
     std::uint32_t next_marker = 1;
-    std::vector<std::filesystem::path> files;  // files of this session so far
+    std::vector<std::filesystem::path> files;  // files of this session so far (ring: those kept)
+    std::uint64_t ring_deleted = 0;   // REC-09: files the ring has deleted in this session
+    std::uint32_t voice_notes = 0;    // REC-06: voice notes of this session
     std::string error;                // the last write error, "" if none
 };
 
@@ -173,6 +182,19 @@ public:
     void add_position(PositionLine position);
     // A walk-test action (core/survey/walk_test.h); time 0 = now.
     void add_walk(WalkLine walk);
+    // A marker line as it was recorded (a cut, REC-08): number, time and
+    // label kept, never a new file; not counted for next_marker. No-op
+    // when not recording.
+    void copy_marker(MarkerLine marker);
+
+    // -- voice notes (REC-06) --------------------------------------------
+    // Stores `audio` (wav.h) as the next voice note of the session at
+    // `time_ns` (0 = now: when the note was started): its WAV file next
+    // to the current file (voice_file_name) and a `voice` line. nullopt
+    // with `error` when not recording or the file cannot be written.
+    std::optional<VoiceLine> add_voice(const Audio& audio, std::int64_t time_ns, const std::string& label,
+                                       std::string& error);
+    const std::filesystem::path& folder() const noexcept { return config_.folder; }
 
     // -- measure::MeasurementObserver ------------------------------------
     void on_input(const measure::PipelineInput& input) override;
@@ -200,6 +222,7 @@ private:
     std::string error_;
     std::string floor_id_, floor_name_;
     std::vector<std::filesystem::path> files_;
+    std::uint64_t ring_deleted_ = 0;
 
     std::mutex flush_mutex_;
     std::condition_variable flush_cv_;

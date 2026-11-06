@@ -32,8 +32,10 @@
 #include <yantra/core/measure/measurement_pipeline.h>
 #include <yantra/core/measure/sample.h>
 #include <yantra/core/platform/clock.h>
+#include <yantra/core/recording/cut.h>
 #include <yantra/core/recording/reader.h>
 #include <yantra/core/recording/replay.h>
+#include <yantra/core/recording/wav.h>
 #include <yantra/core/recording/writer.h>
 #include <yantra/radio.h>
 
@@ -146,6 +148,8 @@ struct Listener final : rec::ReplayListener {
     std::vector<std::size_t> files;
     std::vector<std::int64_t> seeks;
     std::vector<rec::WalkLine> walks;
+    std::vector<std::pair<std::int64_t, rec::VoiceLine>> voices;
+    void on_voice(std::int64_t t, std::size_t, const rec::VoiceLine& v) override { voices.emplace_back(t, v); }
     void on_walk(std::int64_t, const rec::WalkLine& w) override { walks.push_back(w); }
     void on_file(std::size_t i, const rec::File&) override { files.push_back(i); }
     void on_marker(std::int64_t t, const rec::MarkerLine& m) override { markers.emplace_back(t, m); }
@@ -819,7 +823,7 @@ TEST_CASE("recording: docs/formats/RECORDING.md documents the format version and
     const std::string doc = slurp(fs::path(YANTRA_SOURCE_DIR) / "docs" / "formats" / "RECORDING.md");
     REQUIRE(!doc.empty());
     CHECK(doc.find("`yantra-recording/" + std::to_string(rec::kFormatVersion) + "`") != std::string::npos);
-    for (const char* t : {"header", "source", "cal", "rec", "event", "cycle", "state", "pos", "floor", "walk", "marker", "end"})
+    for (const char* t : {"header", "source", "cal", "rec", "event", "cycle", "state", "pos", "floor", "walk", "marker", "voice", "end"})
         CHECK_MESSAGE(doc.find("| `" + std::string(t) + "` |") != std::string::npos, t);
     // Every key in the written lines is documented.
     const fs::path dir = scratch("doc");
@@ -831,6 +835,9 @@ TEST_CASE("recording: docs/formats/RECORDING.md documents the format version and
     live.recorder->add_walk({0, "f1", "point", 1.0, 2.0, 3.0, 4.0, "continuous", "manual", 5.0, "room 1"});
     live.walk(12);
     live.recorder->marker("m");
+    rec::Audio note;
+    note.samples.assign(1600, 100);
+    REQUIRE(live.recorder->add_voice(note, 0, "note", error));
     live.recorder->stop();
     std::istringstream in(slurp(dir / "doc_0000.yrec"));
     std::set<std::string> keys;
@@ -838,4 +845,217 @@ TEST_CASE("recording: docs/formats/RECORDING.md documents the format version and
     for (std::string line; std::getline(in, line);)
         for (std::sregex_iterator it(line.begin(), line.end(), key), end; it != end; ++it) keys.insert((*it)[1]);
     for (const std::string& k : keys) CHECK_MESSAGE(doc.find("`" + k + "`") != std::string::npos, k);
+}
+
+namespace {
+
+rec::Audio tone(double seconds, std::uint32_t rate = 16000) {
+    rec::Audio a;
+    a.sample_rate = rate;
+    a.samples.resize(static_cast<std::size_t>(seconds * rate));
+    for (std::size_t i = 0; i < a.samples.size(); ++i)
+        a.samples[i] = static_cast<std::int16_t>(8000.0 * std::sin(2.0 * 3.14159265358979 * 440.0 * static_cast<double>(i) / rate));
+    return a;
+}
+
+}  // namespace
+
+TEST_CASE("recording: voice-note WAV files write and read back; other formats and damaged files are refused (REC-06)") {
+    const fs::path dir = scratch("wav");
+    const rec::Audio a = tone(0.5, 8000);
+    std::string error;
+    REQUIRE_MESSAGE(rec::write_wav(dir / "a.wav", a, error), error);
+    CHECK_FALSE(rec::write_wav(dir / "a.wav", a, error));  // never replaces
+    const auto back = rec::read_wav(dir / "a.wav", error);
+    REQUIRE_MESSAGE(back, error);
+    CHECK(back->sample_rate == 8000);
+    CHECK(back->samples == a.samples);
+    CHECK(back->seconds() == doctest::Approx(0.5));
+    std::string bytes = rec::wav_bytes(a);
+    CHECK(bytes.size() == 44 + a.samples.size() * 2);
+    std::string stereo = bytes;
+    stereo[22] = 2;
+    CHECK_FALSE(rec::parse_wav(stereo, error));
+    CHECK(error.find("mono") != std::string::npos);
+    CHECK_FALSE(rec::parse_wav(bytes.substr(0, 30), error));
+    CHECK_FALSE(rec::parse_wav("RIFF\x10\0\0\0WAVEdata\xff\xff\xff\x7f", error));
+    CHECK_FALSE(rec::parse_wav("not a wav file at all", error));
+    rec::Audio fast = a;
+    fast.sample_rate = 96000;
+    CHECK_FALSE(rec::write_wav(dir / "b.wav", fast, error));
+    CHECK_FALSE(rec::write_wav(dir / "c.wav", tone(rec::kMaxVoiceSeconds + 1, 8000), error));
+    CHECK(rec::valid_voice_file_name("walk_0000_voice_001.wav"));
+    for (const char* bad : {"../x.wav", "a/b.wav", "x.txt", ".wav", "C:x.wav"}) CHECK_FALSE(rec::valid_voice_file_name(bad));
+}
+
+TEST_CASE("recording: a voice note is stored next to the file, linked to its time, and played back at that point (REC-06)") {
+    const fs::path dir = scratch("voice");
+    Live live(config(dir));
+    std::string error;
+    CHECK_FALSE(live.recorder->add_voice(tone(1.0), 0, "x", error));  // monitoring: no file to link it to
+    REQUIRE(live.recorder->start("walk", error));
+    live.walk(4);
+    const std::int64_t t0 = live.t;
+    live.walk(3);  // the note is stored when it ends, linked to when it started
+    const auto v = live.recorder->add_voice(tone(1.5), t0, "door to the stairs", error);
+    REQUIRE_MESSAGE(v, error);
+    CHECK(v->number == 1);
+    CHECK(v->file == "walk_0000_voice_001.wav");
+    CHECK(v->seconds == doctest::Approx(1.5));
+    CHECK(live.recorder->status().voice_notes == 1);
+    live.walk(3);
+    REQUIRE(live.recorder->add_voice(tone(0.25), 0, "", error));
+    live.walk(2);
+    live.recorder->stop();
+    const auto f = rec::read_file(dir / "walk_0000.yrec");
+    REQUIRE(f.ok());
+    REQUIRE(f.value->voices.size() == 2);
+    CHECK(f.value->voices[0] == *v);
+    CHECK(f.value->voices[1].number == 2);
+    CHECK(fs::exists(dir / "walk_0000_voice_002.wav"));
+    auto r = rec::Replay::open({dir / "walk_0000.yrec"}, {}, error);
+    REQUIRE_MESSAGE(r, error);
+    auto l = std::make_shared<Listener>();
+    r->add_listener(l);
+    const std::int64_t at = r->time_of(0, t0);
+    r->advance_to(at - 1);
+    CHECK(l->voices.empty());
+    r->advance_to(at);
+    REQUIRE(l->voices.size() == 1);
+    CHECK(l->voices[0].first == at);
+    CHECK(l->voices[0].second.label == "door to the stairs");
+    r->advance_to(r->duration_ns());
+    CHECK(l->voices.size() == 2);
+    REQUIRE(r->voices().size() == 2);
+    CHECK(r->voices()[0].t == at);
+    // A seek passes no voice notes; playing on from there does.
+    r->seek(at - kSecond);
+    l->voices.clear();
+    r->advance_to(at + 1);
+    CHECK(l->voices.size() == 1);
+}
+
+TEST_CASE("recording: the ring buffer keeps only the newest files of a monitoring session (REC-09)") {
+    const fs::path dir = scratch("ring");
+    auto cfg = config(dir);
+    cfg.split_messages = 40;
+    cfg.ring_files = 3;
+    {
+        auto bad = cfg;
+        bad.split_messages = 0;
+        CHECK(bad.validate().find("split") != std::string::npos);
+        bad = cfg;
+        bad.ring_files = 1;
+        CHECK_FALSE(bad.validate().empty());
+    }
+    Live live(cfg);
+    std::string error;
+    REQUIRE(live.recorder->start("ring", error));
+    live.walk(30);  // ~360 inputs: 9 files written
+    const rec::RecorderStatus st = live.recorder->status();
+    CHECK(st.files.size() == 3);
+    CHECK(st.ring_deleted >= 5);
+    CHECK(session_files(dir).size() == 3);
+    CHECK(st.files.back() == st.file);
+    live.recorder->stop();
+    // What is left replays as one walk on its own (each file starts with a keyframe).
+    auto r = rec::Replay::open(st.files, {}, error);
+    REQUIRE_MESSAGE(r, error);
+    const auto cycles = replay_all(*r);
+    CHECK(cycles.size() >= 5);
+    CHECK(r->mismatches() == 0);
+    // Saving the ring is a cut of its whole range (cut.h).
+    const fs::path keep = scratch("ring_keep");
+    rec::CutRequest q;
+    q.files = st.files;
+    q.from_ns = 0;
+    q.to_ns = r->duration_ns();
+    q.folder = keep;
+    q.name = "kept";
+    const rec::CutResult c = rec::cut_recording(q);
+    REQUIRE_MESSAGE(c.ok, c.error);
+    REQUIRE(c.files.size() == 1);
+    auto r2 = rec::Replay::open(c.files, {}, error);
+    REQUIRE_MESSAGE(r2, error);
+    CHECK(replay_all(*r2).size() >= cycles.size() - 1);
+}
+
+TEST_CASE("recording: cut start to cursor and cursor to end give files that replay to the source's cycles (REC-08)") {
+    const fs::path dir = scratch("cut_src");
+    Live live(config(dir));
+    std::string error;
+    REQUIRE(live.recorder->start("walk", error));
+    live.recorder->set_floor("f1", "Ground floor");
+    live.recorder->add_walk({0, "f1", "start", std::nullopt, std::nullopt, std::nullopt, std::nullopt,
+                             "point_and_click", "walk", 0.0, "Walk 1"});
+    live.walk(8);
+    live.recorder->add_walk({0, "f1", "click", 1.0, 2.0, std::nullopt, std::nullopt, "", "", 0.0, ""});
+    live.recorder->marker("early");
+    live.walk(8);
+    const std::int64_t tv = live.t;
+    REQUIRE(live.recorder->add_voice(tone(0.5), 0, "late note", error));
+    live.recorder->marker("late");
+    live.recorder->add_position({0, "f1", 5.0, 6.0, std::nullopt, std::nullopt, "click", ""});
+    live.walk(8);
+    live.recorder->stop();
+    const fs::path src = dir / "walk_0000.yrec";
+    auto whole = rec::Replay::open({src}, {}, error);
+    REQUIRE_MESSAGE(whole, error);
+    const auto all = replay_all(*whole);
+    const std::int64_t cursor = whole->time_of(0, tv) - kSecond / 2;  // between the two markers
+
+    // The cycles of the source built in [from, to] (replay time).
+    auto expected = [&](std::int64_t from, std::int64_t to) {
+        std::vector<ym::MeasurementCycle> e;
+        for (const auto& c : all) {
+            const std::int64_t t = whole->time_of(0, c.built_ns);
+            if (t > from && t <= to) e.push_back(c);
+        }
+        return e;
+    };
+    for (const bool head : {true, false}) {
+        CAPTURE(head);
+        const fs::path out = scratch(head ? "cut_head" : "cut_tail");
+        rec::CutRequest q;
+        q.files = {src};
+        q.from_ns = head ? 0 : cursor;
+        q.to_ns = head ? cursor : whole->duration_ns();
+        q.folder = out;
+        q.name = head ? "walk_start" : "walk_end";
+        const rec::CutResult c = rec::cut_recording(q);
+        REQUIRE_MESSAGE(c.ok, c.error);
+        REQUIRE(c.files.size() == 1);
+        const auto f = rec::read_file(c.files[0]);
+        REQUIRE(f.ok());
+        REQUIRE(f.value->header.cut);
+        CHECK(f.value->header.cut->source == "walk_0000.yrec");
+        CHECK(f.value->header.cut->source_session == whole->files()[0].header.session_id);
+        CHECK(f.value->header.cut->from_ns == q.from_ns);
+        CHECK(f.value->header.info.notes == "test walk");
+        REQUIRE(f.value->markers.size() == 1);
+        CHECK(f.value->markers[0].label == (head ? "early" : "late"));
+        CHECK(f.value->markers[0].number == (head ? 1u : 2u));  // numbers kept
+        CHECK(f.value->voices.size() == (head ? 0u : 1u));
+        CHECK(c.voice_notes == (head ? 0u : 1u));
+        if (!head) CHECK(fs::exists(out / f.value->voices[0].file));
+        // The walk test running at the cursor starts again at the cut's start.
+        REQUIRE_FALSE(f.value->walks.empty());
+        CHECK(f.value->walks[0].action == "start");
+        CHECK(f.value->floors.size() >= 1);
+        auto r = rec::Replay::open(c.files, {}, error);
+        REQUIRE_MESSAGE(r, error);
+        const auto got = replay_all(*r);
+        CHECK(r->mismatches() == 0);
+        check_same(expected(head ? -1 : c.from_ns, c.to_ns), got);
+    }
+    rec::CutRequest empty;
+    empty.files = {src};
+    empty.from_ns = 5 * kSecond;
+    empty.to_ns = 5 * kSecond;
+    empty.folder = scratch("cut_empty");
+    empty.name = "x";
+    CHECK_FALSE(rec::cut_recording(empty).ok);
+    empty.to_ns = 6 * kSecond;
+    empty.name = "../x";
+    CHECK_FALSE(rec::cut_recording(empty).ok);
 }

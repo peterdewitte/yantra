@@ -43,6 +43,7 @@ std::string position_line(const PositionLine& p);
 std::string floor_line(const FloorLine& f);
 std::string walk_line(const WalkLine& w);
 std::string marker_line(const MarkerLine& m);
+std::string voice_line(const VoiceLine& v);
 std::string end_line(const EndLine& e);
 
 // Reading: one parsed line into `file` (sources/corrections by id in

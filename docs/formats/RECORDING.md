@@ -63,6 +63,7 @@ Each line is an object with its type in `t`.
 | `floor` | the walk changes floor | floor id and name |
 | `walk` | a walk-test action (IND-20, GEO-02, GEO-05) | what the surveyor did on the plan |
 | `marker` | a marker (REC-05) | number, label, action |
+| `voice` | a voice note (REC-06), written when the note ends | its time, number, WAV file, length |
 | `end` | last line of a cleanly closed file | why it was closed |
 
 A reader skips lines of a type it does not know (a later Yantra may add
@@ -174,7 +175,7 @@ already includes them, or in the old file after it. Replay therefore
 reads files that follow on directly (see "Replay") as one stream, merged
 by input and cycle number.
 
-### `pos`, `floor`, `marker`, `end`
+### `pos`, `floor`, `marker`, `voice`, `end`
 
 | Line | Keys |
 |------|------|
@@ -182,6 +183,7 @@ by input and cycle number.
 | `floor` | `mono`, `floor`, `name` |
 | `walk` | `mono`, `floor` (floor id), `action`, `x`, `y` (plan units, or null), `xm`, `ym` (metres, or null), `mode` (`point_and_click` or `continuous`), `kind` (`walk`, `manual` or `simulated`), `seconds` (averaging window of a manual point), `label` |
 | `marker` | `mono`, `n` (number, through the session), `label`, `action` (`mark`, `new_file`, `new_file_pause`) |
+| `voice` | `mono` (when the note was started), `n` (number, through the session), `file` (the WAV file name in the recording's folder), `seconds` (length), `rate` (sample rate, Hz), `label` |
 | `end` | `mono`, `reason` (`stop`, `split_time`, `split_count`, `new_file`, `new_file_pause`), `messages` (`rec` + `event` lines in the file), `inputs` (the last input number) |
 
 ### Walk-test actions (`walk`)
@@ -205,6 +207,39 @@ IND-30). `action` is one of:
 Replay feeds the actions in time order together with the cycles; a walk
 test is replayed from the file it started in (a file of a split walk
 holds only the actions made while it was written).
+
+### Voice notes (REC-06)
+
+A voice note is a short microphone recording linked to an instant of the
+walk. Its audio is a file of its own next to the recording,
+`<session>_<nnnn>_voice_<nnn>.wav` (the file index it was made in and
+its number): RIFF WAVE, 16-bit signed PCM, mono, 8000..48000 Hz, at
+most 120 s (core/include/yantra/core/recording/wav.h). The `voice` line
+is written when the note ends and carries the time it began, so replay
+plays the note at that instant (lines are replayed in time order). A
+reader refuses a `voice` line whose `file` is not a plain `.wav` name
+(no folder, no `..`): a note never points outside the recording's folder.
+
+### Cut files (REC-08)
+
+"Cut and save" (core/include/yantra/core/recording/cut.h) writes a part
+of a recording (start to cursor, or cursor to end, in replay time) as a
+new session. It replays the source and records the replay from the
+start of the part to its end, so the cut begins with a `state` of the
+pipeline at its start, holds the source's lines of that part (markers
+keep their numbers, voice notes are copied with their WAV files) and
+replays on its own to the same cycles. Its header's `cut` names the
+source file, the source session and the part (`from_ns`, `to_ns`). A
+walk test running at the start of the part gets a `start` walk line
+there (a segment opened before it has no start click in the cut, so its
+samples are not placed).
+
+### Ring buffer (REC-09)
+
+While monitoring, Yantra can loop a temporary recording (a session split
+by time or message count of which only the newest N files are kept; the
+older ones are deleted with their voice notes). Its files are ordinary
+recording files; "save the ring" is a cut of their whole range.
 
 ## Reading
 

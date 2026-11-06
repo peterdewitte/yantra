@@ -19,7 +19,7 @@ namespace yantra::recording {
 namespace ym = yantra::measure;
 
 struct Replay::Step {
-    enum class Kind { Input, Cycle, Marker, Position, Floor, Walk };
+    enum class Kind { Input, Cycle, Marker, Position, Floor, Walk, Voice };
     std::int64_t t = 0;
     Kind kind = Kind::Input;
     std::size_t file = 0;
@@ -226,6 +226,8 @@ bool Replay::prepare(std::string& error) {
                 run.side.push_back({at(i, f.floors[j].time_ns), Step::Kind::Floor, i, j});
             for (std::size_t j = 0; j < f.walks.size(); ++j)
                 run.side.push_back({at(i, f.walks[j].time_ns), Step::Kind::Walk, i, j});
+            for (std::size_t j = 0; j < f.voices.size(); ++j)
+                run.side.push_back({at(i, f.voices[j].time_ns), Step::Kind::Voice, i, j});
             run.end = std::max(run.end, at(i, f.last_time_ns()));
         }
         std::stable_sort(run.side.begin(), run.side.end(), [](const auto& x, const auto& y) { return x.t < y.t; });
@@ -251,7 +253,7 @@ bool Replay::prepare(std::string& error) {
     o.corrector = corrector_;
     o.clock = clock_;
     o.log = options_.log;
-    pipeline_ = std::make_unique<ym::MeasurementPipeline>(std::move(o));
+    pipeline_ = std::make_shared<ym::MeasurementPipeline>(std::move(o));
     pipeline_->add_observer(forwarder_);
     start_run(0, 0);
     return true;
@@ -335,7 +337,8 @@ std::size_t Replay::run_step(const Step& s) {
     case Step::Kind::Marker:
     case Step::Kind::Position:
     case Step::Kind::Floor:
-    case Step::Kind::Walk: break;
+    case Step::Kind::Walk:
+    case Step::Kind::Voice: break;
     }
     return 0;
 }
@@ -354,6 +357,7 @@ std::size_t Replay::advance_to(std::int64_t t) {
                     if (x.kind == Step::Kind::Marker) l->on_marker(x.t, files_[x.file].markers[x.index]);
                     else if (x.kind == Step::Kind::Position) l->on_position(x.t, files_[x.file].positions[x.index]);
                     else if (x.kind == Step::Kind::Floor) l->on_floor(x.t, files_[x.file].floors[x.index]);
+                    else if (x.kind == Step::Kind::Voice) l->on_voice(x.t, x.file, files_[x.file].voices[x.index]);
                     else l->on_walk(x.t, files_[x.file].walks[x.index]);
                 }
             continue;
@@ -403,6 +407,14 @@ void Replay::seek(std::int64_t t) {
     muted_ = false;
     forwarder_->muted = false;
     for (const auto& l : listeners_) l->on_seek(t);
+}
+
+std::vector<Replay::Voice> Replay::voices() const {
+    std::vector<Voice> out;
+    for (std::size_t i = 0; i < files_.size(); ++i)
+        for (const VoiceLine& v : files_[i].voices) out.push_back({time_of(i, v.time_ns), i, v});
+    std::stable_sort(out.begin(), out.end(), [](const Voice& a, const Voice& b) { return a.t < b.t; });
+    return out;
 }
 
 std::vector<std::pair<std::int64_t, MarkerLine>> Replay::markers() const {

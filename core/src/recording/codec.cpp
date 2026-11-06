@@ -561,6 +561,16 @@ std::string marker_line(const MarkerLine& m) {
                      {"action", marker_action_name(m.action)}});
 }
 
+std::string voice_line(const VoiceLine& v) {
+    return dump(json{{"t", "voice"},
+                     {"mono", v.time_ns},
+                     {"n", v.number},
+                     {"file", v.file},
+                     {"seconds", v.seconds},
+                     {"rate", v.sample_rate},
+                     {"label", v.label}});
+}
+
 std::string end_line(const EndLine& e) {
     return dump(json{{"t", "end"},
                      {"mono", e.time_ns},
@@ -802,6 +812,25 @@ bool read_line(const json& j, File& file, ReadContext& c, std::string& error) {
                    : a == "new_file_pause" ? MarkerAction::NewFilePause
                                            : MarkerAction::Mark;
         file.markers.push_back(std::move(m));
+        return true;
+    }
+    if (t == "voice") {
+        VoiceLine v;
+        v.time_ns = i64(j, "mono");
+        v.number = u32(j, "n");
+        v.file = str(j, "file");
+        if (!valid_voice_file_name(v.file)) {
+            error = "voice line with a file name that is not a plain .wav name";
+            return false;
+        }
+        if (const auto it = j.find("seconds"); it != j.end() && it->is_number()) v.seconds = it->get<double>();
+        if (!(v.seconds >= 0.0 && v.seconds <= 3600.0)) {
+            error = "voice line with a length outside 0..3600 s";
+            return false;
+        }
+        v.sample_rate = u32(j, "rate");
+        v.label = str(j, "label");
+        file.voices.push_back(std::move(v));
         return true;
     }
     if (t == "end") {

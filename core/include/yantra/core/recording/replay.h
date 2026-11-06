@@ -49,6 +49,9 @@ public:
     virtual void on_position(std::int64_t t, const PositionLine& position) { (void)t, (void)position; }
     virtual void on_floor(std::int64_t t, const FloorLine& floor) { (void)t, (void)floor; }
     virtual void on_walk(std::int64_t t, const WalkLine& walk) { (void)t, (void)walk; }
+    // A voice note (REC-06) at its start; the file is in the folder of
+    // `file` (Replay::files()[index].path).
+    virtual void on_voice(std::int64_t t, std::size_t file, const VoiceLine& voice) { (void)t, (void)file, (void)voice; }
     // After seek(): the panels show the state at `t` (Replay::last_cycle()).
     virtual void on_seek(std::int64_t t) { (void)t; }
 };
@@ -99,6 +102,15 @@ public:
     std::size_t mismatches() const noexcept { return mismatches_; }
     const std::vector<std::string>& mismatch_messages() const noexcept { return mismatch_messages_; }
     measure::MeasurementPipeline& pipeline() noexcept { return *pipeline_; }
+    // The same, shared (a Recorder on the replay, cut.h).
+    const std::shared_ptr<measure::MeasurementPipeline>& pipeline_ptr() const noexcept { return pipeline_; }
+    // Voice notes of all files with their replay times and file index (REC-06).
+    struct Voice {
+        std::int64_t t = 0;
+        std::size_t file = 0;
+        VoiceLine line;
+    };
+    std::vector<Voice> voices() const;
 
 private:
     struct Step;
@@ -120,7 +132,7 @@ private:
     std::shared_ptr<platform::ManualClock> clock_;
     std::shared_ptr<FixedCorrector> corrector_;
     std::shared_ptr<Forwarder> forwarder_;
-    std::unique_ptr<measure::MeasurementPipeline> pipeline_;
+    std::shared_ptr<measure::MeasurementPipeline> pipeline_;
     std::vector<std::shared_ptr<ReplayListener>> listeners_;
     std::size_t file_ = 0;
     std::size_t step_ = 0;

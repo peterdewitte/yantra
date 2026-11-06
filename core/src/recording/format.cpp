@@ -27,6 +27,7 @@ std::int64_t File::last_time_ns() const {
     for (const FloorLine& f : floors) t = std::max(t, f.time_ns);
     for (const WalkLine& w : walks) t = std::max(t, w.time_ns);
     for (const MarkerLine& m : markers) t = std::max(t, m.time_ns);
+    for (const VoiceLine& v : voices) t = std::max(t, v.time_ns);
     if (end) t = std::max(t, end->time_ns);
     return t;
 }
@@ -50,6 +51,20 @@ bool valid_session_name(const std::string& n) {
     if (n.empty() || n.size() > 120 || n == "." || n == "..") return false;
     for (const char c : n)
         if (c == '/' || c == '\\' || static_cast<unsigned char>(c) < 0x20 || c == 0x7f) return false;
+    return true;
+}
+
+std::string voice_file_name(const std::string& session, std::uint32_t index, std::uint32_t number) {
+    char b[32];
+    std::snprintf(b, sizeof b, "_%04u_voice_%03u.wav", index, number);
+    return session + b;
+}
+
+bool valid_voice_file_name(const std::string& n) {
+    if (n.size() < 5 || n.size() > 200 || n.compare(n.size() - 4, 4, ".wav") != 0) return false;
+    if (n.find("..") != std::string::npos) return false;
+    for (const char c : n)
+        if (c == '/' || c == '\\' || c == ':' || static_cast<unsigned char>(c) < 0x20 || c == 0x7f) return false;
     return true;
 }
 
