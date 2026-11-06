@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <atomic>
 #include <cmath>
+#include <limits>
 #include <map>
 #include <optional>
 #include <set>
@@ -869,57 +870,68 @@ TEST_CASE("simulator: a slow sink gives OVERFLOW and DROPPED and the stream goes
     CHECK(r.stats.samples_dropped > 0);
 }
 
-TEST_CASE("simulator: slower than real time, the records keep the host's time and their position (RAD-61, RAD-27, RAD-19)")
+TEST_CASE("simulator: slower than real time, a record's time is when its position was taken (RAD-61, RAD-27, RAD-19)")
 {
     // Ten times real time at the highest sample rate and one record per
     // second of signal: an interval takes longer to simulate than its share
-    // of real time (in the sanitizer trees and under load by far). Its
-    // records must still reach the host about as soon after their time as
-    // in real time: the lag moves the time base before every block, not
-    // only when an interval starts (records stamped from the interval's
-    // start reached Yantra a whole interval's processing time late, were
-    // flagged late and stale and left its cycles after the drop limit while
-    // the stream still ran).
-    const PlanPoint a{4, 5};
+    // of real time (in the sanitizer trees and under load by far). The
+    // cursor jumps between a and b after every second record. Each record
+    // carries the position read when its interval started and that start's
+    // host time (plus half the interval of signal, 0.05 s at 10x): never a
+    // time after the cursor had left its position. (Moving the time base at
+    // every block, yantra-radios 0.2.5, stamped such a record near its
+    // interval's end, seconds after the cursor had moved on.)
+    const PlanPoint a{4, 5}, b{15, 5};
     Sim sim(fraunces_plan({a}));
     sim.set_double("playback_speed", 10.0);
     sim.set_double("record_rate_hz", 1.0);
     sim.set_enum("receiver_rate", "r2m");
     const yr_host_api& api = sim.host->host_api();
+    struct Stay {
+        double x_m;
+        int64_t from_ns, until_ns;
+    };
+    std::vector<Stay> stays{{a.x_m, api.monotonic_ns(api.host), std::numeric_limits<int64_t>::max()}};
     struct Seen {
-        int64_t arrival_ns, time_ns;
+        double x_m;
+        int64_t time_ns, arrival_ns;
     };
     std::vector<Seen> seen;
-    std::size_t lost_position = 0;
     sim.stream(
         [&](const Record& r) {
-            if (!sim.is_cell(r, kT1Hz))
+            if (!sim.is_cell(r, kT1Hz) || !sim.has_position(r))
                 return false;
-            if (!sim.has_position(r) || sim.x(r) != a.x_m)
-                ++lost_position;
-            seen.push_back({api.monotonic_ns(api.host), r.time.monotonic_ns});
-            return seen.size() >= 8;
+            const int64_t now = api.monotonic_ns(api.host);
+            seen.push_back({sim.x(r), r.time.monotonic_ns, now});
+            if (seen.size() % 2 == 0) {
+                const PlanPoint next = stays.back().x_m == a.x_m ? b : a;
+                stays.back().until_ns = now;
+                stays.push_back({next.x_m, now, std::numeric_limits<int64_t>::max()});
+                sim.host->notify(sim.host->context().set_cursor(next));
+            }
+            return seen.size() >= 10;
         },
         120.0);
-    REQUIRE(seen.size() >= 8);
-    // The busy time per signal second: above 0.1 the simulation is slower
-    // than ten times real time.
-    MESSAGE("receiver load " << sim.sensor("receiver_load").f64);
-    // Every record still finds the interval (position, truth) it was made in.
-    CHECK(lost_position == 0);
-    for (std::size_t i = 2; i < seen.size(); ++i) {
-        const double gap_s = static_cast<double>(seen[i].arrival_ns - seen[i - 1].arrival_ns) / 1e9;
-        const double delay_s = static_cast<double>(seen[i].arrival_ns - seen[i].time_ns) / 1e9;
+    REQUIRE(seen.size() >= 10);
+    MESSAGE("receiver load " << sim.sensor("receiver_load").f64 << " (above 0.1: slower than 10x)");
+    double worst_delay = 0.0;
+    for (std::size_t i = 0; i < seen.size(); ++i) {
         CAPTURE(i);
-        CAPTURE(gap_s);
-        CAPTURE(delay_s);
-        // In time order, and on the host's time: at most the half interval
-        // of signal (0.05 s at 10x), the last block's share of the
-        // interval's processing time (1/50) and the delivery; a delay of
-        // the interval's whole processing time (the gap) was the bug.
-        CHECK(seen[i].time_ns > seen[i - 1].time_ns);
-        CHECK(delay_s <= 0.25 * gap_s + 0.2);
+        CAPTURE(seen[i].x_m);
+        if (i > 0)
+            CHECK(seen[i].time_ns > seen[i - 1].time_ns);
+        worst_delay = std::max(worst_delay, static_cast<double>(seen[i].arrival_ns - seen[i].time_ns) / 1e9);
+        // The stay at this record's position that contains its time.
+        bool inside = false;
+        for (const Stay& st : stays)
+            if (st.x_m == seen[i].x_m && seen[i].time_ns >= st.from_ns - 10'000'000 &&
+                seen[i].time_ns <= (st.until_ns == std::numeric_limits<int64_t>::max()
+                                        ? st.until_ns
+                                        : st.until_ns + 60'000'000))
+                inside = true;
+        CHECK_MESSAGE(inside, "record time " << seen[i].time_ns << " outside the cursor's stay at x " << seen[i].x_m);
     }
+    MESSAGE("largest delay from a record's time to its arrival: " << worst_delay << " s");
 }
 
 TEST_CASE("simulator: pause and resume, live settings and the simulated fault (RAD-34, RAD-61)")

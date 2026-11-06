@@ -109,6 +109,8 @@ floor plan.
   (owner question: which ids Yantra sends).
 - Under sanitizers or on a slow computer the simulation runs slower than
   real time (sensor `receiver_load` above 1); nothing is dropped. The
-  record times follow the host clock: the lag moves the time base before
-  every block, so a record reaches the host about as soon after its time
-  as in real time, not an interval's processing time late.
+  time base moves with the lag when an interval starts, where the
+  position is read: a record's time is when its sim_position was taken,
+  so a slow interval's records reach the host late (by up to the
+  interval's processing time) rather than with a later time than their
+  position's.
