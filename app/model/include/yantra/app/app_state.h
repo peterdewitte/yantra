@@ -29,6 +29,7 @@
 #include <vector>
 
 #include "yantra/app/file_browser.h"
+#include "yantra/app/plan_import_window.h"
 #include "yantra/app/project_window.h"
 #include "yantra/app/result.h"
 #include "yantra/app/settings.h"
@@ -100,7 +101,8 @@ enum class Dialog {
     None,
     NewProject,  ///< project name, site, operator, notes and file (IND-01)
     Browse,      ///< the file browser (browser(), browse_purpose())
-    AddFloor,    ///< a new floor (IND-10); its plan import comes with 9.3
+    AddFloor,    ///< a new floor (IND-10): a plan file, a plan already in the project, or blank
+    PlanImport,  ///< the plan import window (IND-05..09): plan_import()
     About,       ///< name, version, licence, links (UI-15; logos, credits, plugins in 9.7)
     FloorProperties,  ///< rename a floor, its level and height (IND-04)
     RemoveFloor,      ///< the confirmation before a floor is removed (IND-04)
@@ -111,6 +113,7 @@ enum class BrowsePurpose {
     OpenProject,     ///< File > Open project
     SaveAs,          ///< File > Save as
     NewProjectFile,  ///< the file of a new project (back to the New project dialog)
+    PlanFile,        ///< a plan file (PDF or image) for Add floor (IND-02, IND-10)
 };
 
 /// The New indoor project form (IND-01).
@@ -125,7 +128,8 @@ struct NewProjectForm {
     std::filesystem::path replace_existing;
 };
 
-/// The Add floor form (IND-10, a floor without a plan for now).
+/// The Add floor form (IND-10) for a floor without a plan (a plan file
+/// or a plan already in the project opens the plan import window).
 struct AddFloorForm {
     std::string name;
     int level = 0;
@@ -138,6 +142,16 @@ struct FloorForm {
     std::string name;
     int level = 0;
     double height_m = 3.0;
+};
+
+/// A plan the project already has, for Add floor (IND-10: several floors
+/// from one sheet).
+struct SourceChoice {
+    std::string id;
+    std::string name;    ///< the file name
+    std::string detail;  ///< "PDF, 3 pages, 2 floors" / "PNG image, reference"
+    bool available = true;  ///< false: a reference whose cached file is missing
+    std::string reason;     ///< why not available
 };
 
 struct StartScreenView {
@@ -262,6 +276,27 @@ public:
     Result move_layer(Layer layer, int steps);
     Result set_bin_size(double size_m);
 
+    // -- add floor and plan import (IND-02, IND-05..10) ---------------------
+    /// The plans already in the project (Add floor).
+    std::vector<SourceChoice> plan_sources() const;
+    /// Opens the plan import window (Dialog::PlanImport) on a new file
+    /// (copied into the project, or referenced when it is a
+    /// licence-restricted example sheet, IND-03) or on a source the
+    /// project has. A file that cannot be read stays in Add floor with the
+    /// reason (IND-02).
+    Result import_plan_file(const std::filesystem::path& file);
+    Result import_plan_source(const std::string& source_id);
+    /// Re-opens the plan import window on a floor's source with the floor
+    /// selected (IND-07: adjust its trim, scale and reference point).
+    Result edit_floor_plan(const std::string& floor_id);
+    /// Why a floor's plan cannot be edited ("" when it can).
+    std::string edit_plan_reason(const std::string& floor_id) const;
+    /// The open plan import window (nullptr when closed).
+    PlanImportWindow* plan_import() { return import_window_.get(); }
+    /// Closes the plan import window; the project window shows the floor
+    /// added last (or the one selected in the window).
+    void close_plan_import();
+
     // -- file browser ---------------------------------------------------
     /// Opens the browser (dialog Browse) for a purpose.
     void browse(BrowsePurpose purpose);
@@ -308,6 +343,7 @@ private:
 
     std::unique_ptr<project::Project> project_;
     std::unique_ptr<ProjectWindow> window_;
+    std::unique_ptr<PlanImportWindow> import_window_;
     std::string demo_label_;
     NewProjectForm form_;
     AddFloorForm floor_form_;

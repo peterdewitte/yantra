@@ -10,13 +10,14 @@
 // Window and item ids are "<label>###<stable id>" (ids: docs/APP.md), so
 // tests and the screenshot script find them whatever the language.
 // Copied from yantra-v2 68ea20a: app/src/gui.{h,cpp}, adapted (shell of
-// step 9.1: no project window, plan import or radio list yet).
+// step 9.1; project window 9.2, plan import 9.3; no radio list yet).
 #pragma once
 
 #include <memory>
 #include <string>
 
 #include "plan_canvas.h"
+#include "plan_import_view.h"
 #include "yantra/app/app_state.h"
 
 namespace yantra::app {
@@ -41,6 +42,8 @@ public:
     void set_wait_for_tiles(bool on);
     /// The project window's plan view (tests: what it drew).
     const PlanCanvas& canvas() const { return *canvas_; }
+    /// The plan import window's view (tests: what it drew).
+    const PlanImportView& import_view() const { return import_view_; }
 
 private:
     void draw_menu_bar();
@@ -57,12 +60,14 @@ private:
     void draw_new_project();
     void draw_browser();
     void draw_add_floor();
+    void draw_plan_import();
     void draw_about();
     void run(Action a);
 
     AppState& state_;
     Dialog shown_ = Dialog::None;  // the dialog whose popup is open
     std::unique_ptr<PlanCanvas> canvas_;
+    PlanImportView import_view_;
     std::string shown_floor_;  // the floor tab shown last frame
     std::string tab_order_;    // the floor ids of the tabs, in order
 };

@@ -53,7 +53,10 @@ const ActionDef kActions[] = {
      nullptr},
     {Action::SaveAs, "file.save_as", "Save as...", "Ctrl+Shift+S",
      "Write a copy of the project under a new name and continue with the copy.", nullptr},
-    {Action::AddFloor, "file.add_floor", "Add floor...", "", "Add a floor (level) to the building.", nullptr},
+    {Action::AddFloor, "file.add_floor", "Add floor...", "",
+     "Add a floor (level) to the building: choose its plan (a PDF or image file, or a plan the project already has) "
+     "and trim it in the plan import window.",
+     nullptr},
     {Action::CloseProject, "file.close_project", "Close project", "Ctrl+W",
      "Close the project and return to the start screen. All changes are already stored.", nullptr},
     {Action::Export, "file.export", "Export...", "", "Export measurements, points and the cell database.", "10"},
@@ -280,12 +283,17 @@ Result AppState::trigger(Action a) {
 }
 
 void AppState::cancel_dialog() {
+    if (dialog_ == Dialog::PlanImport) {
+        close_plan_import();
+        return;
+    }
     if (dialog_ == Dialog::RemoveFloor && window_) window_->cancel_remove();
     dialog_ = Dialog::None;
     browser_.reset();
 }
 
 Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& verb) {
+    import_window_.reset();
     window_.reset();
     if (project_) {
         try {
@@ -342,7 +350,8 @@ Result AppState::confirm_new_project() {
 Result AppState::confirm_add_floor() { return add_floor(floor_form_.name, floor_form_.level, floor_form_.height_m); }
 
 std::string AppState::no_floor_hint() const {
-    return "This project has no floor yet. Add one with File > Add floor.";
+    return "This project has no floor yet. Add one with File > Add floor (or \"+\" next to the floor tabs): choose "
+           "its plan and trim it.";
 }
 
 fs::path AppState::home() const {
@@ -358,7 +367,8 @@ fs::path AppState::browse_start() const {
     case BrowsePurpose::NewProjectFile:
         if (!form_.file.empty()) return form_.file.parent_path();
         break;
-    case BrowsePurpose::OpenProject: break;
+    case BrowsePurpose::OpenProject:
+    case BrowsePurpose::PlanFile: break;
     }
     if (!settings_.recent_folders.empty()) return settings_.recent_folders.front();
     if (!settings_.recent_projects.empty()) return settings_.recent_projects.front().parent_path();
@@ -381,6 +391,10 @@ void AppState::browse(BrowsePurpose purpose) {
     case BrowsePurpose::NewProjectFile:
         browser_.emplace(BrowseMode::Save, "New project file", project_file_filters(), browse_start(), home(), recent,
                          form_.file.filename().string());
+        break;
+    case BrowsePurpose::PlanFile:
+        browser_.emplace(BrowseMode::Open, "Plan file (PDF or image)", plan_file_filters(), browse_start(), home(),
+                         recent);
         break;
     }
     dialog_ = Dialog::Browse;
@@ -409,6 +423,7 @@ Result AppState::chosen(const fs::path& file) {
         form_.file = file;
         dialog_ = Dialog::NewProject;
         return Result{};
+    case BrowsePurpose::PlanFile: return import_plan_file(file);
     }
     return Result{};
 }
@@ -567,8 +582,9 @@ Result AppState::close_project() {
     if (!project_) return fail("No project is open.");
     const std::string path = project_->path().string();
     if (dialog_ == Dialog::AddFloor || dialog_ == Dialog::Browse || dialog_ == Dialog::FloorProperties ||
-        dialog_ == Dialog::RemoveFloor)
+        dialog_ == Dialog::RemoveFloor || dialog_ == Dialog::PlanImport)
         cancel_dialog();
+    import_window_.reset();
     window_.reset();
     demo_label_.clear();
     try {
@@ -609,6 +625,96 @@ std::string AppState::find_demo_label() const {
         }
     }
     return "DEMO - simulated data";
+}
+
+// ---- add floor and plan import ---------------------------------------------------
+
+std::vector<SourceChoice> AppState::plan_sources() const {
+    std::vector<SourceChoice> out;
+    if (!project_) return out;
+    const std::vector<building::Floor> floors = project_->floors();
+    for (const project::SourceFile& s : project_->sources()) {
+        SourceChoice c;
+        c.id = s.plan.id;
+        c.name = s.plan.file_name;
+        const std::vector<project::SourcePage> pages = project_->source_pages(s.plan.id);
+        if (s.media_type == "application/pdf")
+            c.detail = "PDF, " + std::to_string(pages.size()) + (pages.size() == 1 ? " page" : " pages");
+        else
+            c.detail = s.media_type;
+        const auto n = std::count_if(floors.begin(), floors.end(),
+                                     [&](const building::Floor& f) { return f.source == s.plan.id; });
+        c.detail += ", " + std::to_string(n) + (n == 1 ? " floor" : " floors");
+        if (!s.plan.embedded) {
+            std::error_code ec;
+            c.available = !s.reference.empty() && fs::is_regular_file(s.reference, ec);
+            c.detail += c.available ? ", referenced (licence-restricted)" : ", referenced file missing";
+            if (!c.available)
+                c.reason = "The project only references this licence-restricted plan, and the file " +
+                           (s.reference.empty() ? std::string("it refers to") : s.reference) +
+                           " is not there. Fetch it again (Help > Tour) to use it.";
+        }
+        out.push_back(std::move(c));
+    }
+    return out;
+}
+
+Result AppState::import_plan_file(const fs::path& file) {
+    if (!project_) return fail("No project is open.");
+    std::string error;
+    auto w = PlanImportWindow::open_file(*project_, file, paths_.data_folders, error);
+    if (!w) {
+        dialog_ = Dialog::AddFloor;  // choose another file
+        return fail(error);
+    }
+    import_window_ = std::move(w);
+    dialog_ = Dialog::PlanImport;
+    if (window_) window_->invalidate();
+    return done("Plan added: " + import_window_->title() + " (" + import_window_->description() + ")");
+}
+
+Result AppState::import_plan_source(const std::string& source_id) {
+    if (!project_) return fail("No project is open.");
+    const auto s = project_->source(source_id);
+    if (!s) return fail("The project has no plan " + source_id + ".");
+    std::string error;
+    auto w = PlanImportWindow::open_source(*project_, source_id, paths_.data_folders, error);
+    if (!w) return fail(error);
+    import_window_ = std::move(w);
+    dialog_ = Dialog::PlanImport;
+    return done("Plan opened: " + s->plan.file_name);
+}
+
+std::string AppState::edit_plan_reason(const std::string& floor_id) const {
+    if (!project_) return "No project is open.";
+    const auto f = project_->floor(floor_id);
+    if (!f) return "The project has no floor " + floor_id + ".";
+    if (f->source.empty())
+        return "\"" + f->name + "\" is a floor without a plan: add its plan with File > Add floor.";
+    return {};
+}
+
+Result AppState::edit_floor_plan(const std::string& floor_id) {
+    if (const std::string why = edit_plan_reason(floor_id); !why.empty()) return fail(why);
+    const Result r = import_plan_source(project_->floor(floor_id)->source);
+    if (!r.ok) return r;
+    return show(import_window_->select_floor(floor_id));
+}
+
+void AppState::close_plan_import() {
+    std::string last;
+    if (import_window_) {
+        if (!import_window_->added().empty())
+            last = import_window_->added().back();
+        else
+            last = import_window_->selected();
+    }
+    import_window_.reset();
+    if (dialog_ == Dialog::PlanImport) dialog_ = Dialog::None;
+    if (window_) {
+        window_->invalidate();
+        if (!last.empty()) (void)window_->select(last);
+    }
 }
 
 Result AppState::edit_floor(const std::string& floor_id) {

@@ -119,7 +119,7 @@ TEST_CASE("New indoor project, then Add floor (IND-01, IND-10), through the dial
     CHECK(s.state.screen() == Screen::Project);
     CHECK(fs::exists(dir / "depot.yantra"));
     REQUIRE(s.ui.has("af.plan_file", "dlg.add_floor"));
-    CHECK(s.ui.find("af.plan_file", "dlg.add_floor")->disabled);  // plan import: step 9.3
+    CHECK_FALSE(s.ui.find("af.plan_file", "dlg.add_floor")->disabled);  // plan import (step 9.3)
     REQUIRE(s.ui.fill("name", "Ground", "dlg.add_floor"));
     REQUIRE(s.ui.click("dlg.ok", "dlg.add_floor"));
     REQUIRE(s.ui.wait_window_closed("dlg.add_floor"));

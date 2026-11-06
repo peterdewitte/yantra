@@ -31,6 +31,7 @@ add_library(yantra_app_model STATIC
   model/src/cli.cpp
   model/src/data_paths.cpp
   model/src/file_browser.cpp
+  model/src/plan_import_window.cpp
   model/src/project_window.cpp
   model/src/settings.cpp
   model/src/window_system.cpp)
@@ -55,7 +56,7 @@ target_include_directories(yantra_imgui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/gui)
 # imgui_internal.h enums (ui_probe.h).
 target_compile_definitions(yantra_imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS IMGUI_ENABLE_TEST_ENGINE)
 
-add_library(yantra_app_gui STATIC gui/gui.cpp gui/plan_canvas.cpp gui/user_texture.cpp)
+add_library(yantra_app_gui STATIC gui/gui.cpp gui/plan_canvas.cpp gui/plan_import_view.cpp gui/user_texture.cpp)
 add_library(yantra::app_gui ALIAS yantra_app_gui)
 target_include_directories(yantra_app_gui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/gui)
 target_link_libraries(yantra_app_gui PUBLIC yantra::app_model yantra_imgui PRIVATE yantra::warnings)

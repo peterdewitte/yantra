@@ -91,9 +91,11 @@ const char* dialog_id(Dialog d, const AppState& state) {
         case BrowsePurpose::OpenProject: return "Open project###dlg.browse";
         case BrowsePurpose::SaveAs: return "Save project as###dlg.browse";
         case BrowsePurpose::NewProjectFile: return "New project file###dlg.browse";
+        case BrowsePurpose::PlanFile: return "Plan file###dlg.browse";
         }
         break;
     case Dialog::AddFloor: return "Add floor###dlg.add_floor";
+    case Dialog::PlanImport: return "Plan import###dlg.plan_import";
     case Dialog::About: return "About Yantra###dlg.about";
     case Dialog::FloorProperties: return "Floor properties###dlg.floor_properties";
     case Dialog::RemoveFloor: return "Remove floor?###dlg.remove_floor";
@@ -106,10 +108,14 @@ Gui::Gui(AppState& state) : state_(state), canvas_(std::make_unique<PlanCanvas>(
 
 Gui::~Gui() {
     canvas_.reset();
+    import_view_.close();
     UserTexture::release_all();
 }
 
-void Gui::set_wait_for_tiles(bool on) { canvas_->set_wait_for_tiles(on); }
+void Gui::set_wait_for_tiles(bool on) {
+    canvas_->set_wait_for_tiles(on);
+    import_view_.set_wait_for_tiles(on);
+}
 
 void Gui::apply_style() {
     ImGui::StyleColorsDark();
@@ -268,6 +274,14 @@ void Gui::draw_project_screen() {
     const bool highest = it != tabs.end() && std::next(it) == tabs.end();
     if (ImGui::Button("Properties...###floor.properties")) (void)state_.edit_floor(id);
     text_tooltip("Rename the floor, or change its level number and floor-to-floor height.");
+    ImGui::SameLine();
+    const std::string no_plan = state_.edit_plan_reason(id);
+    ImGui::BeginDisabled(!no_plan.empty());
+    if (ImGui::Button("Plan and scale...###floor.plan")) (void)state_.edit_floor_plan(id);
+    ImGui::EndDisabled();
+    text_tooltip(no_plan.empty() ? "Open the floor's plan in the plan import window: adjust its trim, rotation, "
+                                   "scale and reference point, or trim more floors from the same sheet."
+                                 : ("Adjust the floor's trim and scale. " + no_plan).c_str());
     ImGui::SameLine();
     ImGui::BeginDisabled(lowest);
     if (ImGui::Button("Move down###floor.down")) (void)state_.move_floor(id, -1);
@@ -597,8 +611,33 @@ void Gui::draw_browser() {
 }
 
 void Gui::draw_add_floor() {
+    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 34.0F);
+    ImGui::TextUnformatted("Choose the plan of the new floor: a PDF or image file, or a sheet the project already "
+                           "has (several floors can be trimmed from one sheet). You then trim the floor in the plan "
+                           "import window.");
+    ImGui::PopTextWrapPos();
+    ImGui::SeparatorText("New plan file");
+    if (dialog_button("Choose a plan file...###af.plan_file",
+                      "Pick a PDF or image file (PNG, JPEG, BMP, GIF, TGA, PSD, PNM, HDR). It is copied into the "
+                      "project; the file itself is never changed.",
+                      220.0F))
+        state_.browse(BrowsePurpose::PlanFile);
+    ImGui::SeparatorText("Plan already in the project");
+    const std::vector<SourceChoice> sources = state_.plan_sources();
+    if (sources.empty()) ImGui::TextDisabled("None yet.");
+    for (const SourceChoice& s : sources) {
+        ImGui::BeginDisabled(!s.available);
+        if (ImGui::Button(("Use###af.src." + s.id).c_str())) (void)state_.import_plan_source(s.id);
+        ImGui::EndDisabled();
+        text_tooltip(s.available ? "Trim another floor from this plan." : s.reason.c_str());
+        ImGui::SameLine();
+        ImGui::TextUnformatted(s.name.c_str());
+        ImGui::SameLine();
+        ImGui::TextDisabled("(%s)", s.detail.c_str());
+    }
+    ImGui::SeparatorText("Without a plan");
+    help_marker("A blank floor: its plan can be added later. Useful for a level that only needs walk-test points.");
     AddFloorForm& f = state_.add_floor_form();
-    if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
     input_text("Name###name", f.name);
     text_tooltip("For example \"Ground floor\" or \"Basement\".");
     ImGui::InputInt("Level###level", &f.level);
@@ -606,13 +645,8 @@ void Gui::draw_add_floor() {
     float height = static_cast<float>(f.height_m);
     if (ImGui::InputFloat("Height (m)###height", &height, 0.1F, 0.5F, "%.2f")) f.height_m = static_cast<double>(height);
     text_tooltip("Floor-to-floor height in metres (more than 0, at most 50), used for the slab between floors.");
-    ImGui::BeginDisabled(true);
-    ImGui::Button("Choose a plan file...###af.plan_file");
-    ImGui::EndDisabled();
-    text_tooltip("Choose the plan (PDF or image) of the floor and trim it. Not available in this version yet: the "
-                 "floor is added without a plan.");
     ImGui::Spacing();
-    if (dialog_button("Add floor###dlg.ok", "Add the floor [Enter]") ||
+    if (dialog_button("Add blank floor###dlg.ok", "Add the floor without a plan [Enter]", 180.0F) ||
         (ImGui::IsKeyPressed(ImGuiKey_Enter) && !ImGui::GetIO().WantTextInput))
         (void)state_.confirm_add_floor();
     ImGui::SameLine();
@@ -620,6 +654,15 @@ void Gui::draw_add_floor() {
         ImGui::IsKeyPressed(ImGuiKey_Escape))
         state_.cancel_dialog();
     error_line(state_);
+}
+
+void Gui::draw_plan_import() {
+    PlanImportWindow* w = state_.plan_import();
+    if (w == nullptr) {
+        state_.close_plan_import();
+        return;
+    }
+    if (!import_view_.draw(state_, *w)) state_.close_plan_import();
 }
 
 void Gui::draw_about() {
@@ -685,6 +728,7 @@ void Gui::draw_dialog_body(Dialog d) {
     case Dialog::NewProject: draw_new_project(); break;
     case Dialog::Browse: draw_browser(); break;
     case Dialog::AddFloor: draw_add_floor(); break;
+    case Dialog::PlanImport: draw_plan_import(); break;
     case Dialog::About: draw_about(); break;
     case Dialog::FloorProperties: draw_floor_properties(); break;
     case Dialog::RemoveFloor: draw_remove_floor(); break;
@@ -694,6 +738,12 @@ void Gui::draw_dialog_body(Dialog d) {
 
 void Gui::draw_dialogs() {
     const Dialog d = state_.dialog();
+    if (shown_ == Dialog::PlanImport && d != Dialog::PlanImport) {
+        // The plan import window closed: drop its textures; the project
+        // window reopens the plan tiles (a trim may have changed).
+        import_view_.close();
+        canvas_->close();
+    }
     if (d == Dialog::None) {
         shown_ = Dialog::None;
         return;
@@ -704,9 +754,14 @@ void Gui::draw_dialogs() {
         shown_ = d;
     }
     const ImGuiViewport* vp = ImGui::GetMainViewport();
-    // Dialogs fit small windows too (UI-13).
-    const float width = std::min(d == Dialog::Browse ? 820.0F : 600.0F, vp->WorkSize.x * 0.95F);
-    ImGui::SetNextWindowSize(ImVec2(width, 0.0F), ImGuiCond_Appearing);
+    if (d == Dialog::PlanImport) {
+        // The plan import window takes nearly the whole app window.
+        ImGui::SetNextWindowSize(ImVec2(vp->WorkSize.x * 0.96F, vp->WorkSize.y * 0.94F), ImGuiCond_Appearing);
+    } else {
+        // Dialogs fit small windows too (UI-13).
+        const float width = std::min(d == Dialog::Browse ? 820.0F : 600.0F, vp->WorkSize.x * 0.95F);
+        ImGui::SetNextWindowSize(ImVec2(width, 0.0F), ImGuiCond_Appearing);
+    }
     ImGui::SetNextWindowPos(vp->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5F, 0.5F));
     if (!ImGui::BeginPopupModal(id, nullptr, ImGuiWindowFlags_NoSavedSettings)) {
         // Closed by ImGui (it should not happen for modals without a close

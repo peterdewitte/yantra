@@ -22,9 +22,11 @@ endif()
 set(_scratch ${CMAKE_CURRENT_BINARY_DIR}/scratch)
 file(MAKE_DIRECTORY ${_scratch})
 
-add_executable(test_app test_app_model.cpp test_file_browser.cpp test_project_window.cpp)
-target_link_libraries(test_app PRIVATE yantra_test_main yantra_warnings yantra::app_model yantra::core)
-target_compile_definitions(test_app PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scratch}/test_app")
+add_executable(test_app test_app_model.cpp test_file_browser.cpp test_plan_import_window.cpp test_project_window.cpp)
+target_link_libraries(test_app PRIVATE yantra_test_main yantra_warnings yantra::app_model yantra::core
+                                       yantra_plan_fixtures yantra::json)
+target_compile_definitions(test_app PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scratch}/test_app"
+                                            YANTRA_TEST_SOURCE_DATA_DIR="${PROJECT_SOURCE_DIR}/data")
 if(TARGET demo_fraunces)
   add_dependencies(test_app demo_fraunces)
   target_compile_definitions(test_app PRIVATE YANTRA_TEST_DEMO_PROJECT="${YANTRA_DEMO_FRAUNCES_DIR}/fraunces.yantra")
@@ -39,8 +41,9 @@ target_link_libraries(yantra_ui_harness PUBLIC yantra_imgui PRIVATE yantra_warni
 file(GLOB _ui_srcs CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/ui/*.cpp)
 add_executable(test_app_ui ${_ui_srcs})
 target_link_libraries(test_app_ui PRIVATE yantra_test_main yantra_warnings yantra_ui_harness yantra::app_gui
-                                          yantra::app_model yantra::core)
-target_compile_definitions(test_app_ui PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scratch}/test_app_ui")
+                                          yantra::app_model yantra::core yantra_plan_fixtures yantra::json)
+target_compile_definitions(test_app_ui PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scratch}/test_app_ui"
+                                               YANTRA_TEST_SOURCE_DATA_DIR="${PROJECT_SOURCE_DIR}/data")
 if(TARGET demo_fraunces)
   add_dependencies(test_app_ui demo_fraunces)
   target_compile_definitions(test_app_ui PRIVATE YANTRA_TEST_DEMO_DATA_DIR="${PROJECT_BINARY_DIR}")
