@@ -111,22 +111,22 @@ std::string unsupported_reason(std::span<const std::uint8_t> b, const std::strin
 class ImageSource final : public PlanSource {
 public:
     ImageSource(Level base, std::string format, double dpi, const OpenLimits& limits)
-        : format_(std::move(format)), dpi_(dpi), limits_(limits) {
-        levels_.push_back(std::make_shared<const Level>(std::move(base)));
+        : format_(std::move(format)), dpi_(dpi), limits_(limits), base_(std::make_shared<const Level>(std::move(base))) {
+        levels_.push_back(base_);
     }
 
     SourceKind kind() const override { return SourceKind::Image; }
     int page_count() const override { return 1; }
     PageSize page_size(int page) const override {
         check_page(page);
-        return {static_cast<double>(levels_[0]->width), static_cast<double>(levels_[0]->height)};
+        return {static_cast<double>(base_->width), static_cast<double>(base_->height)};
     }
     double units_per_inch(int page) const override {
         check_page(page);
         return dpi_;
     }
     std::string describe() const override {
-        return format_ + " image, " + std::to_string(levels_[0]->width) + " x " + std::to_string(levels_[0]->height) +
+        return format_ + " image, " + std::to_string(base_->width) + " x " + std::to_string(base_->height) +
                " pixels";
     }
 
@@ -141,8 +141,8 @@ public:
         const double s = scale * std::ldexp(1.0, k);  // output px per level px... inverse below
         const double f = 1.0 / s;                     // level px per output px (>= 1 when minifying)
         // Level-k pixels hold 2^k base pixels; the page is base size.
-        const double page_w = static_cast<double>(levels_[0]->width) / std::ldexp(1.0, k);
-        const double page_h = static_cast<double>(levels_[0]->height) / std::ldexp(1.0, k);
+        const double page_w = static_cast<double>(base_->width) / std::ldexp(1.0, k);
+        const double page_h = static_cast<double>(base_->height) / std::ldexp(1.0, k);
 
         Raster out(window.width, window.height, 0);
         // Per-column source spans (separable box filter, or nearest when
@@ -223,6 +223,10 @@ private:
     double dpi_ = 0.0;
     OpenLimits limits_;
     mutable std::mutex mutex_;
+    // The full-size picture never changes: read without the lock. The
+    // smaller levels grow under mutex_ while tile threads render, so
+    // levels_ is only touched with it held.
+    std::shared_ptr<const Level> base_;
     mutable std::vector<std::shared_ptr<const Level>> levels_;
 };
 
