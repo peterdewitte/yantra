@@ -106,24 +106,24 @@ bool within(double v, double lo, double hi) { return v >= lo && v <= hi; }
 }  // namespace
 
 std::string check_settings(const AppSettings& s) {
-    if (!parse_window_system(s.window_system)) return "The window system is auto, x11 or wayland.";
-    if (!within(s.tooltip_delay_s, 0.0, kMaxTooltipDelayS)) return "The tooltip delay is 0 to 5 seconds.";
-    if (!within(s.layers.bin_size_m, 0.5, 50.0)) return "The binned view's squares are 0.5 to 50 m.";
+    if (!parse_window_system(s.window_system)) return tr("The window system is auto, x11 or wayland.");
+    if (!within(s.tooltip_delay_s, 0.0, kMaxTooltipDelayS)) return tr("The tooltip delay is 0 to 5 seconds.");
+    if (!within(s.layers.bin_size_m, 0.5, 50.0)) return tr("The binned view's squares are 0.5 to 50 m.");
     if (!within(s.survey.threshold_dbm, kMinThresholdDbm, kMaxThresholdDbm))
-        return "The coverage threshold is -150 to -20 dBm.";
+        return tr("The coverage threshold is -150 to -20 dBm.");
     if (!within(s.survey.graph_span_min, kMinGraphSpanMin, kMaxGraphSpanMin))
-        return "The graphs show 1 to 60 minutes.";
-    if (!within(s.survey.ring_minutes, kMinRingMinutes, kMaxRingMinutes)) return "The ring buffer keeps 2 to 60 minutes.";
-    if (!parse_language(s.language)) return "The language is en, nl, fr or de.";
-    if (!within(s.ui_scale, kMinUiScale, kMaxUiScale)) return "The UI scale is 75 to 250 %.";
-    if (!within(s.sound.volume, 0.0, 1.0)) return "The volume is 0 to 100 %.";
+        return tr("The graphs show 1 to 60 minutes.");
+    if (!within(s.survey.ring_minutes, kMinRingMinutes, kMaxRingMinutes)) return tr("The ring buffer keeps 2 to 60 minutes.");
+    if (!parse_language(s.language)) return tr("The language is en, nl, fr or de.");
+    if (!within(s.ui_scale, kMinUiScale, kMaxUiScale)) return tr("The UI scale is 75 to 250 %.");
+    if (!within(s.sound.volume, 0.0, 1.0)) return tr("The volume is 0 to 100 %.");
     if (!within(s.sound.level_interval_s, kMinLevelIntervalS, kMaxLevelIntervalS))
-        return "The level tone comes every 2 to 120 seconds.";
-    if (s.sound.alerts.size() > kMaxLevelAlerts) return "At most 8 level alerts.";
+        return tr("The level tone comes every 2 to 120 seconds.");
+    if (s.sound.alerts.size() > kMaxLevelAlerts) return tr("At most 8 level alerts.");
     for (const LevelAlert& a : s.sound.alerts) {
-        if (a.cell.empty()) return "Every level alert needs a cell.";
+        if (a.cell.empty()) return tr("Every level alert needs a cell.");
         if (!within(a.threshold_dbm, kMinThresholdDbm, kMaxThresholdDbm))
-            return "A level alert's threshold is -150 to -20 dBm.";
+            return tr("A level alert's threshold is -150 to -20 dBm.");
     }
     return {};
 }
@@ -172,7 +172,7 @@ AppSettings settings_from_json(const std::string& text, std::string& error) {
     AppSettings s;
     const json j = json::parse(text, nullptr, false);
     if (j.is_discarded() || !j.is_object()) {
-        error = "the settings file is not a JSON object; defaults used";
+        error = tr("the settings file is not a JSON object; defaults used");
         return s;
     }
     if (const auto it = j.find("recent_projects"); it != j.end() && it->is_array()) {
@@ -287,7 +287,7 @@ bool save_settings(const fs::path& file, const AppSettings& settings, std::strin
     std::error_code ec;
     fs::create_directories(file.parent_path(), ec);
     if (ec) {
-        error = "cannot create " + file.parent_path().string() + ": " + ec.message();
+        error = tr("cannot create ") + file.parent_path().string() + ": " + ec.message();
         return false;
     }
     const fs::path tmp = file.string() + ".tmp";
@@ -296,14 +296,14 @@ bool save_settings(const fs::path& file, const AppSettings& settings, std::strin
         out << settings_to_json(settings);
         out.flush();
         if (!out) {
-            error = "cannot write " + tmp.string();
+            error = tr("cannot write ") + tmp.string();
             fs::remove(tmp, ec);
             return false;
         }
     }
     fs::rename(tmp, file, ec);
     if (ec) {
-        error = "cannot replace " + file.string() + ": " + ec.message();
+        error = tr("cannot replace ") + file.string() + ": " + ec.message();
         fs::remove(tmp, ec);
         return false;
     }

@@ -4,6 +4,7 @@
 // The project window's model, see project_window.h.
 // Partly copied from yantra-v2 68ea20a: app/model/src/project_window.cpp, adapted.
 #include "yantra/app/project_window.h"
+#include "yantra/app/i18n.h"
 
 #include <algorithm>
 #include <cmath>
@@ -48,7 +49,7 @@ bool has_plan(const building::Floor& f) { return !f.source.empty() && f.trim.sha
 ScaleBar scale_bar(std::optional<double> metres_per_unit, double screen_px_per_unit, double target_px) {
     ScaleBar s;
     if (!metres_per_unit || !(*metres_per_unit > 0.0) || !(screen_px_per_unit > 0.0) || !(target_px > 0.0)) {
-        s.label = "not to scale";
+        s.label = tr("not to scale");
         return s;
     }
     const double metres_per_px = *metres_per_unit / screen_px_per_unit;
@@ -128,10 +129,10 @@ void ProjectWindow::refresh() {
         for (const auto& [id, n] : counts)
             if (id == f.id) t.points = n;
         t.label = f.name + " (" + std::to_string(f.level) + ")";
-        t.tooltip = "Level " + std::to_string(f.level) + ", floor-to-floor height " + fixed(f.height_m, 2, " m") +
-                    "\n" + (t.to_scale ? "To scale" : "Not to scale: distances and areas are not shown") + "\n" +
-                    (t.has_plan ? "Plan: trimmed from its source" : "No plan picture yet") + "\n" +
-                    plural(t.points, "measured point", "measured points");
+        t.tooltip = tr("Level ") + std::to_string(f.level) + tr(", floor-to-floor height ") + fixed(f.height_m, 2, " m") +
+                    "\n" + (t.to_scale ? tr("To scale") : tr("Not to scale: distances and areas are not shown")) + "\n" +
+                    (t.has_plan ? tr("Plan: trimmed from its source") : tr("No plan picture yet")) + "\n" +
+                    plural(t.points, tr("measured point"), tr("measured points"));
         tabs_.push_back(std::move(t));
     }
     const bool still_there =
@@ -205,11 +206,11 @@ FloorContent ProjectWindow::build_content(const std::string& floor_id, double bi
     c.metres_per_unit = b.metres_per_unit(*floor);
     c.has_plan = has_plan(*floor);
     if (!c.has_plan)
-        c.plan_note = "This floor has no plan picture yet: the walls, antennas and points are drawn on a blank sheet.";
+        c.plan_note = tr("This floor has no plan picture yet: the walls, antennas and points are drawn on a blank sheet.");
 
     for (const building::Wall& w : floor->walls) {
         const double att = b.wall_attenuation_db(w, kWallColourMhz).value_or(0.0);
-        const std::string cls = w.wall_class.empty() ? std::string("own value") : w.wall_class;
+        const std::string cls = w.wall_class.empty() ? std::string(tr("own value")) : w.wall_class;
         c.walls.push_back(PlanWall{w.points, wall_rgb(att), cls + ", " + fixed(att, 1, " dB")});
     }
     for (const building::Antenna& a : floor->antennas)
@@ -222,7 +223,7 @@ FloorContent ProjectWindow::build_content(const std::string& floor_id, double bi
     try {
         c.points = survey::point_list(project_, q);
     } catch (const std::exception& e) {
-        c.view_label = std::string("Cannot list the points: ") + e.what();
+        c.view_label = std::string(tr("Cannot list the points: ")) + e.what();
         c.points = survey::PointList{};
     }
     // PP-02..04: the view of the points (default: the measured values).
@@ -266,18 +267,18 @@ void ProjectWindow::build_binned(FloorContent& c, const building::Building& b, c
     c.binned.reset();
     c.binned_note.clear();
     if (!c.metres_per_unit) {
-        c.binned_note = "Needs a scale on this floor (squares are in metres).";
+        c.binned_note = tr("Needs a scale on this floor (squares are in metres).");
         return;
     }
     if (c.points.count() == 0) {
-        c.binned_note = "No measured points on this floor yet.";
+        c.binned_note = tr("No measured points on this floor yet.");
         return;
     }
     BinnedLayer layer;
     try {
         layer.view = survey::bin_points(c.points, size_m, post_.bin_percentile);
     } catch (const std::exception& e) {
-        c.binned_note = std::string("Cannot bin the points: ") + e.what();
+        c.binned_note = std::string(tr("Cannot bin the points: ")) + e.what();
         return;
     }
     layer.label = layer.view.label;
@@ -299,11 +300,11 @@ void ProjectWindow::build_interpolation(FloorContent& c, const building::Buildin
     try {
         rows = project_.interpolations(f.id, false);
     } catch (const std::exception& e) {
-        c.interpolation_note = std::string("The stored interpolations cannot be read: ") + e.what();
+        c.interpolation_note = std::string(tr("The stored interpolations cannot be read: ")) + e.what();
         return;
     }
     if (rows.empty()) {
-        c.interpolation_note = c.metres_per_unit ? "Not computed for this floor yet." : "Needs a scale on this floor.";
+        c.interpolation_note = c.metres_per_unit ? tr("Not computed for this floor yet.") : tr("Needs a scale on this floor.");
         return;
     }
     std::sort(rows.begin(), rows.end(), [](const auto& x, const auto& y) {
@@ -318,12 +319,12 @@ void ProjectWindow::build_interpolation(FloorContent& c, const building::Buildin
     try {
         in = survey::stored_interpolation(project_, id);
     } catch (const std::exception& e) {
-        c.interpolation_note = std::string("The interpolation cannot be read: ") + e.what();
+        c.interpolation_note = std::string(tr("The interpolation cannot be read: ")) + e.what();
         return;
     }
     if (!in) return;
     if (!c.metres_per_unit) {
-        c.interpolation_note = "The floor has no scale any more: the stored map cannot be placed.";
+        c.interpolation_note = tr("The floor has no scale any more: the stored map cannot be placed.");
         return;
     }
     InterpolationLayer layer;
@@ -376,33 +377,33 @@ std::vector<LayerRow> ProjectWindow::layer_rows(const LayerSettings& layers) {
         r.can_move_down = pos > 0;
         switch (l) {
         case Layer::Plan:
-            r.label = "Plan";
-            r.tooltip = "The trimmed floor plan (the part of the source sheet that is this floor).";
+            r.label = tr("Plan");
+            r.tooltip = tr("The trimmed floor plan (the part of the source sheet that is this floor).");
             r.available = c && c->has_plan;
             if (c && !c->has_plan) r.note = c->plan_note;
             break;
         case Layer::Walls:
-            r.label = "Walls (" + std::to_string(c ? c->walls.size() : 0) + ")";
-            r.tooltip = "Walls drawn on this floor; darker lines attenuate more.";
+            r.label = tr("Walls (") + std::to_string(c ? c->walls.size() : 0) + ")";
+            r.tooltip = tr("Walls drawn on this floor; darker lines attenuate more.");
             r.available = c && !c->walls.empty();
             break;
         case Layer::Antennas:
-            r.label = "Antennas (" + std::to_string(c ? c->antennas.size() : 0) + ")";
-            r.tooltip = "Antennas placed on this floor: indoor DAS antennas (circles) and outdoor donor directions "
-                        "(triangles with an arrow).";
+            r.label = tr("Antennas (") + std::to_string(c ? c->antennas.size() : 0) + ")";
+            r.tooltip = tr("Antennas placed on this floor: indoor DAS antennas (circles) and outdoor donor directions "
+                        "(triangles with an arrow).");
             r.available = c && !c->antennas.empty();
             break;
         case Layer::Points:
-            r.label = "Measured points (" + std::to_string(c ? c->points.count() : 0) + ")";
-            r.tooltip = "Every measured point of the floor's walk tests and manual points, coloured by level. "
-                        "The report shows exactly these points; dense points are drawn smaller, never left out.";
+            r.label = tr("Measured points (") + std::to_string(c ? c->points.count() : 0) + ")";
+            r.tooltip = tr("Every measured point of the floor's walk tests and manual points, coloured by level. "
+                        "The report shows exactly these points; dense points are drawn smaller, never left out.");
             r.available = c && c->points.count() > 0;
-            if (c && c->points.count() == 0) r.note = "No measured points on this floor yet.";
+            if (c && c->points.count() == 0) r.note = tr("No measured points on this floor yet.");
             break;
         case Layer::Binned:
-            r.label = "Binned view";
-            r.tooltip = "An extra view: the measured points grouped in squares, the median per square. It never "
-                        "replaces the measured points.";
+            r.label = tr("Binned view");
+            r.tooltip = tr("An extra view: the measured points grouped in squares, the median per square. It never "
+                        "replaces the measured points.");
             r.available = c && c->binned.has_value();
             if (c && c->binned)
                 r.note = c->binned->label;
@@ -410,15 +411,15 @@ std::vector<LayerRow> ProjectWindow::layer_rows(const LayerSettings& layers) {
                 r.note = c->binned_note;
             break;
         case Layer::Interpolation:
-            r.label = std::string("Map (") +
+            r.label = std::string(tr("Map (")) +
                       (c && c->interpolation ? c->interpolation->label : std::string(survey::kInterpolatedLabel)) + ")";
-            r.tooltip = "The interpolated map between the measured points (ray-tracing model fitted to the points). "
+            r.tooltip = tr("The interpolated map between the measured points (ray-tracing model fitted to the points). "
                         "Areas far from any measured point fade out. Always labelled \"interpolated\"; statistics "
-                        "keep it apart from measured values.";
+                        "keep it apart from measured values.");
             r.available = c && c->interpolation.has_value();
             if (c && c->interpolation) {
                 if (c->interpolation->stale) {
-                    r.note = "Stale: ";
+                    r.note = tr("Stale: ");
                     for (std::size_t i = 0; i < c->interpolation->stale_reasons.size(); ++i)
                         r.note += (i ? ", " : "") + c->interpolation->stale_reasons[i];
                     r.note += ". It is shown as computed; run it again to update it.";
@@ -438,7 +439,7 @@ PlanTiles ProjectWindow::plan_tiles(const std::string& floor_id, std::size_t bud
     PlanTiles t;
     const std::optional<building::Floor> floor = project_.floor(floor_id);
     if (!floor || !has_plan(*floor)) {
-        t.error = "This floor has no plan picture yet.";
+        t.error = tr("This floor has no plan picture yet.");
         return t;
     }
     try {
@@ -447,7 +448,7 @@ PlanTiles ProjectWindow::plan_tiles(const std::string& floor_id, std::size_t bud
                                        budget_bytes, std::move(ready));
     } catch (const std::exception& e) {
         t.renderer.reset();
-        t.error = std::string("The plan cannot be shown: ") + e.what();
+        t.error = std::string(tr("The plan cannot be shown: ")) + e.what();
     }
     return t;
 }
@@ -461,8 +462,8 @@ HoverReadout ProjectWindow::hover(Point2 plan, double radius, const LayerSetting
             const survey::SurveyPoint& p = c->points.points[*i];
             h.any = true;
             h.point = i;
-            h.text = "Measured point " + std::to_string(*i + 1) + " of " + std::to_string(c->points.count()) + "\n" +
-                     (p.value ? fixed(*p.value, 1, (" " + p.unit).c_str()) : std::string("no value")) + "  (" +
+            h.text = tr("Measured point ") + std::to_string(*i + 1) + " of " + std::to_string(c->points.count()) + "\n" +
+                     (p.value ? fixed(*p.value, 1, (" " + p.unit).c_str()) : std::string(tr("no value"))) + "  (" +
                      c->points.metric.label() + ")";
             if (!p.label.empty()) h.text += "\n" + p.label;
             if (!p.cell.empty()) h.text += "\nCell: " + p.cell;
@@ -473,7 +474,7 @@ HoverReadout ProjectWindow::hover(Point2 plan, double radius, const LayerSetting
             const std::size_t index = *i;
             if (const survey::PointDetail* d = point_detail(index)) {
                 auto line = [](const survey::CarrierReading& r) {
-                    std::string t = r.cell.empty() ? fixed(static_cast<double>(r.frequency_hz) / 1e6, 4, " MHz") : r.cell;
+                    std::string t = r.cell.empty() ? fixed(static_cast<double>(r.frequency_hz) / 1e6, 4, tr(" MHz")) : r.cell;
                     if (r.level) t += "  " + fixed(*r.level, 1, (" " + r.unit).c_str());
                     if (r.c1) t += "  C1 " + fixed(*r.c1, 1, " dB");
                     return t;
@@ -494,7 +495,7 @@ HoverReadout ProjectWindow::hover(Point2 plan, double radius, const LayerSetting
     const survey::Readout r = survey::readout(c->interpolation->data, m);
     if (!r.on_map) return h;
     h.any = true;
-    h.text = (r.value_dbm ? fixed(*r.value_dbm, 1, " dBm") : std::string("no coverage")) + "  (" + r.label + ")";
+    h.text = (r.value_dbm ? fixed(*r.value_dbm, 1, " dBm") : std::string(tr("no coverage"))) + "  (" + r.label + ")";
     if (!r.measured) h.text += "\nConfidence " + fixed(r.confidence * 100.0, 0, " %");
     if (r.nearest)
         h.text += "\nNearest measured point " + fixed(r.nearest_m, 1, " m") + " away: " +
@@ -504,72 +505,72 @@ HoverReadout ProjectWindow::hover(Point2 plan, double radius, const LayerSetting
 }
 
 Result ProjectWindow::rename_floor(const std::string& id, const std::string& name) {
-    if (name.empty()) return Result{false, "The floor needs a name."};
+    if (name.empty()) return Result{false, tr("The floor needs a name.")};
     try {
         project_.rename_floor(id, name);
     } catch (const std::exception& e) {
-        return Result{false, std::string("Cannot rename the floor: ") + e.what()};
+        return Result{false, std::string(tr("Cannot rename the floor: ")) + e.what()};
     }
     invalidate();
-    return Result{true, "Renamed the floor to " + name};
+    return Result{true, tr("Renamed the floor to ") + name};
 }
 
 Result ProjectWindow::set_level(const std::string& id, int level, double height_m) {
     if (!(height_m > 0.0 && height_m <= 50.0))
-        return Result{false, "The floor height must be more than 0 and at most 50 m."};
+        return Result{false, tr("The floor height must be more than 0 and at most 50 m.")};
     for (const building::Floor& f : project_.floors())
         if (f.level == level && f.id != id)
-            return Result{false, "Level " + std::to_string(level) + " is used by floor \"" + f.name + "\"."};
+            return Result{false, tr("Level ") + std::to_string(level) + tr(" is used by floor \"") + f.name + "\"."};
     try {
         project_.set_floor_level(id, level, height_m);
     } catch (const std::exception& e) {
-        return Result{false, std::string("Cannot change the level: ") + e.what()};
+        return Result{false, std::string(tr("Cannot change the level: ")) + e.what()};
     }
     invalidate();
-    return Result{true, "Level " + std::to_string(level) + ", height " + fixed(height_m, 2, " m")};
+    return Result{true, tr("Level ") + std::to_string(level) + tr(", height ") + fixed(height_m, 2, " m")};
 }
 
 Result ProjectWindow::move_floor(const std::string& id, int steps) {
     const std::vector<building::Floor> floors = project_.floors();
     const auto it = std::find_if(floors.begin(), floors.end(), [&](const building::Floor& f) { return f.id == id; });
-    if (it == floors.end()) return Result{false, "No such floor."};
+    if (it == floors.end()) return Result{false, tr("No such floor.")};
     const long index = static_cast<long>(it - floors.begin()) + steps;
     if (steps == 0 || index < 0 || index >= static_cast<long>(floors.size()))
-        return Result{false, steps < 0 ? "The floor is already the lowest." : "The floor is already the highest."};
+        return Result{false, steps < 0 ? tr("The floor is already the lowest.") : tr("The floor is already the highest.")};
     try {
         project_.move_floor(id, static_cast<std::size_t>(index));
     } catch (const std::exception& e) {
-        return Result{false, std::string("Cannot move the floor: ") + e.what()};
+        return Result{false, std::string(tr("Cannot move the floor: ")) + e.what()};
     }
     invalidate();
     const std::optional<building::Floor> now = project_.floor(id);
-    return Result{true, "Moved " + it->name + (steps < 0 ? " down" : " up") +
-                            (now ? " (now level " + std::to_string(now->level) + ")" : std::string())};
+    return Result{true, tr("Moved ") + it->name + (steps < 0 ? " down" : " up") +
+                            (now ? tr(" (now level ") + std::to_string(now->level) + ")" : std::string())};
 }
 
 Result ProjectWindow::request_remove(const std::string& id) {
     const std::optional<building::Floor> f = project_.floor(id);
-    if (!f) return Result{false, "No such floor."};
+    if (!f) return Result{false, tr("No such floor.")};
     const std::size_t points = project_.point_count(id);
     const std::size_t sessions = project_.sessions(id).size();
     RemoveQuestion q;
     q.floor_id = id;
-    q.title = "Remove floor?";
-    q.question = "Remove the floor \"" + f->name + "\" (level " + std::to_string(f->level) + ") with its " +
+    q.title = tr("Remove floor?");
+    q.question = tr("Remove the floor \"") + f->name + "\" (level " + std::to_string(f->level) + tr(") with its ") +
                  plural(f->walls.size(), "wall", "walls") + ", " + plural(f->antennas.size(), "antenna", "antennas") +
-                 ", " + plural(sessions, "walk test", "walk tests") + " and " +
-                 plural(points, "measured point", "measured points") +
-                 "? This cannot be undone. The plan source stays in the project; recording files are not deleted.";
+                 ", " + plural(sessions, tr("walk test"), tr("walk tests")) + " and " +
+                 plural(points, tr("measured point"), tr("measured points")) +
+                 tr("? This cannot be undone. The plan source stays in the project; recording files are not deleted.");
     pending_remove_ = q;
     return Result{true, q.question};
 }
 
 Result ProjectWindow::confirm_remove() {
-    if (!pending_remove_) return Result{false, "Nothing to remove."};
+    if (!pending_remove_) return Result{false, tr("Nothing to remove.")};
     const RemoveQuestion q = *pending_remove_;
     pending_remove_.reset();
     const std::optional<building::Floor> f = project_.floor(q.floor_id);
-    if (!f) return Result{false, "The floor no longer exists."};
+    if (!f) return Result{false, tr("The floor no longer exists.")};
     // Select the neighbour (the next floor up, else the one below).
     std::string next;
     const std::vector<building::Floor> floors = project_.floors();
@@ -583,14 +584,14 @@ Result ProjectWindow::confirm_remove() {
     try {
         project_.remove_floor(q.floor_id, /*with_sessions=*/true);
     } catch (const std::exception& e) {
-        return Result{false, std::string("Cannot remove the floor: ") + e.what()};
+        return Result{false, std::string(tr("Cannot remove the floor: ")) + e.what()};
     }
     invalidate();
     if (selected_ == q.floor_id) {
         selected_ = next;
         chosen_interpolation_.reset();
     }
-    return Result{true, "Removed floor " + f->name};
+    return Result{true, tr("Removed floor ") + f->name};
 }
 
 void ProjectWindow::cancel_remove() { pending_remove_.reset(); }

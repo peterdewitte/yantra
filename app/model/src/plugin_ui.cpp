@@ -3,6 +3,7 @@
 //
 // The plugins' own UI (PLG-06), see plugin_ui.h.
 #include "yantra/app/plugin_ui.h"
+#include "yantra/app/i18n.h"
 
 #include <algorithm>
 
@@ -81,7 +82,7 @@ std::vector<PluginMenuEntry> PluginUi::menu(std::uint32_t menu) const {
                         x.enabled = false;
                         x.disabled_reason = st.disabled_reason != nullptr && *st.disabled_reason != '\0'
                                                 ? translate(e.id, st.disabled_reason)
-                                                : std::string("Not available now.");
+                                                : std::string(tr("Not available now."));
                     }
                 }
             }
@@ -102,26 +103,26 @@ bool PluginUi::has_menu(std::uint32_t menu) const {
 }
 
 Result PluginUi::select(const std::string& plugin_id, const std::string& item_id) {
-    if (!enabled(plugin_id)) return Result{false, "The plugin is not enabled."};
+    if (!enabled(plugin_id)) return Result{false, tr("The plugin is not enabled.")};
     const plugin::PluginInfo* info = loader_.info(plugin_id);
     const auto it = std::find_if(info->ui.menu_items.begin(), info->ui.menu_items.end(),
                                  [&](const plugin::UiMenuItem& m) { return m.id == item_id; });
-    if (it == info->ui.menu_items.end()) return Result{false, "The plugin has no menu entry " + item_id + "."};
+    if (it == info->ui.menu_items.end()) return Result{false, tr("The plugin has no menu entry ") + item_id + "."};
     if (!it->window_id.empty()) return open(plugin_id, it->window_id);
     const yantra_plugin_descriptor* d = loader_.descriptor(plugin_id);
     if (d == nullptr || d->ui == nullptr || d->ui->menu_selected == nullptr)
-        return Result{false, "The plugin does not handle this menu entry."};
+        return Result{false, tr("The plugin does not handle this menu entry.")};
     d->ui->menu_selected(loader_.instance(plugin_id), item_id.c_str());
     return Result{true, ""};
 }
 
 Result PluginUi::open(const std::string& plugin_id, const std::string& window_id) {
-    if (!enabled(plugin_id)) return Result{false, "The plugin is not enabled."};
+    if (!enabled(plugin_id)) return Result{false, tr("The plugin is not enabled.")};
     if (is_open(plugin_id, window_id)) return Result{true, ""};
     const plugin::PluginInfo* info = loader_.info(plugin_id);
     const auto it = std::find_if(info->ui.windows.begin(), info->ui.windows.end(),
                                  [&](const plugin::UiWindow& w) { return w.id == window_id; });
-    if (it == info->ui.windows.end()) return Result{false, "The plugin has no window " + window_id + "."};
+    if (it == info->ui.windows.end()) return Result{false, tr("The plugin has no window ") + window_id + "."};
     PluginWindowView v;
     v.plugin_id = plugin_id;
     v.window_id = window_id;

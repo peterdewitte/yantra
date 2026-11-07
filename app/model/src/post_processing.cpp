@@ -4,6 +4,7 @@
 // The post-processing page (post_processing.h; PP-01..05, EXP-06 view).
 
 #include "yantra/app/post_processing.h"
+#include "yantra/app/i18n.h"
 
 #include <algorithm>
 #include <cstdio>
@@ -105,7 +106,7 @@ PostStatsView PostProcessing::stats(double bin_size_m) {
             } else {
                 v.acceptance.profile = p.name;
                 v.acceptance.basis = p.basis;
-                v.acceptance.note = "The floor area needs a coverage map: run the interpolation (Map page) first.";
+                v.acceptance.note = tr("The floor area needs a coverage map: run the interpolation (Map page) first.");
             }
         } else {
             v.acceptance = survey::evaluate(p, c->points.points);
@@ -113,12 +114,12 @@ PostStatsView PostProcessing::stats(double bin_size_m) {
     } catch (const std::exception& e) {
         v.acceptance.profile = p.name;
         v.acceptance.basis = p.basis;
-        v.acceptance.note = std::string("Cannot evaluate: ") + e.what();
+        v.acceptance.note = std::string(tr("Cannot evaluate: ")) + e.what();
     }
     for (const survey::CriterionResult& r : v.acceptance.criteria)
-        v.acceptance_text += (v.acceptance_text.empty() ? "" : "\n") + percent_text(r.percent) + " at or above " +
-                             number_text(r.criterion.threshold) + " " + p.unit + " (needs " +
-                             number_text(r.criterion.min_percent) + " %): " + (r.pass ? "PASS" : "FAIL");
+        v.acceptance_text += (v.acceptance_text.empty() ? "" : "\n") + percent_text(r.percent) + tr(" at or above ") +
+                             number_text(r.criterion.threshold) + " " + p.unit + tr(" (needs ") +
+                             number_text(r.criterion.min_percent) + " %): " + (r.pass ? tr("PASS") : tr("FAIL"));
     return v;
 }
 
@@ -129,14 +130,14 @@ std::vector<RecordingChoice> PostProcessing::recordings() {
 }
 
 Result PostProcessing::import(const RecordingChoice& recording) {
-    if (recording.files.empty()) return Result{false, "Choose a recording first."};
+    if (recording.files.empty()) return Result{false, tr("Choose a recording first.")};
     survey::ImportOptions o;
     o.replay.catalog = catalog_ ? catalog_() : nullptr;
     std::vector<survey::ImportedRecording> done;
     try {
         done = survey::import_recordings(project_, recording.files, o);
     } catch (const std::exception& e) {
-        return Result{false, "Cannot load " + recording.name + ": " + e.what()};
+        return Result{false, tr("Cannot load ") + recording.name + ": " + e.what()};
     }
     window_.invalidate();
     std::size_t points = 0, sessions = 0, mismatches = 0;
@@ -145,9 +146,9 @@ Result PostProcessing::import(const RecordingChoice& recording) {
         sessions += r.sessions.size();
         mismatches += r.mismatches;
     }
-    std::string msg = "Loaded " + recording.name + ": " + std::to_string(points) + " points in " +
-                      std::to_string(sessions) + " walk tests";
-    if (mismatches > 0) msg += " (" + std::to_string(mismatches) + " replayed cycles differ from the recorded ones)";
+    std::string msg = tr("Loaded ") + recording.name + ": " + std::to_string(points) + tr(" points in ") +
+                      std::to_string(sessions) + tr(" walk tests");
+    if (mismatches > 0) msg += " (" + std::to_string(mismatches) + tr(" replayed cycles differ from the recorded ones)");
     return Result{true, msg};
 }
 

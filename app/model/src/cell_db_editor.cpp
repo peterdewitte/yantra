@@ -4,6 +4,7 @@
 // The cell database editor's model (cell_db_editor.h; DB-01, DB-02).
 
 #include "yantra/app/cell_db_editor.h"
+#include "yantra/app/i18n.h"
 
 #include <algorithm>
 #include <cctype>
@@ -73,7 +74,7 @@ Result parse_neighbours(const std::string& text, std::vector<celldb::NeighbourRe
             const std::string name = eq == std::string::npos ? std::string() : trim(pair.substr(0, eq));
             const auto value = eq == std::string::npos ? std::nullopt : celldb::parse_value(trim(pair.substr(eq + 1)));
             if (!identifier(name) || !value)
-                return Result{false, "Neighbour line " + std::to_string(line_no) + " (\"" + line +
+                return Result{false, tr("Neighbour line ") + std::to_string(line_no) + " (\"" + line +
                                          "\") is not a list of name=value pairs separated by '/', e.g. "
                                          "la=200/frequency_hz=390200000."};
             ref.fields[name] = *value;
@@ -81,8 +82,8 @@ Result parse_neighbours(const std::string& text, std::vector<celldb::NeighbourRe
         out.push_back(std::move(ref));
     }
     if (out.size() > celldb::kMaxNeighbours)
-        return Result{false, "A cell has at most " + std::to_string(celldb::kMaxNeighbours) + " neighbours (DB-01); " +
-                                 std::to_string(out.size()) + " are listed."};
+        return Result{false, tr("A cell has at most ") + std::to_string(celldb::kMaxNeighbours) + tr(" neighbours (DB-01); ") +
+                                 std::to_string(out.size()) + tr(" are listed.")};
     return Result{};
 }
 
@@ -210,7 +211,7 @@ CellForm CellDbEditor::form_of(const celldb::CellEntry& e) const {
 Result CellDbEditor::select(const std::string& id) {
     refresh();
     const celldb::CellEntry* e = db_.find(id);
-    if (e == nullptr) return Result{false, "There is no cell " + id + " in the database."};
+    if (e == nullptr) return Result{false, tr("There is no cell ") + id + tr(" in the database.")};
     selected_ = id;
     form_ = form_of(*e);
     editing_ = true;
@@ -224,7 +225,7 @@ Result CellDbEditor::new_entry(const std::string& technology) {
     const celldb::Technologies techs = technologies_ ? technologies_() : celldb::Technologies{};
     if (const celldb::Technology* t = celldb::find_technology(techs, technology)) form_.schema = t->cell_schema.id;
     form_.fields = schema_fields(technology);
-    if (form_.fields.empty()) form_.fields.push_back(CellFieldForm{celldb::kCarrierField, "", "", "", "Hz", true, false});
+    if (form_.fields.empty()) form_.fields.push_back(CellFieldForm{celldb::kCarrierField, "", "", "", tr("Hz"), true, false});
     selected_.clear();
     editing_ = true;
     return Result{};
@@ -233,9 +234,9 @@ Result CellDbEditor::new_entry(const std::string& technology) {
 Result CellDbEditor::add_field() {
     const std::string name = trim(form_.new_field);
     if (!identifier(name))
-        return Result{false, "A field name is lower-case letters, digits and '_', starting with a letter (e.g. srt_db)."};
+        return Result{false, tr("A field name is lower-case letters, digits and '_', starting with a letter (e.g. srt_db).")};
     for (const CellFieldForm& f : form_.fields)
-        if (f.name == name) return Result{false, "The form already has the field " + name + "."};
+        if (f.name == name) return Result{false, tr("The form already has the field ") + name + "."};
     form_.fields.push_back(CellFieldForm{name, "", "", "", "", false, false});
     form_.new_field.clear();
     return Result{};
@@ -257,7 +258,7 @@ Result CellDbEditor::apply() {
     celldb::CellEntry e;
     if (!form_.is_new) {
         const celldb::CellEntry* old = db_.find(form_.id);
-        if (old == nullptr) return Result{false, "The cell " + form_.id + " is no longer in the database."};
+        if (old == nullptr) return Result{false, tr("The cell ") + form_.id + tr(" is no longer in the database.")};
         e = *old;  // keeps what the form does not show (origin, plugin version)
         e.parameters.clear();
         e.cell.identity.clear();
@@ -277,7 +278,7 @@ Result CellDbEditor::apply() {
     if (!az.empty()) {
         const auto v = celldb::parse_value(az);
         if (!v || std::holds_alternative<std::string>(*v))
-            return Result{false, "The azimuth is a number of degrees, 0 to less than 360."};
+            return Result{false, tr("The azimuth is a number of degrees, 0 to less than 360.")};
         e.azimuth_deg = std::holds_alternative<double>(*v) ? std::get<double>(*v)
                                                            : static_cast<double>(std::get<std::int64_t>(*v));
     }
@@ -293,7 +294,7 @@ Result CellDbEditor::apply() {
         }
     }
     if (const Result r = parse_neighbours(form_.neighbours, e.neighbours); !r.ok) return r;
-    if (const std::string problem = e.validate(); !problem.empty()) return Result{false, "Not stored: " + problem};
+    if (const std::string problem = e.validate(); !problem.empty()) return Result{false, tr("Not stored: ") + problem};
 
     celldb::CellDatabase db = db_;
     std::string id;
@@ -306,27 +307,27 @@ Result CellDbEditor::apply() {
         }
         store(db);
     } catch (const std::exception& ex) {
-        return Result{false, std::string("Not stored: ") + ex.what()};
+        return Result{false, std::string(tr("Not stored: ")) + ex.what()};
     }
     const bool was_new = form_.is_new;
     (void)select(id);
-    return Result{true, (was_new ? "Added cell " : "Stored cell ") + id};
+    return Result{true, (was_new ? tr("Added cell ") : tr("Stored cell ")) + id};
 }
 
 Result CellDbEditor::remove(const std::string& id) {
     refresh();
     celldb::CellDatabase db = db_;
-    if (!db.remove(id)) return Result{false, "There is no cell " + id + " in the database."};
+    if (!db.remove(id)) return Result{false, tr("There is no cell ") + id + tr(" in the database.")};
     try {
         store(db);
     } catch (const std::exception& ex) {
-        return Result{false, "Cannot remove cell " + id + ": " + ex.what()};
+        return Result{false, tr("Cannot remove cell ") + id + ": " + ex.what()};
     }
     if (selected_ == id) {
         selected_.clear();
         editing_ = false;
     }
-    return Result{true, "Removed cell " + id};
+    return Result{true, tr("Removed cell ") + id};
 }
 
 fs::path CellDbEditor::default_csv_file() const {
@@ -358,7 +359,7 @@ Result CellDbEditor::import_csv() {
         return Result{false, "Cannot import " + csv_.file.string() + ": " + ex.what()};
     }
     std::string msg = "Imported " + std::to_string(read.entries().size()) + " cells from " + csv_.file.filename().string();
-    if (!problems_.empty()) msg += " (" + std::to_string(problems_.size()) + " rows skipped, see the list)";
+    if (!problems_.empty()) msg += " (" + std::to_string(problems_.size()) + tr(" rows skipped, see the list)");
     return Result{true, msg};
 }
 
@@ -414,10 +415,10 @@ Result CellDbEditor::set_match_fields(const std::string& technology, const std::
     try {
         store(db);
     } catch (const std::exception& ex) {
-        return Result{false, std::string("Not stored: ") + ex.what()};
+        return Result{false, std::string(tr("Not stored: ")) + ex.what()};
     }
-    return Result{true, fields.empty() ? technology + " cells are paired by their key fields"
-                                       : technology + " cells are paired by " + match_fields_text(technology)};
+    return Result{true, fields.empty() ? technology + tr(" cells are paired by their key fields")
+                                       : technology + tr(" cells are paired by ") + match_fields_text(technology)};
 }
 
 }  // namespace yantra::app

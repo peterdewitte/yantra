@@ -14,6 +14,7 @@
 #include <vector>
 
 #include "gui.h"
+#include "yantra/app/i18n.h"
 #include "gui_widgets.h"
 
 namespace yantra::app {
@@ -81,8 +82,8 @@ void Gui::draw_network_windows() {
 
 void Gui::draw_cell_db(CellDbEditor& ed) {
     error_line(state_);
-    input_text("Filter###cells.filter", network_.filter, 128);
-    text_tooltip("Show the cells whose name, site, carrier, channel or identity holds this text.");
+    input_text(tr("Filter###cells.filter"), network_.filter, 128);
+    text_tooltip(tr("Show the cells whose name, site, carrier, channel or identity holds this text."));
     const std::vector<std::size_t> shown = ed.filtered(network_.filter);
     const std::vector<CellRowView>& rows = ed.rows();
     ImGui::SameLine();
@@ -93,7 +94,7 @@ void Gui::draw_cell_db(CellDbEditor& ed) {
                               ImGuiTableFlags_SizingStretchProp,
                           ImVec2(0.0F, list_h))) {
         ImGui::TableSetupScrollFreeze(0, 1);
-        for (const char* h : {"Cell", "Technology", "Site / sector", "Carrier", "Channel", "Identity", "Neighbours"})
+        for (const char* h : {tr("Cell"), tr("Technology"), tr("Site / sector"), tr("Carrier"), tr("Channel"), tr("Identity"), tr("Neighbours")})
             ImGui::TableSetupColumn(h);
         ImGui::TableHeadersRow();
         for (std::size_t i : shown) {
@@ -103,7 +104,7 @@ void Gui::draw_cell_db(CellDbEditor& ed) {
             const std::string label = r.name + "###cells.row." + r.id;
             if (ImGui::Selectable(label.c_str(), ed.selected() == r.id, ImGuiSelectableFlags_SpanAllColumns))
                 (void)state_.show(ed.select(r.id));
-            text_tooltip(("Id " + r.id + ", " + r.origin).c_str());
+            text_tooltip((tr("Id ") + r.id + ", " + r.origin).c_str());
             ImGui::TableNextColumn();
             ImGui::TextUnformatted(r.technology.c_str());
             ImGui::TableNextColumn();
@@ -120,45 +121,45 @@ void Gui::draw_cell_db(CellDbEditor& ed) {
         ImGui::EndTable();
     }
     if (rows.empty())
-        ImGui::TextWrapped("No cells yet: add one, import a CSV file, or learn them from the air (Network > "
-                           "Verification).");
+        ImGui::TextWrapped(tr("No cells yet: add one, import a CSV file, or learn them from the air (Network > "
+                           "Verification)."));
 
     // New entry, one button per technology.
     for (const std::string& t : ed.technologies()) {
-        const std::string b = "New " + t + " cell###cells.new." + t;
+        const std::string b = tr("New ") + t + " cell###cells.new." + t;
         if (ImGui::Button(b.c_str())) (void)state_.show(ed.new_entry(t));
-        text_tooltip("Start a new cell of this technology; its key and verified fields are listed empty.");
+        text_tooltip(tr("Start a new cell of this technology; its key and verified fields are listed empty."));
         ImGui::SameLine();
     }
     if (!ed.selected().empty()) {
-        if (ImGui::Button("Remove###cells.remove")) (void)state_.show(ed.remove(ed.selected()));
-        text_tooltip("Remove the selected cell (refused while an antenna serves it).");
+        if (ImGui::Button(tr("Remove###cells.remove"))) (void)state_.show(ed.remove(ed.selected()));
+        text_tooltip(tr("Remove the selected cell (refused while an antenna serves it)."));
     }
     ImGui::NewLine();
 
-    if (ImGui::CollapsingHeader("Entry###cells.entry", ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (ImGui::CollapsingHeader(tr("Entry###cells.entry"), ImGuiTreeNodeFlags_DefaultOpen)) {
         if (!ed.editing()) {
-            ImGui::TextDisabled("Select a cell in the list, or start a new one.");
+            ImGui::TextDisabled(tr("Select a cell in the list, or start a new one."));
         } else {
             CellForm& f = ed.form();
-            ImGui::Text("%s %s (%s)", f.is_new ? "New cell" : "Cell", f.id.c_str(), f.technology.c_str());
+            ImGui::Text("%s %s (%s)", f.is_new ? tr("New cell") : tr("Cell"), f.id.c_str(), f.technology.c_str());
             // The buttons first: the field list of a technology can be long.
             ImGui::SameLine();
-            if (ImGui::Button("Apply###cells.apply")) (void)state_.show(ed.apply());
-            text_tooltip("Store the entry in the project.");
+            if (ImGui::Button(tr("Apply###cells.apply"))) (void)state_.show(ed.apply());
+            text_tooltip(tr("Store the entry in the project."));
             ImGui::SameLine();
-            if (ImGui::Button("Cancel###cells.cancel")) ed.cancel();
-            text_tooltip("Forget the changes in the form.");
+            if (ImGui::Button(tr("Cancel###cells.cancel"))) ed.cancel();
+            text_tooltip(tr("Forget the changes in the form."));
             ImGui::PushItemWidth(260.0F);
             if (f.is_new) {
-                input_text("Id###cells.form.id", f.id, 64);
-                text_tooltip("Leave empty to number it (cell-<n>).");
+                input_text(tr("Id###cells.form.id"), f.id, 64);
+                text_tooltip(tr("Leave empty to number it (cell-<n>)."));
             }
-            input_text("Name###cells.form.label", f.label, 128);
-            input_text("Site###cells.form.site", f.site_name, 128);
-            input_text("Sector###cells.form.sector", f.sector, 32);
-            input_text("Azimuth (degrees)###cells.form.azimuth", f.azimuth, 32);
-            input_text("Colour (#rrggbb)###cells.form.colour", f.colour, 16);
+            input_text(tr("Name###cells.form.label"), f.label, 128);
+            input_text(tr("Site###cells.form.site"), f.site_name, 128);
+            input_text(tr("Sector###cells.form.sector"), f.sector, 32);
+            input_text(tr("Azimuth (degrees)###cells.form.azimuth"), f.azimuth, 32);
+            input_text(tr("Colour (#rrggbb)###cells.form.colour"), f.colour, 16);
             for (CellFieldForm& ff : f.fields) {
                 std::string label = (ff.label.empty() ? ff.name : ff.label);
                 if (!ff.unit.empty()) label += " (" + ff.unit + ")";
@@ -171,12 +172,12 @@ void Gui::draw_cell_db(CellDbEditor& ed) {
             }
             input_text("###cells.form.new_field", f.new_field, 64);
             ImGui::SameLine();
-            if (ImGui::Button("Add field###cells.add_field")) (void)state_.show(ed.add_field());
-            text_tooltip("Add a field the plugin's cell schema has, or one of your own.");
+            if (ImGui::Button(tr("Add field###cells.add_field"))) (void)state_.show(ed.add_field());
+            text_tooltip(tr("Add a field the plugin's cell schema has, or one of your own."));
             ImGui::PopItemWidth();
-            ImGui::TextUnformatted("Neighbours (one per line, e.g. la=200/frequency_hz=390200000)");
+            ImGui::TextUnformatted(tr("Neighbours (one per line, e.g. la=200/frequency_hz=390200000)"));
             multiline_text("###cells.form.neighbours", f.neighbours, 90.0F);
-            ImGui::TextUnformatted("Notes");
+            ImGui::TextUnformatted(tr("Notes"));
             multiline_text("###cells.form.notes", f.notes, 50.0F);
         }
     }
@@ -189,22 +190,22 @@ void Gui::draw_cell_db(CellDbEditor& ed) {
         ImGui::PopItemWidth();
         c.file = network_.csv_file;
         ImGui::Checkbox("Location area in hexadecimal###cells.csv.hex", &c.hex_la);
-        text_tooltip("Write la as 0x.. (reading takes both).");
+        text_tooltip(tr("Write la as 0x.. (reading takes both)."));
         ImGui::SameLine();
         ImGui::Checkbox("Semicolons###cells.csv.semicolon", &c.semicolon);
-        text_tooltip("Separate the columns with ';' (spreadsheets with a decimal comma); import finds out itself.");
+        text_tooltip(tr("Separate the columns with ';' (spreadsheets with a decimal comma); import finds out itself."));
         ImGui::SameLine();
         ImGui::Checkbox("Import replaces###cells.csv.replace", &c.replace);
-        text_tooltip("Replace the whole database instead of adding to it (rows with the same identity update).");
+        text_tooltip(tr("Replace the whole database instead of adding to it (rows with the same identity update)."));
         if (ImGui::Button("Import###cells.import")) (void)state_.show(ed.import_csv());
         ImGui::SameLine();
         if (ImGui::Button("Export###cells.export")) (void)state_.show(ed.export_csv());
         for (const std::string& p : ed.problems()) ImGui::TextColored(kErrorColour, "%s", p.c_str());
     }
 
-    if (ImGui::CollapsingHeader("Pairing received cells###cells.match")) {
-        ImGui::TextWrapped("Received cells are paired with entries by these fields (e.g. by location area, by "
-                           "carrier or by both). Empty: the technology's key fields.");
+    if (ImGui::CollapsingHeader(tr("Pairing received cells###cells.match"))) {
+        ImGui::TextWrapped(tr("Received cells are paired with entries by these fields (e.g. by location area, by "
+                           "carrier or by both). Empty: the technology's key fields."));
         for (const std::string& t : ed.technologies()) {
             auto it = network_.match_text.find(t);
             if (it == network_.match_text.end()) it = network_.match_text.emplace(t, ed.match_fields_text(t)).first;
@@ -212,7 +213,7 @@ void Gui::draw_cell_db(CellDbEditor& ed) {
             input_text((t + "###cells.match." + t).c_str(), it->second, 256);
             ImGui::PopItemWidth();
             ImGui::SameLine();
-            if (ImGui::Button(("Use###cells.match_apply." + t).c_str())) {
+            if (ImGui::Button((tr("Use###cells.match_apply.") + t).c_str())) {
                 (void)state_.show(ed.set_match_fields(t, it->second));
                 it->second = ed.match_fields_text(t);
             }
@@ -224,11 +225,11 @@ void Gui::draw_cell_db(CellDbEditor& ed) {
 
 void Gui::draw_verification(NetworkChecks& nc) {
     error_line(state_);
-    ImGui::Checkbox("Show matches###verify.matches", &network_.show_matches);
-    text_tooltip("List the fields and neighbours that match too, not only the differences.");
+    ImGui::Checkbox(tr("Show matches###verify.matches"), &network_.show_matches);
+    text_tooltip(tr("List the fields and neighbours that match too, not only the differences."));
     const VerificationView v = nc.verification(network_.show_matches);
-    ImGui::Text("%zu cells received: %zu paired, %zu not in the database, %zu ambiguous; %zu differences; %zu "
-                "entries not seen",
+    ImGui::Text(tr("%zu cells received: %zu paired, %zu not in the database, %zu ambiguous; %zu differences; %zu "
+                "entries not seen"),
                 v.received, v.paired, v.not_in_database, v.ambiguous, v.differences, v.not_seen);
     if (!v.note.empty()) ImGui::TextWrapped("%s", v.note.c_str());
     ImGui::TextColored(rgb_colour(kMatchRgb), "match");
@@ -237,13 +238,13 @@ void Gui::draw_verification(NetworkChecks& nc) {
     ImGui::SameLine();
     ImGui::TextColored(rgb_colour(kNewRgb), "new");
     ImGui::SameLine();
-    ImGui::TextColored(rgb_colour(kMissingRgb), "missing / not seen");
+    ImGui::TextColored(rgb_colour(kMissingRgb), tr("missing / not seen"));
     if (ImGui::BeginTable("###verify.table", 5,
                           ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_ScrollY |
                               ImGuiTableFlags_SizingStretchProp,
                           ImVec2(0.0F, std::max(140.0F, ImGui::GetContentRegionAvail().y * 0.45F)))) {
         ImGui::TableSetupScrollFreeze(0, 1);
-        for (const char* h : {"Cell", "Item", "State", "Database", "Received"}) ImGui::TableSetupColumn(h);
+        for (const char* h : {tr("Cell"), tr("Item"), tr("State"), tr("Database"), tr("Received")}) ImGui::TableSetupColumn(h);
         ImGui::TableHeadersRow();
         for (const VerificationRow& r : v.rows) {
             ImGui::TableNextRow();
@@ -260,23 +261,23 @@ void Gui::draw_verification(NetworkChecks& nc) {
         }
         ImGui::EndTable();
     }
-    if (ImGui::Button("Learn###verify.learn")) (void)state_.show(nc.learn());
-    text_tooltip("Add the received cells that are not in the database and fill fields entries lack (stored values "
-                 "are never overwritten).");
+    if (ImGui::Button(tr("Learn###verify.learn"))) (void)state_.show(nc.learn());
+    text_tooltip(tr("Add the received cells that are not in the database and fill fields entries lack (stored values "
+                 "are never overwritten)."));
     if (network_.log_file.empty()) network_.log_file = nc.default_log_file().string();
     ImGui::PushItemWidth(-260.0F);
-    input_text("Log file###verify.log_file", network_.log_file, 1024);
+    input_text(tr("Log file###verify.log_file"), network_.log_file, 1024);
     ImGui::PopItemWidth();
     ImGui::SameLine();
-    ImGui::Checkbox("Not seen###verify.not_seen", &network_.log_not_seen);
-    text_tooltip("Also log the entries no received cell paired with.");
+    ImGui::Checkbox(tr("Not seen###verify.not_seen"), &network_.log_not_seen);
+    text_tooltip(tr("Also log the entries no received cell paired with."));
     ImGui::SameLine();
     if (ImGui::Button("Write log###verify.log")) (void)state_.show(nc.write_log(network_.log_file, network_.log_not_seen));
-    text_tooltip("Add the differences to the CSV log; a difference already in it is not written again.");
+    text_tooltip(tr("Add the differences to the CSV log; a difference already in it is not written again."));
 
-    if (ImGui::CollapsingHeader("Neighbour cross-check###verify.cross", ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (ImGui::CollapsingHeader(tr("Neighbour cross-check###verify.cross"), ImGuiTreeNodeFlags_DefaultOpen)) {
         const std::vector<CrossCheckRow> cc = nc.cross_check();
-        if (cc.empty()) ImGui::TextDisabled("No findings: the neighbour lists agree.");
+        if (cc.empty()) ImGui::TextDisabled(tr("No findings: the neighbour lists agree."));
         for (const CrossCheckRow& r : cc) ImGui::TextColored(rgb_colour(r.rgb), "%s: %s", r.kind.c_str(), r.text.c_str());
     }
 }
@@ -288,11 +289,11 @@ void Gui::draw_reselection(NetworkChecks& nc) {
     ReselectionForm& f = nc.reselection_form();
     const auto choices = nc.serving_choices();
     if (choices.empty()) {
-        ImGui::TextWrapped("No cell of a technology with a reselection rule: add cells (Network > Cell database) of a "
-                           "technology plugin that has one.");
+        ImGui::TextWrapped(tr("No cell of a technology with a reselection rule: add cells (Network > Cell database) of a "
+                           "technology plugin that has one."));
         return;
     }
-    ImGui::TextUnformatted("Serving cell");
+    ImGui::TextUnformatted(tr("Serving cell"));
     for (const auto& [id, name] : choices) {
         if (ImGui::RadioButton((name + "###resel.serving." + id).c_str(), f.serving == id))
             (void)state_.show(nc.choose_serving(id));
@@ -302,19 +303,19 @@ void Gui::draw_reselection(NetworkChecks& nc) {
     ImGui::PushItemWidth(140.0F);
     ImGui::InputDouble("MS power (dBm)###resel.ms_power", &f.ms_power_dbm, 1.0, 5.0, "%.1f");
     ImGui::PopItemWidth();
-    text_tooltip("The radio's maximum transmit power, used by the C1 of the rule.");
+    text_tooltip(tr("The radio's maximum transmit power, used by the C1 of the rule."));
     ImGui::SameLine();
-    if (ImGui::Button("Received levels###resel.received")) (void)state_.show(nc.use_received_levels());
-    text_tooltip("Take the levels of the cells received (radio or replay) as they are now.");
+    if (ImGui::Button(tr("Received levels###resel.received"))) (void)state_.show(nc.use_received_levels());
+    text_tooltip(tr("Take the levels of the cells received (radio or replay) as they are now."));
     const ReselectionView v = nc.reselection();
     if (ImGui::BeginTable("###resel.table", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH |
                                                    ImGuiTableFlags_SizingStretchProp)) {
-        for (const char* h : {"Cell", "Level (dBm)", "C1 (dB)", ""}) ImGui::TableSetupColumn(h);
+        for (const char* h : {tr("Cell"), tr("Level (dBm)"), tr("C1 (dB)"), ""}) ImGui::TableSetupColumn(h);
         ImGui::TableHeadersRow();
         for (const ReselectionRow& r : v.rows) {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
-            ImGui::Text("%s%s", r.name.c_str(), r.serving ? " (serving)" : "");
+            ImGui::Text("%s%s", r.name.c_str(), r.serving ? tr(" (serving)") : "");
             ImGui::TableNextColumn();
             double level = f.levels.count(r.id) ? f.levels[r.id] : r.level_dbm;
             ImGui::PushItemWidth(-1.0F);
@@ -332,7 +333,7 @@ void Gui::draw_reselection(NetworkChecks& nc) {
         if (!v.error.empty()) ImGui::TextColored(kErrorColour, "%s", v.error.c_str());
         return;
     }
-    ImGui::Text("State: %s", v.state_label.empty() ? v.state.c_str() : v.state_label.c_str());
+    ImGui::Text(tr("State: %s"), v.state_label.empty() ? v.state.c_str() : v.state_label.c_str());
     if (!v.reason.empty()) ImGui::TextWrapped("%s", v.reason.c_str());
 }
 

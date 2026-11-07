@@ -3,6 +3,7 @@
 //
 // The survey panels' model, see survey_monitor.h.
 #include "yantra/app/survey_monitor.h"
+#include "yantra/app/i18n.h"
 
 #include <algorithm>
 #include <array>
@@ -22,27 +23,27 @@ namespace sf = yantra::measure::sample_flag;
 
 const char* list_state_label(ListState s) noexcept {
     switch (s) {
-    case ListState::Both: return "listed and received";
-    case ListState::MeasuredOnly: return "received, not in the neighbour list";
-    case ListState::ListedOnly: return "listed, not received";
+    case ListState::Both: return tr("listed and received");
+    case ListState::MeasuredOnly: return tr("received, not in the neighbour list");
+    case ListState::ListedOnly: return tr("listed, not received");
     }
     return "";
 }
 
 const char* event_kind_label(EventKind k) noexcept {
     switch (k) {
-    case EventKind::ServingChange: return "Serving cell";
-    case EventKind::SyncLost: return "Sync lost";
-    case EventKind::SyncBack: return "Sync";
-    case EventKind::DeviceLost: return "Device lost";
-    case EventKind::DeviceBack: return "Device back";
-    case EventKind::DataLoss: return "Data loss";
-    case EventKind::Interference: return "Self-interference";
-    case EventKind::InterferenceGone: return "Self-interference";
-    case EventKind::Radio: return "Radio";
-    case EventKind::Marker: return "Marker";
-    case EventKind::VoiceNote: return "Voice note";
-    case EventKind::Recording: return "Recording";
+    case EventKind::ServingChange: return tr("Serving cell");
+    case EventKind::SyncLost: return tr("Sync lost");
+    case EventKind::SyncBack: return tr("Sync");
+    case EventKind::DeviceLost: return tr("Device lost");
+    case EventKind::DeviceBack: return tr("Device back");
+    case EventKind::DataLoss: return tr("Data loss");
+    case EventKind::Interference: return tr("Self-interference");
+    case EventKind::InterferenceGone: return tr("Self-interference");
+    case EventKind::Radio: return tr("Radio");
+    case EventKind::Marker: return tr("Marker");
+    case EventKind::VoiceNote: return tr("Voice note");
+    case EventKind::Recording: return tr("Recording");
     }
     return "";
 }
@@ -347,11 +348,11 @@ void SurveyMonitor::on_event(const ym::RadioEvent& e) {
     case K::Stream:
         if (e.event == YR_EVENT_DROPPED && e.value > 0) h.stats.records_dropped += static_cast<std::uint64_t>(e.value);
         break;
-    case K::Started: add(EventKind::Radio, "Radio " + e.device_key + " started.", false); break;
-    case K::Stopped: add(EventKind::Radio, "Radio " + e.device_key + " stopped." + (e.message.empty() ? "" : " " + e.message), false); break;
-    case K::Lost: add(EventKind::DeviceLost, "Radio " + e.device_key + " unplugged: waiting for it.", true); break;
-    case K::Reopened: add(EventKind::DeviceBack, "Radio " + e.device_key + " is back.", false); break;
-    case K::Failed: add(EventKind::Radio, "Radio plugin " + e.plugin_id + " failed: " + e.message, true); break;
+    case K::Started: add(EventKind::Radio, tr("Radio ") + e.device_key + " started.", false); break;
+    case K::Stopped: add(EventKind::Radio, tr("Radio ") + e.device_key + " stopped." + (e.message.empty() ? "" : " " + e.message), false); break;
+    case K::Lost: add(EventKind::DeviceLost, tr("Radio ") + e.device_key + tr(" unplugged: waiting for it."), true); break;
+    case K::Reopened: add(EventKind::DeviceBack, tr("Radio ") + e.device_key + tr(" is back."), false); break;
+    case K::Failed: add(EventKind::Radio, tr("Radio plugin ") + e.plugin_id + " failed: " + e.message, true); break;
     }
 }
 
@@ -390,7 +391,7 @@ void SurveyMonitor::add_history(History& h, const ym::MeasurementCycle& c, const
         const std::string key = serving->key + "#" + serving->identity;
         if (h.serving_key && *h.serving_key != key) {
             ++h.stats.serving_changes;
-            add(EventKind::ServingChange, "Serving cell " + h.serving_label + " -> " + label + ".", false);
+            add(EventKind::ServingChange, tr("Serving cell ") + h.serving_label + " -> " + label + ".", false);
         }
         h.serving_key = key;
         h.serving_label = label;
@@ -398,18 +399,18 @@ void SurveyMonitor::add_history(History& h, const ym::MeasurementCycle& c, const
     const bool sync = serving && (serving->flags & sf::kNoSync) == 0;
     if (h.sync && !sync) {
         ++h.stats.sync_losses;
-        add(EventKind::SyncLost, serving ? "Sync lost on " + h.serving_label + "." : std::string("The serving cell is gone."), true);
+        add(EventKind::SyncLost, serving ? tr("Sync lost on ") + h.serving_label + "." : std::string(tr("The serving cell is gone.")), true);
     } else if (!h.sync && sync && h.stats.cycles > 1) {
-        add(EventKind::SyncBack, "In sync with " + h.serving_label + ".", false);
+        add(EventKind::SyncBack, tr("In sync with ") + h.serving_label + ".", false);
     }
     h.sync = sync;
     const bool lost = (c.flags & sf::kDeviceLost) != 0;
-    if (lost && !h.device_lost) add(EventKind::DeviceLost, "The radio was unplugged.", true);
-    if (!lost && h.device_lost) add(EventKind::DeviceBack, "The radio is back.", false);
+    if (lost && !h.device_lost) add(EventKind::DeviceLost, tr("The radio was unplugged."), true);
+    if (!lost && h.device_lost) add(EventKind::DeviceBack, tr("The radio is back."), false);
     h.device_lost = lost;
     const bool loss = (c.flags & sf::kDataLoss) != 0;
     if (loss) ++h.stats.data_loss_cycles;
-    if (loss && !h.data_loss) add(EventKind::DataLoss, "The radio dropped records (RAD-24).", true);
+    if (loss && !h.data_loss) add(EventKind::DataLoss, tr("The radio dropped records (RAD-24)."), true);
     h.data_loss = loss;
     // Statistics (UI-11).
     const double period = static_cast<double>(c.period_ns) / 1e9;
@@ -424,7 +425,7 @@ void SurveyMonitor::add_history(History& h, const ym::MeasurementCycle& c, const
     // NFR-07.
     const ym::SelfInterferenceWarning& w = h.interference.on_cycle(c);
     if (w.active && !h.warned) add(EventKind::Interference, w.text, true);
-    if (!w.active && h.warned) add(EventKind::InterferenceGone, "The self-interference warning is off.", false);
+    if (!w.active && h.warned) add(EventKind::InterferenceGone, tr("The self-interference warning is off."), false);
     h.warned = w.active;
     // Threshold lines: the serving record's dBm and dB broadcast fields (UI-04).
     if (const ym::CarrierSample* sv = c.serving(); sv && sv->latest.schema) {

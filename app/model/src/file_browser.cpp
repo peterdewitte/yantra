@@ -4,6 +4,7 @@
 // The in-app file browser model, see file_browser.h.
 // Copied from yantra-v2 68ea20a: app/model/src/file_browser.cpp.
 #include "yantra/app/file_browser.h"
+#include "yantra/app/i18n.h"
 
 #include <algorithm>
 #include <cctype>
@@ -48,15 +49,15 @@ bool FileFilter::matches(const fs::path& file) const {
 }
 
 std::vector<FileFilter> project_file_filters() {
-    return {FileFilter{"Yantra projects (*.yantra)", {project::kExtension}}, FileFilter{"All files", {}}};
+    return {FileFilter{tr("Yantra projects (*.yantra)"), {project::kExtension}}, FileFilter{tr("All files"), {}}};
 }
 
 std::vector<FileFilter> plan_file_filters() {
     const std::vector<std::string> ext = plan::supported_extensions();
-    std::string label = plan::pdf_supported() ? "Plans: PDF and images (" : "Plans: images (";
+    std::string label = plan::pdf_supported() ? tr("Plans: PDF and images (") : tr("Plans: images (");
     for (std::size_t i = 0; i < ext.size(); ++i) label += (i == 0 ? "*" : " *") + ext[i];
     label += ")";
-    return {FileFilter{label, ext}, FileFilter{"All files", {}}};
+    return {FileFilter{label, ext}, FileFilter{tr("All files"), {}}};
 }
 
 std::string format_size(std::uintmax_t bytes) {
@@ -81,13 +82,13 @@ FileBrowser::FileBrowser(BrowseMode mode, std::string title, std::vector<FileFil
       home_(home.empty() ? fs::path("/") : clean(home)),
       recent_(std::move(recent)),
       file_name_(std::move(file_name)) {
-    if (filters_.empty()) filters_.push_back(FileFilter{"All files", {}});
+    if (filters_.empty()) filters_.push_back(FileFilter{tr("All files"), {}});
     if (!navigate(start.empty() ? home_ : start) && !navigate(home_)) navigate("/");
 }
 
 std::vector<BrowserPlace> FileBrowser::places() const {
     std::vector<BrowserPlace> out;
-    out.push_back(BrowserPlace{"Home", home_});
+    out.push_back(BrowserPlace{tr("Home"), home_});
     for (const fs::path& r : recent_) {
         const fs::path c = clean(r);
         if (!is_dir(c)) continue;
@@ -112,8 +113,8 @@ bool FileBrowser::navigate(const fs::path& folder) {
     std::error_code ec;
     fs::directory_iterator probe(c, ec);
     if (ec || !is_dir(c)) {
-        folder_error_ = "Cannot open the folder " + c.string() + ": " +
-                        (ec ? ec.message() : std::string("not a folder"));
+        folder_error_ = tr("Cannot open the folder ") + c.string() + ": " +
+                        (ec ? ec.message() : std::string(tr("not a folder")));
         if (folder_.empty()) {
             folder_ = c;
             entries_.clear();
@@ -135,7 +136,7 @@ void FileBrowser::list() {
     std::error_code ec;
     fs::directory_iterator it(folder_, fs::directory_options::skip_permission_denied, ec);
     if (ec) {
-        folder_error_ = "Cannot list " + folder_.string() + ": " + ec.message();
+        folder_error_ = tr("Cannot list ") + folder_.string() + ": " + ec.message();
         return;
     }
     std::vector<BrowserEntry> dirs, files;
@@ -210,7 +211,7 @@ BrowseOutcome FileBrowser::confirm() {
     pending_overwrite_.reset();
     if (file_name_.empty()) {
         out.kind = BrowseOutcome::Kind::Error;
-        out.message = mode_ == BrowseMode::Open ? "Choose a file." : "Type a file name.";
+        out.message = mode_ == BrowseMode::Open ? tr("Choose a file.") : tr("Type a file name.");
         return out;
     }
     fs::path p = resolve(file_name_);
@@ -227,7 +228,7 @@ BrowseOutcome FileBrowser::confirm() {
     if (mode_ == BrowseMode::Open) {
         if (!fs::is_regular_file(p, ec)) {
             out.kind = BrowseOutcome::Kind::Error;
-            out.message = "The file " + p.string() + " does not exist.";
+            out.message = tr("The file ") + p.string() + tr(" does not exist.");
             return out;
         }
         out.kind = BrowseOutcome::Kind::Chosen;
@@ -238,19 +239,19 @@ BrowseOutcome FileBrowser::confirm() {
     if (!filter.extensions.empty() && !filter.matches(p)) p += filter.extensions.front();
     if (!is_dir(p.parent_path())) {
         out.kind = BrowseOutcome::Kind::Error;
-        out.message = "The folder " + p.parent_path().string() + " does not exist.";
+        out.message = tr("The folder ") + p.parent_path().string() + tr(" does not exist.");
         return out;
     }
     if (fs::exists(p, ec)) {
         if (is_dir(p)) {
             out.kind = BrowseOutcome::Kind::Error;
-            out.message = p.string() + " is a folder.";
+            out.message = p.string() + tr(" is a folder.");
             return out;
         }
         pending_overwrite_ = p;
         out.kind = BrowseOutcome::Kind::ConfirmOverwrite;
         out.path = p;
-        out.message = "The file " + p.filename().string() + " already exists. Replace it?";
+        out.message = tr("The file ") + p.filename().string() + tr(" already exists. Replace it?");
         return out;
     }
     out.kind = BrowseOutcome::Kind::Chosen;

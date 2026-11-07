@@ -4,6 +4,7 @@
 // The in-app network checks (network_checks.h; DB-03, DB-04, DB-05, DB-08).
 
 #include "yantra/app/network_checks.h"
+#include "yantra/app/i18n.h"
 
 #include <algorithm>
 #include <ctime>
@@ -48,8 +49,8 @@ VerificationView NetworkChecks::verification(bool matches) const {
     const celldb::Technologies techs = technologies_ ? technologies_() : celldb::Technologies{};
     v.received = received.size();
     if (received.empty()) {
-        v.note = "No cells received yet: start the radio (Survey page) or replay a recording; the received broadcast "
-                 "parameters and neighbour lists are compared with the cell database as they come.";
+        v.note = tr("No cells received yet: start the radio (Survey page) or replay a recording; the received broadcast "
+                 "parameters and neighbour lists are compared with the cell database as they come.");
         return v;
     }
     const celldb::Verification ver = celldb::verify(db, received, techs);
@@ -86,7 +87,7 @@ VerificationView NetworkChecks::verification(bool matches) const {
                                                      kMatchRgb});
         }
     }
-    if (db.entries().empty()) v.note = "The cell database is empty: every received cell is new (Learn adds them).";
+    if (db.entries().empty()) v.note = tr("The cell database is empty: every received cell is new (Learn adds them).");
     return v;
 }
 
@@ -96,10 +97,10 @@ fs::path NetworkChecks::default_log_file() const {
 }
 
 Result NetworkChecks::write_log(const fs::path& file, bool not_seen) {
-    if (file.empty()) return Result{false, "Choose the log file first."};
+    if (file.empty()) return Result{false, tr("Choose the log file first.")};
     const celldb::CellDatabase db = project_.cell_database();
     const std::vector<celldb::ObservedCell> received = observed_ ? observed_() : std::vector<celldb::ObservedCell>{};
-    if (received.empty()) return Result{false, "No cells received yet: nothing to compare."};
+    if (received.empty()) return Result{false, tr("No cells received yet: nothing to compare.")};
     const celldb::Technologies techs = technologies_ ? technologies_() : celldb::Technologies{};
     const celldb::Verification ver = celldb::verify(db, received, techs);
     celldb::LogOptions lo;
@@ -109,26 +110,26 @@ Result NetworkChecks::write_log(const fs::path& file, bool not_seen) {
     try {
         celldb::DifferenceLog log(file);
         const std::size_t n = log.append(celldb::log_lines(ver, db, received, lo));
-        return Result{true, "Wrote " + std::to_string(n) + " new difference lines to " + file.string()};
+        return Result{true, tr("Wrote ") + std::to_string(n) + tr(" new difference lines to ") + file.string()};
     } catch (const std::exception& e) {
-        return Result{false, "Cannot write the difference log: " + std::string(e.what())};
+        return Result{false, tr("Cannot write the difference log: ") + std::string(e.what())};
     }
 }
 
 Result NetworkChecks::learn(const celldb::LearnOptions& options) {
     const std::vector<celldb::ObservedCell> received = observed_ ? observed_() : std::vector<celldb::ObservedCell>{};
-    if (received.empty()) return Result{false, "No cells received yet: start the radio or a replay first."};
+    if (received.empty()) return Result{false, tr("No cells received yet: start the radio or a replay first.")};
     celldb::CellDatabase db = project_.cell_database();
     const celldb::Technologies techs = technologies_ ? technologies_() : celldb::Technologies{};
     const celldb::LearnResult r = celldb::learn(db, received, techs, options);
     try {
         if (!r.added.empty() || !r.extended.empty()) project_.set_cell_database(db);
     } catch (const std::exception& e) {
-        return Result{false, std::string("Not stored: ") + e.what()};
+        return Result{false, std::string(tr("Not stored: ")) + e.what()};
     }
-    std::string msg = "Learned " + std::to_string(r.added.size()) + " new cells, extended " +
+    std::string msg = tr("Learned ") + std::to_string(r.added.size()) + tr(" new cells, extended ") +
                       std::to_string(r.extended.size());
-    if (r.ambiguous > 0) msg += "; " + std::to_string(r.ambiguous) + " received cells pair with several entries";
+    if (r.ambiguous > 0) msg += "; " + std::to_string(r.ambiguous) + tr(" received cells pair with several entries");
     return Result{true, msg};
 }
 
@@ -159,7 +160,7 @@ std::vector<std::pair<std::string, std::string>> NetworkChecks::serving_choices(
 
 Result NetworkChecks::choose_serving(const std::string& id) {
     const celldb::CellDatabase db = project_.cell_database();
-    if (db.find(id) == nullptr) return Result{false, "There is no cell " + id + " in the database."};
+    if (db.find(id) == nullptr) return Result{false, tr("There is no cell ") + id + tr(" in the database.")};
     form_.serving = id;
     for (const std::string& n : celldb::neighbour_entries(db, id))
         if (!form_.levels.count(n)) form_.levels[n] = kDefaultLevelDbm;
@@ -169,7 +170,7 @@ Result NetworkChecks::choose_serving(const std::string& id) {
 
 Result NetworkChecks::use_received_levels() {
     const std::vector<celldb::ObservedCell> received = observed_ ? observed_() : std::vector<celldb::ObservedCell>{};
-    if (received.empty()) return Result{false, "No cells received yet: start the radio or a replay first."};
+    if (received.empty()) return Result{false, tr("No cells received yet: start the radio or a replay first.")};
     const celldb::CellDatabase db = project_.cell_database();
     const celldb::Technologies techs = technologies_ ? technologies_() : celldb::Technologies{};
     const celldb::Verification ver = celldb::verify(db, received, techs);
@@ -179,8 +180,8 @@ Result NetworkChecks::use_received_levels() {
         form_.levels[c.entry] = received[c.observed].level;
         ++n;
     }
-    return Result{n > 0, n > 0 ? "Took the received levels of " + std::to_string(n) + " cells"
-                               : "No received cell pairs with a database entry."};
+    return Result{n > 0, n > 0 ? tr("Took the received levels of ") + std::to_string(n) + " cells"
+                               : tr("No received cell pairs with a database entry.")};
 }
 
 ReselectionView NetworkChecks::reselection() const {
@@ -188,7 +189,7 @@ ReselectionView NetworkChecks::reselection() const {
     const celldb::CellDatabase db = project_.cell_database();
     const celldb::CellEntry* serving = db.find(form_.serving);
     if (serving == nullptr) {
-        v.error = "Choose the serving cell.";
+        v.error = tr("Choose the serving cell.");
         return v;
     }
     const celldb::Technologies techs = technologies_ ? technologies_() : celldb::Technologies{};

@@ -3,6 +3,7 @@
 //
 // The sound interface's stand-ins, see audio.h.
 #include "yantra/app/audio.h"
+#include "yantra/app/i18n.h"
 
 #include <cmath>
 
@@ -13,7 +14,7 @@ namespace {
 class NoAudio final : public AudioIo {
 public:
     explicit NoAudio(std::string reason) : reason_(std::move(reason)) {}
-    std::string name() const override { return "no sound"; }
+    std::string name() const override { return tr("no sound"); }
     std::string capture_problem() const override { return reason_; }
     std::string playback_problem() const override { return reason_; }
     bool start_capture(std::uint32_t, std::string& error) override {
@@ -40,13 +41,13 @@ std::shared_ptr<AudioIo> make_no_audio(std::string reason) { return std::make_sh
 
 std::string FakeAudio::capture_problem() const {
     const std::lock_guard lock(mutex_);
-    return microphone_ ? std::string() : std::string("No microphone was found.");
+    return microphone_ ? std::string() : std::string(tr("No microphone was found."));
 }
 
 bool FakeAudio::start_capture(std::uint32_t rate, std::string& error) {
     const std::lock_guard lock(mutex_);
     if (!microphone_) {
-        error = "No microphone was found.";
+        error = tr("No microphone was found.");
         return false;
     }
     captured_ = {};

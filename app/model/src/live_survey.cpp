@@ -3,6 +3,7 @@
 //
 // The walk-test view's model, see live_survey.h.
 #include "yantra/app/live_survey.h"
+#include "yantra/app/i18n.h"
 
 #include <algorithm>
 #include <chrono>
@@ -56,7 +57,7 @@ std::string default_name(WalkKind k) {
     localtime_r(&t, &tm);
     char buf[32];
     std::strftime(buf, sizeof buf, "%Y-%m-%d %H:%M", &tm);
-    return std::string(k == WalkKind::MouseSurvey ? "Mouse survey " : k == WalkKind::Manual ? "Manual points " : "Walk ") + buf;
+    return std::string(k == WalkKind::MouseSurvey ? tr("Mouse survey ") : k == WalkKind::Manual ? tr("Manual points ") : tr("Walk ")) + buf;
 }
 
 }  // namespace
@@ -73,10 +74,10 @@ const char* walk_kind_key(WalkKind k) noexcept {
 
 const char* walk_kind_label(WalkKind k) noexcept {
     switch (k) {
-    case WalkKind::PointAndClick: return "Point and click";
-    case WalkKind::Continuous: return "Continuous";
-    case WalkKind::Manual: return "Manual points";
-    case WalkKind::MouseSurvey: return "Mouse survey";
+    case WalkKind::PointAndClick: return tr("Point and click");
+    case WalkKind::Continuous: return tr("Continuous");
+    case WalkKind::Manual: return tr("Manual points");
+    case WalkKind::MouseSurvey: return tr("Mouse survey");
     }
     return "";
 }
@@ -221,7 +222,7 @@ struct LiveSurvey::Impl {
         recording_by_walk = false;
         const std::string p = list_files(st.files);
         if (problems) *problems = p;
-        monitor->note(EventKind::Recording, "Recording " + st.name + " stopped (" + std::to_string(st.files.size()) +
+        monitor->note(EventKind::Recording, tr("Recording ") + st.name + tr(" stopped (") + std::to_string(st.files.size()) +
                                                 (st.files.size() == 1 ? " file)." : " files)."));
         return st.files.size();
     }
@@ -240,7 +241,7 @@ struct LiveSurvey::Impl {
         if (device) close_radio();
         std::string error;
         device = host->open(radio.plugin_id, radio.device_key, error);
-        if (!device) return "The radio could not be opened: " + error;
+        if (!device) return tr("The radio could not be opened: ") + error;
         ++device_generation;
         device_label = radio.label;
         device_plugin = radio.plugin_id;
@@ -257,7 +258,7 @@ struct LiveSurvey::Impl {
         if (const yr_status st = device->start(plan); st != YR_OK) {
             const std::string why = device->last_error();
             release_radio();
-            return "The radio did not start: " + (why.empty() ? std::string("error ") + std::to_string(st) : why);
+            return tr("The radio did not start: ") + (why.empty() ? std::string("error ") + std::to_string(st) : why);
         }
         return {};
     }
@@ -354,8 +355,8 @@ LiveSurvey::~LiveSurvey() = default;
 // -- radios ------------------------------------------------------------------------------
 
 Result LiveSurvey::find_radios() {
-    if (running()) return Result{false, "Stop the walk test first."};
-    if (radio_running()) return Result{false, "Stop the radio first."};
+    if (running()) return Result{false, tr("Stop the walk test first.")};
+    if (radio_running()) return Result{false, tr("Stop the radio first.")};
     impl_->close_radio();
     impl_->connected = false;
     searched_ = true;
@@ -365,7 +366,7 @@ Result LiveSurvey::find_radios() {
     try {
         impl_->ensure_host(impl_->period_ns != 0 ? impl_->period_ns : kWalkPeriodNs);
     } catch (const std::exception& e) {
-        radio_note_ = std::string("The radio plugins could not be loaded: ") + e.what();
+        radio_note_ = std::string(tr("The radio plugins could not be loaded: ")) + e.what();
         return Result{false, radio_note_};
     }
     std::string problems;
@@ -387,7 +388,7 @@ Result LiveSurvey::find_radios() {
             c.uses_context = e.uses_context;
             if (d.flags & (YR_DEVICE_IN_USE | YR_DEVICE_NO_PERMISSION)) {
                 c.usable = false;
-                c.reason = d.flags_reason.empty() ? std::string("The device is in use or not accessible.") : d.flags_reason;
+                c.reason = d.flags_reason.empty() ? std::string(tr("The device is in use or not accessible.")) : d.flags_reason;
             }
             radios_.push_back(std::move(c));
         }
@@ -398,18 +399,18 @@ Result LiveSurvey::find_radios() {
     for (std::size_t i = 0; i < radios_.size() && !chosen_; ++i)
         if (radios_[i].usable) chosen_ = i;
     if (radios_.empty()) {
-        radio_note_ = "No radio found. Connect a radio, or enable a radio plugin (the simulator needs no hardware).";
+        radio_note_ = tr("No radio found. Connect a radio, or enable a radio plugin (the simulator needs no hardware).");
         if (!problems.empty()) radio_note_ += " " + problems;
         return Result{false, radio_note_};
     }
     if (!problems.empty()) radio_note_ = problems;
-    return Result{true, std::to_string(radios_.size()) + (radios_.size() == 1 ? " radio found." : " radios found.")};
+    return Result{true, std::to_string(radios_.size()) + (radios_.size() == 1 ? tr(" radio found.") : tr(" radios found."))};
 }
 
 Result LiveSurvey::choose_radio(std::size_t index) {
-    if (running()) return Result{false, "Stop the walk test first."};
-    if (radio_running()) return Result{false, "Stop the radio first."};
-    if (index >= radios_.size()) return Result{false, "There is no such radio."};
+    if (running()) return Result{false, tr("Stop the walk test first.")};
+    if (radio_running()) return Result{false, tr("Stop the radio first.")};
+    if (index >= radios_.size()) return Result{false, tr("There is no such radio.")};
     if (!radios_[index].usable) return Result{false, radios_[index].reason};
     if (chosen_ != index && impl_->device) {
         impl_->close_radio();
@@ -423,30 +424,30 @@ Result LiveSurvey::choose_radio(std::size_t index) {
 
 Result LiveSurvey::connect() {
     Impl& m = *impl_;
-    if (!searched_) return Result{false, "Find the radios first."};
+    if (!searched_) return Result{false, tr("Find the radios first.")};
     const RadioChoice* r = chosen();
-    if (r == nullptr) return Result{false, radio_note_.empty() ? std::string("Choose a radio first.") : radio_note_};
+    if (r == nullptr) return Result{false, radio_note_.empty() ? std::string(tr("Choose a radio first.")) : radio_note_};
     if (m.device) {
         m.connected = true;
-        return Result{true, r->label + " is connected."};
+        return Result{true, r->label + tr(" is connected.")};
     }
     try {
         if (std::string e = m.open_device(*r, m.period_ns != 0 ? m.period_ns : kWalkPeriodNs); !e.empty())
             return Result{false, e};
     } catch (const std::exception& e) {
-        return Result{false, std::string("The radio could not be opened: ") + e.what()};
+        return Result{false, std::string(tr("The radio could not be opened: ")) + e.what()};
     }
     m.connected = true;
     m.monitor->note(EventKind::Radio, r->label + " connected.");
-    return Result{true, r->label + " is connected."};
+    return Result{true, r->label + tr(" is connected.")};
 }
 
 Result LiveSurvey::disconnect() {
     Impl& m = *impl_;
-    if (m.running_radio()) return Result{false, "Stop the radio first: it is measuring."};
+    if (m.running_radio()) return Result{false, tr("Stop the radio first: it is measuring.")};
     if (!m.device) {
         m.connected = false;
-        return Result{false, "No radio is connected."};
+        return Result{false, tr("No radio is connected.")};
     }
     const std::string label = m.device_label;
     m.close_radio();
@@ -482,13 +483,13 @@ Result LiveSurvey::set_calibration_table(const calibration::Table& table) {
         fs::create_directories(m.paths.calibration_table.parent_path(), ec);
         std::string error;
         if (!table.save(m.paths.calibration_table, error))
-            return Result{false, "The calibration table could not be saved: " + error};
+            return Result{false, tr("The calibration table could not be saved: ") + error};
     }
     auto t = std::make_shared<const calibration::Table>(table);
     m.table = t;
     if (m.pipeline) m.pipeline->set_corrector(std::make_shared<calibration::TableCorrector>(t, calibration::AntennaSettings{}));
-    return Result{true, m.paths.calibration_table.empty() ? std::string("Calibration table updated (not saved: no file).")
-                                                          : "Calibration table saved to " + m.paths.calibration_table.string() + "."};
+    return Result{true, m.paths.calibration_table.empty() ? std::string(tr("Calibration table updated (not saved: no file)."))
+                                                          : tr("Calibration table saved to ") + m.paths.calibration_table.string() + "."};
 }
 
 const RadioPaths& LiveSurvey::paths() const { return impl_->paths; }
@@ -506,16 +507,16 @@ Result LiveSurvey::load_radio_plugins() {
     try {
         m.ensure_host(m.period_ns != 0 ? m.period_ns : kWalkPeriodNs);
     } catch (const std::exception& e) {
-        return Result{false, std::string("The radio plugins could not be loaded: ") + e.what()};
+        return Result{false, std::string(tr("The radio plugins could not be loaded: ")) + e.what()};
     }
     return Result{true, ""};
 }
 
 Result LiveSurvey::change_plugins(const std::function<Result()>& change) {
     Impl& m = *impl_;
-    if (running()) return Result{false, "Stop the walk test first."};
-    if (recording()) return Result{false, "Stop the recording first."};
-    if (radio_running()) return Result{false, "Stop the radio first."};
+    if (running()) return Result{false, tr("Stop the walk test first.")};
+    if (recording()) return Result{false, tr("Stop the recording first.")};
+    if (radio_running()) return Result{false, tr("Stop the radio first.")};
     m.ensure_loader();
     // Nothing may call a plugin while it changes: the device, the host
     // (radio plugins) and the pipeline (the catalog of technology plugins).
@@ -531,7 +532,7 @@ Result LiveSurvey::change_plugins(const std::function<Result()>& change) {
     searched_ = false;
     const Result r = change();
     m.fill_catalog();
-    radio_note_ = "The plugins changed: find the radios again.";
+    radio_note_ = tr("The plugins changed: find the radios again.");
     return r;
 }
 
@@ -585,31 +586,31 @@ void LiveSurvey::cursor(std::optional<Point2> plan, double t_s) {
 bool LiveSurvey::running() const { return impl_->walk && impl_->walk->running(); }
 
 std::string LiveSurvey::start_reason(const std::string& floor_id) const {
-    if (running()) return "A walk test is running: stop it first.";
+    if (running()) return tr("A walk test is running: stop it first.");
     const building::Building b = impl_->project->building();
     const building::Floor* f = b.find_floor(floor_id);
-    if (f == nullptr) return "Choose a floor first.";
-    if (!searched_) return "Find the radios first.";
+    if (f == nullptr) return tr("Choose a floor first.");
+    if (!searched_) return tr("Find the radios first.");
     const RadioChoice* r = chosen();
-    if (r == nullptr) return radio_note_.empty() ? std::string("Choose a radio first.") : radio_note_;
+    if (r == nullptr) return radio_note_.empty() ? std::string(tr("Choose a radio first.")) : radio_note_;
     if (form_.kind == WalkKind::MouseSurvey) {
         if (!(r->simulated && r->uses_context))
-            return "The mouse survey needs the simulator as the radio: it calculates the levels where the mouse is.";
-        if (!b.has_scale(*f)) return "The mouse survey needs a floor with a scale (Plan and scale...).";
+            return tr("The mouse survey needs the simulator as the radio: it calculates the levels where the mouse is.");
+        if (!b.has_scale(*f)) return tr("The mouse survey needs a floor with a scale (Plan and scale...).");
     }
     if (impl_->recorder && impl_->period_ns != (form_.kind == WalkKind::MouseSurvey ? kMousePeriodNs : kWalkPeriodNs))
-        return "Stop the recording first: the mouse survey measures every 0.2 s, walks every second.";
+        return tr("Stop the recording first: the mouse survey measures every 0.2 s, walks every second.");
     if (form_.kind == WalkKind::Manual && !(form_.manual_seconds > 0.0 && form_.manual_seconds <= 600.0))
-        return "The time per point must be between 0 and 600 s.";
+        return tr("The time per point must be between 0 and 600 s.");
     if (form_.kind == WalkKind::MouseSurvey &&
         !(form_.spacing_m >= 0.0 && form_.spacing_m <= 10.0 && form_.max_speed_mps > 0.0 && form_.max_speed_mps <= 50.0))
-        return "The point spacing must be 0 to 10 m and the speed limit above 0 and at most 50 m/s.";
+        return tr("The point spacing must be 0 to 10 m and the speed limit above 0 and at most 50 m/s.");
     return {};
 }
 
 Result LiveSurvey::start(const std::string& floor_id) {
     if (const std::string why = start_reason(floor_id); !why.empty()) return Result{false, why};
-    if (!chosen_ || *chosen_ >= radios_.size()) return Result{false, "Choose a radio first."};
+    if (!chosen_ || *chosen_ >= radios_.size()) return Result{false, tr("Choose a radio first.")};
     const RadioChoice radio = radios_[*chosen_];
     Impl& m = *impl_;
     m.kind = form_.kind;
@@ -659,7 +660,7 @@ Result LiveSurvey::start(const std::string& floor_id) {
             m.unique_name = false;
             recording_form_ = keep;
             if (r.ok) m.recording_by_walk = true;
-            else note = " No recording file: " + r.message;
+            else note = tr(" No recording file: ") + r.message;
         }
         o.recorder = m.recorder;
         m.walk = std::make_shared<survey::WalkTest>(o);
@@ -669,19 +670,19 @@ Result LiveSurvey::start(const std::string& floor_id) {
         m.stop_walk();
         if (m.recording_by_walk) (void)m.end_recording();
         if (m.radio_by_walk) m.close_radio();
-        return Result{false, std::string("The walk test could not start: ") + e.what()};
+        return Result{false, std::string(tr("The walk test could not start: ")) + e.what()};
     }
     m.radio_label = radio.label;
     m.last_click.reset();
     m.open_start.reset();
     m.manual_point.reset();
     m.segments = 0;
-    return Result{true, std::string(walk_kind_label(form_.kind)) + " started with " + radio.label + "." + note};
+    return Result{true, std::string(walk_kind_label(form_.kind)) + tr(" started with ") + radio.label + "." + note};
 }
 
 Result LiveSurvey::click(Point2 plan) {
     Impl& m = *impl_;
-    if (!running()) return Result{false, "Start a walk test first."};
+    if (!running()) return Result{false, tr("Start a walk test first.")};
     const std::int64_t t = m.pipeline->clock().monotonic_ns();
     try {
         switch (m.kind) {
@@ -693,51 +694,51 @@ Result LiveSurvey::click(Point2 plan) {
             if (m.kind == WalkKind::Continuous || !closes) m.open_start = plan;
             else m.open_start.reset();
             m.last_click = plan;
-            return Result{true, closes ? "Segment " + std::to_string(m.segments) + " ended." : std::string("Walk on; click where you are next.")};
+            return Result{true, closes ? tr("Segment ") + std::to_string(m.segments) + " ended." : std::string(tr("Walk on; click where you are next."))};
         }
         case WalkKind::Manual:
             m.walk->point(t, plan, m.form.manual_seconds);
             m.manual_point = plan;
             m.last_click = plan;
-            return Result{true, "Measuring here for " + std::to_string(static_cast<int>(std::lround(m.form.manual_seconds))) + " s..."};
+            return Result{true, tr("Measuring here for ") + std::to_string(static_cast<int>(std::lround(m.form.manual_seconds))) + " s..."};
         case WalkKind::MouseSurvey: break;
         }
     } catch (const std::exception& e) {
         return Result{false, e.what()};
     }
-    return Result{false, "In the mouse survey a click interpolates."};
+    return Result{false, tr("In the mouse survey a click interpolates.")};
 }
 
 Result LiveSurvey::pause() {
     Impl& m = *impl_;
     if (!running() || (m.kind != WalkKind::PointAndClick && m.kind != WalkKind::Continuous))
-        return Result{false, "Pause is for a walk (point and click or continuous)."};
+        return Result{false, tr("Pause is for a walk (point and click or continuous).")};
     m.walk->pause(m.pipeline->clock().monotonic_ns());
     m.open_start.reset();
-    return Result{true, "Paused: the open segment is dropped; click to start again."};
+    return Result{true, tr("Paused: the open segment is dropped; click to start again.")};
 }
 
 Result LiveSurvey::delete_last() {
     Impl& m = *impl_;
-    if (!running() || m.kind == WalkKind::MouseSurvey) return Result{false, "Delete last is for a walk or manual points."};
+    if (!running() || m.kind == WalkKind::MouseSurvey) return Result{false, tr("Delete last is for a walk or manual points.")};
     const bool removed = m.walk->delete_last(m.pipeline->clock().monotonic_ns());
     if (m.kind != WalkKind::Manual && removed && m.segments > 0 && !m.open_start) --m.segments;
     m.open_start.reset();
     m.manual_point.reset();
-    return removed ? Result{true, m.kind == WalkKind::Manual ? "The last point was removed." : "The last segment was removed."}
-                   : Result{false, "Nothing to remove."};
+    return removed ? Result{true, m.kind == WalkKind::Manual ? tr("The last point was removed.") : tr("The last segment was removed.")}
+                   : Result{false, tr("Nothing to remove.")};
 }
 
 Result LiveSurvey::stop() {
     Impl& m = *impl_;
-    if (!m.walk) return Result{false, "No walk test is running."};
+    if (!m.walk) return Result{false, tr("No walk test is running.")};
     const std::size_t n = m.walk->stored();
     m.stop_walk();
     if (m.recording_by_walk) (void)m.end_recording();
     if (m.radio_by_walk) m.release_radio();
     m.open_start.reset();
     m.manual_point.reset();
-    return Result{true, "Walk test stopped: " + std::to_string(n) + (n == 1 ? " point" : " points") + " stored."};
+    return Result{true, tr("Walk test stopped: ") + std::to_string(n) + (n == 1 ? " point" : " points") + " stored."};
 }
 
 WalkView LiveSurvey::view() const {
@@ -757,15 +758,15 @@ WalkView LiveSurvey::view() const {
     v.manual_point = m.manual_point;
     switch (m.kind) {
     case WalkKind::PointAndClick:
-        v.hint = m.open_start ? "Walk to the end of the segment and click there." : "Click the start point, then walk.";
+        v.hint = m.open_start ? tr("Walk to the end of the segment and click there.") : tr("Click the start point, then walk.");
         break;
     case WalkKind::Continuous:
-        v.hint = m.open_start ? "Click where you are at each turn; every click ends a segment and starts the next."
-                              : "Click the start point, then walk.";
+        v.hint = m.open_start ? tr("Click where you are at each turn; every click ends a segment and starts the next.")
+                              : tr("Click the start point, then walk.");
         break;
-    case WalkKind::Manual: v.hint = "Stand still at a point and click it: it is measured for the set time."; break;
+    case WalkKind::Manual: v.hint = tr("Stand still at a point and click it: it is measured for the set time."); break;
     case WalkKind::MouseSurvey:
-        v.hint = "Move the mouse slowly over the plan to measure; click to interpolate. Esc stops.";
+        v.hint = tr("Move the mouse slowly over the plan to measure; click to interpolate. Esc stops.");
         v.too_fast = m.speed > m.form.max_speed_mps;
         break;
     }
@@ -776,30 +777,30 @@ WalkView LiveSurvey::view() const {
 
 Result LiveSurvey::start_radio() {
     Impl& m = *impl_;
-    if (m.running_radio()) return Result{false, "The radio is measuring already."};
-    if (!searched_) return Result{false, "Find the radios first."};
+    if (m.running_radio()) return Result{false, tr("The radio is measuring already.")};
+    if (!searched_) return Result{false, tr("Find the radios first.")};
     const RadioChoice* r = chosen();
-    if (r == nullptr) return Result{false, radio_note_.empty() ? std::string("Choose a radio first.") : radio_note_};
+    if (r == nullptr) return Result{false, radio_note_.empty() ? std::string(tr("Choose a radio first.")) : radio_note_};
     try {
         update();
         if (std::string e = m.open_radio(*r, m.period_ns != 0 ? m.period_ns : kWalkPeriodNs); !e.empty())
             return Result{false, e};
     } catch (const std::exception& e) {
         m.release_radio();
-        return Result{false, std::string("The radio could not start: ") + e.what()};
+        return Result{false, std::string(tr("The radio could not start: ")) + e.what()};
     }
     std::string note;
     if (recording_form_.ring)
         if (const Result rr = apply_ring(); !rr.ok) note = " " + rr.message;
-    m.monitor->note(EventKind::Radio, r->label + " measuring (monitoring).");
-    return Result{true, r->label + " is measuring." + note};
+    m.monitor->note(EventKind::Radio, r->label + tr(" measuring (monitoring)."));
+    return Result{true, r->label + tr(" is measuring.") + note};
 }
 
 Result LiveSurvey::stop_radio() {
     Impl& m = *impl_;
-    if (running()) return Result{false, "Stop the walk test first."};
-    if (m.recorder) return Result{false, "Stop the recording first."};
-    if (!m.running_radio()) return Result{false, "The radio is not measuring."};
+    if (running()) return Result{false, tr("Stop the walk test first.")};
+    if (m.recorder) return Result{false, tr("Stop the recording first.")};
+    if (!m.running_radio()) return Result{false, tr("The radio is not measuring.")};
     const std::string label = m.device_label;
     m.release_radio();
     m.monitor->note(EventKind::Radio, label + " stopped.");
@@ -817,11 +818,11 @@ RadioState LiveSurvey::radio_state() const {
     s.label = s.running ? m.device_label : c ? c->label : std::string();
     s.cycles = cycles();
     s.lost = s.running && (m.monitor->last_flags() & measure::sample_flag::kDeviceLost) != 0;
-    if (!searched_) s.text = "Radio: not searched";
-    else if (!s.chosen && !s.running) s.text = "No radio";
-    else if (s.lost) s.text = s.label + ": unplugged, waiting";
-    else if (s.running) s.text = s.label + (running() ? ": walk test" : ": measuring");
-    else s.text = s.label + ": idle";
+    if (!searched_) s.text = tr("Radio: not searched");
+    else if (!s.chosen && !s.running) s.text = tr("No radio");
+    else if (s.lost) s.text = s.label + tr(": unplugged, waiting");
+    else if (s.running) s.text = s.label + (running() ? tr(": walk test") : tr(": measuring"));
+    else s.text = s.label + tr(": idle");
     return s;
 }
 
@@ -849,13 +850,13 @@ fs::path LiveSurvey::recordings_folder() const { return impl_->recordings_folder
 
 std::string LiveSurvey::record_reason() const {
     const Impl& m = *impl_;
-    if (m.recorder) return "A recording is running.";
-    if (!m.running_radio()) return "Start the radio (or a walk test) first: a recording holds its measurements.";
+    if (m.recorder) return tr("A recording is running.");
+    if (!m.running_radio()) return tr("Start the radio (or a walk test) first: a recording holds its measurements.");
     const RecordingForm& f = recording_form_;
     if (f.split_minutes != 0.0 && !(f.split_minutes >= 1.0 && f.split_minutes <= 60.0))
-        return "Split by time must be off (0) or 1 to 60 minutes.";
+        return tr("Split by time must be off (0) or 1 to 60 minutes.");
     if (!f.name.empty() && !recording::valid_session_name(f.name))
-        return "The name cannot be a file name (no / or \\, at most 120 characters).";
+        return tr("The name cannot be a file name (no / or \\, at most 120 characters).");
     return {};
 }
 
@@ -872,7 +873,7 @@ Result LiveSurvey::record(bool quick) {
     try {
         r = recording::Recorder::create(m.pipeline, c);
     } catch (const std::exception& e) {
-        return Result{false, std::string("The recording could not start: ") + e.what()};
+        return Result{false, std::string(tr("The recording could not start: ")) + e.what()};
     }
     if (m.shown) {
         const building::Building b = m.project->building();
@@ -890,35 +891,35 @@ Result LiveSurvey::record(bool quick) {
     }
     if (!ok) {
         r->detach();
-        return Result{false, "The recording could not start: " + error};
+        return Result{false, tr("The recording could not start: ") + error};
     }
     m.recorder = r;
     const recording::RecorderStatus st = r->status();
-    m.monitor->note(EventKind::Recording, "Recording " + st.name + " started.");
-    return Result{true, "Recording " + st.name + " into " + c.folder.filename().string() + "/."};
+    m.monitor->note(EventKind::Recording, tr("Recording ") + st.name + " started.");
+    return Result{true, tr("Recording ") + st.name + " into " + c.folder.filename().string() + "/."};
 }
 
 Result LiveSurvey::stop_recording() {
     Impl& m = *impl_;
-    if (!m.recorder) return Result{false, "No recording is running."};
-    if (running() && m.recording_by_walk) return Result{false, "The walk test records into this file: stop the walk test."};
+    if (!m.recorder) return Result{false, tr("No recording is running.")};
+    if (running() && m.recording_by_walk) return Result{false, tr("The walk test records into this file: stop the walk test.")};
     const std::string name = m.recorder->status().name;
     std::string problems;
     const std::size_t n = m.end_recording(&problems);
-    if (!problems.empty()) return Result{false, "Recording " + name + " stopped, but not all files are listed: " + problems};
-    return Result{true, "Recording " + name + " stopped: " + std::to_string(n) + (n == 1 ? " file" : " files") +
-                            " listed in the project."};
+    if (!problems.empty()) return Result{false, tr("Recording ") + name + tr(" stopped, but not all files are listed: ") + problems};
+    return Result{true, tr("Recording ") + name + " stopped: " + std::to_string(n) + (n == 1 ? " file" : " files") +
+                            tr(" listed in the project.")};
 }
 
 Result LiveSurvey::marker(const std::string& label, recording::MarkerAction action) {
     Impl& m = *impl_;
     if (!m.recorder || m.recorder->status().state != recording::RecorderState::Recording)
-        return Result{false, "Markers are set while recording."};
+        return Result{false, tr("Markers are set while recording.")};
     const std::uint32_t n = m.recorder->marker(label, action);
-    if (n == 0) return Result{false, "The marker could not be set."};
-    const std::string text = "Marker " + std::to_string(n) + (label.empty() ? "" : ": " + label) +
-                             (action == recording::MarkerAction::NewFile        ? " (new file)"
-                              : action == recording::MarkerAction::NewFilePause ? " (new file, paused)"
+    if (n == 0) return Result{false, tr("The marker could not be set.")};
+    const std::string text = tr("Marker ") + std::to_string(n) + (label.empty() ? "" : ": " + label) +
+                             (action == recording::MarkerAction::NewFile        ? tr(" (new file)")
+                              : action == recording::MarkerAction::NewFilePause ? tr(" (new file, paused)")
                                                                                 : "");
     m.monitor->note(EventKind::Marker, text + ".");
     return Result{true, text + "."};
@@ -926,11 +927,11 @@ Result LiveSurvey::marker(const std::string& label, recording::MarkerAction acti
 
 Result LiveSurvey::resume_recording() {
     Impl& m = *impl_;
-    if (!m.recorder) return Result{false, "No recording is running."};
+    if (!m.recorder) return Result{false, tr("No recording is running.")};
     std::string error;
-    if (!m.recorder->resume(error)) return Result{false, "The recording could not go on: " + error};
-    m.monitor->note(EventKind::Recording, "Recording resumed in a new file.");
-    return Result{true, "Recording resumed in a new file."};
+    if (!m.recorder->resume(error)) return Result{false, tr("The recording could not go on: ") + error};
+    m.monitor->note(EventKind::Recording, tr("Recording resumed in a new file."));
+    return Result{true, tr("Recording resumed in a new file.")};
 }
 
 recording::RecorderStatus LiveSurvey::recording_status() const {
@@ -951,11 +952,11 @@ Result LiveSurvey::apply_ring() {
     if (!f.ring) {
         if (!m.ring) return {};
         m.stop_ring();
-        return Result{true, "The ring buffer is off."};
+        return Result{true, tr("The ring buffer is off.")};
     }
-    if (m.paths.ring_folder.empty()) return Result{false, "There is no folder for the ring buffer."};
-    if (!(f.ring_minutes >= 2.0 && f.ring_minutes <= 60.0)) return Result{false, "The ring buffer keeps 2 to 60 minutes."};
-    if (!m.running_radio()) return Result{true, "The ring buffer starts with the radio."};
+    if (m.paths.ring_folder.empty()) return Result{false, tr("There is no folder for the ring buffer.")};
+    if (!(f.ring_minutes >= 2.0 && f.ring_minutes <= 60.0)) return Result{false, tr("The ring buffer keeps 2 to 60 minutes.")};
+    if (!m.running_radio()) return Result{true, tr("The ring buffer starts with the radio.")};
     if (m.ring) return {};
     // The ring's folder is temporary: its old files go (a ring is saved with save_ring).
     std::error_code ec;
@@ -969,27 +970,27 @@ Result LiveSurvey::apply_ring() {
     if (f.ring_messages_per_file > 0) c.split_messages = f.ring_messages_per_file;
     else c.split_minutes = 1.0;
     c.ring_files = static_cast<std::uint32_t>(std::max(2.0, std::ceil(f.ring_minutes)));
-    c.info = m.header_info("ring buffer");
+    c.info = m.header_info(tr("ring buffer"));
     try {
         m.ring = recording::Recorder::create(m.pipeline, c);
     } catch (const std::exception& e) {
-        return Result{false, std::string("The ring buffer could not start: ") + e.what()};
+        return Result{false, std::string(tr("The ring buffer could not start: ")) + e.what()};
     }
     std::string error;
     if (!m.ring->start("ring", error)) {
         m.ring->detach();
         m.ring.reset();
-        return Result{false, "The ring buffer could not start: " + error};
+        return Result{false, tr("The ring buffer could not start: ") + error};
     }
     m.ring_kept.clear();
-    return Result{true, "The ring buffer keeps the last " + std::to_string(c.ring_files) + " minutes."};
+    return Result{true, tr("The ring buffer keeps the last ") + std::to_string(c.ring_files) + " minutes."};
 }
 
 Result LiveSurvey::save_ring(const std::string& name) {
     Impl& m = *impl_;
     std::vector<fs::path> files = ring_files();
-    if (files.empty()) return Result{false, "The ring buffer is empty."};
-    if (!recording::valid_session_name(name)) return Result{false, "The name cannot be a file name."};
+    if (files.empty()) return Result{false, tr("The ring buffer is empty.")};
+    if (!recording::valid_session_name(name)) return Result{false, tr("The name cannot be a file name.")};
     if (m.ring) {
         std::string error;
         (void)m.ring->flush(error);
@@ -1001,13 +1002,13 @@ Result LiveSurvey::save_ring(const std::string& name) {
     q.folder = m.recordings_folder();
     q.name = name;
     q.catalog = m.catalog;
-    q.notes = "saved from the ring buffer";
+    q.notes = tr("saved from the ring buffer");
     const recording::CutResult c = recording::cut_recording(q);
-    if (!c.ok) return Result{false, "The ring buffer could not be saved: " + c.error};
+    if (!c.ok) return Result{false, tr("The ring buffer could not be saved: ") + c.error};
     const std::string problems = m.list_files(c.files);
-    m.monitor->note(EventKind::Recording, "The ring buffer was saved as " + name + ".");
-    if (!problems.empty()) return Result{false, "Saved as " + name + ", but not listed: " + problems};
-    return Result{true, "The last " + std::to_string((c.to_ns - c.from_ns) / 1'000'000'000) + " s were saved as " + name + "."};
+    m.monitor->note(EventKind::Recording, tr("The ring buffer was saved as ") + name + ".");
+    if (!problems.empty()) return Result{false, tr("Saved as ") + name + tr(", but not listed: ") + problems};
+    return Result{true, tr("The last ") + std::to_string((c.to_ns - c.from_ns) / 1'000'000'000) + tr(" s were saved as ") + name + "."};
 }
 
 void LiveSurvey::set_audio(std::shared_ptr<AudioIo> audio) { impl_->audio = std::move(audio); }
@@ -1015,35 +1016,35 @@ void LiveSurvey::set_audio(std::shared_ptr<AudioIo> audio) { impl_->audio = std:
 std::string LiveSurvey::voice_reason() const {
     const Impl& m = *impl_;
     if (!m.recorder || m.recorder->status().state != recording::RecorderState::Recording)
-        return "Voice notes go into a running recording: start one first.";
-    if (!m.audio) return "There is no sound device.";
+        return tr("Voice notes go into a running recording: start one first.");
+    if (!m.audio) return tr("There is no sound device.");
     return m.audio->capture_problem();
 }
 
 Result LiveSurvey::voice_start() {
     Impl& m = *impl_;
-    if (m.voice) return Result{false, "A voice note is being recorded."};
+    if (m.voice) return Result{false, tr("A voice note is being recorded.")};
     if (const std::string why = voice_reason(); !why.empty()) return Result{false, why};
     std::string error;
-    if (!m.audio->start_capture(16000, error)) return Result{false, "The microphone did not start: " + error};
+    if (!m.audio->start_capture(16000, error)) return Result{false, tr("The microphone did not start: ") + error};
     m.voice = true;
     m.voice_t0 = m.pipeline->clock().monotonic_ns();
-    return Result{true, "Speak now; stop to store the note."};
+    return Result{true, tr("Speak now; stop to store the note.")};
 }
 
 Result LiveSurvey::voice_stop(const std::string& label) {
     Impl& m = *impl_;
-    if (!m.voice) return Result{false, "No voice note is being recorded."};
+    if (!m.voice) return Result{false, tr("No voice note is being recorded.")};
     m.voice = false;
     const recording::Audio a = m.audio->stop_capture();
-    if (a.samples.empty()) return Result{false, "Nothing was recorded."};
-    if (!m.recorder) return Result{false, "The recording has stopped: the note was not stored."};
+    if (a.samples.empty()) return Result{false, tr("Nothing was recorded.")};
+    if (!m.recorder) return Result{false, tr("The recording has stopped: the note was not stored.")};
     std::string error;
     const auto v = m.recorder->add_voice(a, m.voice_t0, label, error);
-    if (!v) return Result{false, "The voice note was not stored: " + error};
+    if (!v) return Result{false, tr("The voice note was not stored: ") + error};
     char secs[32];
     std::snprintf(secs, sizeof secs, "%.1f s", v->seconds);
-    const std::string text = "Voice note " + std::to_string(v->number) + " (" + secs + ")" + (label.empty() ? "" : ": " + label);
+    const std::string text = tr("Voice note ") + std::to_string(v->number) + " (" + secs + ")" + (label.empty() ? "" : ": " + label);
     m.monitor->note(EventKind::VoiceNote, text + ".", m.voice_t0);
     return Result{true, text + " stored."};
 }

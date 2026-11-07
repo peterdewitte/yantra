@@ -11,6 +11,7 @@
 // controls "plg.<control id>" inside their window, menu entries
 // "plg.<plugin id>.<item id>", menus "menu.view" / "menu.tools".
 #include "gui.h"
+#include "yantra/app/i18n.h"
 #include "gui_widgets.h"
 
 #include <imgui.h>
@@ -67,7 +68,7 @@ void control_help(yantra_ui* ui, const yantra_ui_control* c) {
     a.tooltip = tr(ui, c->tooltip);
     if (c->shortcut != nullptr && *c->shortcut != '\0') a.tooltip += std::string(" [") + c->shortcut + "]";
     a.enabled = !disabled(c);
-    if (!a.enabled) a.disabled_reason = c->disabled_reason != nullptr ? tr(ui, c->disabled_reason) : "Not available now.";
+    if (!a.enabled) a.disabled_reason = c->disabled_reason != nullptr ? tr(ui, c->disabled_reason) : ::yantra::app::tr("Not available now.");
     item_tooltip(a);
     if (c->help != nullptr && *c->help != '\0') help_marker(tr(ui, c->help, verbatim(c)).c_str());
 }
@@ -390,7 +391,7 @@ void Gui::draw_plugin_menus() {
     const struct {
         std::uint32_t menu;
         const char* label;
-    } menus[] = {{YANTRA_MENU_VIEW, "View###menu.view"}, {YANTRA_MENU_TOOLS, "Tools###menu.tools"}};
+    } menus[] = {{YANTRA_MENU_VIEW, tr("View###menu.view")}, {YANTRA_MENU_TOOLS, tr("Tools###menu.tools")}};
     for (const auto& m : menus) {
         // The menus appear when an enabled plugin adds entries (UI-14).
         if (!ui.has_menu(m.menu)) continue;
@@ -462,20 +463,20 @@ void Gui::draw_plugin_windows() {
         ++n;
         if (!st.confirm.empty()) {
             // YANTRA_UI_CONFIRM: ask; "Yes" reports the click next frame.
-            const std::string q = "Confirm###" + w.id + ".confirm";
+            const std::string q = tr("Confirm###") + w.id + ".confirm";
             if (!ImGui::IsPopupOpen(q.c_str())) ImGui::OpenPopup(q.c_str());
             ImGui::SetNextWindowPos(vp->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5F, 0.5F));
             if (ImGui::BeginPopupModal(q.c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
                 ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
                 ImGui::TextUnformatted(st.confirm_text.c_str());
                 ImGui::PopTextWrapPos();
-                if (dialog_button("Yes###plg.confirm.ok", "Go ahead")) {
+                if (dialog_button(tr("Yes###plg.confirm.ok"), tr("Go ahead"))) {
                     st.confirmed = st.confirm;
                     st.confirm.clear();
                     ImGui::CloseCurrentPopup();
                 }
                 ImGui::SameLine();
-                if (dialog_button("No###plg.confirm.cancel", "Do not do it [Esc]") || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+                if (dialog_button(tr("No###plg.confirm.cancel"), tr("Do not do it [Esc]")) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
                     st.confirm.clear();
                     ImGui::CloseCurrentPopup();
                 }

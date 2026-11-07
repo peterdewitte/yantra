@@ -60,43 +60,43 @@ void Gui::draw_settings_general(AppSettings& f) {
     if (ImGui::InputDouble(tr("UI scale (%)###settings.ui_scale"), &percent, 5.0, 25.0, "%.0f")) f.ui_scale = percent / 100.0;
     text_tooltip(tr("Makes text and controls larger or smaller (75 to 250 %), on top of the display's own scaling."));
 
-    ImGui::SeparatorText("Help");
-    ImGui::Checkbox("Show tooltips###settings.tooltips", &f.tooltips);
-    text_tooltip("Show the hover texts of the controls. The (?) markers and the reasons of greyed controls stay.");
+    ImGui::SeparatorText(tr("Help"));
+    ImGui::Checkbox(tr("Show tooltips###settings.tooltips"), &f.tooltips);
+    text_tooltip(tr("Show the hover texts of the controls. The (?) markers and the reasons of greyed controls stay."));
     ImGui::BeginDisabled(!f.tooltips);
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
     ImGui::InputDouble("Tooltip delay (s)###settings.tooltip_delay", &f.tooltip_delay_s, 0.1, 0.5, "%.1f");
-    text_tooltip("How long the pointer rests on a control before its tooltip shows (0 to 5 s).");
+    text_tooltip(tr("How long the pointer rests on a control before its tooltip shows (0 to 5 s)."));
     ImGui::EndDisabled();
 
-    ImGui::SeparatorText("Window system");
+    ImGui::SeparatorText(tr("Window system"));
     const char* systems[] = {"auto", "x11", "wayland"};
     int ws = 0;
     for (int i = 0; i < 3; ++i)
         if (f.window_system == systems[i]) ws = i;
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
-    if (ImGui::Combo("Window system###settings.window_system", &ws, "Automatic\0X11\0Wayland\0")) f.window_system = systems[ws];
-    text_tooltip("Which window system Yantra uses on Linux (NFR-10). Applies at the next start.");
-    help_marker("Automatic picks Wayland when the desktop runs it, else X11. The command line option --window-system overrides it.");
+    if (ImGui::Combo(tr("Window system###settings.window_system"), &ws, tr("Automatic\0X11\0Wayland\0"))) f.window_system = systems[ws];
+    text_tooltip(tr("Which window system Yantra uses on Linux (NFR-10). Applies at the next start."));
+    help_marker(tr("Automatic picks Wayland when the desktop runs it, else X11. The command line option --window-system overrides it."));
 }
 
 void Gui::draw_settings_survey(AppSettings& f) {
-    ImGui::SeparatorText("Coverage");
+    ImGui::SeparatorText(tr("Coverage"));
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
     ImGui::InputDouble("Coverage threshold (dBm)###settings.threshold", &f.survey.threshold_dbm, 1.0, 5.0, "%.0f");
-    text_tooltip("The serving level that counts as covered in the statistics and the survey panel (UI-11), -150 to -20 dBm.");
+    text_tooltip(tr("The serving level that counts as covered in the statistics and the survey panel (UI-11), -150 to -20 dBm."));
 
-    ImGui::SeparatorText("Live graphs");
+    ImGui::SeparatorText(tr("Live graphs"));
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
     ImGui::InputDouble("Graph span (min)###settings.graph_span", &f.survey.graph_span_min, 1.0, 5.0, "%.0f");
-    text_tooltip("How many minutes the live level, C1 and quality graphs show (1 to 60). A replay shows the whole recording.");
+    text_tooltip(tr("How many minutes the live level, C1 and quality graphs show (1 to 60). A replay shows the whole recording."));
 
-    ImGui::SeparatorText("Ring buffer");
-    ImGui::Checkbox("Ring buffer on when a project opens###settings.ring", &f.survey.ring);
-    text_tooltip("Keep the last minutes of measurements while no recording runs, to save them afterwards (REC-09).");
+    ImGui::SeparatorText(tr("Ring buffer"));
+    ImGui::Checkbox(tr("Ring buffer on when a project opens###settings.ring"), &f.survey.ring);
+    text_tooltip(tr("Keep the last minutes of measurements while no recording runs, to save them afterwards (REC-09)."));
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
     ImGui::InputDouble("Ring buffer length (min)###settings.ring_minutes", &f.survey.ring_minutes, 1.0, 5.0, "%.0f");
-    text_tooltip("How many minutes the ring buffer keeps (2 to 60). A running ring buffer keeps its length.");
+    text_tooltip(tr("How many minutes the ring buffer keeps (2 to 60). A running ring buffer keeps its length."));
 }
 
 void Gui::draw_settings_sound(AppSettings& f) {
@@ -196,21 +196,21 @@ void Gui::draw_settings_sound(AppSettings& f) {
 void Gui::draw_plugin_manager() {
     const PluginManagerView v = state_.plugin_manager();
     ImGui::PushTextWrapPos(0.0F);
-    ImGui::TextUnformatted("Switch plugins on or off. A switched-off plugin stays installed and keeps its settings (PLG-09).");
+    ImGui::TextUnformatted(tr("Switch plugins on or off. A switched-off plugin stays installed and keeps its settings (PLG-09)."));
     ImGui::PopTextWrapPos();
-    if (v.plugins.empty()) ImGui::TextDisabled("No plugins are installed.");
+    if (v.plugins.empty()) ImGui::TextDisabled(tr("No plugins are installed."));
     const ImGuiTableFlags flags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp |
                                   ImGuiTableFlags_ScrollY;
     if (!v.plugins.empty() &&
         ImGui::BeginTable("###plugins.table", 7, flags, ImVec2(0.0F, ImGui::GetFontSize() * 16.0F))) {
         ImGui::TableSetupScrollFreeze(0, 1);
-        ImGui::TableSetupColumn("On", ImGuiTableColumnFlags_WidthFixed);
-        ImGui::TableSetupColumn("Plugin");
-        ImGui::TableSetupColumn("Version", ImGuiTableColumnFlags_WidthFixed);
-        ImGui::TableSetupColumn("API", ImGuiTableColumnFlags_WidthFixed);
-        ImGui::TableSetupColumn("Author");
-        ImGui::TableSetupColumn("Licence");
-        ImGui::TableSetupColumn("Status");
+        ImGui::TableSetupColumn(tr("On"), ImGuiTableColumnFlags_WidthFixed);
+        ImGui::TableSetupColumn(tr("Plugin"));
+        ImGui::TableSetupColumn(tr("Version"), ImGuiTableColumnFlags_WidthFixed);
+        ImGui::TableSetupColumn(tr("API"), ImGuiTableColumnFlags_WidthFixed);
+        ImGui::TableSetupColumn(tr("Author"));
+        ImGui::TableSetupColumn(tr("Licence"));
+        ImGui::TableSetupColumn(tr("Status"));
         ImGui::TableHeadersRow();
         for (std::size_t i = 0; i < v.plugins.size(); ++i) {
             const PluginRowView& p = v.plugins[i];
@@ -222,7 +222,7 @@ void Gui::draw_plugin_manager() {
             if (ImGui::Checkbox(id.c_str(), &on)) (void)state_.show(state_.set_plugin_enabled(p.radio, p.id, on));
             ImGui::EndDisabled();
             ActionView a;
-            a.tooltip = std::string(p.enabled ? "Switch " : "Switch on ") + p.name + (p.enabled ? " off." : ".");
+            a.tooltip = std::string(p.enabled ? tr("Switch ") : tr("Switch on ")) + p.name + (p.enabled ? " off." : ".");
             a.enabled = p.can_toggle;
             a.disabled_reason = p.toggle_reason;
             item_tooltip(a);
@@ -284,17 +284,17 @@ void Gui::draw_settings() {
     error_line(state_);
     const bool changed = !(f == state_.settings());
     ImGui::BeginDisabled(!why.empty() || !changed);
-    if (dialog_button("Apply###dlg.apply", "Use these settings and keep the window open.")) (void)state_.show(state_.apply_settings(f));
+    if (dialog_button(tr("Apply###dlg.apply"), tr("Use these settings and keep the window open."))) (void)state_.show(state_.apply_settings(f));
     ImGui::EndDisabled();
     ImGui::SameLine();
     ImGui::BeginDisabled(!why.empty());
-    if (dialog_button("OK###dlg.ok", "Use these settings and close [Enter]") ||
+    if (dialog_button(tr("OK###dlg.ok"), tr("Use these settings and close [Enter]")) ||
         (why.empty() && !editing && ImGui::IsKeyPressed(ImGuiKey_Enter))) {
         if (state_.show(state_.apply_settings(f)).ok) state_.cancel_dialog();
     }
     ImGui::EndDisabled();
     ImGui::SameLine();
-    if (dialog_button("Cancel###dlg.cancel", "Close without the changes not applied yet [Esc]") ||
+    if (dialog_button(tr("Cancel###dlg.cancel"), tr("Close without the changes not applied yet [Esc]")) ||
         ImGui::IsKeyPressed(ImGuiKey_Escape))
         state_.cancel_dialog();
 }
@@ -302,14 +302,14 @@ void Gui::draw_settings() {
 void Gui::draw_reset_settings() {
     ResetForm& f = state_.reset_form();
     ImGui::PushTextWrapPos(ImGui::GetFontSize() * 34.0F);
-    ImGui::TextUnformatted("All settings go back to their defaults and the UI restarts as on the first start.");
+    ImGui::TextUnformatted(tr("All settings go back to their defaults and the UI restarts as on the first start."));
     ImGui::PopTextWrapPos();
-    ImGui::Checkbox("Also reset the calibration tables###reset.calibration", &f.also_calibration);
-    text_tooltip("The level calibration of the radios (RF-02). Without it, the calibration stays.");
+    ImGui::Checkbox(tr("Also reset the calibration tables###reset.calibration"), &f.also_calibration);
+    text_tooltip(tr("The level calibration of the radios (RF-02). Without it, the calibration stays."));
     const ResetSummary s = state_.reset_summary();
     if (ImGui::BeginTable("###reset.lists", 2, ImGuiTableFlags_BordersInnerV)) {
-        ImGui::TableSetupColumn("Reset");
-        ImGui::TableSetupColumn("Kept");
+        ImGui::TableSetupColumn(tr("Reset"));
+        ImGui::TableSetupColumn(tr("Kept"));
         ImGui::TableHeadersRow();
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
@@ -321,14 +321,14 @@ void Gui::draw_reset_settings() {
     const std::filesystem::path root = state_.reset_backup_root();
     ImGui::PushTextWrapPos(ImGui::GetFontSize() * 34.0F);
     if (!root.empty())
-        ImGui::TextDisabled("A time-stamped backup of the current settings is made in %s first.", root.string().c_str());
+        ImGui::TextDisabled(tr("A time-stamped backup of the current settings is made in %s first."), root.string().c_str());
     else
-        ImGui::TextDisabled("The settings are not saved in this run, so there is nothing to back up.");
+        ImGui::TextDisabled(tr("The settings are not saved in this run, so there is nothing to back up."));
     ImGui::PopTextWrapPos();
     error_line(state_);
-    if (dialog_button("Reset###dlg.ok", "Back up and reset all settings now.")) (void)state_.show(state_.confirm_reset_settings());
+    if (dialog_button(tr("Reset###dlg.ok"), tr("Back up and reset all settings now."))) (void)state_.show(state_.confirm_reset_settings());
     ImGui::SameLine();
-    if (dialog_button("Cancel###dlg.cancel", "Keep the settings [Esc]") || ImGui::IsKeyPressed(ImGuiKey_Escape))
+    if (dialog_button(tr("Cancel###dlg.cancel"), tr("Keep the settings [Esc]")) || ImGui::IsKeyPressed(ImGuiKey_Escape))
         state_.cancel_dialog();
 }
 

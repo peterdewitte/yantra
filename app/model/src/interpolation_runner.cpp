@@ -3,6 +3,7 @@
 //
 // The interpolation layer's commands, see interpolation_runner.h.
 #include "yantra/app/interpolation_runner.h"
+#include "yantra/app/i18n.h"
 
 #include <cmath>
 #include <cstdio>
@@ -27,12 +28,12 @@ bool InterpolationRunner::running() const {
 }
 
 std::string InterpolationRunner::run_reason(const std::string& floor_id) const {
-    if (running()) return "An interpolation is running; wait for it or cancel it.";
+    if (running()) return tr("An interpolation is running; wait for it or cancel it.");
     const building::Building b = project_->building();
     const building::Floor* f = b.find_floor(floor_id);
-    if (f == nullptr) return "Choose a floor first.";
-    if (!b.has_scale(*f)) return "The floor has no scale: set one in Plan and scale... first (IND-08).";
-    if (project_->point_count(floor_id) == 0) return "The floor has no measured points yet: walk it first.";
+    if (f == nullptr) return tr("Choose a floor first.");
+    if (!b.has_scale(*f)) return tr("The floor has no scale: set one in Plan and scale... first (IND-08).");
+    if (project_->point_count(floor_id) == 0) return tr("The floor has no measured points yet: walk it first.");
     return {};
 }
 
@@ -65,12 +66,12 @@ Result InterpolationRunner::run(const std::string& floor_id, const survey::Inter
             }
         });
     } catch (const std::exception& e) {
-        return Result{false, std::string("The interpolation could not start: ") + e.what()};
+        return Result{false, std::string(tr("The interpolation could not start: ")) + e.what()};
     }
     job_floor_ = floor_id;
     job_floor_name_ = f ? f->name : floor_id;
     reported_ = false;
-    return Result{true, "Interpolating " + job_floor_name_ + " in the background..."};
+    return Result{true, tr("Interpolating ") + job_floor_name_ + tr(" in the background...")};
 }
 
 void InterpolationRunner::cancel() {
@@ -94,7 +95,7 @@ InterpolationProgress InterpolationRunner::progress() const {
     p.stage = s.stage;
     char pct[16];
     std::snprintf(pct, sizeof pct, "%.0f %%", s.progress * 100.0);
-    p.text = "Interpolating " + job_floor_name_ + (s.stage.empty() ? std::string() : ": " + s.stage) + " (" + pct + ")";
+    p.text = tr("Interpolating ") + job_floor_name_ + (s.stage.empty() ? std::string() : ": " + s.stage) + " (" + pct + ")";
     return p;
 }
 
@@ -109,11 +110,11 @@ std::optional<Result> InterpolationRunner::poll(std::int64_t* stored_id) {
         const auto r = job_->result();
         if (r && stored_id != nullptr) *stored_id = r->id;
         char buf[96] = "";
-        if (r) std::snprintf(buf, sizeof buf, " (fit: RMS %.1f dB over %zu points)", r->quality.rms_db, r->quality.points);
-        return Result{true, "Interpolated " + job_floor_name_ + buf + (r && r->estimated_sources ? ", estimated sources." : ".")};
+        if (r) std::snprintf(buf, sizeof buf, tr(" (fit: RMS %.1f dB over %zu points)"), r->quality.rms_db, r->quality.points);
+        return Result{true, tr("Interpolated ") + job_floor_name_ + buf + (r && r->estimated_sources ? tr(", estimated sources.") : ".")};
     }
-    case util::JobState::Cancelled: return Result{true, "The interpolation of " + job_floor_name_ + " was cancelled; nothing was stored."};
-    case util::JobState::Failed: return Result{false, "The interpolation of " + job_floor_name_ + " failed: " + s.error};
+    case util::JobState::Cancelled: return Result{true, tr("The interpolation of ") + job_floor_name_ + tr(" was cancelled; nothing was stored.")};
+    case util::JobState::Failed: return Result{false, tr("The interpolation of ") + job_floor_name_ + " failed: " + s.error};
     case util::JobState::Running: break;
     }
     return std::nullopt;
@@ -141,17 +142,17 @@ void InterpolationRunner::default_settings() {
 
 Result InterpolationRunner::apply_settings() {
     const auto problems = form_.settings.validate();
-    if (!problems.empty()) return Result{false, "Not stored: " + problems.front()};
+    if (!problems.empty()) return Result{false, tr("Not stored: ") + problems.front()};
     if (!std::isfinite(form_.floor_attenuation_db) || form_.floor_attenuation_db < 0.0 || form_.floor_attenuation_db > 100.0)
-        return Result{false, "Not stored: the attenuation per floor must be between 0 and 100 dB."};
+        return Result{false, tr("Not stored: the attenuation per floor must be between 0 and 100 dB.")};
     try {
         project_->set_propagation(form_.settings);
         if (project_->building().floor_attenuation_db != form_.floor_attenuation_db)
             project_->set_floor_attenuation_db(form_.floor_attenuation_db);
     } catch (const std::exception& e) {
-        return Result{false, std::string("Not stored: ") + e.what()};
+        return Result{false, std::string(tr("Not stored: ")) + e.what()};
     }
-    return Result{true, "Propagation settings stored. Maps made with other settings are marked stale until run again."};
+    return Result{true, tr("Propagation settings stored. Maps made with other settings are marked stale until run again.")};
 }
 
 }  // namespace yantra::app

@@ -4,6 +4,7 @@
 // The plan view of the project window, see plan_canvas.h.
 // Partly copied from yantra-v2 68ea20a: app/src/plan_canvas.cpp, adapted.
 #include "plan_canvas.h"
+#include "yantra/app/i18n.h"
 
 #include <imgui.h>
 
@@ -221,16 +222,16 @@ void PlanCanvas::draw_overlay(ImDrawList* dl, ImVec2 origin, ImVec2 size, const 
     ImVec2 at(origin.x + 8.0F, origin.y + 8.0F);
     auto next = [&](ImVec2 s) { at.y += s.y + 4.0F; };
     if (layers.visible(Layer::Interpolation) && c.interpolation) {
-        const std::string t = "Map: " + c.interpolation->label;
+        const std::string t = tr("Map: ") + c.interpolation->label;
         next(badge(dl, at, t.c_str(), IM_COL32(30, 30, 30, 200), IM_COL32(255, 255, 255, 255)));
         if (c.interpolation->stale) {
-            const ImVec2 s = badge(dl, at, "STALE: inputs changed since it was computed", IM_COL32(190, 60, 30, 230),
+            const ImVec2 s = badge(dl, at, tr("STALE: inputs changed since it was computed"), IM_COL32(190, 60, 30, 230),
                                    IM_COL32(255, 255, 255, 255));
             stats_.stale_badge = true;
             if (mouse_in(at, ImVec2(at.x + s.x, at.y + s.y))) {
                 std::string why;
                 for (const std::string& r : c.interpolation->stale_reasons) why += (why.empty() ? "" : "\n") + r;
-                ImGui::SetTooltip("The map is shown as it was computed. Changed since:\n%s", why.c_str());
+                ImGui::SetTooltip(tr("The map is shown as it was computed. Changed since:\n%s"), why.c_str());
             }
             next(s);
         }
@@ -256,7 +257,7 @@ void PlanCanvas::draw_overlay(ImDrawList* dl, ImVec2 origin, ImVec2 size, const 
                     2.0F);
         dl->AddText(ImVec2(base.x, base.y - 20.0F), IM_COL32(0, 0, 0, 255), stats_.scale.label.c_str());
     } else {
-        badge(dl, ImVec2(base.x - 4.0F, base.y - 22.0F), "Not to scale: set a scale for distances and areas",
+        badge(dl, ImVec2(base.x - 4.0F, base.y - 22.0F), tr("Not to scale: set a scale for distances and areas"),
               IM_COL32(120, 90, 20, 230), IM_COL32(255, 255, 255, 255));
     }
 

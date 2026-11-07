@@ -47,6 +47,10 @@ Language language();
 /// `english` in the current language; the English text when the table
 /// has none. A "###id" suffix is kept as it is. The pointer stays valid
 /// for the whole run.
+#if defined(__GNUC__)
+// As gettext: printf-style uses check the English format's arguments.
+__attribute__((format_arg(1)))
+#endif
 const char* tr(const char* english);
 std::string tr(const std::string& english);
 /// tr() of `english`, then every "{}" replaced by the next argument.

@@ -3,6 +3,7 @@
 //
 // The radio windows' model, see radio_windows.h.
 #include "yantra/app/radio_windows.h"
+#include "yantra/app/i18n.h"
 
 #include <algorithm>
 #include <chrono>
@@ -48,11 +49,11 @@ const char* radio_window_id(RadioWindow w) noexcept {
 
 const char* radio_window_title(RadioWindow w) noexcept {
     switch (w) {
-    case RadioWindow::List: return "Radios";
-    case RadioWindow::Settings: return "Radio settings";
-    case RadioWindow::Debug: return "Radio debug";
-    case RadioWindow::Calibration: return "Calibration";
-    case RadioWindow::Info: return "Device info and self-test";
+    case RadioWindow::List: return tr("Radios");
+    case RadioWindow::Settings: return tr("Radio settings");
+    case RadioWindow::Debug: return tr("Radio debug");
+    case RadioWindow::Calibration: return tr("Calibration");
+    case RadioWindow::Info: return tr("Device info and self-test");
     }
     return "";
 }
@@ -98,41 +99,41 @@ SettingWidget widget_of(const SettingDef& d) noexcept {
 
 std::string validate_setting(const SettingDef& d, const Value& v) {
     switch (d.type) {
-    case YR_TYPE_ACTION: return "An action has no value.";
+    case YR_TYPE_ACTION: return tr("An action has no value.");
     case YR_TYPE_BOOL:
-        return std::holds_alternative<bool>(v) ? std::string() : "Choose on or off.";
+        return std::holds_alternative<bool>(v) ? std::string() : tr("Choose on or off.");
     case YR_TYPE_STRING: {
         const auto* s = std::get_if<std::string>(&v);
-        if (s == nullptr) return "Enter a text.";
+        if (s == nullptr) return tr("Enter a text.");
         if (s->size() > YR_MAX_STRING_VALUE_BYTES)
-            return "At most " + std::to_string(YR_MAX_STRING_VALUE_BYTES) + " bytes.";
+            return tr("At most ") + std::to_string(YR_MAX_STRING_VALUE_BYTES) + " bytes.";
         return {};
     }
     case YR_TYPE_ENUM: {
         const auto* e = std::get_if<plugin::EnumValue>(&v);
-        if (e == nullptr) return "Choose one of the items.";
+        if (e == nullptr) return tr("Choose one of the items.");
         for (const radio::EnumItem& i : d.items)
             if (i.value == e->value) return {};
-        return "Choose one of the items.";
+        return tr("Choose one of the items.");
     }
     default: break;
     }
-    if (!is_number(d.type)) return "Unknown setting type.";
+    if (!is_number(d.type)) return tr("Unknown setting type.");
     const bool type_ok = (d.type == YR_TYPE_DOUBLE && std::holds_alternative<double>(v)) ||
                          (d.type == YR_TYPE_INT && std::holds_alternative<std::int64_t>(v)) ||
                          (d.type == YR_TYPE_UINT && std::holds_alternative<std::uint64_t>(v));
-    if (!type_ok) return d.type == YR_TYPE_DOUBLE ? "Enter a number." : "Enter a whole number.";
+    if (!type_ok) return d.type == YR_TYPE_DOUBLE ? tr("Enter a number.") : tr("Enter a whole number.");
     const double x = *number_of(v);
-    if (!std::isfinite(x)) return "Enter a finite number.";
+    if (!std::isfinite(x)) return tr("Enter a finite number.");
     const std::string unit = d.unit.empty() ? std::string() : " " + d.unit;
     if (std::isfinite(d.minimum) && x < d.minimum - 1e-9 * std::max(1.0, std::fabs(d.minimum)))
-        return "At least " + number_text(d.minimum) + unit + ".";
+        return tr("At least ") + number_text(d.minimum) + unit + ".";
     if (std::isfinite(d.maximum) && x > d.maximum + 1e-9 * std::max(1.0, std::fabs(d.maximum)))
-        return "At most " + number_text(d.maximum) + unit + ".";
+        return tr("At most ") + number_text(d.maximum) + unit + ".";
     if (d.type != YR_TYPE_DOUBLE && d.step > 0.0) {
         const double base = std::isfinite(d.minimum) ? d.minimum : 0.0;
         const double k = (x - base) / d.step;
-        if (std::fabs(k - std::round(k)) > 1e-9) return "In steps of " + number_text(d.step) + unit + ".";
+        if (std::fabs(k - std::round(k)) > 1e-9) return tr("In steps of ") + number_text(d.step) + unit + ".";
     }
     return {};
 }
@@ -175,7 +176,7 @@ std::optional<Value> parse_setting(const SettingDef& d, const std::string& text,
         const auto b = text.find_last_not_of(" \t");
         const std::string t = a == std::string::npos ? std::string() : text.substr(a, b - a + 1);
         if (t.empty()) {
-            error = "Enter a value.";
+            error = tr("Enter a value.");
             return std::nullopt;
         }
         errno = 0;
@@ -184,12 +185,12 @@ std::optional<Value> parse_setting(const SettingDef& d, const std::string& text,
         else if (d.type == YR_TYPE_INT) v = static_cast<std::int64_t>(std::strtoll(t.c_str(), &end, 10));
         else if (t[0] != '-') v = static_cast<std::uint64_t>(std::strtoull(t.c_str(), &end, 10));
         if (end == nullptr || *end != '\0' || errno == ERANGE) {
-            error = d.type == YR_TYPE_DOUBLE ? "Enter a number." : "Enter a whole number.";
-            if (d.type == YR_TYPE_UINT && t[0] == '-') error = "Enter a whole number of 0 or more.";
+            error = d.type == YR_TYPE_DOUBLE ? tr("Enter a number.") : tr("Enter a whole number.");
+            if (d.type == YR_TYPE_UINT && t[0] == '-') error = tr("Enter a whole number of 0 or more.");
             return std::nullopt;
         }
     } else {
-        error = "This setting has no input field.";
+        error = tr("This setting has no input field.");
         return std::nullopt;
     }
     error = validate_setting(d, v);
@@ -246,16 +247,16 @@ enum class Collect { None, Level, FreqError, Noise };
 
 const char* event_name(std::uint32_t e) {
     switch (e) {
-    case YR_EVENT_SYNC_FOUND: return "sync found";
-    case YR_EVENT_SYNC_LOST: return "sync lost";
-    case YR_EVENT_SERVING_CHANGED: return "serving changed";
+    case YR_EVENT_SYNC_FOUND: return tr("sync found");
+    case YR_EVENT_SYNC_LOST: return tr("sync lost");
+    case YR_EVENT_SERVING_CHANGED: return tr("serving changed");
     case YR_EVENT_OVERFLOW: return "overflow";
     case YR_EVENT_DROPPED: return "dropped";
-    case YR_EVENT_PLAN_APPLIED: return "plan applied";
-    case YR_EVENT_SCAN_DONE: return "scan done";
-    case YR_EVENT_END_OF_STREAM: return "end of stream";
-    case YR_EVENT_DEVICE_LOST: return "device lost";
-    case YR_EVENT_DEVICE_BACK: return "device back";
+    case YR_EVENT_PLAN_APPLIED: return tr("plan applied");
+    case YR_EVENT_SCAN_DONE: return tr("scan done");
+    case YR_EVENT_END_OF_STREAM: return tr("end of stream");
+    case YR_EVENT_DEVICE_LOST: return tr("device lost");
+    case YR_EVENT_DEVICE_BACK: return tr("device back");
     case YR_EVENT_ERROR: return "error";
     default: return "event";
     }
@@ -342,11 +343,11 @@ struct Tap final : measure::MeasurementObserver {
         std::string t;
         switch (e.kind) {
         case measure::RadioEvent::Kind::Stream: t = std::string(event_name(e.event)) + " " + std::to_string(e.value); break;
-        case measure::RadioEvent::Kind::Started: t = "stream started"; break;
-        case measure::RadioEvent::Kind::Stopped: t = "stream stopped"; break;
-        case measure::RadioEvent::Kind::Lost: t = "device lost"; break;
-        case measure::RadioEvent::Kind::Reopened: t = "device reopened"; break;
-        case measure::RadioEvent::Kind::Failed: t = "plugin failed"; break;
+        case measure::RadioEvent::Kind::Started: t = tr("stream started"); break;
+        case measure::RadioEvent::Kind::Stopped: t = tr("stream stopped"); break;
+        case measure::RadioEvent::Kind::Lost: t = tr("device lost"); break;
+        case measure::RadioEvent::Kind::Reopened: t = tr("device reopened"); break;
+        case measure::RadioEvent::Kind::Failed: t = tr("plugin failed"); break;
         }
         if (!e.message.empty()) t += ": " + e.message;
         events.push_back(std::move(t));
@@ -406,8 +407,8 @@ std::string flags_text(std::uint32_t flags) {
         t += (t.empty() ? "" : ", ");
         t += name;
     };
-    add(YR_DEVICE_IN_USE, "in use");
-    add(YR_DEVICE_NO_PERMISSION, "no permission");
+    add(YR_DEVICE_IN_USE, tr("in use"));
+    add(YR_DEVICE_NO_PERMISSION, tr("no permission"));
     add(YR_DEVICE_SIMULATED, "simulated");
     return t.empty() ? std::string("none") : t;
 }
@@ -548,7 +549,7 @@ struct RadioWindows::Impl {
     void read_settings(const std::shared_ptr<radio::RadioDevice>& dev, std::uint64_t gen) {
         std::vector<SettingDef> defs;
         if (const yr_status st = dev->list_settings(defs); st != YR_OK) {
-            say(gen, "The settings could not be read: " + why(*dev, st), true);
+            say(gen, tr("The settings could not be read: ") + why(*dev, st), true);
             return;
         }
         std::map<std::string, Value> actual;
@@ -606,7 +607,7 @@ struct RadioWindows::Impl {
         } else {
             const std::string e = why(*dev, st);
             publish(gen, [&](Snap& s) { s.errors[key] = e; });
-            say(gen, label + " not set: " + e, true);
+            say(gen, label + tr(" not set: ") + e, true);
         }
         read_settings(dev, gen);
     }
@@ -669,8 +670,8 @@ struct RadioWindows::Impl {
         DeviceHeader h;
         h.connected = device != nullptr;
         h.title = title;
-        if (!live.radios_searched()) h.reason = "Find the radios first (Radio > Radios...).";
-        else if (!device) h.reason = "Connect the radio first (Radio > Radios...): its windows show the open device.";
+        if (!live.radios_searched()) h.reason = tr("Find the radios first (Radio > Radios...).");
+        else if (!device) h.reason = tr("Connect the radio first (Radio > Radios...): its windows show the open device.");
         h.busy = busy();
         {
             const std::lock_guard lock(sm);
@@ -725,26 +726,26 @@ struct RadioWindows::Impl {
     bool simulated() const { return (caps & YR_CAP_SIMULATED) != 0; }
 
     std::string measure_reason() const {
-        if (!device) return "Connect the radio first.";
+        if (!device) return tr("Connect the radio first.");
         if (!live.radio_running())
-            return "Start the radio first (Survey > Start radio): the readings come from its records.";
-        if (collecting != Collect::None) return "A measurement is running.";
+            return tr("Start the radio first (Survey > Start radio): the readings come from its records.");
+        if (collecting != Collect::None) return tr("A measurement is running.");
         return {};
     }
 
     // NFR-07: the noise is compared in dBm, so the radio must deliver dBm
     // (self-calibrated or a calibration table entry for its key).
     std::string noise_reason() const {
-        if (!device) return "Connect the radio first.";
+        if (!device) return tr("Connect the radio first.");
         if (!self_calibrated()) {
             const auto t = live.calibration_table();
             const auto k = key();
             if (!t || !k || t->find(*k) == nullptr)
-                return "Calibrate the radio first: the reference noise is in dBm and this radio measures dBFS "
-                       "without a calibration (HW-01b).";
+                return tr("Calibrate the radio first: the reference noise is in dBm and this radio measures dBFS "
+                       "without a calibration (HW-01b).");
         }
-        if (!live.radio_running()) return "Start the radio first (Survey > Start radio), with the antenna away from the PC.";
-        if (collecting != Collect::None) return "A measurement is running.";
+        if (!live.radio_running()) return tr("Start the radio first (Survey > Start radio), with the antenna away from the PC.");
+        if (collecting != Collect::None) return tr("A measurement is running.");
         return {};
     }
 };
@@ -760,12 +761,12 @@ Result RadioWindows::open(RadioWindow w, std::optional<std::size_t> radio) {
     m.ui_message.clear();
     if (!radio) return {};
     LiveSurvey& live = m.live;
-    if (*radio >= live.radios().size()) return m.refuse("There is no such radio.");
+    if (*radio >= live.radios().size()) return m.refuse(tr("There is no such radio."));
     const RadioChoice* c = live.chosen();
     const bool same = c != nullptr && c == &live.radios()[*radio];
     if (!same) {
         if (live.radio_running() || live.running())
-            return m.refuse("Stop the radio first: " + live.radio_state().text + ".");
+            return m.refuse(tr("Stop the radio first: ") + live.radio_state().text + ".");
         if (const Result r = live.choose_radio(*radio); !r.ok) return m.refuse(r.message);
     }
     if (!live.connected()) {
@@ -822,7 +823,7 @@ void RadioWindows::tick(double now_s) {
         if (m.wizard) {
             const calibration::Reading& r = m.wizard->record(avg);
             char b[160];
-            std::snprintf(b, sizeof b, "%s %.4f MHz, %.1f dBm: %.2f dBFS", r.accepted ? "Accepted" : "Refused",
+            std::snprintf(b, sizeof b, "%s %.4f MHz, %.1f dBm: %.2f dBFS", r.accepted ? tr("Accepted") : tr("Refused"),
                           r.frequency_hz / 1e6, r.level_dbm, r.measured_dbfs);
             if (r.accepted) (void)m.note(b);
             else (void)m.refuse(std::string(b) + " (" + r.problem + ")");
@@ -841,10 +842,10 @@ void RadioWindows::tick(double now_s) {
             if (std::isfinite(e)) {
                 m.verify_error = e;
                 char b[96];
-                std::snprintf(b, sizeof b, "Verify: the table reads %+.2f dB off the reference.", e);
+                std::snprintf(b, sizeof b, tr("Verify: the table reads %+.2f dB off the reference."), e);
                 (void)m.note(b);
             } else {
-                (void)m.refuse("Verify: no usable reading or no table entry for this key and frequency.");
+                (void)m.refuse(tr("Verify: no usable reading or no table entry for this key and frequency."));
             }
         }
         break;
@@ -856,10 +857,10 @@ void RadioWindows::tick(double now_s) {
             m.ppm = p;
             if (m.result) m.result->ppm = p;
             char b[96];
-            std::snprintf(b, sizeof b, "Frequency error: %+.3f ppm.", p);
+            std::snprintf(b, sizeof b, tr("Frequency error: %+.3f ppm."), p);
             (void)m.note(b);
         } else {
-            (void)m.refuse("Frequency error: the radio's records have no frequency error.");
+            (void)m.refuse(tr("Frequency error: the radio's records have no frequency error."));
         }
         break;
     }
@@ -868,7 +869,7 @@ void RadioWindows::tick(double now_s) {
             const double ref = median(values);
             m.live.monitor()->set_interference_reference(ref);
             char b[128];
-            std::snprintf(b, sizeof b, "Reference noise %.1f dBm taken (median of %zu cycles).", ref, values.size());
+            std::snprintf(b, sizeof b, tr("Reference noise %.1f dBm taken (median of %zu cycles)."), ref, values.size());
             (void)m.note(b);
         }
         break;
@@ -916,13 +917,13 @@ RadioListView RadioWindows::list_view() const {
     }
     const RadioState s = live.radio_state();
     v.state = s.text;
-    if (live.connected() && !s.running) v.state = s.label + ": connected";
-    if (!v.searched) v.connect_reason = "Find the radios first.";
-    else if (chosen == nullptr) v.connect_reason = "Choose a radio first.";
-    else if (live.connected()) v.connect_reason = "The radio is connected.";
+    if (live.connected() && !s.running) v.state = s.label + tr(": connected");
+    if (!v.searched) v.connect_reason = tr("Find the radios first.");
+    else if (chosen == nullptr) v.connect_reason = tr("Choose a radio first.");
+    else if (live.connected()) v.connect_reason = tr("The radio is connected.");
     v.can_connect = v.connect_reason.empty();
-    if (!live.connected()) v.disconnect_reason = "No radio is connected.";
-    else if (live.radio_running()) v.disconnect_reason = "Stop the radio first: it is measuring.";
+    if (!live.connected()) v.disconnect_reason = tr("No radio is connected.");
+    else if (live.radio_running()) v.disconnect_reason = tr("Stop the radio first: it is measuring.");
     v.can_disconnect = v.disconnect_reason.empty();
     return v;
 }
@@ -990,9 +991,9 @@ SettingsView RadioWindows::settings_view() const {
                         !std::holds_alternative<std::monostate>(r.requested) && !same_value(r.requested, r.actual);
             r.enabled = !d->has(YR_SETTING_UNAVAILABLE) && !d->has(YR_SETTING_READ_ONLY);
             if (d->has(YR_SETTING_UNAVAILABLE))
-                r.disabled_reason = d->unavailable_reason.empty() ? std::string("Not available now.") : d->unavailable_reason;
+                r.disabled_reason = d->unavailable_reason.empty() ? std::string(tr("Not available now.")) : d->unavailable_reason;
             else if (d->has(YR_SETTING_READ_ONLY))
-                r.disabled_reason = "Read only.";
+                r.disabled_reason = tr("Read only.");
             if (const auto it = s.errors.find(d->key); it != s.errors.end()) r.error = it->second;
             if (const auto it = s.results.find(d->key); it != s.results.end()) r.result = it->second;
             sec.rows.push_back(std::move(r));
@@ -1014,16 +1015,16 @@ void RadioWindows::set_advanced(bool on) { impl_->advanced = on; }
 
 Result RadioWindows::request(const std::string& key, const Value& value) {
     Impl& m = *impl_;
-    if (!m.device) return m.refuse("Connect the radio first.");
+    if (!m.device) return m.refuse(tr("Connect the radio first."));
     SettingDef d;
     {
         const std::lock_guard lock(m.sm);
         const SettingDef* p = m.find_def(m.snap.defs, key);
-        if (p == nullptr) return m.refuse("The radio has no setting '" + key + "'.");
+        if (p == nullptr) return m.refuse(tr("The radio has no setting '") + key + "'.");
         d = translate_setting(*p, "setting", m.translator());
     }
     if (d.has(YR_SETTING_UNAVAILABLE)) return m.refuse(d.label + ": " + d.unavailable_reason);
-    if (d.has(YR_SETTING_READ_ONLY)) return m.refuse(d.label + " is read only.");
+    if (d.has(YR_SETTING_READ_ONLY)) return m.refuse(d.label + tr(" is read only."));
     if (const std::string e = validate_setting(d, value); !e.empty()) {
         const std::lock_guard lock(m.sm);
         m.snap.errors[key] = e;
@@ -1036,25 +1037,25 @@ Result RadioWindows::request(const std::string& key, const Value& value) {
     m.ui_message.clear();
     if (d.has(YR_SETTING_WARNING)) {
         m.confirmation = Confirmation{Confirmation::Kind::Warning, key, value,
-                                      d.warning.empty() ? "Change " + d.label + "?" : d.warning};
-        return Result{true, "Confirm the change."};
+                                      d.warning.empty() ? tr("Change ") + d.label + "?" : d.warning};
+        return Result{true, tr("Confirm the change.")};
     }
     if (d.has(YR_SETTING_RESTART) && m.live.radio_running()) {
         m.confirmation = Confirmation{Confirmation::Kind::Restart, key, value,
-                                      d.label + " changes only while the radio is stopped: the stream stops, the "
-                                                "setting is applied and the stream starts again."};
-        return Result{true, "Confirm the restart."};
+                                      d.label + tr(" changes only while the radio is stopped: the stream stops, the "
+                                                "setting is applied and the stream starts again.")};
+        return Result{true, tr("Confirm the restart.")};
     }
     m.post([&m, dev = m.device, gen = m.current_gen(), key, value, label = d.label] { m.set(dev, gen, key, value, label); });
-    return Result{true, "Setting " + d.label + "..."};
+    return Result{true, tr("Setting ") + d.label + "..."};
 }
 
 Result RadioWindows::confirm() {
     Impl& m = *impl_;
-    if (!m.confirmation) return m.refuse("Nothing to confirm.");
+    if (!m.confirmation) return m.refuse(tr("Nothing to confirm."));
     const Confirmation c = *m.confirmation;
     m.confirmation.reset();
-    if (!m.device) return m.refuse("Connect the radio first.");
+    if (!m.device) return m.refuse(tr("Connect the radio first."));
     const std::uint64_t gen = m.current_gen();
     if (c.kind == Confirmation::Kind::Reset) {
         m.post([&m, dev = m.device, gen] {
@@ -1069,12 +1070,12 @@ Result RadioWindows::confirm() {
                 else ++refused;
             }
             m.say(gen,
-                  std::to_string(n) + " settings back to their defaults" +
-                      (refused != 0 ? " (" + std::to_string(refused) + " not available now)." : "."),
+                  std::to_string(n) + tr(" settings back to their defaults") +
+                      (refused != 0 ? " (" + std::to_string(refused) + tr(" not available now).") : "."),
                   false);
             m.read_settings(dev, gen);
         });
-        return Result{true, "Resetting to defaults..."};
+        return Result{true, tr("Resetting to defaults...")};
     }
     std::string label = c.key;
     {
@@ -1082,7 +1083,7 @@ Result RadioWindows::confirm() {
         if (const SettingDef* p = m.find_def(m.snap.defs, c.key)) label = p->label;
     }
     m.post([&m, dev = m.device, gen, key = c.key, value = c.value, label] { m.set(dev, gen, key, value, label); });
-    return Result{true, "Setting " + label + "..."};
+    return Result{true, tr("Setting ") + label + "..."};
 }
 
 void RadioWindows::cancel_confirmation() { impl_->confirmation.reset(); }
@@ -1091,12 +1092,12 @@ const std::optional<Confirmation>& RadioWindows::confirmation() const { return i
 
 Result RadioWindows::run_action(const std::string& key) {
     Impl& m = *impl_;
-    if (!m.device) return m.refuse("Connect the radio first.");
+    if (!m.device) return m.refuse(tr("Connect the radio first."));
     std::string label = key;
     {
         const std::lock_guard lock(m.sm);
         const SettingDef* p = m.find_def(m.snap.defs, key);
-        if (p == nullptr || p->type != YR_TYPE_ACTION) return m.refuse("The radio has no action '" + key + "'.");
+        if (p == nullptr || p->type != YR_TYPE_ACTION) return m.refuse(tr("The radio has no action '") + key + "'.");
         if (p->has(YR_SETTING_UNAVAILABLE)) return m.refuse(p->label + ": " + p->unavailable_reason);
         label = p->label;
     }
@@ -1114,23 +1115,23 @@ Result RadioWindows::run_action(const std::string& key) {
 
 Result RadioWindows::apply_preset(const std::string& id) {
     Impl& m = *impl_;
-    if (!m.device) return m.refuse("Connect the radio first.");
+    if (!m.device) return m.refuse(tr("Connect the radio first."));
     m.ui_message.clear();
     m.post([&m, dev = m.device, gen = m.current_gen(), id] {
         const yr_status st = dev->apply_preset(id);
-        m.say(gen, st == YR_OK ? "Preset applied." : "The preset was not applied: " + m.why(*dev, st), st != YR_OK);
+        m.say(gen, st == YR_OK ? tr("Preset applied.") : tr("The preset was not applied: ") + m.why(*dev, st), st != YR_OK);
         m.read_settings(dev, gen);
     });
-    return Result{true, "Applying the preset..."};
+    return Result{true, tr("Applying the preset...")};
 }
 
 Result RadioWindows::reset_defaults() {
     Impl& m = *impl_;
-    if (!m.device) return m.refuse("Connect the radio first.");
+    if (!m.device) return m.refuse(tr("Connect the radio first."));
     m.confirmation = Confirmation{Confirmation::Kind::Reset, {}, {},
-                                  "Set every setting of " + m.title +
-                                      " back to its default? The values are stored for this device."};
-    return Result{true, "Confirm the reset."};
+                                  tr("Set every setting of ") + m.title +
+                                      tr(" back to its default? The values are stored for this device.")};
+    return Result{true, tr("Confirm the reset.")};
 }
 
 // -- debug -------------------------------------------------------------------------------------------
@@ -1203,9 +1204,9 @@ CalibrationView RadioWindows::calibration_view() const {
     v.ppm = m.ppm;
     v.result = m.result;
     v.ppm_reason = m.measure_reason();
-    v.verify_reason = m.wizard ? std::string("Finish or cancel the calibration first.") : v.ppm_reason;
+    v.verify_reason = m.wizard ? std::string(tr("Finish or cancel the calibration first.")) : v.ppm_reason;
     if (!m.device) {
-        v.start_reason = "Connect the radio first.";
+        v.start_reason = tr("Connect the radio first.");
         v.measure_reason = v.start_reason;
         return v;
     }
@@ -1216,14 +1217,14 @@ CalibrationView RadioWindows::calibration_view() const {
     const auto table = m.live.calibration_table();
     if (key) v.key_text = key->id();
     if (v.self_calibrated) {
-        v.key_status = "Self-calibrated: the radio delivers dBm itself.";
+        v.key_status = tr("Self-calibrated: the radio delivers dBm itself.");
     } else if (!key) {
-        v.key_status = "No calibration key yet.";
+        v.key_status = tr("No calibration key yet.");
     } else if (const calibration::Entry* e = table ? table->find(*key) : nullptr) {
-        v.key_status = std::string(e->expired(now) ? "Calibrated, EXPIRED " : "Calibrated on ") + date_text(e->created_unix) +
-                       (e->expired(now) ? "" : ", valid until " + date_text(e->expires_unix()));
+        v.key_status = std::string(e->expired(now) ? tr("Calibrated, EXPIRED ") : tr("Calibrated on ")) + date_text(e->created_unix) +
+                       (e->expired(now) ? "" : tr(", valid until ") + date_text(e->expires_unix()));
     } else {
-        v.key_status = "Uncalibrated: levels are dBFS (HW-01b).";
+        v.key_status = tr("Uncalibrated: levels are dBFS (HW-01b).");
     }
     if (table && key)
         for (const calibration::Entry* e : table->of_device(key->driver, key->serial)) {
@@ -1241,21 +1242,21 @@ CalibrationView RadioWindows::calibration_view() const {
             v.entries.push_back(std::move(r));
         }
     v.wizard = m.wizard.has_value();
-    if (v.self_calibrated) v.start_reason = "This radio measures dBm itself: no level calibration is needed.";
-    else if (!key) v.start_reason = "The radio has no calibration key yet: wait until it is open.";
-    else if (m.wizard) v.start_reason = "A calibration is running.";
-    v.measure_reason = m.wizard ? m.measure_reason() : "Start the calibration first.";
+    if (v.self_calibrated) v.start_reason = tr("This radio measures dBm itself: no level calibration is needed.");
+    else if (!key) v.start_reason = tr("The radio has no calibration key yet: wait until it is open.");
+    else if (m.wizard) v.start_reason = tr("A calibration is running.");
+    v.measure_reason = m.wizard ? m.measure_reason() : tr("Start the calibration first.");
     if (m.wizard) {
         v.readings = m.wizard->readings();
         if (!m.wizard->done()) {
             const calibration::Target t = m.wizard->target();
             char b[200];
-            std::snprintf(b, sizeof b, "Point %zu of %zu: set the %s to %.4f MHz, %.1f dBm, then Measure.", t.index + 1,
-                          t.count, m.wizard->plan().method == calibration::kMethodReference ? "reference radio" : "generator",
+            std::snprintf(b, sizeof b, tr("Point %zu of %zu: set the %s to %.4f MHz, %.1f dBm, then Measure."), t.index + 1,
+                          t.count, m.wizard->plan().method == calibration::kMethodReference ? tr("reference radio") : "generator",
                           t.frequency_hz / 1e6, t.level_dbm);
             v.target = b;
         } else {
-            v.target = "All points measured: save the result into the calibration table.";
+            v.target = tr("All points measured: save the result into the calibration table.");
         }
     }
     return v;
@@ -1267,38 +1268,38 @@ Result RadioWindows::start_calibration() {
     if (!v.start_reason.empty()) return m.refuse(v.start_reason);
     calibration::Plan plan;
     if (!parse_list(form_.frequencies_mhz, 1e6, plan.frequencies_hz))
-        return m.refuse("Frequencies: enter MHz values separated by commas.");
+        return m.refuse(tr("Frequencies: enter MHz values separated by commas."));
     if (!parse_list(form_.levels_dbm, 1.0, plan.levels_dbm))
-        return m.refuse("Levels: enter dBm values separated by commas.");
+        return m.refuse(tr("Levels: enter dBm values separated by commas."));
     plan.valid_days = form_.valid_days;
     plan.method = form_.method;
     plan.simulated = m.simulated();
     if (plan.simulated) plan.method = calibration::kMethodPractice;
     if (const std::string e = plan.validate(); !e.empty()) return m.refuse(e);
-    if (form_.readings < 1 || form_.readings > 100) return m.refuse("Readings per point: 1 to 100.");
+    if (form_.readings < 1 || form_.readings > 100) return m.refuse(tr("Readings per point: 1 to 100."));
     m.wizard.emplace(*m.key(), plan, m.plugin_id);
     m.result.reset();
-    return m.note("Calibration started for " + m.key()->id() + ".");
+    return m.note(tr("Calibration started for ") + m.key()->id() + ".");
 }
 
 Result RadioWindows::measure_point() {
     Impl& m = *impl_;
-    if (!m.wizard) return m.refuse("Start the calibration first.");
-    if (m.wizard->done()) return m.refuse("All points are measured.");
+    if (!m.wizard) return m.refuse(tr("Start the calibration first."));
+    if (m.wizard->done()) return m.refuse(tr("All points are measured."));
     if (const std::string why = m.measure_reason(); !why.empty()) return m.refuse(why);
     m.tap->start(Collect::Level, m.wizard->target().frequency_hz, form_.readings);
     m.collecting = Collect::Level;
-    return m.note("Measuring...");
+    return m.note(tr("Measuring..."));
 }
 
 Result RadioWindows::skip_point() {
     Impl& m = *impl_;
-    if (!m.wizard || m.wizard->done()) return m.refuse("No point to skip.");
+    if (!m.wizard || m.wizard->done()) return m.refuse(tr("No point to skip."));
     m.tap->stop();
     m.collecting = Collect::None;
     m.wizard->skip();
     if (m.wizard->done()) m.result = m.wizard->result(platform::utc_now_ns() / 1'000'000'000);
-    return m.note("Point skipped.");
+    return m.note(tr("Point skipped."));
 }
 
 Result RadioWindows::cancel_calibration() {
@@ -1307,12 +1308,12 @@ Result RadioWindows::cancel_calibration() {
     m.collecting = Collect::None;
     m.wizard.reset();
     m.result.reset();
-    return m.note("Calibration cancelled.");
+    return m.note(tr("Calibration cancelled."));
 }
 
 Result RadioWindows::save_calibration() {
     Impl& m = *impl_;
-    if (!m.result || m.result->points.empty()) return m.refuse("No accepted points to save.");
+    if (!m.result || m.result->points.empty()) return m.refuse(tr("No accepted points to save."));
     calibration::Table t;
     if (const auto cur = m.live.calibration_table()) t = *cur;
     t.put(*m.result);
@@ -1326,63 +1327,63 @@ Result RadioWindows::save_calibration() {
 Result RadioWindows::remove_entry(const std::string& key_id) {
     Impl& m = *impl_;
     const auto cur = m.live.calibration_table();
-    if (!cur) return m.refuse("There is no calibration table.");
+    if (!cur) return m.refuse(tr("There is no calibration table."));
     calibration::Table t = *cur;
     for (const calibration::Entry& e : cur->entries())
         if (e.key.id() == key_id) {
             t.remove(e.key);
             const Result r = m.live.set_calibration_table(t);
-            return r.ok ? m.note("Entry removed. " + r.message) : m.refuse(r.message);
+            return r.ok ? m.note(tr("Entry removed. ") + r.message) : m.refuse(r.message);
         }
-    return m.refuse("No such entry.");
+    return m.refuse(tr("No such entry."));
 }
 
 Result RadioWindows::export_table(const fs::path& file) {
     Impl& m = *impl_;
-    if (file.empty()) return m.refuse("Enter a file name.");
+    if (file.empty()) return m.refuse(tr("Enter a file name."));
     const auto cur = m.live.calibration_table();
     std::string error;
-    if (!(cur ? *cur : calibration::Table{}).save(file, error)) return m.refuse("Export failed: " + error);
-    return m.note("Exported to " + file.string() + ".");
+    if (!(cur ? *cur : calibration::Table{}).save(file, error)) return m.refuse(tr("Export failed: ") + error);
+    return m.note(tr("Exported to ") + file.string() + ".");
 }
 
 Result RadioWindows::import_table(const fs::path& file) {
     Impl& m = *impl_;
-    if (file.empty()) return m.refuse("Enter a file name.");
+    if (file.empty()) return m.refuse(tr("Enter a file name."));
     calibration::Table in;
     std::string error;
-    if (!calibration::Table::load(file, in, error)) return m.refuse("Import failed: " + error);
+    if (!calibration::Table::load(file, in, error)) return m.refuse(tr("Import failed: ") + error);
     calibration::Table t;
     if (const auto cur = m.live.calibration_table()) t = *cur;
     const calibration::MergeResult mr = t.merge(in);
     const Result r = m.live.set_calibration_table(t);
     if (!r.ok) return m.refuse(r.message);
-    return m.note("Imported: " + std::to_string(mr.added) + " added, " + std::to_string(mr.replaced) + " replaced, " +
-                  std::to_string(mr.kept) + " kept (the newer entry wins).");
+    return m.note(tr("Imported: ") + std::to_string(mr.added) + " added, " + std::to_string(mr.replaced) + " replaced, " +
+                  std::to_string(mr.kept) + tr(" kept (the newer entry wins)."));
 }
 
 Result RadioWindows::verify() {
     Impl& m = *impl_;
-    if (m.wizard) return m.refuse("Finish or cancel the calibration first.");
+    if (m.wizard) return m.refuse(tr("Finish or cancel the calibration first."));
     if (const std::string why = m.measure_reason(); !why.empty()) return m.refuse(why);
     const auto t = m.live.calibration_table();
     const auto k = m.key();
     if (!t || !k || !t->lookup(*k, form_.verify_mhz * 1e6, platform::utc_now_ns() / 1'000'000'000).usable())
-        return m.refuse("The calibration table has no entry for this key near " + mhz(form_.verify_mhz * 1e6) + ".");
+        return m.refuse(tr("The calibration table has no entry for this key near ") + mhz(form_.verify_mhz * 1e6) + ".");
     m.verify_error.reset();
     m.tap->start(Collect::Level, form_.verify_mhz * 1e6, form_.readings);
     m.collecting = Collect::Level;
-    return m.note("Verifying...");
+    return m.note(tr("Verifying..."));
 }
 
 Result RadioWindows::measure_ppm() {
     Impl& m = *impl_;
     if (const std::string why = m.measure_reason(); !why.empty()) return m.refuse(why);
-    if (!(form_.carrier_mhz > 0.0)) return m.refuse("Enter the known carrier's frequency.");
+    if (!(form_.carrier_mhz > 0.0)) return m.refuse(tr("Enter the known carrier's frequency."));
     m.ppm.reset();
     m.tap->start(Collect::FreqError, form_.carrier_mhz * 1e6, form_.readings);
     m.collecting = Collect::FreqError;
-    return m.note("Measuring the frequency error...");
+    return m.note(tr("Measuring the frequency error..."));
 }
 
 Result RadioWindows::take_noise_reference() {
@@ -1390,12 +1391,12 @@ Result RadioWindows::take_noise_reference() {
     if (const std::string why = m.noise_reason(); !why.empty()) return m.refuse(why);
     m.tap->start(Collect::Noise, 0.0, 5);
     m.collecting = Collect::Noise;
-    return m.note("Taking the reference noise over 5 cycles...");
+    return m.note(tr("Taking the reference noise over 5 cycles..."));
 }
 
 Result RadioWindows::clear_noise_reference() {
     impl_->live.monitor()->set_interference_reference(std::nullopt);
-    return impl_->note("Reference noise cleared: the thermal floor is the reference again.");
+    return impl_->note(tr("Reference noise cleared: the thermal floor is the reference again."));
 }
 
 // -- device info --------------------------------------------------------------------------------------
@@ -1422,14 +1423,14 @@ InfoView RadioWindows::info_view() const {
     if (const auto tr = m.translator())
         for (radio::SelfTestItem& i : v.self_test)
             if (std::string t = tr("selftest." + i.name + ".label"); !t.empty()) i.label = t;
-    if (m.live.radio_running()) v.self_test_reason = "Stop the radio first: the self-test needs the device idle.";
+    if (m.live.radio_running()) v.self_test_reason = tr("Stop the radio first: the self-test needs the device idle.");
     return v;
 }
 
 Result RadioWindows::run_self_test() {
     Impl& m = *impl_;
-    if (!m.device) return m.refuse("Connect the radio first.");
-    if (m.live.radio_running()) return m.refuse("Stop the radio first: the self-test needs the device idle.");
+    if (!m.device) return m.refuse(tr("Connect the radio first."));
+    if (m.live.radio_running()) return m.refuse(tr("Stop the radio first: the self-test needs the device idle."));
     m.ui_message.clear();
     m.post([&m, dev = m.device, gen = m.current_gen()] {
         std::vector<radio::SelfTestItem> items;
@@ -1440,14 +1441,14 @@ Result RadioWindows::run_self_test() {
             s.self_test = items;
             s.self_test_ran = true;
         });
-        if (st != YR_OK) m.say(gen, "The self-test did not run: " + m.why(*dev, st), true);
+        if (st != YR_OK) m.say(gen, tr("The self-test did not run: ") + m.why(*dev, st), true);
         else
             m.say(gen,
-                  "Self-test: " + std::to_string(items.size()) + " items, " + std::to_string(failed) +
+                  tr("Self-test: ") + std::to_string(items.size()) + " items, " + std::to_string(failed) +
                       (failed == 1 ? " failed." : " failed."),
                   failed != 0);
     });
-    return Result{true, "Running the self-test..."};
+    return Result{true, tr("Running the self-test...")};
 }
 
 bool RadioWindows::wait_idle(int timeout_ms) const {

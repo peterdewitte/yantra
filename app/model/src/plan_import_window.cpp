@@ -6,6 +6,7 @@
 // adapted (string ids, building::Scale, core reanchoring, drawing scale,
 // restricted-source credits).
 #include "yantra/app/plan_import_window.h"
+#include "yantra/app/i18n.h"
 
 #include <algorithm>
 #include <cctype>
@@ -49,12 +50,12 @@ std::string fmt(const char* f, double v) {
 #pragma GCC diagnostic pop
 #endif
 
-std::string floor_label(const building::Floor& f) { return f.name + " (level " + std::to_string(f.level) + ")"; }
+std::string floor_label(const building::Floor& f) { return f.name + tr(" (level ") + std::to_string(f.level) + ")"; }
 
 std::string suggested_name(int level) {
-    if (level == 0) return "Ground floor";
-    if (level < 0) return "Basement " + std::to_string(-level);
-    return "Floor " + std::to_string(level);
+    if (level == 0) return tr("Ground floor");
+    if (level < 0) return tr("Basement ") + std::to_string(-level);
+    return tr("Floor ") + std::to_string(level);
 }
 
 std::string trimmed(const std::string& text) {
@@ -103,7 +104,7 @@ std::optional<double> parse_distance_m(const std::string& text, std::string& err
     std::string s = trimmed(text);
     if (!s.empty() && s.back() == 'm') s = trimmed(s.substr(0, s.size() - 1));
     if (s.empty()) {
-        error = "Type the real distance in metres.";
+        error = tr("Type the real distance in metres.");
         return std::nullopt;
     }
     const auto v = number(s);
@@ -112,7 +113,7 @@ std::optional<double> parse_distance_m(const std::string& text, std::string& err
         return std::nullopt;
     }
     if (!std::isfinite(*v) || *v <= 0.0) {
-        error = "The distance must be more than 0 m.";
+        error = tr("The distance must be more than 0 m.");
         return std::nullopt;
     }
     return v;
@@ -122,13 +123,13 @@ std::optional<double> parse_ratio(const std::string& text, std::string& error) {
     std::string s = trimmed(text);
     if (const std::size_t colon = s.find(':'); colon != std::string::npos) {
         if (trimmed(s.substr(0, colon)) != "1") {
-            error = "Type the drawing scale as 1:N, e.g. 1:100.";
+            error = tr("Type the drawing scale as 1:N, e.g. 1:100.");
             return std::nullopt;
         }
         s = trimmed(s.substr(colon + 1));
     }
     if (s.empty()) {
-        error = "Type the drawing scale, e.g. 1:100.";
+        error = tr("Type the drawing scale, e.g. 1:100.");
         return std::nullopt;
     }
     const auto v = number(s);
@@ -137,7 +138,7 @@ std::optional<double> parse_ratio(const std::string& text, std::string& error) {
         return std::nullopt;
     }
     if (!std::isfinite(*v) || *v < 1.0) {
-        error = "The drawing scale must be 1:1 or smaller (1:N with N at least 1).";
+        error = tr("The drawing scale must be 1:1 or smaller (1:N with N at least 1).");
         return std::nullopt;
     }
     return v;
@@ -165,7 +166,7 @@ std::optional<RestrictedView> find_restricted_sheet(const std::vector<fs::path>&
                         std::string who = s.credit.designer;
                         if (!s.credit.year.empty()) who += (who.empty() ? "" : ", ") + s.credit.year;
                         if (!s.credit.inventory_number.empty())
-                            who += (who.empty() ? "inv. " : ", inv. ") + s.credit.inventory_number;
+                            who += (who.empty() ? "inv. " : tr(", inv. ")) + s.credit.inventory_number;
                         if (!who.empty()) credit += (credit.empty() ? "" : "; ") + who;
                         v.credit = credit;
                         v.licence = s.licence;
@@ -173,8 +174,8 @@ std::optional<RestrictedView> find_restricted_sheet(const std::vector<fs::path>&
                         v.item_url = s.item_url;
                         for (const demo::DemoFloor& f : d.floors)
                             if (f.sheet == s.id && f.scale_approximate) v.scale_approximate = true;
-                        v.note = "Licence-restricted plan: the project keeps a reference to your cached copy (checked "
-                                 "by its SHA-256), never a copy. It is not altered, packaged or put into exports.";
+                        v.note = tr("Licence-restricted plan: the project keeps a reference to your cached copy (checked "
+                                 "by its SHA-256), never a copy. It is not altered, packaged or put into exports.");
                         return v;
                     }
                 } catch (const std::exception&) {
@@ -198,7 +199,7 @@ std::unique_ptr<PlanImportWindow> PlanImportWindow::open_file(project::Project& 
     const std::string name = file.filename().string();
     std::error_code ec;
     if (!fs::is_regular_file(file, ec)) {
-        error = "Cannot add " + name + ": the file does not exist.";
+        error = tr("Cannot add ") + name + tr(": the file does not exist.");
         return nullptr;
     }
     std::optional<project::AddSourceResult> ref;
@@ -222,9 +223,9 @@ std::unique_ptr<PlanImportWindow> PlanImportWindow::open_file(project::Project& 
                 // Nothing else to undo.
             }
         }
-        error = "Cannot read " + name + " as a plan: " + e.what();
+        error = tr("Cannot read ") + name + tr(" as a plan: ") + e.what();
     } catch (const std::exception& e) {
-        error = "Cannot add " + name + ": " + e.what();
+        error = tr("Cannot add ") + name + ": " + e.what();
     }
     return nullptr;
 }
@@ -239,14 +240,14 @@ std::unique_ptr<PlanImportWindow> PlanImportWindow::open_source(project::Project
         if (s && !s->plan.embedded) restricted = find_restricted_sheet(data_folders, s->plan.sha256);
         return std::unique_ptr<PlanImportWindow>(new PlanImportWindow(project, std::move(imp), std::move(restricted)));
     } catch (const std::exception& e) {
-        error = "Cannot open the plan " + (s ? s->plan.file_name : source_id) + ": " + e.what();
+        error = tr("Cannot open the plan ") + (s ? s->plan.file_name : source_id) + ": " + e.what();
     }
     return nullptr;
 }
 
 std::string PlanImportWindow::title() const {
     const auto s = project_.source(import_->source_id());
-    return s ? s->plan.file_name : "Plan";
+    return s ? s->plan.file_name : tr("Plan");
 }
 
 bool PlanImportWindow::referenced() const {
@@ -263,9 +264,9 @@ std::string PlanImportWindow::description() const {
         const plan::PixelSize px = plan::page_pixels(ps, plan::default_base_scale(src, page()));
         d += ", page " + std::to_string(page() + 1) + ": " + fmt("%.0f", ps.width * 25.4 / 72.0) + " x " +
              fmt("%.0f", ps.height * 25.4 / 72.0) + " mm (" + std::to_string(px.width) + " x " +
-             std::to_string(px.height) + " px at 300 dpi)";
+             std::to_string(px.height) + tr(" px at 300 dpi)");
     }
-    if (referenced()) d += "; referenced by its SHA-256, not copied into the project";
+    if (referenced()) d += tr("; referenced by its SHA-256, not copied into the project");
     return d;
 }
 
@@ -287,26 +288,26 @@ std::vector<building::Floor> PlanImportWindow::floors_here() const {
 std::string PlanImportWindow::page_label(int page) const {
     std::size_t n = 0;
     for (const plan::PlacedTrim& t : import_->placed()) n += t.page == page ? 1 : 0;
-    std::string s = "Page " + std::to_string(page + 1);
+    std::string s = tr("Page ") + std::to_string(page + 1);
     if (n > 0) s += " (" + std::to_string(n) + (n == 1 ? " floor)" : " floors)");
     return s;
 }
 
 Result PlanImportWindow::set_page(int page) {
-    if (page < 0 || page >= page_count()) return fail("There is no page " + std::to_string(page + 1) + ".");
-    if (editing()) return fail("Apply or cancel the trim you are editing first.");
+    if (page < 0 || page >= page_count()) return fail(tr("There is no page ") + std::to_string(page + 1) + ".");
+    if (editing()) return fail(tr("Apply or cancel the trim you are editing first."));
     try {
         cancel_draft();
         import_->set_page(page);
         trim_changed();
     } catch (const std::exception& e) {
-        return fail(std::string("Cannot show the page: ") + e.what());
+        return fail(std::string(tr("Cannot show the page: ")) + e.what());
     }
     if (const auto f = project_.floor(selected_); !f || f->page != page) {
         selected_.clear();
         scale_ = ScaleForm{};
     }
-    return Result{true, "Page " + std::to_string(page + 1)};
+    return Result{true, tr("Page ") + std::to_string(page + 1)};
 }
 
 // ---- tools -------------------------------------------------------------------
@@ -317,26 +318,26 @@ std::vector<ToolView> PlanImportWindow::tools() const {
         return f && f->page == page();
     }();
     const std::string need_floor =
-        "Select a floor first: add the trim as a floor, or click its outline with Pan/select.";
+        tr("Select a floor first: add the trim as a floor, or click its outline with Pan/select.");
     std::vector<ToolView> out = {
         {ImportTool::Pan, "tool.pan", "Pan/select", "Drag to move the sheet; click a floor's outline to select it.",
          true, ""},
         {ImportTool::Rectangle, "tool.rectangle", "Rectangle",
-         "Drag a rectangle around one floor. Drag a corner of the current rectangle to adjust it.", true, ""},
+         tr("Drag a rectangle around one floor. Drag a corner of the current rectangle to adjust it."), true, ""},
         {ImportTool::Polygon, "tool.polygon", "Polygon",
-         "Click the corners of an irregular outline; click the first point or Finish to close it. Drag a corner "
-         "of the current polygon to adjust it.",
+         tr("Click the corners of an irregular outline; click the first point or Finish to close it. Drag a corner "
+         "of the current polygon to adjust it."),
          true, ""},
         {ImportTool::Deskew, "tool.deskew", "Deskew line",
-         "Drag along a wall or the sheet's border that should be straight: the plan turns so it is.", true, ""},
+         tr("Drag along a wall or the sheet's border that should be straight: the plan turns so it is."), true, ""},
         {ImportTool::ScaleLine, "tool.scale_line", "Two points",
-         "Drag between two points whose real distance you know, then type the distance and Apply.", floor_here,
+         tr("Drag between two points whose real distance you know, then type the distance and Apply."), floor_here,
          floor_here ? "" : need_floor},
         {ImportTool::ScaleBar, "tool.scale_bar", "Scale bar",
-         "Drag along the plan's scale bar, end to end, then type its length and Apply.", floor_here,
+         tr("Drag along the plan's scale bar, end to end, then type its length and Apply."), floor_here,
          floor_here ? "" : need_floor},
         {ImportTool::Reference, "tool.reference", "Reference point",
-         "Click a point found on every floor (e.g. a staircase corner) to line the floors up.", floor_here,
+         tr("Click a point found on every floor (e.g. a staircase corner) to line the floors up."), floor_here,
          floor_here ? "" : need_floor},
     };
     return out;
@@ -362,18 +363,18 @@ Result PlanImportWindow::set_tool(ImportTool tool) {
 
 std::string PlanImportWindow::hint() const {
     switch (tool_) {
-    case ImportTool::Pan: return "Drag to pan, wheel to zoom. Click a floor's outline to select it.";
-    case ImportTool::Rectangle: return "Drag a rectangle around the floor, or drag a corner to adjust it.";
+    case ImportTool::Pan: return tr("Drag to pan, wheel to zoom. Click a floor's outline to select it.");
+    case ImportTool::Rectangle: return tr("Drag a rectangle around the floor, or drag a corner to adjust it.");
     case ImportTool::Polygon:
-        if (polygon_.empty()) return "Click the first corner of the outline, or drag a corner of the current polygon.";
+        if (polygon_.empty()) return tr("Click the first corner of the outline, or drag a corner of the current polygon.");
         return std::to_string(polygon_.size()) +
-               " points. Click the next corner; click the first point or Finish to close [Enter], Undo point "
-               "[Backspace], Esc cancels.";
-    case ImportTool::Deskew: return "Drag along a line that should be horizontal or vertical.";
+               tr(" points. Click the next corner; click the first point or Finish to close [Enter], Undo point "
+               "[Backspace], Esc cancels.");
+    case ImportTool::Deskew: return tr("Drag along a line that should be horizontal or vertical.");
     case ImportTool::ScaleLine:
-        return "Drag from one point to another whose real distance you know, type the distance and Apply.";
-    case ImportTool::ScaleBar: return "Drag along the scale bar from end to end, type its length and Apply.";
-    case ImportTool::Reference: return "Click the reference point (the same spot on every floor, e.g. a stair corner).";
+        return tr("Drag from one point to another whose real distance you know, type the distance and Apply.");
+    case ImportTool::ScaleBar: return tr("Drag along the scale bar from end to end, type its length and Apply.");
+    case ImportTool::Reference: return tr("Click the reference point (the same spot on every floor, e.g. a stair corner).");
     }
     return {};
 }
@@ -466,10 +467,10 @@ Result PlanImportWindow::pointer_up(Point2 p) {
             return end(Result{});
         case ImportTool::Rectangle: {
             const Point2 anchor = rect_anchor_.value_or(a);
-            if (dist(anchor, p) <= pick_) return end(fail("Drag a larger rectangle around the floor."));
+            if (dist(anchor, p) <= pick_) return end(fail(tr("Drag a larger rectangle around the floor.")));
             import_->set_rectangle(anchor, p);
             trim_changed();
-            return end(Result{true, "Trim: " + trim_text()});
+            return end(Result{true, tr("Trim: ") + trim_text()});
         }
         case ImportTool::Polygon:
             if (drag_handle_) {
@@ -477,27 +478,27 @@ Result PlanImportWindow::pointer_up(Point2 p) {
                 try {
                     import_->set_polygon(std::move(outline));
                 } catch (const std::exception& e) {
-                    return end(fail(std::string("This outline cannot be used: ") + e.what()));
+                    return end(fail(std::string(tr("This outline cannot be used: ")) + e.what()));
                 }
                 trim_changed();
-                return end(Result{true, "Trim: " + trim_text()});
+                return end(Result{true, tr("Trim: ") + trim_text()});
             }
             if (polygon_.size() >= 3 && dist(p, polygon_.front()) <= pick_) return end(finish_polygon());
             if (!polygon_.empty() && dist(p, polygon_.back()) <= pick_ * 0.25) return end(Result{});  // double click
             polygon_.push_back(p);
             return end(Result{});
         case ImportTool::Deskew:
-            if (click) return end(fail("Drag a longer line along the wall or border."));
+            if (click) return end(fail(tr("Drag a longer line along the wall or border.")));
             import_->deskew_from_line(a, p);
             trim_changed();
             return end(Result{true, "Deskew " + fmt("%.2f", deskew()) + " degrees"});
         case ImportTool::ScaleLine:
         case ImportTool::ScaleBar:
-            if (click) return end(fail("Drag a longer line between the two points."));
+            if (click) return end(fail(tr("Drag a longer line between the two points.")));
             scale_.kind = tool_ == ImportTool::ScaleBar ? ScaleForm::Kind::ScaleBar : ScaleForm::Kind::TwoPoints;
             scale_.a = a;
             scale_.b = p;
-            return end(Result{true, "Now type the real distance in metres and Apply."});
+            return end(Result{true, tr("Now type the real distance in metres and Apply.")});
         case ImportTool::Reference: return end(set_reference(p));
         }
     } catch (const std::exception& e) {
@@ -507,15 +508,15 @@ Result PlanImportWindow::pointer_up(Point2 p) {
 }
 
 Result PlanImportWindow::finish_polygon() {
-    if (polygon_.size() < 3) return fail("A polygon needs at least 3 corners.");
+    if (polygon_.size() < 3) return fail(tr("A polygon needs at least 3 corners."));
     try {
         import_->set_polygon(polygon_);
     } catch (const std::exception& e) {
-        return fail(std::string("This outline cannot be used: ") + e.what() + ". Undo the last points or Esc.");
+        return fail(std::string(tr("This outline cannot be used: ")) + e.what() + ". Undo the last points or Esc.");
     }
     polygon_.clear();
     trim_changed();
-    return Result{true, "Trim: " + trim_text()};
+    return Result{true, tr("Trim: ") + trim_text()};
 }
 
 void PlanImportWindow::undo_point() {
@@ -544,14 +545,14 @@ Result PlanImportWindow::rotate(int quarter_steps) {
     cancel_draft();
     import_->rotate_quarter(quarter_steps);
     trim_changed();
-    return Result{true, "Turned to " + std::to_string(quarter_turns() * 90) + " degrees"};
+    return Result{true, tr("Turned to ") + std::to_string(quarter_turns() * 90) + " degrees"};
 }
 
 Result PlanImportWindow::set_deskew(double deg) {
     try {
         import_->set_deskew(deg);
     } catch (const std::exception& e) {
-        return fail(std::string("Deskew: ") + e.what());
+        return fail(std::string(tr("Deskew: ")) + e.what());
     }
     trim_changed();
     return Result{true, "Deskew " + fmt("%.2f", deg) + " degrees"};
@@ -561,18 +562,18 @@ Result PlanImportWindow::reset_trim() {
     cancel_draft();
     import_->reset_trim();
     trim_changed();
-    return Result{true, "Trim: the whole page"};
+    return Result{true, tr("Trim: the whole page")};
 }
 
 std::string PlanImportWindow::trim_text() const {
     const plan::Trim& t = import_->trim();
-    std::string s = t.shape == plan::Trim::Shape::Polygon ? "Polygon (" + std::to_string(t.outline.size()) + " corners)"
-                                                          : "Rectangle";
+    std::string s = t.shape == plan::Trim::Shape::Polygon ? tr("Polygon (") + std::to_string(t.outline.size()) + " corners)"
+                                                          : tr("Rectangle");
     try {
         const plan::PageSize z = import_->trim_size();
         s += " " + fmt("%.0f", z.width) + " x " + fmt("%.0f", z.height) + " units";
     } catch (const std::exception&) {
-        s += " (not valid)";
+        s += tr(" (not valid)");
     }
     const double rot = t.quarter_turns * 90.0 + t.deskew_deg;
     if (rot != 0.0) s += ", turned " + fmt("%.2f", rot) + " deg";
@@ -591,14 +592,14 @@ void PlanImportWindow::begin_add_floor() {
 }
 
 Result PlanImportWindow::confirm_add_floor() {
-    if (!add_form_) return fail("No floor form is open.");
-    if (editing()) return fail("Apply or cancel the trim you are editing first.");
+    if (!add_form_) return fail(tr("No floor form is open."));
+    if (editing()) return fail(tr("Apply or cancel the trim you are editing first."));
     const ImportFloorForm f = *add_form_;
-    if (trimmed(f.name).empty()) return fail("The floor needs a name.");
-    if (!(f.height_m > 0.0 && f.height_m <= 50.0)) return fail("The floor height must be more than 0 and at most 50 m.");
+    if (trimmed(f.name).empty()) return fail(tr("The floor needs a name."));
+    if (!(f.height_m > 0.0 && f.height_m <= 50.0)) return fail(tr("The floor height must be more than 0 and at most 50 m."));
     for (const building::Floor& other : project_.floors())
         if (other.level == f.level)
-            return fail("Level " + std::to_string(f.level) + " is already used by \"" + other.name +
+            return fail(tr("Level ") + std::to_string(f.level) + tr(" is already used by \"") + other.name +
                         "\": every floor has its own level.");
     try {
         const std::string id = import_->add_as_floor(trimmed(f.name), f.level, f.height_m);
@@ -608,9 +609,9 @@ Result PlanImportWindow::confirm_add_floor() {
         load_scale_form();
         import_->reset_trim();
         trim_changed();
-        return Result{true, "Added \"" + trimmed(f.name) + "\". Trim the next floor, or set this floor's scale."};
+        return Result{true, tr("Added \"") + trimmed(f.name) + "\". Trim the next floor, or set this floor's scale."};
     } catch (const std::exception& e) {
-        return fail(std::string("Cannot add the floor: ") + e.what());
+        return fail(std::string(tr("Cannot add the floor: ")) + e.what());
     }
 }
 
@@ -644,12 +645,12 @@ std::vector<PlacedView> PlanImportWindow::placed() const {
             case Scale::Method::ScaleBar: v.scale_text += " (scale bar " + fmt("%g", f.scale.distance_m) + " m)"; break;
             case Scale::Method::Shared:
                 if (const building::Floor* from = b.find_floor(f.scale.shared_floor))
-                    v.scale_text += " (shared with " + from->name + ")";
+                    v.scale_text += tr(" (shared with ") + from->name + ")";
                 break;
             default: break;
             }
         } else {
-            v.scale_text = "not to scale";
+            v.scale_text = tr("not to scale");
         }
         for (const std::string& id : building::floors_sharing_scale(b, f.id))
             if (const building::Floor* o = b.find_floor(id))
@@ -669,16 +670,16 @@ std::vector<PlacedView> PlanImportWindow::placed() const {
 
 Result PlanImportWindow::select_floor(const std::string& floor_id) {
     const auto f = project_.floor(floor_id);
-    if (!f || f->source != import_->source_id()) return fail("That floor is not cut from this plan.");
+    if (!f || f->source != import_->source_id()) return fail(tr("That floor is not cut from this plan."));
     if (f->page != page()) {
-        if (editing()) return fail("Apply or cancel the trim you are editing first.");
+        if (editing()) return fail(tr("Apply or cancel the trim you are editing first."));
         cancel_draft();
         import_->set_page(f->page);
         trim_changed();
     }
     selected_ = floor_id;
     load_scale_form();
-    return Result{true, "Selected " + floor_label(*f)};
+    return Result{true, tr("Selected ") + floor_label(*f)};
 }
 
 std::optional<std::string> PlanImportWindow::floor_at(Point2 page_point) const {
@@ -698,9 +699,9 @@ std::optional<std::string> PlanImportWindow::floor_at(Point2 page_point) const {
 }
 
 Result PlanImportWindow::edit_floor(const std::string& floor_id) {
-    if (editing() && *editing() != floor_id) return fail("Apply or cancel the trim you are editing first.");
+    if (editing() && *editing() != floor_id) return fail(tr("Apply or cancel the trim you are editing first."));
     const auto f = project_.floor(floor_id);
-    if (!f || f->source != import_->source_id()) return fail("That floor is not cut from this plan.");
+    if (!f || f->source != import_->source_id()) return fail(tr("That floor is not cut from this plan."));
     try {
         cancel_draft();
         add_form_.reset();
@@ -713,11 +714,11 @@ Result PlanImportWindow::edit_floor(const std::string& floor_id) {
     load_scale_form();
     if (tool_ != ImportTool::Polygon && tool_ != ImportTool::Rectangle)
         tool_ = import_->trim().shape == plan::Trim::Shape::Polygon ? ImportTool::Polygon : ImportTool::Rectangle;
-    return Result{true, "Editing the trim of \"" + f->name + "\": adjust it, then Apply (or Cancel)."};
+    return Result{true, tr("Editing the trim of \"") + f->name + "\": adjust it, then Apply (or Cancel)."};
 }
 
 Result PlanImportWindow::apply_edit() {
-    if (!editing()) return fail("No trim is being edited.");
+    if (!editing()) return fail(tr("No trim is being edited."));
     const std::string id = *editing();
     try {
         // The core keeps walls, antennas, the scale points and the
@@ -725,14 +726,14 @@ Result PlanImportWindow::apply_edit() {
         import_->apply_to_floor();
         import_->stop_editing();
     } catch (const std::exception& e) {
-        return fail(std::string("Cannot change the trim: ") + e.what());
+        return fail(std::string(tr("Cannot change the trim: ")) + e.what());
     }
     cancel_draft();
     import_->reset_trim();
     trim_changed();
     load_scale_form();
     const auto f = project_.floor(id);
-    return Result{true, "Trim of \"" + (f ? f->name : id) + "\" changed."};
+    return Result{true, tr("Trim of \"") + (f ? f->name : id) + "\" changed."};
 }
 
 Result PlanImportWindow::cancel_edit() {
@@ -741,13 +742,13 @@ Result PlanImportWindow::cancel_edit() {
     import_->stop_editing();
     import_->reset_trim();
     trim_changed();
-    return Result{true, "Trim not changed."};
+    return Result{true, tr("Trim not changed.")};
 }
 
 Result PlanImportWindow::request_remove(const std::string& floor_id) {
     const auto f = project_.floor(floor_id);
-    if (!f || f->source != import_->source_id()) return fail("That floor is not cut from this plan.");
-    if (editing()) return fail("Apply or cancel the trim you are editing first.");
+    if (!f || f->source != import_->source_id()) return fail(tr("That floor is not cut from this plan."));
+    if (editing()) return fail(tr("Apply or cancel the trim you are editing first."));
     pending_remove_ = floor_id;
     return Result{};
 }
@@ -756,26 +757,26 @@ std::string PlanImportWindow::remove_question() const {
     if (!pending_remove_) return {};
     const auto f = project_.floor(*pending_remove_);
     if (!f) return {};
-    return "Remove the floor \"" + f->name + "\" (level " + std::to_string(f->level) +
-           ")? Its walls and antennas are removed with it. The plan file stays in the project.";
+    return tr("Remove the floor \"") + f->name + "\" (level " + std::to_string(f->level) +
+           tr(")? Its walls and antennas are removed with it. The plan file stays in the project.");
 }
 
 Result PlanImportWindow::confirm_remove() {
-    if (!pending_remove_) return fail("Nothing to remove.");
+    if (!pending_remove_) return fail(tr("Nothing to remove."));
     const std::string id = *pending_remove_;
     pending_remove_.reset();
     const auto f = project_.floor(id);
     try {
         import_->remove_floor(id);
     } catch (const std::exception& e) {
-        return fail(std::string("Cannot remove the floor: ") + e.what());
+        return fail(std::string(tr("Cannot remove the floor: ")) + e.what());
     }
     if (selected_ == id) {
         selected_.clear();
         scale_ = ScaleForm{};
     }
     std::erase(added_, id);
-    return Result{true, "Removed \"" + (f ? f->name : id) + "\"."};
+    return Result{true, tr("Removed \"") + (f ? f->name : id) + "\"."};
 }
 
 // ---- scale and alignment -------------------------------------------------------
@@ -812,14 +813,14 @@ bool PlanImportWindow::drawing_scale_available() const {
 
 Result PlanImportWindow::apply_scale() {
     const auto f = project_.floor(selected_);
-    if (!f) return fail("Select a floor first.");
-    if (f->page != page()) return fail("The selected floor is on another page.");
+    if (!f) return fail(tr("Select a floor first."));
+    if (f->page != page()) return fail(tr("The selected floor is on another page."));
     std::string error;
     std::optional<Scale> s;
     if (scale_.kind == ScaleForm::Kind::DrawingScale) {
         if (!drawing_scale_available())
-            return fail("This page has no physical size (an image without a stored resolution): use two points or "
-                        "the scale bar.");
+            return fail(tr("This page has no physical size (an image without a stored resolution): use two points or "
+                        "the scale bar."));
         const auto n = parse_ratio(scale_.ratio, error);
         if (!n) return fail(error);
         // 1:N: one page unit is 1 / units_per_inch inch on paper, N times
@@ -827,9 +828,9 @@ Result PlanImportWindow::apply_scale() {
         s = building::factor_scale(*n * kMetresPerInch / import_->source().units_per_inch(page()));
     } else {
         if (!scale_.a || !scale_.b)
-            return fail(scale_.kind == ScaleForm::Kind::ScaleBar ? "Drag along the scale bar first."
-                                                                 : "Drag between the two points first.");
-        if (dist(*scale_.a, *scale_.b) < 1.0) return fail("The two points are too close together.");
+            return fail(scale_.kind == ScaleForm::Kind::ScaleBar ? tr("Drag along the scale bar first.")
+                                                                 : tr("Drag between the two points first."));
+        if (dist(*scale_.a, *scale_.b) < 1.0) return fail(tr("The two points are too close together."));
         const auto d = parse_distance_m(scale_.distance_m, error);
         if (!d) return fail(error);
         const Point2 a = plan::trim_page_to_floor(f->trim, *scale_.a);
@@ -837,11 +838,11 @@ Result PlanImportWindow::apply_scale() {
         s = scale_.kind == ScaleForm::Kind::ScaleBar ? building::scale_bar(a, b, *d)
                                                      : building::two_point_scale(a, b, *d);
     }
-    if (!s) return fail("This scale cannot be used.");
+    if (!s) return fail(tr("This scale cannot be used."));
     try {
         project_.set_scale(selected_, *s);
     } catch (const std::exception& e) {
-        return fail(std::string("Cannot set the scale: ") + e.what());
+        return fail(std::string(tr("Cannot set the scale: ")) + e.what());
     }
     const auto after = project_.floor(selected_);
     const std::optional<double> mpu = after ? project_.building().metres_per_unit(*after) : std::nullopt;
@@ -850,11 +851,11 @@ Result PlanImportWindow::apply_scale() {
 
 Result PlanImportWindow::clear_scale() {
     const auto f = project_.floor(selected_);
-    if (!f) return fail("Select a floor first.");
+    if (!f) return fail(tr("Select a floor first."));
     try {
         project_.set_scale(selected_, Scale{});
     } catch (const std::exception& e) {
-        return fail(std::string("Cannot remove the scale: ") + e.what());
+        return fail(std::string(tr("Cannot remove the scale: ")) + e.what());
     }
     load_scale_form();
     return Result{true, "\"" + f->name + "\" is now marked \"not to scale\"."};
@@ -875,11 +876,11 @@ std::vector<ShareChoice> PlanImportWindow::share_choices() const {
 Result PlanImportWindow::share_scale(const std::string& floor_id, bool share) {
     const auto sel = project_.floor(selected_);
     const auto f = project_.floor(floor_id);
-    if (!sel || !f) return fail("Select a floor first.");
+    if (!sel || !f) return fail(tr("Select a floor first."));
     try {
         if (share) {
             if (!project_.building().has_scale(*sel))
-                return fail("Set the scale of \"" + sel->name + "\" first; then other floors can share it.");
+                return fail(tr("Set the scale of \"") + sel->name + "\" first; then other floors can share it.");
             project_.share_scale(selected_, {floor_id});
             return Result{true, "\"" + f->name + "\" now shares the scale of \"" + sel->name + "\"."};
         }
@@ -894,27 +895,27 @@ Result PlanImportWindow::share_scale(const std::string& floor_id, bool share) {
 
 Result PlanImportWindow::set_reference(Point2 page_point) {
     const auto f = project_.floor(selected_);
-    if (!f) return fail("Select a floor first.");
-    if (f->page != page()) return fail("The selected floor is on another page.");
+    if (!f) return fail(tr("Select a floor first."));
+    if (f->page != page()) return fail(tr("The selected floor is on another page."));
     try {
         if (!plan::TrimTransform(f->trim).contains_page(page_point))
-            return fail("The reference point must be inside the floor's trim.");
+            return fail(tr("The reference point must be inside the floor's trim."));
         project_.set_reference_point(selected_, plan::trim_page_to_floor(f->trim, page_point));
     } catch (const std::exception& e) {
         return fail(e.what());
     }
-    return Result{true, "Reference point of \"" + f->name + "\" set."};
+    return Result{true, tr("Reference point of \"") + f->name + "\" set."};
 }
 
 Result PlanImportWindow::clear_reference() {
     const auto f = project_.floor(selected_);
-    if (!f) return fail("Select a floor first.");
+    if (!f) return fail(tr("Select a floor first."));
     try {
         project_.set_reference_point(selected_, std::nullopt);
     } catch (const std::exception& e) {
         return fail(e.what());
     }
-    return Result{true, "Reference point of \"" + f->name + "\" removed."};
+    return Result{true, tr("Reference point of \"") + f->name + "\" removed."};
 }
 
 void PlanImportWindow::refresh() {

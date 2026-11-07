@@ -3,6 +3,7 @@
 //
 // Replay in the app, see replay_session.h.
 #include "yantra/app/replay_session.h"
+#include "yantra/app/i18n.h"
 
 #include <algorithm>
 #include <chrono>
@@ -63,14 +64,14 @@ namespace {
 struct Notes final : rec::ReplayListener {
     std::shared_ptr<SurveyMonitor> monitor;
     void on_marker(std::int64_t, const rec::MarkerLine& m) override {
-        monitor->note(EventKind::Marker, "Marker " + std::to_string(m.number) + (m.label.empty() ? "" : ": " + m.label) + ".",
+        monitor->note(EventKind::Marker, tr("Marker ") + std::to_string(m.number) + (m.label.empty() ? "" : ": " + m.label) + ".",
                       m.time_ns);
     }
     void on_voice(std::int64_t, std::size_t, const rec::VoiceLine& v) override {
         char secs[32];
         std::snprintf(secs, sizeof secs, "%.1f s", v.seconds);
         monitor->note(EventKind::VoiceNote,
-                      "Voice note " + std::to_string(v.number) + " (" + secs + ")" + (v.label.empty() ? "" : ": " + v.label) + ".",
+                      tr("Voice note ") + std::to_string(v.number) + " (" + secs + ")" + (v.label.empty() ? "" : ": " + v.label) + ".",
                       v.time_ns);
     }
 };
@@ -93,13 +94,13 @@ Result ReplaySession::open(const RecordingChoice& r) { return open_files(r.files
 
 Result ReplaySession::open_files(const std::vector<fs::path>& files, const std::string& name) {
     close();
-    if (files.empty()) return Result{false, "The recording has no files."};
+    if (files.empty()) return Result{false, tr("The recording has no files.")};
     rec::ReplayOptions o;
     o.catalog = catalog_;
     std::string error;
     // The pass over the whole recording: graphs, events, statistics.
     std::unique_ptr<rec::Replay> pass = rec::Replay::open(files, o, error);
-    if (!pass) return Result{false, "The recording could not be opened: " + error};
+    if (!pass) return Result{false, tr("The recording could not be opened: ") + error};
     monitor_->clear();
     pass->add_observer(monitor_);
     auto notes = std::make_shared<Notes>();
@@ -111,7 +112,7 @@ Result ReplaySession::open_files(const std::vector<fs::path>& files, const std::
     std::unique_ptr<rec::Replay> r = rec::Replay::open(files, o, error);
     if (!r) {
         monitor_->clear();
-        return Result{false, "The recording could not be opened: " + error};
+        return Result{false, tr("The recording could not be opened: ") + error};
     }
     replay_ = std::shared_ptr<rec::Replay>(std::move(r));
     listener_ = std::make_shared<Listener>();
@@ -125,9 +126,9 @@ Result ReplaySession::open_files(const std::vector<fs::path>& files, const std::
     name_ = name;
     voice_played_ = 0;
     const std::size_t mismatches = replay_->mismatches();
-    std::string msg = "Replaying " + name + " (" + std::to_string(files.size()) + (files.size() == 1 ? " file)." : " files).");
+    std::string msg = tr("Replaying ") + name + " (" + std::to_string(files.size()) + (files.size() == 1 ? " file)." : " files).");
     if (mismatches > 0)
-        msg += " " + std::to_string(mismatches) + " cycles differ from the recording (other plugins or Yantra version).";
+        msg += " " + std::to_string(mismatches) + tr(" cycles differ from the recording (other plugins or Yantra version).");
     return Result{true, msg};
 }
 
@@ -145,39 +146,39 @@ void ReplaySession::close() {
 bool ReplaySession::is_open() const { return replay_ != nullptr; }
 
 Result ReplaySession::play(double speed) {
-    if (!player_) return Result{false, "Open a recording first."};
-    if (!(speed == 0.0 || (speed >= 0.1 && speed <= 100.0))) return Result{false, "The speed is 0.1 to 100 (0: as fast as possible)."};
+    if (!player_) return Result{false, tr("Open a recording first.")};
+    if (!(speed == 0.0 || (speed >= 0.1 && speed <= 100.0))) return Result{false, tr("The speed is 0.1 to 100 (0: as fast as possible).")};
     player_->play(speed);
     return {};
 }
 
 Result ReplaySession::pause() {
-    if (!player_) return Result{false, "Open a recording first."};
+    if (!player_) return Result{false, tr("Open a recording first.")};
     player_->pause();
     return {};
 }
 
 Result ReplaySession::stop() {
-    if (!player_) return Result{false, "Open a recording first."};
+    if (!player_) return Result{false, tr("Open a recording first.")};
     if (audio_) audio_->stop_playback();
     player_->stop();
     return {};
 }
 
 Result ReplaySession::play_again() {
-    if (!player_) return Result{false, "Open a recording first."};
+    if (!player_) return Result{false, tr("Open a recording first.")};
     player_->play_again();
     return {};
 }
 
 Result ReplaySession::seek(std::int64_t t) {
-    if (!player_) return Result{false, "Open a recording first."};
+    if (!player_) return Result{false, tr("Open a recording first.")};
     player_->seek(std::clamp<std::int64_t>(t, 0, replay_->duration_ns()));
     return {};
 }
 
 Result ReplaySession::seek_mono(std::int64_t mono) {
-    if (!player_) return Result{false, "Open a recording first."};
+    if (!player_) return Result{false, tr("Open a recording first.")};
     return seek(replay_->time_of(0, mono));
 }
 
@@ -199,8 +200,8 @@ ReplayView ReplaySession::view() const {
 }
 
 Result ReplaySession::cut(bool head, const std::string& name) {
-    if (!player_) return Result{false, "Open a recording first."};
-    if (!rec::valid_session_name(name)) return Result{false, "The name cannot be a file name."};
+    if (!player_) return Result{false, tr("Open a recording first.")};
+    if (!rec::valid_session_name(name)) return Result{false, tr("The name cannot be a file name.")};
     const std::int64_t at = player_->position_ns();
     rec::CutRequest q;
     q.files = files_;
@@ -211,7 +212,7 @@ Result ReplaySession::cut(bool head, const std::string& name) {
     q.catalog = catalog_;
     q.compression = replay_->files().front().header.compression;
     const rec::CutResult c = rec::cut_recording(q);
-    if (!c.ok) return Result{false, "The cut was not saved: " + c.error};
+    if (!c.ok) return Result{false, tr("The cut was not saved: ") + c.error};
     std::string problems;
     for (const fs::path& f : c.files) {
         try {
@@ -222,8 +223,8 @@ Result ReplaySession::cut(bool head, const std::string& name) {
     }
     char secs[48];
     std::snprintf(secs, sizeof secs, "%.1f s", static_cast<double>(c.to_ns - c.from_ns) / 1e9);
-    if (!problems.empty()) return Result{false, "Saved as " + name + ", but not listed in the project: " + problems};
-    return Result{true, std::string(head ? "Start to cursor" : "Cursor to end") + " (" + secs + ") saved as " + name + "."};
+    if (!problems.empty()) return Result{false, tr("Saved as ") + name + tr(", but not listed in the project: ") + problems};
+    return Result{true, std::string(head ? tr("Start to cursor") : tr("Cursor to end")) + " (" + secs + tr(") saved as ") + name + "."};
 }
 
 void ReplaySession::tick() {
@@ -239,7 +240,7 @@ void ReplaySession::tick() {
         std::string error;
         const auto a = rec::read_wav(replay_->files()[file].path.parent_path() / v.file, error);
         if (a) (void)audio_->play(*a, error);
-        else monitor_->note(EventKind::VoiceNote, "Voice note " + std::to_string(v.number) + " cannot be played: " + error, 0, true);
+        else monitor_->note(EventKind::VoiceNote, tr("Voice note ") + std::to_string(v.number) + tr(" cannot be played: ") + error, 0, true);
     }
 }
 

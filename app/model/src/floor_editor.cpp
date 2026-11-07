@@ -3,6 +3,7 @@
 //
 // Wall and antenna editing, see floor_editor.h.
 #include "yantra/app/floor_editor.h"
+#include "yantra/app/i18n.h"
 
 #include <algorithm>
 #include <cmath>
@@ -74,25 +75,25 @@ std::vector<EditToolView> FloorEditor::tools() const {
         e.tooltip = tip;
         if (floor_.empty()) {
             e.enabled = t == EditTool::Pan;
-            if (!e.enabled) e.reason = "Add a floor first.";
+            if (!e.enabled) e.reason = tr("Add a floor first.");
         }
         v.push_back(std::move(e));
     };
-    add(EditTool::Pan, "Pan", "Look around: drag to pan, wheel to zoom. Nothing on the plan changes. [P]");
-    add(EditTool::Select, "Select",
-        "Click a wall, a wall corner or an antenna to select it; drag to move it. Double click on the selected wall "
-        "adds a corner there. Delete removes the selection. [S]");
-    add(EditTool::Wall, "Draw wall",
-        "Click the corners of a wall; double click or Enter ends it, Backspace removes the last corner, Esc drops it. "
-        "The wall gets the class chosen in the panel. [W]");
-    add(EditTool::Antenna, "Place antenna",
-        "Click on the plan to place an antenna (indoor DAS antenna or outdoor donor direction), then set its "
-        "properties. [A]");
-    add(EditTool::Aim, "Aim",
-        "Click where the selected directional antenna points, or the direction of the outdoor donor site.");
+    add(EditTool::Pan, tr("Pan"), tr("Look around: drag to pan, wheel to zoom. Nothing on the plan changes. [P]"));
+    add(EditTool::Select, tr("Select"),
+        tr("Click a wall, a wall corner or an antenna to select it; drag to move it. Double click on the selected wall "
+        "adds a corner there. Delete removes the selection. [S]"));
+    add(EditTool::Wall, tr("Draw wall"),
+        tr("Click the corners of a wall; double click or Enter ends it, Backspace removes the last corner, Esc drops it. "
+        "The wall gets the class chosen in the panel. [W]"));
+    add(EditTool::Antenna, tr("Place antenna"),
+        tr("Click on the plan to place an antenna (indoor DAS antenna or outdoor donor direction), then set its "
+        "properties. [A]"));
+    add(EditTool::Aim, tr("Aim"),
+        tr("Click where the selected directional antenna points, or the direction of the outdoor donor site."));
     if (!floor_.empty() && !aimable) {
         v.back().enabled = false;
-        v.back().reason = "Select a directional antenna or an outdoor donor first.";
+        v.back().reason = tr("Select a directional antenna or an outdoor donor first.");
     }
     return v;
 }
@@ -111,7 +112,7 @@ Result FloorEditor::set_draw_class(const std::string& id) {
             draw_class_ = id;
             return {};
         }
-    return Result{false, "There is no wall class '" + id + "'."};
+    return Result{false, tr("There is no wall class '") + id + "'."};
 }
 
 // -- selection and forms -----------------------------------------------------------
@@ -176,20 +177,20 @@ std::string FloorEditor::selection_text() const {
     if (f == nullptr) return {};
     if (const auto w = selected_wall()) {
         const auto att = b.wall_attenuation_db(*w, kShownMhz);
-        std::string t = "Wall " + w->id + ": " + (w->attenuation_db ? std::string("own value") : w->wall_class) +
+        std::string t = tr("Wall ") + w->id + ": " + (w->attenuation_db ? std::string(tr("own value")) : w->wall_class) +
                         ", " + (att ? fixed(*att, 1, " dB") : std::string("?")) + ", " +
                         building::format_length(building::length_m(b, *f, w->points));
-        if (selection_.vertex) t += ", corner " + std::to_string(*selection_.vertex + 1) + " of " +
+        if (selection_.vertex) t += tr(", corner ") + std::to_string(*selection_.vertex + 1) + " of " +
                                     std::to_string(w->points.size());
         return t;
     }
     if (const auto a = selected_antenna()) {
-        std::string t = (a->type == building::AntennaType::OutdoorDonor ? "Outdoor donor " : "Antenna ") +
+        std::string t = (a->type == building::AntennaType::OutdoorDonor ? tr("Outdoor donor ") : tr("Antenna ")) +
                         (a->name.empty() ? a->id : a->name) + ": " + fixed(a->gain_dbi, 1, " dBi") + ", " +
-                        fixed(a->height_m, 1, " m high");
+                        fixed(a->height_m, 1, tr(" m high"));
         if (const auto e = a->effective_eirp_dbm()) t += ", EIRP " + fixed(*e, 1, " dBm");
-        else t += ", EIRP estimated";
-        if (const building::Cell* c = b.find_cell(a->cell)) t += ", cell " + (c->label.empty() ? c->id : c->label);
+        else t += tr(", EIRP estimated");
+        if (const building::Cell* c = b.find_cell(a->cell)) t += tr(", cell ") + (c->label.empty() ? c->id : c->label);
         return t;
     }
     return {};
@@ -259,12 +260,12 @@ Result FloorEditor::edit(const std::string& label, F&& change) {
     return Result{true, label};
 }
 
-std::string FloorEditor::undo_label() const { return undo_.empty() ? std::string() : "Undo: " + undo_.back().label; }
-std::string FloorEditor::redo_label() const { return redo_.empty() ? std::string() : "Redo: " + redo_.back().label; }
+std::string FloorEditor::undo_label() const { return undo_.empty() ? std::string() : tr("Undo: ") + undo_.back().label; }
+std::string FloorEditor::redo_label() const { return redo_.empty() ? std::string() : tr("Redo: ") + redo_.back().label; }
 
 Result FloorEditor::step(std::vector<Step>& from, std::vector<Step>& to, bool undoing) {
     undo_note_.clear();
-    if (from.empty()) return Result{false, undoing ? "Nothing to undo." : "Nothing to redo."};
+    if (from.empty()) return Result{false, undoing ? tr("Nothing to undo.") : tr("Nothing to redo.")};
     Step st = std::move(from.back());
     from.pop_back();
     const std::string keep = floor_;
@@ -275,7 +276,7 @@ Result FloorEditor::step(std::vector<Step>& from, std::vector<Step>& to, bool un
         // older ones no longer fit; dropped instead of undone.
         floor_ = keep;
         from.clear();
-        undo_note_ = "The floor was changed elsewhere since; the older edits can no longer be undone.";
+        undo_note_ = tr("The floor was changed elsewhere since; the older edits can no longer be undone.");
         return Result{false, undo_note_};
     }
     try {
@@ -283,11 +284,11 @@ Result FloorEditor::step(std::vector<Step>& from, std::vector<Step>& to, bool un
     } catch (const std::exception& e) {
         floor_ = keep;
         from.clear();
-        undo_note_ = std::string("Could not ") + (undoing ? "undo" : "redo") + ": " + e.what();
+        undo_note_ = std::string(tr("Could not ")) + (undoing ? "undo" : "redo") + ": " + e.what();
         return Result{false, undo_note_};
     }
     floor_ = keep;
-    const std::string text = (undoing ? "Undone: " : "Redone: ") + st.label;
+    const std::string text = (undoing ? tr("Undone: ") : tr("Redone: ")) + st.label;
     to.push_back(std::move(st));
     // The selection may be gone.
     if (selection_.kind == Selection::Kind::Wall && !selected_wall()) select({});
@@ -328,11 +329,11 @@ void FloorEditor::pointer_down(Point2 p, double tol) {
     case EditTool::Antenna: {
         building::Antenna a;
         a.position = p;
-        a.name = "Antenna " + std::to_string(f->antennas.size() + 1);
+        a.name = tr("Antenna ") + std::to_string(f->antennas.size() + 1);
         const auto cells = project_.cells();
         if (cells.size() == 1) a.cell = cells.front().id;
         std::string id;
-        const Result r = edit("place antenna", [&] { id = project_.add_antenna(floor_, a); });
+        const Result r = edit(tr("place antenna"), [&] { id = project_.add_antenna(floor_, a); });
         if (r.ok && !id.empty()) {
             tool_ = EditTool::Select;
             select({Selection::Kind::Antenna, id, std::nullopt});
@@ -343,7 +344,7 @@ void FloorEditor::pointer_down(Point2 p, double tol) {
         auto a = selected_antenna();
         if (!a) return;
         if (!building::aim_antenna(*a, p)) return;
-        (void)edit("aim antenna", [&] { project_.update_antenna(*a); });
+        (void)edit(tr("aim antenna"), [&] { project_.update_antenna(*a); });
         tool_ = EditTool::Select;
         return;
     }
@@ -393,10 +394,10 @@ void FloorEditor::pointer_up(Point2 p, double tol) {
     dragged_ = false;
     if (moved && drag_antenna_) {
         const Point2 to = *drag_antenna_;
-        (void)edit("move antenna", [&] { project_.move_antenna(selection_.id, floor_, to); });
+        (void)edit(tr("move antenna"), [&] { project_.move_antenna(selection_.id, floor_, to); });
     } else if (moved && drag_wall_) {
         const building::Wall w = *drag_wall_;
-        (void)edit(selection_.vertex ? "move wall corner" : "move wall", [&] { project_.update_wall(floor_, w); });
+        (void)edit(selection_.vertex ? tr("move wall corner") : tr("move wall"), [&] { project_.update_wall(floor_, w); });
     }
     drag_wall_.reset();
     drag_antenna_.reset();
@@ -415,7 +416,7 @@ void FloorEditor::double_click(Point2 p, double tol) {
     if (!hit || f->walls[hit->wall].id != w->id) return;
     if (building::nearest_vertex(*w, p, tol)) return;  // on a corner already
     if (!building::insert_vertex(*w, hit->segment + 1, hit->nearest)) return;
-    if (edit("add wall corner", [&] { project_.update_wall(floor_, *w); }).ok)
+    if (edit(tr("add wall corner"), [&] { project_.update_wall(floor_, *w); }).ok)
         selection_.vertex = hit->segment + 1;
 }
 
@@ -424,13 +425,13 @@ void FloorEditor::hover(std::optional<Point2> p) { hover_ = p; }
 Result FloorEditor::finish_wall() {
     if (draft_.size() < 2) {
         draft_.clear();
-        return Result{false, "A wall needs at least two corners."};
+        return Result{false, tr("A wall needs at least two corners.")};
     }
     building::Wall w;
     w.wall_class = draw_class_;
     w.points = draft_;
     std::string id;
-    const Result r = edit("draw wall", [&] { id = project_.add_wall(floor_, w); });
+    const Result r = edit(tr("draw wall"), [&] { id = project_.add_wall(floor_, w); });
     draft_.clear();
     if (r.ok) select({Selection::Kind::Wall, id, std::nullopt});
     return r;
@@ -461,30 +462,30 @@ Result FloorEditor::delete_selected() {
         if (selection_.vertex && w->points.size() > 2) {
             const std::size_t v = *selection_.vertex;
             building::remove_vertex(*w, v);
-            const Result r = edit("remove wall corner", [&] { project_.update_wall(floor_, *w); });
+            const Result r = edit(tr("remove wall corner"), [&] { project_.update_wall(floor_, *w); });
             selection_.vertex.reset();
             return r;
         }
         const std::string id = w->id;
-        const Result r = edit("delete wall", [&] { project_.remove_wall(floor_, id); });
+        const Result r = edit(tr("delete wall"), [&] { project_.remove_wall(floor_, id); });
         if (r.ok) select({});
         return r;
     }
     if (const auto a = selected_antenna()) {
         const std::string id = a->id;
-        const Result r = edit("delete antenna", [&] { project_.remove_antenna(id); });
+        const Result r = edit(tr("delete antenna"), [&] { project_.remove_antenna(id); });
         if (r.ok) select({});
         return r;
     }
-    return Result{false, "Select a wall, a corner or an antenna first."};
+    return Result{false, tr("Select a wall, a corner or an antenna first.")};
 }
 
 std::string FloorEditor::split_reason() const {
     const auto w = selected_wall();
-    if (!w) return "Select a wall first.";
-    if (!selection_.vertex) return "Select an inner corner of the wall (double click on the wall adds one).";
+    if (!w) return tr("Select a wall first.");
+    if (!selection_.vertex) return tr("Select an inner corner of the wall (double click on the wall adds one).");
     if (*selection_.vertex == 0 || *selection_.vertex + 1 >= w->points.size())
-        return "The wall cannot be split at its end; select an inner corner.";
+        return tr("The wall cannot be split at its end; select an inner corner.");
     return {};
 }
 
@@ -492,8 +493,8 @@ Result FloorEditor::split_selected() {
     if (const std::string why = split_reason(); !why.empty()) return Result{false, why};
     const building::Wall w = *selected_wall();
     const auto parts = building::split_wall(w, *selection_.vertex);
-    if (!parts) return Result{false, "The wall cannot be split there."};
-    const Result r = edit("split wall", [&] {
+    if (!parts) return Result{false, tr("The wall cannot be split there.")};
+    const Result r = edit(tr("split wall"), [&] {
         project_.update_wall(floor_, parts->first);
         building::Wall second = parts->second;
         second.id.clear();
@@ -505,34 +506,34 @@ Result FloorEditor::split_selected() {
 
 Result FloorEditor::apply_wall_form() {
     auto w = selected_wall();
-    if (!w) return Result{false, "Select a wall first."};
+    if (!w) return Result{false, tr("Select a wall first.")};
     const WallForm& f = wall_form_;
     if (f.own_value) {
         if (!finite(f.attenuation_db) || f.attenuation_db < 0.0 || f.attenuation_db > 100.0)
-            return Result{false, "The attenuation must be between 0 and 100 dB."};
+            return Result{false, tr("The attenuation must be between 0 and 100 dB.")};
         w->attenuation_db = f.attenuation_db;
         if (w->wall_class.empty()) w->wall_class = f.wall_class;
     } else {
-        if (f.wall_class.empty()) return Result{false, "Choose a wall class, or give the wall its own value."};
+        if (f.wall_class.empty()) return Result{false, tr("Choose a wall class, or give the wall its own value.")};
         w->attenuation_db.reset();
     }
     w->wall_class = f.wall_class;
     if (!f.wall_class.empty()) draw_class_ = f.wall_class;
-    return edit("wall properties", [&] { project_.update_wall(floor_, *w); });
+    return edit(tr("wall properties"), [&] { project_.update_wall(floor_, *w); });
 }
 
 Result FloorEditor::apply_antenna_form() {
     auto a = selected_antenna();
-    if (!a) return Result{false, "Select an antenna first."};
+    if (!a) return Result{false, tr("Select an antenna first.")};
     const AntennaForm& f = antenna_form_;
     if (!finite(f.height_m) || f.height_m < 0.0 || f.height_m > 100.0)
-        return Result{false, "The height must be between 0 and 100 m."};
+        return Result{false, tr("The height must be between 0 and 100 m.")};
     if (!finite(f.gain_dbi) || f.gain_dbi < -20.0 || f.gain_dbi > 30.0)
-        return Result{false, "The gain must be between -20 and 30 dBi."};
+        return Result{false, tr("The gain must be between -20 and 30 dBi.")};
     if (f.eirp_known && (!finite(f.eirp_dbm) || f.eirp_dbm < -30.0 || f.eirp_dbm > 70.0))
-        return Result{false, "The EIRP must be between -30 and 70 dBm."};
+        return Result{false, tr("The EIRP must be between -30 and 70 dBm.")};
     if (!finite(f.cable_loss_db) || f.cable_loss_db < 0.0 || f.cable_loss_db > 60.0)
-        return Result{false, "The cable loss must be between 0 and 60 dB."};
+        return Result{false, tr("The cable loss must be between 0 and 60 dB.")};
     a->name = f.name;
     a->model = f.model;
     a->type = f.outdoor ? building::AntennaType::OutdoorDonor : building::AntennaType::IndoorDas;
@@ -540,7 +541,7 @@ Result FloorEditor::apply_antenna_form() {
     a->gain_dbi = f.gain_dbi;
     if (f.directional) {
         if (!finite(f.beamwidth_deg) || f.beamwidth_deg <= 0.0 || f.beamwidth_deg > 360.0)
-            return Result{false, "The beamwidth must be above 0 and at most 360 degrees."};
+            return Result{false, tr("The beamwidth must be above 0 and at most 360 degrees.")};
         a->pattern = building::directional_pattern(f.azimuth_deg, f.beamwidth_deg, std::max(0.0, f.front_to_back_db));
     } else {
         a->pattern = building::AntennaPattern{};
@@ -550,30 +551,30 @@ Result FloorEditor::apply_antenna_form() {
     a->eirp_dbm = f.eirp_known ? std::optional<double>(f.eirp_dbm) : std::nullopt;
     a->cable_loss_db = f.cable_loss_db;
     a->cell = f.cell;
-    return edit("antenna properties", [&] { project_.update_antenna(*a); });
+    return edit(tr("antenna properties"), [&] { project_.update_antenna(*a); });
 }
 
 std::vector<CellChoice> FloorEditor::cells() const {
     std::vector<CellChoice> out;
     for (const building::Cell& c : project_.cells()) {
         std::string label = c.label.empty() ? c.id : c.label;
-        if (c.carrier_hz > 0) label += " (" + fixed(static_cast<double>(c.carrier_hz) / 1e6, 4, " MHz") + ")";
+        if (c.carrier_hz > 0) label += " (" + fixed(static_cast<double>(c.carrier_hz) / 1e6, 4, tr(" MHz")) + ")";
         out.push_back({c.id, label});
     }
     return out;
 }
 
 Result FloorEditor::add_cell(const std::string& label, double carrier_mhz) {
-    if (label.empty()) return Result{false, "The cell needs a name."};
+    if (label.empty()) return Result{false, tr("The cell needs a name.")};
     if (!finite(carrier_mhz) || carrier_mhz < 0.0 || carrier_mhz > 6000.0)
-        return Result{false, "The carrier must be between 0 (unknown) and 6000 MHz."};
+        return Result{false, tr("The carrier must be between 0 (unknown) and 6000 MHz.")};
     building::Cell c;
     c.label = label;
     c.carrier_hz = static_cast<std::uint64_t>(std::llround(carrier_mhz * 1e6));
     std::string id;
     // The antenna dialog stays open: keep what the user typed in it.
     const AntennaForm typed = antenna_form_;
-    const Result r = edit("add cell", [&] { id = project_.add_cell(c); });
+    const Result r = edit(tr("add cell"), [&] { id = project_.add_cell(c); });
     antenna_form_ = typed;
     if (r.ok) antenna_form_.cell = id;
     return r;
@@ -591,7 +592,7 @@ std::vector<MaterialRow> FloorEditor::materials() const {
         r.id = c.id;
         r.name = c.name.empty() ? c.id : c.name;
         for (const building::BandAttenuation& band : c.bands)
-            r.bands += (r.bands.empty() ? "" : ", ") + fixed(band.frequency_mhz, 0, " MHz: ") +
+            r.bands += (r.bands.empty() ? "" : ", ") + fixed(band.frequency_mhz, 0, tr(" MHz: ")) +
                        fixed(band.attenuation_db, 1, " dB");
         r.walls = building::walls_of_class(b, c.id);
         r.default_class = defaults.count(c.id) != 0;
@@ -617,28 +618,28 @@ Result FloorEditor::edit_material(const std::string& id) {
             material_form_ = f;
             return {};
         }
-    return Result{false, "There is no wall class '" + id + "'."};
+    return Result{false, tr("There is no wall class '") + id + "'."};
 }
 
 Result FloorEditor::apply_material() {
     MaterialForm& f = material_form_;
-    if (f.id.empty()) return Result{false, "The class needs an id (e.g. \"glass_coated\")."};
+    if (f.id.empty()) return Result{false, tr("The class needs an id (e.g. \"glass_coated\").")};
     if (f.is_new)
         for (const building::WallClass& c : project_.wall_classes())
-            if (c.id == f.id) return Result{false, "There is already a class '" + f.id + "'."};
+            if (c.id == f.id) return Result{false, tr("There is already a class '") + f.id + "'."};
     std::vector<building::BandAttenuation> bands = f.bands;
     std::sort(bands.begin(), bands.end(), [](const auto& x, const auto& y) { return x.frequency_mhz < y.frequency_mhz; });
-    if (bands.empty()) return Result{false, "The class needs at least one frequency band."};
+    if (bands.empty()) return Result{false, tr("The class needs at least one frequency band.")};
     for (std::size_t i = 0; i < bands.size(); ++i) {
         if (!finite(bands[i].frequency_mhz) || bands[i].frequency_mhz <= 0.0)
-            return Result{false, "Every band needs a frequency above 0 MHz."};
+            return Result{false, tr("Every band needs a frequency above 0 MHz.")};
         if (i > 0 && bands[i].frequency_mhz == bands[i - 1].frequency_mhz)
-            return Result{false, "Two bands have the same frequency."};
+            return Result{false, tr("Two bands have the same frequency.")};
         if (!finite(bands[i].attenuation_db) || bands[i].attenuation_db < 0.0 || bands[i].attenuation_db > 100.0)
-            return Result{false, "Every attenuation must be between 0 and 100 dB."};
+            return Result{false, tr("Every attenuation must be between 0 and 100 dB.")};
     }
     building::WallClass c{f.id, f.name.empty() ? f.id : f.name, bands, f.reflection_loss_db};
-    const Result r = edit(f.is_new ? "add wall class" : "edit wall class", [&] { project_.set_wall_class(c); });
+    const Result r = edit(f.is_new ? tr("add wall class") : tr("edit wall class"), [&] { project_.set_wall_class(c); });
     if (r.ok) f.is_new = false;
     return r;
 }
@@ -646,13 +647,13 @@ Result FloorEditor::apply_material() {
 Result FloorEditor::remove_material(const std::string& id) {
     const building::Building b = project_.building();
     if (const std::size_t n = building::walls_of_class(b, id); n > 0)
-        return Result{false, std::to_string(n) + (n == 1 ? " wall uses" : " walls use") + " the class '" + id +
-                                 "': give them another class first."};
-    return edit("remove wall class", [&] { project_.remove_wall_class(id); });
+        return Result{false, std::to_string(n) + (n == 1 ? tr(" wall uses") : tr(" walls use")) + tr(" the class '") + id +
+                                 tr("': give them another class first.")};
+    return edit(tr("remove wall class"), [&] { project_.remove_wall_class(id); });
 }
 
 Result FloorEditor::reset_materials() {
-    return edit("reset wall classes", [&] { project_.reset_wall_classes(); });
+    return edit(tr("reset wall classes"), [&] { project_.reset_wall_classes(); });
 }
 
 }  // namespace yantra::app

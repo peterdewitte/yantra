@@ -13,6 +13,7 @@
 #include <string>
 
 #include "gui.h"
+#include "yantra/app/i18n.h"
 #include "gui_widgets.h"
 
 namespace yantra::app {
@@ -73,10 +74,10 @@ ImVec2 plan_badge(ImDrawList* dl, ImVec2 pos, const char* text, ImU32 bg) {
 void Gui::draw_edit_section() {
     FloorEditor* ed = state_.floor_editor();
     if (ed == nullptr) return;
-    ImGui::SeparatorText("Edit");
-    help_marker("Draw and change the walls and antennas of this floor. Every change is stored at once; Undo takes it "
+    ImGui::SeparatorText(tr("Edit"));
+    help_marker(tr("Draw and change the walls and antennas of this floor. Every change is stored at once; Undo takes it "
                 "back [Ctrl+Z], Redo puts it back [Ctrl+Y]. The interpolation uses the walls' classes and the "
-                "antennas' properties.");
+                "antennas' properties."));
     const bool walking = state_.live() != nullptr && state_.live()->running();
     ImGui::BeginDisabled(walking);
     for (const EditToolView& t : ed->tools()) {
@@ -87,7 +88,7 @@ void Gui::draw_edit_section() {
     }
     ImGui::NewLine();
     ImGui::EndDisabled();
-    if (walking) wrapped("Editing is off while a walk test runs: clicks on the plan go to the walk.");
+    if (walking) wrapped(tr("Editing is off while a walk test runs: clicks on the plan go to the walk."));
 
     // The class of new walls (IND-11).
     const auto mats = ed->materials();
@@ -95,28 +96,28 @@ void Gui::draw_edit_section() {
     for (const MaterialRow& m : mats)
         if (m.id == ed->draw_class()) current = m.name;
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 9.0F);
-    if (ImGui::BeginCombo("New walls###edit.draw_class", current.c_str())) {
+    if (ImGui::BeginCombo(tr("New walls###edit.draw_class"), current.c_str())) {
         for (const MaterialRow& m : mats)
             if (ImGui::Selectable((m.name + "###edit.draw_class." + m.id).c_str(), m.id == ed->draw_class()))
                 (void)state_.show(ed->set_draw_class(m.id));
         ImGui::EndCombo();
     }
-    text_tooltip("The wall class (material) new walls get; its attenuation is in the wall-class table.");
+    text_tooltip(tr("The wall class (material) new walls get; its attenuation is in the wall-class table."));
     ImGui::SameLine();
-    if (ImGui::Button("Classes...###edit.materials")) (void)state_.edit_materials();
-    text_tooltip("The wall-class table: attenuation per material and frequency band; add or change classes.");
+    if (ImGui::Button(tr("Classes...###edit.materials"))) (void)state_.edit_materials();
+    text_tooltip(tr("The wall-class table: attenuation per material and frequency band; add or change classes."));
 
-    if (tool_button("Undo###edit.undo", ed->can_undo(), ed->can_undo() ? ed->undo_label() + " [Ctrl+Z]" : "Undo the last edit [Ctrl+Z]",
-                    "Nothing to undo."))
+    if (tool_button(tr("Undo###edit.undo"), ed->can_undo(), ed->can_undo() ? ed->undo_label() + " [Ctrl+Z]" : tr("Undo the last edit [Ctrl+Z]"),
+                    tr("Nothing to undo.")))
         (void)state_.show(ed->undo());
     ImGui::SameLine();
-    if (tool_button("Redo###edit.redo", ed->can_redo(), ed->can_redo() ? ed->redo_label() + " [Ctrl+Y]" : "Redo the edit undone last [Ctrl+Y]",
-                    "Nothing to redo."))
+    if (tool_button(tr("Redo###edit.redo"), ed->can_redo(), ed->can_redo() ? ed->redo_label() + " [Ctrl+Y]" : tr("Redo the edit undone last [Ctrl+Y]"),
+                    tr("Nothing to redo.")))
         (void)state_.show(ed->redo());
     wrapped(ed->undo_note(), true);
     if (!ed->draft().empty())
-        wrapped("Drawing a wall: " + std::to_string(ed->draft().size()) +
-                " corners. Double click or Enter ends it, Backspace removes the last corner, Esc drops it.");
+        wrapped(tr("Drawing a wall: ") + std::to_string(ed->draft().size()) +
+                tr(" corners. Double click or Enter ends it, Backspace removes the last corner, Esc drops it."));
 
     const Selection& sel = ed->selection();
     if (sel.kind == Selection::Kind::None) return;
@@ -127,7 +128,7 @@ void Gui::draw_edit_section() {
         for (const MaterialRow& m : mats)
             if (m.id == f.wall_class) cname = m.name;
         ImGui::SetNextItemWidth(ImGui::GetFontSize() * 9.0F);
-        if (ImGui::BeginCombo("Class###edit.wall_class", cname.c_str())) {
+        if (ImGui::BeginCombo(tr("Class###edit.wall_class"), cname.c_str())) {
             for (const MaterialRow& m : mats)
                 if (ImGui::Selectable((m.name + "###edit.wall_class." + m.id).c_str(), m.id == f.wall_class)) {
                     f.wall_class = m.id;
@@ -135,29 +136,29 @@ void Gui::draw_edit_section() {
                 }
             ImGui::EndCombo();
         }
-        text_tooltip("The wall's class: its attenuation comes from the wall-class table at the measured frequency.");
-        if (ImGui::Checkbox("Own attenuation###edit.own_value", &f.own_value)) (void)state_.show(ed->apply_wall_form());
-        text_tooltip("Give this wall its own attenuation in dB instead of the class value (e.g. a measured wall).");
+        text_tooltip(tr("The wall's class: its attenuation comes from the wall-class table at the measured frequency."));
+        if (ImGui::Checkbox(tr("Own attenuation###edit.own_value"), &f.own_value)) (void)state_.show(ed->apply_wall_form());
+        text_tooltip(tr("Give this wall its own attenuation in dB instead of the class value (e.g. a measured wall)."));
         if (f.own_value) {
             ImGui::SameLine();
             ImGui::SetNextItemWidth(ImGui::GetFontSize() * 7.0F);
             if (ImGui::InputDouble("dB###edit.attenuation", &f.attenuation_db, 0.5, 5.0, "%.1f",
                                    ImGuiInputTextFlags_EnterReturnsTrue))
                 (void)state_.show(ed->apply_wall_form());
-            text_tooltip("The wall's own attenuation (0 to 100 dB); Enter stores it.");
+            text_tooltip(tr("The wall's own attenuation (0 to 100 dB); Enter stores it."));
         }
         const std::string why = ed->split_reason();
-        if (tool_button("Split###edit.split", why.empty(), "Split the wall at the selected corner into two walls.", why))
+        if (tool_button(tr("Split###edit.split"), why.empty(), tr("Split the wall at the selected corner into two walls."), why))
             (void)state_.show(ed->split_selected());
         ImGui::SameLine();
     } else {
-        if (ImGui::Button("Properties...###edit.antenna_props")) (void)state_.edit_antenna();
-        text_tooltip("Type, gain, pattern, height, EIRP and the cell the antenna serves (IND-12).");
+        if (ImGui::Button(tr("Properties...###edit.antenna_props"))) (void)state_.edit_antenna();
+        text_tooltip(tr("Type, gain, pattern, height, EIRP and the cell the antenna serves (IND-12)."));
         ImGui::SameLine();
     }
-    if (ImGui::Button("Delete###edit.delete")) (void)state_.show(ed->delete_selected());
-    text_tooltip(sel.kind == Selection::Kind::Wall && sel.vertex ? "Remove the selected corner (a wall of two corners is removed) [Delete]"
-                                                                 : "Remove the selection [Delete]");
+    if (ImGui::Button(tr("Delete###edit.delete"))) (void)state_.show(ed->delete_selected());
+    text_tooltip(sel.kind == Selection::Kind::Wall && sel.vertex ? tr("Remove the selected corner (a wall of two corners is removed) [Delete]")
+                                                                 : tr("Remove the selection [Delete]"));
 }
 
 // -- walk test (IND-20, GEO-02, GEO-05, DEMO-14) -----------------------------------------------
@@ -165,21 +166,21 @@ void Gui::draw_edit_section() {
 void Gui::draw_walk_section(const FloorContent* c) {
     LiveSurvey* live = state_.live();
     if (live == nullptr) return;
-    ImGui::SeparatorText("Walk test");
-    help_marker("Measure this floor with a radio: click where you are on the plan as you walk (point and click, "
+    ImGui::SeparatorText(tr("Walk test"));
+    help_marker(tr("Measure this floor with a radio: click where you are on the plan as you walk (point and click, "
                 "continuous), measure at chosen points (manual), or, with the simulator, let the mouse stand in "
-                "for the surveyor (mouse survey). The points are stored in the project as a walk test of the floor.");
+                "for the surveyor (mouse survey). The points are stored in the project as a walk test of the floor."));
     const bool running = live->running();
     ImGui::BeginDisabled(running);
-    if (ImGui::Button(live->radios_searched() ? "Search again###walk.find_radios" : "Find radios###walk.find_radios"))
+    if (ImGui::Button(live->radios_searched() ? tr("Search again###walk.find_radios") : tr("Find radios###walk.find_radios")))
         (void)state_.show(live->find_radios());
     ImGui::EndDisabled();
-    text_tooltip("Load the radio plugins and list their devices (a second or two; the simulator needs no hardware).");
+    text_tooltip(tr("Load the radio plugins and list their devices (a second or two; the simulator needs no hardware)."));
     if (live->radios_searched() && !live->radios().empty()) {
         const RadioChoice* ch = live->chosen();
         ImGui::SetNextItemWidth(-1.0F);
         ImGui::BeginDisabled(running);
-        if (ImGui::BeginCombo("###walk.radio", ch ? ch->label.c_str() : "Choose a radio")) {
+        if (ImGui::BeginCombo("###walk.radio", ch ? ch->label.c_str() : tr("Choose a radio"))) {
             for (std::size_t i = 0; i < live->radios().size(); ++i) {
                 const RadioChoice& r = live->radios()[i];
                 ImGui::BeginDisabled(!r.usable);
@@ -191,42 +192,42 @@ void Gui::draw_walk_section(const FloorContent* c) {
             ImGui::EndCombo();
         }
         ImGui::EndDisabled();
-        text_tooltip("The radio the walk test measures with.");
+        text_tooltip(tr("The radio the walk test measures with."));
     }
     wrapped(live->radio_note(), live->radios().empty() && live->radios_searched());
 
     WalkForm& f = live->form();
     ImGui::BeginDisabled(running);
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 10.0F);
-    if (ImGui::BeginCombo("Kind###walk.kind", walk_kind_label(f.kind))) {
+    if (ImGui::BeginCombo(tr("Kind###walk.kind"), walk_kind_label(f.kind))) {
         for (WalkKind k : {WalkKind::PointAndClick, WalkKind::Continuous, WalkKind::Manual, WalkKind::MouseSurvey})
             if (ImGui::Selectable((std::string(walk_kind_label(k)) + "###walk.kind." + walk_kind_key(k)).c_str(), f.kind == k))
                 f.kind = k;
         ImGui::EndCombo();
     }
-    text_tooltip("Point and click: click the start, walk, click the end. Continuous: every click ends a segment and "
+    text_tooltip(tr("Point and click: click the start, walk, click the end. Continuous: every click ends a segment and "
                  "starts the next. Manual: click a point, it is measured for the set time. Mouse survey: the "
-                 "simulator measures where the mouse is.");
+                 "simulator measures where the mouse is."));
     if (f.kind == WalkKind::Manual) {
         ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
         (void)input_double("Seconds per point###walk.seconds", f.manual_seconds, 1.0, "%.0f",
-                           "How long each manual point is measured; the cycles are averaged (GEO-05).");
+                           tr("How long each manual point is measured; the cycles are averaged (GEO-05)."));
     }
     if (f.kind == WalkKind::MouseSurvey) {
         ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
         (void)input_double("Point spacing (m)###walk.spacing", f.spacing_m, 0.05, "%.2f",
-                           "At most one point per this distance (default 0.25 m).");
+                           tr("At most one point per this distance (default 0.25 m)."));
         ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
         (void)input_double("Speed warning (m/s)###walk.max_speed", f.max_speed_mps, 0.5, "%.1f",
                            "\"Move slower\" appears when the mouse moves faster than this over the plan (default 2 m/s).");
     }
-    input_text("Name###walk.name", f.name, 128);
-    text_tooltip("The walk test's name (default: the kind and the date).");
+    input_text(tr("Name###walk.name"), f.name, 128);
+    text_tooltip(tr("The walk test's name (default: the kind and the date)."));
     ImGui::EndDisabled();
 
     if (!running) {
         const std::string why = live->start_reason(c->floor_id);
-        if (tool_button("Start###walk.start", why.empty(), "Start measuring on this floor.", why)) {
+        if (tool_button(tr("Start###walk.start"), why.empty(), tr("Start measuring on this floor."), why)) {
             (void)state_.show(live->start(c->floor_id));
             if (state_.floor_editor()) (void)state_.floor_editor()->set_tool(EditTool::Pan);
         }
@@ -236,17 +237,17 @@ void Gui::draw_walk_section(const FloorContent* c) {
     ImGui::Text("%zu points stored", v.points);
     wrapped(v.radio);
     if (v.kind == WalkKind::PointAndClick || v.kind == WalkKind::Continuous) {
-        if (ImGui::Button("Pause###walk.pause")) (void)state_.show(live->pause());
-        text_tooltip("Pause: the open segment is dropped (its end is not known); the next click starts again.");
+        if (ImGui::Button(tr("Pause###walk.pause"))) (void)state_.show(live->pause());
+        text_tooltip(tr("Pause: the open segment is dropped (its end is not known); the next click starts again."));
         ImGui::SameLine();
     }
     if (v.kind != WalkKind::MouseSurvey) {
-        if (ImGui::Button("Delete last###walk.delete_last")) (void)state_.show(live->delete_last());
-        text_tooltip(v.kind == WalkKind::Manual ? "Remove the last point." : "Remove the last segment and its points.");
+        if (ImGui::Button(tr("Delete last###walk.delete_last"))) (void)state_.show(live->delete_last());
+        text_tooltip(v.kind == WalkKind::Manual ? tr("Remove the last point.") : tr("Remove the last segment and its points."));
         ImGui::SameLine();
     }
-    if (ImGui::Button("Stop###walk.stop")) (void)state_.show(live->stop());
-    text_tooltip(v.kind == WalkKind::MouseSurvey ? "End the mouse survey; its points stay [Esc]" : "End the walk test; its points stay.");
+    if (ImGui::Button(tr("Stop###walk.stop"))) (void)state_.show(live->stop());
+    text_tooltip(v.kind == WalkKind::MouseSurvey ? tr("End the mouse survey; its points stay [Esc]") : tr("End the walk test; its points stay."));
 }
 
 // -- interpolation (IND-41..45) ----------------------------------------------------------------
@@ -254,28 +255,28 @@ void Gui::draw_walk_section(const FloorContent* c) {
 void Gui::draw_interpolation_section(const FloorContent* c) {
     InterpolationRunner* run = state_.interpolation();
     if (run == nullptr) return;
-    ImGui::SeparatorText("Interpolation");
-    help_marker("The ray-tracing interpolation: the model of the walls and antennas fitted to the measured points of "
+    ImGui::SeparatorText(tr("Interpolation"));
+    help_marker(tr("The ray-tracing interpolation: the model of the walls and antennas fitted to the measured points of "
                 "this floor, then the remaining differences spread over the floor. It runs in the background and is "
-                "stored in the project with its settings. The map is always labelled \"interpolated\".");
+                "stored in the project with its settings. The map is always labelled \"interpolated\"."));
     const InterpolationProgress p = run->progress();
     if (p.running) {
         overlay_.progress = true;
         ImGui::ProgressBar(static_cast<float>(p.progress), ImVec2(-1.0F, 0.0F), p.stage.c_str());
         wrapped(p.text);
-        if (ImGui::Button("Cancel###interp.cancel")) run->cancel();
-        text_tooltip("Stop the interpolation; nothing is stored.");
+        if (ImGui::Button(tr("Cancel###interp.cancel"))) run->cancel();
+        text_tooltip(tr("Stop the interpolation; nothing is stored."));
     } else {
         const std::string why = run->run_reason(c->floor_id);
-        if (tool_button("Run###interp.run", why.empty(),
-                        "Compute a new map of this floor from its measured points (serving carrier level).", why))
+        if (tool_button(tr("Run###interp.run"), why.empty(),
+                        tr("Compute a new map of this floor from its measured points (serving carrier level)."), why))
             (void)state_.run_interpolation(false);
         if (c->interpolation) {
             ImGui::SameLine();
             const bool stale = c->interpolation->stale;
-            if (tool_button(stale ? "Run again (stale)###interp.rerun" : "Run again###interp.rerun", why.empty(),
-                            "Compute the shown map again with the same metric and the current walls, antennas, points "
-                            "and settings.",
+            if (tool_button(stale ? tr("Run again (stale)###interp.rerun") : tr("Run again###interp.rerun"), why.empty(),
+                            tr("Compute the shown map again with the same metric and the current walls, antennas, points "
+                            "and settings."),
                             why, stale))
                 (void)state_.run_interpolation(true);
         }
@@ -283,12 +284,12 @@ void Gui::draw_interpolation_section(const FloorContent* c) {
     if (c->interpolation && c->interpolation->stale) {
         std::string reasons;
         for (const std::string& r : c->interpolation->stale_reasons) reasons += (reasons.empty() ? "" : ", ") + r;
-        wrapped("Stale: " + reasons + ". Run again to update it.", true);
+        wrapped(tr("Stale: ") + reasons + ". Run again to update it.", true);
     }
     if (c->interpolation && c->interpolation->estimated_sources)
-        wrapped("No placed antenna reaches this floor: the map uses estimated sources (dashed markers).", true);
-    if (ImGui::Button("Settings...###interp.settings")) (void)state_.edit_propagation();
-    text_tooltip("Grid size, reflections, path-loss exponent and the other ray-tracing settings of the project.");
+        wrapped(tr("No placed antenna reaches this floor: the map uses estimated sources (dashed markers)."), true);
+    if (ImGui::Button(tr("Settings...###interp.settings"))) (void)state_.edit_propagation();
+    text_tooltip(tr("Grid size, reflections, path-loss exponent and the other ray-tracing settings of the project."));
 }
 
 // -- the plan: overlay and input -------------------------------------------------------------
@@ -353,7 +354,7 @@ void Gui::draw_plan_overlay(ImDrawList* dl) {
     const ImVec2 sz = plan_badge(dl, at, v.hint.c_str(), IM_COL32(20, 90, 70, 220));
     if (v.too_fast) {
         char buf[96];
-        std::snprintf(buf, sizeof buf, "Move slower (%.1f m/s): the points cannot follow", v.speed_mps);
+        std::snprintf(buf, sizeof buf, tr("Move slower (%.1f m/s): the points cannot follow"), v.speed_mps);
         at.y += sz.y + 4.0F;
         plan_badge(dl, at, buf, IM_COL32(200, 40, 30, 235));
         overlay_.move_slower = true;
@@ -417,63 +418,63 @@ void Gui::draw_antenna_dialog() {
         return;
     }
     AntennaForm& f = ed->antenna_form();
-    input_text("Name###name", f.name, 128);
-    text_tooltip("For example \"DAS 1, corridor\".");
-    input_text("Model###model", f.model, 128);
-    text_tooltip("The antenna type or product, free text (e.g. \"ceiling omni\").");
-    ImGui::Checkbox("Outdoor donor / macro direction###outdoor", &f.outdoor);
-    text_tooltip("An outdoor site seen from the building (its direction on the plan) instead of an indoor DAS antenna.");
+    input_text(tr("Name###name"), f.name, 128);
+    text_tooltip(tr("For example \"DAS 1, corridor\"."));
+    input_text(tr("Model###model"), f.model, 128);
+    text_tooltip(tr("The antenna type or product, free text (e.g. \"ceiling omni\")."));
+    ImGui::Checkbox(tr("Outdoor donor / macro direction###outdoor"), &f.outdoor);
+    text_tooltip(tr("An outdoor site seen from the building (its direction on the plan) instead of an indoor DAS antenna."));
     (void)input_double("Height (m)###height", f.height_m, 0.1, "%.2f", "Above the floor, 0 to 100 m.");
     (void)input_double("Gain (dBi)###gain", f.gain_dbi, 0.5, "%.1f", "The antenna gain in the main direction, -20 to 30 dBi.");
-    ImGui::Checkbox("Directional###directional", &f.directional);
-    text_tooltip("A sector pattern with azimuth and beamwidth; else omnidirectional.");
+    ImGui::Checkbox(tr("Directional###directional"), &f.directional);
+    text_tooltip(tr("A sector pattern with azimuth and beamwidth; else omnidirectional."));
     if (f.directional) {
         (void)input_double("Azimuth (deg)###azimuth", f.azimuth_deg, 5.0, "%.0f",
-                           "The main direction in degrees clockwise from the top of the plan (the Aim tool sets it by a click).");
+                           tr("The main direction in degrees clockwise from the top of the plan (the Aim tool sets it by a click)."));
         (void)input_double("Beamwidth (deg)###beamwidth", f.beamwidth_deg, 5.0, "%.0f", "Half-power beamwidth, up to 360 degrees.");
         (void)input_double("Front-to-back (dB)###front_to_back", f.front_to_back_db, 1.0, "%.0f", "The most the pattern takes off behind the antenna.");
     }
     if (f.outdoor) {
         bool has = f.direction_deg.has_value();
-        if (ImGui::Checkbox("Direction known###has_direction", &has)) f.direction_deg = has ? std::optional<double>(0.0) : std::nullopt;
-        text_tooltip("The direction of the donor site from the building (the Aim tool sets it by a click).");
+        if (ImGui::Checkbox(tr("Direction known###has_direction"), &has)) f.direction_deg = has ? std::optional<double>(0.0) : std::nullopt;
+        text_tooltip(tr("The direction of the donor site from the building (the Aim tool sets it by a click)."));
         if (f.direction_deg) {
             double d = *f.direction_deg;
             if (input_double("Direction (deg)###direction", d, 5.0, "%.0f", "Degrees clockwise from the top of the plan."))
                 f.direction_deg = d;
         }
     }
-    ImGui::Checkbox("EIRP known###eirp_known", &f.eirp_known);
-    text_tooltip("When the EIRP is not known, the interpolation estimates it from the measured points (IND-42).");
+    ImGui::Checkbox(tr("EIRP known###eirp_known"), &f.eirp_known);
+    text_tooltip(tr("When the EIRP is not known, the interpolation estimates it from the measured points (IND-42)."));
     if (f.eirp_known) (void)input_double("EIRP (dBm)###eirp", f.eirp_dbm, 0.5, "%.1f", "-30 to 70 dBm.");
     (void)input_double("Cable loss (dB)###cable_loss", f.cable_loss_db, 0.5, "%.1f", "Feeder loss, 0 to 60 dB.");
     const auto cells = ed->cells();
-    std::string cell = f.cell.empty() ? std::string("(not set)") : f.cell;
+    std::string cell = f.cell.empty() ? std::string(tr("(not set)")) : f.cell;
     for (const CellChoice& c : cells)
         if (c.id == f.cell) cell = c.label;
-    if (ImGui::BeginCombo("Cell###cell", cell.c_str())) {
-        if (ImGui::Selectable("(not set)###cell.none", f.cell.empty())) f.cell.clear();
+    if (ImGui::BeginCombo(tr("Cell###cell"), cell.c_str())) {
+        if (ImGui::Selectable(tr("(not set)###cell.none"), f.cell.empty())) f.cell.clear();
         for (const CellChoice& c : cells)
             if (ImGui::Selectable((c.label + "###cell." + c.id).c_str(), c.id == f.cell)) f.cell = c.id;
         ImGui::EndCombo();
     }
-    text_tooltip("The cell (LA and carrier) the antenna serves; the interpolation compares it with the measured carrier.");
+    text_tooltip(tr("The cell (LA and carrier) the antenna serves; the interpolation compares it with the measured carrier."));
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 10.0F);
     input_text("###new_cell_name", new_cell_name_, 128);
-    text_tooltip("The name of a new cell.");
+    text_tooltip(tr("The name of a new cell."));
     ImGui::SameLine();
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 7.0F);
     ImGui::InputDouble("MHz###new_cell_mhz", &new_cell_mhz_, 0.0, 0.0, "%.4f");
-    text_tooltip("Its main carrier in MHz (0: not known).");
+    text_tooltip(tr("Its main carrier in MHz (0: not known)."));
     ImGui::SameLine();
-    if (ImGui::Button("Add cell###add_cell")) {
+    if (ImGui::Button(tr("Add cell###add_cell"))) {
         if (state_.show(ed->add_cell(new_cell_name_, new_cell_mhz_)).ok) new_cell_name_.clear();
     }
-    text_tooltip("Add a cell to the project and let this antenna serve it.");
+    text_tooltip(tr("Add a cell to the project and let this antenna serve it."));
     ImGui::Spacing();
-    if (dialog_button("Apply###dlg.ok", "Store the antenna's properties")) (void)state_.confirm_antenna();
+    if (dialog_button(tr("Apply###dlg.ok"), tr("Store the antenna's properties"))) (void)state_.confirm_antenna();
     ImGui::SameLine();
-    if (dialog_button("Cancel###dlg.cancel", "Close without storing [Esc]") || ImGui::IsKeyPressed(ImGuiKey_Escape))
+    if (dialog_button(tr("Cancel###dlg.cancel"), tr("Close without storing [Esc]")) || ImGui::IsKeyPressed(ImGuiKey_Escape))
         state_.cancel_dialog();
     error_line(state_);
 }
@@ -485,9 +486,9 @@ void Gui::draw_materials_dialog() {
         return;
     }
     if (ImGui::BeginTable("###mat.table", 4, ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) {
-        ImGui::TableSetupColumn("Class");
-        ImGui::TableSetupColumn("Attenuation");
-        ImGui::TableSetupColumn("Walls");
+        ImGui::TableSetupColumn(tr("Class"));
+        ImGui::TableSetupColumn(tr("Attenuation"));
+        ImGui::TableSetupColumn(tr("Walls"));
         ImGui::TableSetupColumn("");
         ImGui::TableHeadersRow();
         for (const MaterialRow& m : ed->materials()) {
@@ -500,43 +501,43 @@ void Gui::draw_materials_dialog() {
             ImGui::TableNextColumn();
             ImGui::Text("%zu", m.walls);
             ImGui::TableNextColumn();
-            if (ImGui::SmallButton(("Edit###mat.edit." + m.id).c_str())) material_editing_ = state_.show(ed->edit_material(m.id)).ok;
-            text_tooltip("Change the class's attenuation per frequency band.");
+            if (ImGui::SmallButton((tr("Edit###mat.edit.") + m.id).c_str())) material_editing_ = state_.show(ed->edit_material(m.id)).ok;
+            text_tooltip(tr("Change the class's attenuation per frequency band."));
             ImGui::SameLine();
-            const std::string why = m.walls > 0 ? std::to_string(m.walls) + " walls use this class." : std::string();
-            if (tool_button("Remove###mat.remove." + m.id, why.empty(), "Remove the class from the table.", why))
+            const std::string why = m.walls > 0 ? std::to_string(m.walls) + tr(" walls use this class.") : std::string();
+            if (tool_button(tr("Remove###mat.remove.") + m.id, why.empty(), tr("Remove the class from the table."), why))
                 (void)state_.show(ed->remove_material(m.id));
             ImGui::PopID();
         }
         ImGui::EndTable();
     }
-    if (ImGui::Button("New class###mat.new")) material_editing_ = state_.show(ed->edit_material("")).ok;
-    text_tooltip("Add a wall class (material) with its own attenuation.");
+    if (ImGui::Button(tr("New class###mat.new"))) material_editing_ = state_.show(ed->edit_material("")).ok;
+    text_tooltip(tr("Add a wall class (material) with its own attenuation."));
     ImGui::SameLine();
-    if (ImGui::Button("Reset defaults###mat.reset")) (void)state_.show(ed->reset_materials());
-    text_tooltip("Put the default classes back to their default values; your own classes stay.");
+    if (ImGui::Button(tr("Reset defaults###mat.reset"))) (void)state_.show(ed->reset_materials());
+    text_tooltip(tr("Put the default classes back to their default values; your own classes stay."));
     if (material_editing_) {
         MaterialForm& f = ed->material_form();
-        ImGui::SeparatorText(f.is_new ? "New class" : "Edit class");
+        ImGui::SeparatorText(f.is_new ? tr("New class") : tr("Edit class"));
         ImGui::BeginDisabled(!f.is_new);
-        input_text("Id###mat.id", f.id, 64);
+        input_text(tr("Id###mat.id"), f.id, 64);
         ImGui::EndDisabled();
-        text_tooltip("The key walls use (letters, digits, \"_\"); it cannot change once the class exists.");
-        input_text("Name###mat.name", f.name, 128);
-        text_tooltip("The name shown in the lists.");
+        text_tooltip(tr("The key walls use (letters, digits, \"_\"); it cannot change once the class exists."));
+        input_text(tr("Name###mat.name"), f.name, 128);
+        text_tooltip(tr("The name shown in the lists."));
         for (std::size_t i = 0; i < f.bands.size(); ++i) {
             ImGui::PushID(static_cast<int>(i));
             const std::string n = std::to_string(i);
             ImGui::SetNextItemWidth(ImGui::GetFontSize() * 7.0F);
             ImGui::InputDouble(("MHz###mat.band." + n + ".mhz").c_str(), &f.bands[i].frequency_mhz, 0.0, 0.0, "%.0f");
-            text_tooltip("The band's frequency; between bands the attenuation is interpolated.");
+            text_tooltip(tr("The band's frequency; between bands the attenuation is interpolated."));
             ImGui::SameLine();
             ImGui::SetNextItemWidth(ImGui::GetFontSize() * 7.0F);
             ImGui::InputDouble(("dB###mat.band." + n + ".db").c_str(), &f.bands[i].attenuation_db, 0.5, 5.0, "%.1f");
-            text_tooltip("The attenuation of one wall of this class at that frequency (0 to 100 dB).");
+            text_tooltip(tr("The attenuation of one wall of this class at that frequency (0 to 100 dB)."));
             ImGui::SameLine();
             ImGui::BeginDisabled(f.bands.size() <= 1);
-            if (ImGui::SmallButton(("Remove###mat.band." + n + ".remove").c_str())) {
+            if (ImGui::SmallButton((tr("Remove###mat.band.") + n + ".remove").c_str())) {
                 f.bands.erase(f.bands.begin() + static_cast<std::ptrdiff_t>(i));
                 ImGui::EndDisabled();
                 ImGui::PopID();
@@ -545,15 +546,15 @@ void Gui::draw_materials_dialog() {
             ImGui::EndDisabled();
             ImGui::PopID();
         }
-        if (ImGui::SmallButton("Add band###mat.band_add"))
+        if (ImGui::SmallButton(tr("Add band###mat.band_add")))
             f.bands.push_back({f.bands.empty() ? 400.0 : f.bands.back().frequency_mhz * 2.0, f.bands.empty() ? 10.0 : f.bands.back().attenuation_db});
-        text_tooltip("Add a frequency band.");
-        if (dialog_button("Apply###mat.apply", "Store the class; walls of this class use it at once")) {
+        text_tooltip(tr("Add a frequency band."));
+        if (dialog_button(tr("Apply###mat.apply"), tr("Store the class; walls of this class use it at once"))) {
             if (state_.show(ed->apply_material()).ok) material_editing_ = false;
         }
     }
     ImGui::Spacing();
-    if (dialog_button("Close###dlg.cancel", "Close the table [Esc]") || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+    if (dialog_button(tr("Close###dlg.cancel"), tr("Close the table [Esc]")) || ImGui::IsKeyPressed(ImGuiKey_Escape)) {
         material_editing_ = false;
         state_.cancel_dialog();
     }
@@ -569,27 +570,27 @@ void Gui::draw_propagation_dialog() {
     PropagationForm& f = run->settings_form();
     project::PropagationSettings& s = f.settings;
     (void)input_double("Grid (m)###grid", s.grid_m, 0.05, "%.2f", "The size of a map cell, 0.05 to 10 m (default 0.25 m).");
-    ImGui::InputInt("Reflections###reflections", &s.max_reflections);
-    text_tooltip("Specular reflections per ray, 0 to 3 (default 2); more is slower.");
+    ImGui::InputInt(tr("Reflections###reflections"), &s.max_reflections);
+    text_tooltip(tr("Specular reflections per ray, 0 to 3 (default 2); more is slower."));
     (void)input_double("Path-loss exponent###exponent", s.path_loss_exponent, 0.1, "%.2f",
-                       "The starting value of the fit, 1 to 8 (2 = free space).");
+                       tr("The starting value of the fit, 1 to 8 (2 = free space)."));
     (void)input_double("Reference distance (m)###ref_distance", s.reference_distance_m, 0.1, "%.2f",
-                       "Where the exponent starts to apply, 0.01 to 100 m.");
+                       tr("Where the exponent starts to apply, 0.01 to 100 m."));
     (void)input_double("Reflection loss (dB)###reflection_loss", s.reflection_loss_db, 0.5, "%.1f",
-                       "Loss at a reflection when the wall class has none, 0 to 60 dB.");
+                       tr("Loss at a reflection when the wall class has none, 0 to 60 dB."));
     (void)input_double("Receiver height (m)###rx_height", s.rx_height_m, 0.1, "%.2f", "The height of the measured radio, 0 to 10 m.");
     (void)input_double("Default EIRP (dBm)###default_eirp", s.default_eirp_dbm, 0.5, "%.1f",
-                       "The starting EIRP of an antenna without one, -50 to 80 dBm.");
-    ImGui::Checkbox("Antennas on other floors###other_floors", &s.other_floors);
-    text_tooltip("Let antennas on other floors contribute through the floors' slabs (IND-44).");
+                       tr("The starting EIRP of an antenna without one, -50 to 80 dBm."));
+    ImGui::Checkbox(tr("Antennas on other floors###other_floors"), &s.other_floors);
+    text_tooltip(tr("Let antennas on other floors contribute through the floors' slabs (IND-44)."));
     (void)input_double("Attenuation per floor (dB)###floor_attenuation", f.floor_attenuation_db, 1.0, "%.1f",
-                       "The slab attenuation between two floors, 0 to 100 dB (a floor may have its own).");
+                       tr("The slab attenuation between two floors, 0 to 100 dB (a floor may have its own)."));
     ImGui::Spacing();
-    if (dialog_button("Apply###dlg.ok", "Store the settings; maps made with others become stale")) (void)state_.confirm_propagation();
+    if (dialog_button(tr("Apply###dlg.ok"), tr("Store the settings; maps made with others become stale"))) (void)state_.confirm_propagation();
     ImGui::SameLine();
-    if (dialog_button("Defaults###prop.defaults", "Put the default values in the form (stored with Apply)")) run->default_settings();
+    if (dialog_button(tr("Defaults###prop.defaults"), tr("Put the default values in the form (stored with Apply)"))) run->default_settings();
     ImGui::SameLine();
-    if (dialog_button("Cancel###dlg.cancel", "Close without storing [Esc]") || ImGui::IsKeyPressed(ImGuiKey_Escape))
+    if (dialog_button(tr("Cancel###dlg.cancel"), tr("Close without storing [Esc]")) || ImGui::IsKeyPressed(ImGuiKey_Escape))
         state_.cancel_dialog();
     error_line(state_);
 }

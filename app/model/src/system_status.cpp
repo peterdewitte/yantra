@@ -3,6 +3,7 @@
 //
 // The machine's side of the status bar, see system_status.h.
 #include "yantra/app/system_status.h"
+#include "yantra/app/i18n.h"
 
 #include <cstdio>
 #include <fstream>
@@ -24,19 +25,19 @@ std::string first_line(const fs::path& p) {
 }  // namespace
 
 std::string SystemStatus::disk_text() const {
-    if (!free_bytes) return "Free space unknown";
+    if (!free_bytes) return tr("Free space unknown");
     char b[48];
     const double gb = static_cast<double>(*free_bytes) / 1e9;
-    if (gb >= 1.0) std::snprintf(b, sizeof b, "Free %.1f GB", gb);
-    else std::snprintf(b, sizeof b, "Free %.0f MB", static_cast<double>(*free_bytes) / 1e6);
+    if (gb >= 1.0) std::snprintf(b, sizeof b, tr("Free %.1f GB"), gb);
+    else std::snprintf(b, sizeof b, tr("Free %.0f MB"), static_cast<double>(*free_bytes) / 1e6);
     return b;
 }
 
 std::string SystemStatus::power_text() const {
     if (battery_percent)
-        return "Battery " + std::to_string(*battery_percent) + " %" + (charging ? " (charging)" : on_mains.value_or(false) ? " (mains)" : "");
-    if (on_mains) return *on_mains ? "Mains power" : "No mains power";
-    return "Power unknown";
+        return tr("Battery ") + std::to_string(*battery_percent) + " %" + (charging ? tr(" (charging)") : on_mains.value_or(false) ? tr(" (mains)") : "");
+    if (on_mains) return *on_mains ? tr("Mains power") : tr("No mains power");
+    return tr("Power unknown");
 }
 
 bool SystemStatus::disk_low() const { return free_bytes && *free_bytes < 1'000'000'000ull; }

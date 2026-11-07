@@ -53,55 +53,55 @@ struct ActionDef {
 // The texts are the in-app help of each action (DOC-07 b), next to the
 // action they describe so they change with it.
 const ActionDef kActions[] = {
-    {Action::NewProject, "file.new_project", "New indoor project...", "Ctrl+N",
-     "Create a project file for one building: floors, plans, walls, antennas and walk tests are kept in it.", nullptr},
-    {Action::OpenProject, "file.open_project", "Open project...", "Ctrl+O", "Open an existing project file (.yantra).",
+    {Action::NewProject, "file.new_project", tr_mark("New indoor project..."), "Ctrl+N",
+     tr_mark("Create a project file for one building: floors, plans, walls, antennas and walk tests are kept in it."), nullptr},
+    {Action::OpenProject, "file.open_project", tr_mark("Open project..."), "Ctrl+O", tr_mark("Open an existing project file (.yantra)."),
      nullptr},
-    {Action::OpenDemo, "file.open_demo", "Open demo project", "",
-     "Open the demo project (Fraunces Tavern, New York: two floors with walls, antennas, walk tests and coverage "
-     "maps). A copy is made in your own folder, so you can change it freely. Its measurements are simulated.",
+    {Action::OpenDemo, "file.open_demo", tr_mark("Open demo project"), "",
+     tr_mark("Open the demo project (Fraunces Tavern, New York: two floors with walls, antennas, walk tests and coverage "
+     "maps). A copy is made in your own folder, so you can change it freely. Its measurements are simulated."),
      nullptr},
-    {Action::Save, "file.save", "Save", "Ctrl+S",
-     "Changes are stored in the project file as you work; Save makes the file complete on its own, ready to copy.",
+    {Action::Save, "file.save", tr_mark("Save"), "Ctrl+S",
+     tr_mark("Changes are stored in the project file as you work; Save makes the file complete on its own, ready to copy."),
      nullptr},
-    {Action::SaveAs, "file.save_as", "Save as...", "Ctrl+Shift+S",
-     "Write a copy of the project under a new name and continue with the copy.", nullptr},
-    {Action::AddFloor, "file.add_floor", "Add floor...", "",
-     "Add a floor (level) to the building: choose its plan (a PDF or image file, or a plan the project already has) "
-     "and trim it in the plan import window.",
+    {Action::SaveAs, "file.save_as", tr_mark("Save as..."), "Ctrl+Shift+S",
+     tr_mark("Write a copy of the project under a new name and continue with the copy."), nullptr},
+    {Action::AddFloor, "file.add_floor", tr_mark("Add floor..."), "",
+     tr_mark("Add a floor (level) to the building: choose its plan (a PDF or image file, or a plan the project already has) "
+     "and trim it in the plan import window."),
      nullptr},
-    {Action::CloseProject, "file.close_project", "Close project", "Ctrl+W",
-     "Close the project and return to the start screen. All changes are already stored.", nullptr},
-    {Action::Export, "file.export", "Export...", "", "Export measurements, points and the cell database.", "10"},
-    {Action::Report, "file.report", "Report...", "", "Make a coverage report of the project.", "10"},
-    {Action::About, "file.about", "About Yantra", "", "Version, licence, source code link and credits.", nullptr},
-    {Action::Settings, "file.settings", "Settings...", "Ctrl+,",
-     "Theme, tooltips, window system, survey defaults (coverage threshold, graph span, ring buffer) and the plugin "
-     "manager.",
+    {Action::CloseProject, "file.close_project", tr_mark("Close project"), "Ctrl+W",
+     tr_mark("Close the project and return to the start screen. All changes are already stored."), nullptr},
+    {Action::Export, "file.export", tr_mark("Export..."), "", tr_mark("Export measurements, points and the cell database."), "10"},
+    {Action::Report, "file.report", tr_mark("Report..."), "", tr_mark("Make a coverage report of the project."), "10"},
+    {Action::About, "file.about", tr_mark("About Yantra"), "", tr_mark("Version, licence, source code link and credits."), nullptr},
+    {Action::Settings, "file.settings", tr_mark("Settings..."), "Ctrl+,",
+     tr_mark("Theme, tooltips, window system, survey defaults (coverage threshold, graph span, ring buffer) and the plugin "
+     "manager."),
      nullptr},
-    {Action::Exit, "file.exit", "Exit", "Ctrl+Q", "Close Yantra. All project changes are already stored.", nullptr},
-    {Action::Tour, "help.tour", "Tour", "",
-     "A guided tour through an indoor survey with an example building and the simulated radio.", "9.10"},
-    {Action::UserManual, "help.user_manual", "User manual", "", "Open the user manual (works offline).", nullptr},
-    {Action::QuickStarts, "help.quick_starts", "Quick starts", "", "Short step-by-step guides for common tasks.",
+    {Action::Exit, "file.exit", tr_mark("Exit"), "Ctrl+Q", tr_mark("Close Yantra. All project changes are already stored."), nullptr},
+    {Action::Tour, "help.tour", tr_mark("Tour"), "",
+     tr_mark("A guided tour through an indoor survey with an example building and the simulated radio."), "9.10"},
+    {Action::UserManual, "help.user_manual", tr_mark("User manual"), "", tr_mark("Open the user manual (works offline)."), nullptr},
+    {Action::QuickStarts, "help.quick_starts", tr_mark("Quick starts"), "", tr_mark("Short step-by-step guides for common tasks."),
      "12"},
-    {Action::ResetSettings, "help.reset_settings", "Reset all settings...", "",
-     "Reset layout, theme, language, device and plugin settings to their defaults (projects and recordings are "
-     "kept). A backup of the current settings is saved first.",
+    {Action::ResetSettings, "help.reset_settings", tr_mark("Reset all settings..."), "",
+     tr_mark("Reset layout, theme, language, device and plugin settings to their defaults (projects and recordings are "
+     "kept). A backup of the current settings is saved first."),
      nullptr},
-    {Action::HelpAbout, "help.about", "About Yantra", "", "Version, licence, source code link and credits.", nullptr},
-    {Action::CellDatabase, "network.cell_db", "Cell database...", "",
-     "The cells of the network: their identity, carrier, broadcast parameters and neighbour lists, edited here or "
-     "imported from a CSV file, and the fields received cells are paired by.",
+    {Action::HelpAbout, "help.about", tr_mark("About Yantra"), "", tr_mark("Version, licence, source code link and credits."), nullptr},
+    {Action::CellDatabase, "network.cell_db", tr_mark("Cell database..."), "",
+     tr_mark("The cells of the network: their identity, carrier, broadcast parameters and neighbour lists, edited here or "
+     "imported from a CSV file, and the fields received cells are paired by."),
      nullptr},
-    {Action::Verification, "network.verification", "Verification...", "",
-     "Compare the cells received (radio or replay) with the cell database: matches, differences, new and missing "
+    {Action::Verification, "network.verification", tr_mark("Verification..."), "",
+     tr_mark("Compare the cells received (radio or replay) with the cell database: matches, differences, new and missing "
      "cells and neighbours in colour, a difference log, learning the database from the air, and the neighbour "
-     "cross-check.",
+     "cross-check."),
      nullptr},
-    {Action::Reselection, "network.reselection", "Reselection simulator...", "",
-     "Choose a serving cell and the levels of its neighbours: the technology plugin's reselection rule says what a "
-     "radio would do.",
+    {Action::Reselection, "network.reselection", tr_mark("Reselection simulator..."), "",
+     tr_mark("Choose a serving cell and the levels of its neighbours: the technology plugin's reselection rule says what a "
+     "radio would do."),
      nullptr},
 };
 
@@ -192,7 +192,7 @@ bool AppState::demo() const {
 }
 
 std::string AppState::window_title() const {
-    std::string t = "Yantra";
+    std::string t = tr("Yantra");
     if (project_) t += " - " + project_->meta().info.name;
     if (!demo_label_.empty()) t += " [DEMO]";
     return t;
@@ -203,14 +203,14 @@ ActionView AppState::action(Action a) const {
     ActionView v;
     v.action = a;
     v.id = d.id;
-    v.label = d.label;
+    v.label = tr(d.label);
     v.shortcut = d.shortcut;
-    v.tooltip = d.tooltip;
+    v.tooltip = tr(d.tooltip);
     if (!v.shortcut.empty()) v.tooltip += " [" + v.shortcut + "]";
     if (d.planned_step != nullptr) {
         v.enabled = false;
         v.planned_step = d.planned_step;
-        v.disabled_reason = "Not available in this version yet.";
+        v.disabled_reason = tr("Not available in this version yet.");
         return v;
     }
     const bool open = project_ != nullptr;
@@ -224,26 +224,26 @@ ActionView AppState::action(Action a) const {
     case Action::Reselection:
         if (!open) {
             v.enabled = false;
-            v.disabled_reason = "No project is open: create one (File > New indoor project) or open one first.";
+            v.disabled_reason = tr("No project is open: create one (File > New indoor project) or open one first.");
         } else if (a == Action::CloseProject && live_ && live_->exit_guard()) {
             v.enabled = false;
-            v.disabled_reason = "A recording is running: stop it first (Survey > Recording).";
+            v.disabled_reason = tr("A recording is running: stop it first (Survey > Recording).");
         }
         break;
     case Action::Exit:
         // REC-11: no accidental exit while recording.
         if (live_ && live_->exit_guard()) {
             v.enabled = false;
-            v.disabled_reason = "A recording is running: stop it first (Survey > Recording).";
+            v.disabled_reason = tr("A recording is running: stop it first (Survey > Recording).");
         }
         break;
     case Action::OpenDemo:
         if (!installed_demo()) {
             v.enabled = false;
-            v.disabled_reason = "The demo project is not installed with this copy of Yantra.";
+            v.disabled_reason = tr("The demo project is not installed with this copy of Yantra.");
         } else if (paths_.user_data.empty()) {
             v.enabled = false;
-            v.disabled_reason = "No user folder for the demo copy: set HOME or XDG_DATA_HOME.";
+            v.disabled_reason = tr("No user folder for the demo copy: set HOME or XDG_DATA_HOME.");
         }
         break;
     default: break;
@@ -254,7 +254,7 @@ ActionView AppState::action(Action a) const {
 std::vector<Menu> AppState::menus() const {
     auto item = [&](Action a) { return MenuEntry{MenuEntry::Kind::Action, action(a)}; };
     const MenuEntry sep{MenuEntry::Kind::Separator, {}};
-    Menu file{"file", "File", {}};
+    Menu file{"file", tr("File"), {}};
     file.entries = {item(Action::NewProject),   item(Action::OpenProject), MenuEntry{MenuEntry::Kind::Recent, {}},
                     item(Action::OpenDemo),     sep,                       item(Action::Save),
                     item(Action::SaveAs),       sep,                       item(Action::AddFloor),
@@ -266,9 +266,9 @@ std::vector<Menu> AppState::menus() const {
     // from RadioWindows (app/gui/radio_view.cpp): its entries follow the
     // radios found. Enabled plugins add their own entries (UI-14).
     // Step 9.8: the cell database and the checks against it.
-    Menu network{"network", "Network", {}};
+    Menu network{"network", tr("Network"), {}};
     network.entries = {item(Action::CellDatabase), item(Action::Verification), item(Action::Reselection)};
-    Menu help{"help", "Help", {}};
+    Menu help{"help", tr("Help"), {}};
     help.entries = {item(Action::Tour),          item(Action::UserManual), item(Action::QuickStarts), sep,
                     item(Action::ResetSettings), sep,                      item(Action::HelpAbout)};
     return {file, network, help};
@@ -285,8 +285,8 @@ std::vector<RecentView> AppState::recent_projects() const {
 
 StartScreenView AppState::start_screen() const {
     StartScreenView v;
-    v.title = "Yantra - indoor coverage survey";
-    v.intro = "Start an indoor project for a building, open an existing one, or look at the demo project.";
+    v.title = tr("Yantra - indoor coverage survey");
+    v.intro = tr("Start an indoor project for a building, open an existing one, or look at the demo project.");
     v.actions = {action(Action::NewProject), action(Action::OpenProject), action(Action::OpenDemo),
                  action(Action::Tour)};
     v.recent = recent_projects();
@@ -300,7 +300,7 @@ std::optional<ProjectView> AppState::project_view() const {
     v.path = project_->path();
     v.demo = demo();
     v.demo_label = demo_label_;
-    v.file_note = "Changes are stored in the file as you make them.";
+    v.file_note = tr("Changes are stored in the file as you make them.");
     for (const building::Floor& f : project_->floors())
         v.floors.push_back(FloorView{f.id, f.name, f.level, !f.source.empty()});
     return v;
@@ -309,16 +309,16 @@ std::optional<ProjectView> AppState::project_view() const {
 AboutView AppState::about() {
     const auto& info = core::build_info();
     AboutView v;
-    v.name = "Yantra";
+    v.name = tr("Yantra");
     v.version = std::string(info.version_string);
     v.build_date = YANTRA_BUILD_DATE;
-    v.licence = "GPL-3.0-or-later";
+    v.licence = tr("GPL-3.0-or-later");
     v.source_url = YANTRA_SOURCE_URL;
-    v.source_note = "The complete corresponding source of this program, including the AGPL-3.0 parts of the radio "
-                    "plugins (osmo-tetra), is available at the source code link (GPL-3.0 section 13).";
+    v.source_note = tr("The complete corresponding source of this program, including the AGPL-3.0 parts of the radio "
+                    "plugins (osmo-tetra), is available at the source code link (GPL-3.0 section 13).");
     v.homepage = "https://curtat.be";
-    v.statement = "Yantra is made by curtat.be as a reference on building new programs with Claude (Anthropic's AI "
-                  "assistant).";
+    v.statement = tr("Yantra is made by curtat.be as a reference on building new programs with Claude (Anthropic's AI "
+                  "assistant).");
     auto file = [&](const fs::path& rel) {
         const auto f = find_data_file(paths_.data_folders, rel);
         return f ? *f : fs::path();
@@ -363,7 +363,7 @@ Result AppState::trigger(Action a) {
     switch (a) {
     case Action::NewProject:
         form_ = NewProjectForm{};
-        form_.name = "New building";
+        form_.name = tr("New building");
         form_.file = suggested_project_file(form_.name);
         dialog_ = Dialog::NewProject;
         return Result{};
@@ -373,7 +373,7 @@ Result AppState::trigger(Action a) {
     case Action::AddFloor:
         floor_form_ = AddFloorForm{};
         floor_form_.level = suggested_floor_level();
-        floor_form_.name = floor_form_.level == 0 ? "Ground floor" : "Floor " + std::to_string(floor_form_.level);
+        floor_form_.name = floor_form_.level == 0 ? tr("Ground floor") : tr("Floor ") + std::to_string(floor_form_.level);
         dialog_ = Dialog::AddFloor;
         return Result{};
     case Action::Save: return save();
@@ -398,7 +398,7 @@ Result AppState::trigger(Action a) {
     case Action::Reselection: network_windows_.reselection = true; return Result{};
     default: break;
     }
-    return fail(v.label + ": not available");
+    return fail(v.label + tr(": not available"));
 }
 
 void AppState::cancel_dialog() {
@@ -451,20 +451,20 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
 }
 
 Result AppState::new_project(const fs::path& file, const project::ProjectInfo& info) {
-    if (info.name.empty()) return fail("The project needs a name.");
-    if (file.empty()) return fail("Choose a file name for the project.");
+    if (info.name.empty()) return fail(tr("The project needs a name."));
+    if (file.empty()) return fail(tr("Choose a file name for the project."));
     const fs::path target = with_extension(file);
     std::error_code ec;
     if (fs::exists(target, ec))
-        return fail(target.string() + " already exists: choose another name, or Browse... to replace it.");
+        return fail(target.string() + tr(" already exists: choose another name, or Browse... to replace it."));
     try {
         if (!target.parent_path().empty()) fs::create_directories(target.parent_path(), ec);
-        Result r = opened(project::Project::create(target, info), "Created");
+        Result r = opened(project::Project::create(target, info), tr("Created"));
         // IND-01: the first floor comes next.
         (void)trigger(Action::AddFloor);
         return r;
     } catch (const std::exception& e) {
-        return fail(std::string("Cannot create the project: ") + e.what());
+        return fail(std::string(tr("Cannot create the project: ")) + e.what());
     }
 }
 
@@ -472,10 +472,10 @@ Result AppState::confirm_new_project() {
     const fs::path target = with_extension(form_.file);
     if (!form_.replace_existing.empty() && target.lexically_normal() == form_.replace_existing.lexically_normal()) {
         if (project_ && target.lexically_normal() == project_->path().lexically_normal())
-            return fail("The open project cannot be replaced by a new one: choose another file name.");
+            return fail(tr("The open project cannot be replaced by a new one: choose another file name."));
         std::error_code ec;
         remove_project_file(target, ec);
-        if (ec) return fail("Cannot replace " + target.string() + ": " + ec.message());
+        if (ec) return fail(tr("Cannot replace ") + target.string() + ": " + ec.message());
         form_.replace_existing.clear();
     }
     project::ProjectInfo info;
@@ -489,8 +489,8 @@ Result AppState::confirm_new_project() {
 Result AppState::confirm_add_floor() { return add_floor(floor_form_.name, floor_form_.level, floor_form_.height_m); }
 
 std::string AppState::no_floor_hint() const {
-    return "This project has no floor yet. Add one with File > Add floor (or \"+\" next to the floor tabs): choose "
-           "its plan and trim it.";
+    return tr("This project has no floor yet. Add one with File > Add floor (or \"+\" next to the floor tabs): choose "
+           "its plan and trim it.");
 }
 
 fs::path AppState::home() const {
@@ -521,18 +521,18 @@ void AppState::browse(BrowsePurpose purpose) {
     for (const fs::path& p : settings_.recent_projects) recent.push_back(p.parent_path());
     switch (purpose) {
     case BrowsePurpose::OpenProject:
-        browser_.emplace(BrowseMode::Open, "Open project", project_file_filters(), browse_start(), home(), recent);
+        browser_.emplace(BrowseMode::Open, tr("Open project"), project_file_filters(), browse_start(), home(), recent);
         break;
     case BrowsePurpose::SaveAs:
-        browser_.emplace(BrowseMode::Save, "Save project as", project_file_filters(), browse_start(), home(), recent,
+        browser_.emplace(BrowseMode::Save, tr("Save project as"), project_file_filters(), browse_start(), home(), recent,
                          project_ ? project_->path().filename().string() : std::string());
         break;
     case BrowsePurpose::NewProjectFile:
-        browser_.emplace(BrowseMode::Save, "New project file", project_file_filters(), browse_start(), home(), recent,
+        browser_.emplace(BrowseMode::Save, tr("New project file"), project_file_filters(), browse_start(), home(), recent,
                          form_.file.filename().string());
         break;
     case BrowsePurpose::PlanFile:
-        browser_.emplace(BrowseMode::Open, "Plan file (PDF or image)", plan_file_filters(), browse_start(), home(),
+        browser_.emplace(BrowseMode::Open, tr("Plan file (PDF or image)"), plan_file_filters(), browse_start(), home(),
                          recent);
         break;
     }
@@ -568,7 +568,7 @@ Result AppState::chosen(const fs::path& file) {
 }
 
 Result AppState::browser_confirm() {
-    if (!browser_) return fail("The file browser is not open.");
+    if (!browser_) return fail(tr("The file browser is not open."));
     const BrowseOutcome o = browser_->confirm();
     switch (o.kind) {
     case BrowseOutcome::Kind::Chosen: return chosen(o.path);
@@ -580,7 +580,7 @@ Result AppState::browser_confirm() {
 }
 
 Result AppState::browser_activate(std::size_t index) {
-    if (!browser_) return fail("The file browser is not open.");
+    if (!browser_) return fail(tr("The file browser is not open."));
     const BrowseOutcome o = browser_->activate(index);
     switch (o.kind) {
     case BrowseOutcome::Kind::Chosen: return chosen(o.path);
@@ -592,7 +592,7 @@ Result AppState::browser_activate(std::size_t index) {
 }
 
 Result AppState::browser_overwrite(bool replace) {
-    if (!browser_ || !browser_->pending_overwrite()) return fail("Nothing to replace.");
+    if (!browser_ || !browser_->pending_overwrite()) return fail(tr("Nothing to replace."));
     if (!replace) {
         browser_->cancel_overwrite();
         return Result{};
@@ -600,7 +600,7 @@ Result AppState::browser_overwrite(bool replace) {
     const fs::path target = browser_->confirm_overwrite().path;
     const bool current = project_ && target.lexically_normal() == project_->path().lexically_normal();
     if (current && purpose_ == BrowsePurpose::NewProjectFile)
-        return fail("The open project cannot be replaced by a new one: choose another file name.");
+        return fail(tr("The open project cannot be replaced by a new one: choose another file name."));
     if (purpose_ == BrowsePurpose::NewProjectFile) form_.replace_existing = target;
     // Save as replaces through the core (save_as with replace), which
     // refuses the open file and one locked by another program.
@@ -614,7 +614,7 @@ void AppState::browser_cancel() {
 }
 
 Result AppState::open_project(const fs::path& file) {
-    if (file.empty()) return fail("Choose a project file.");
+    if (file.empty()) return fail(tr("Choose a project file."));
     std::error_code ec;
     if (!fs::is_regular_file(file, ec)) {
         if (std::find(settings_.recent_projects.begin(), settings_.recent_projects.end(), file.lexically_normal()) !=
@@ -622,29 +622,29 @@ Result AppState::open_project(const fs::path& file) {
             remove_recent_project(settings_, file);
             settings_changed_ = true;
         }
-        return fail("Cannot open " + file.string() + ": the file does not exist.");
+        return fail(tr("Cannot open ") + file.string() + tr(": the file does not exist."));
     }
     if (project_ && file.lexically_normal() == project_->path().lexically_normal()) {
         dialog_ = Dialog::None;
-        return done(project_->path().string() + " is already open.");
+        return done(project_->path().string() + tr(" is already open."));
     }
     try {
-        return opened(project::Project::open(file), "Opened");
+        return opened(project::Project::open(file), tr("Opened"));
     } catch (const project::ProjectError& e) {
         using Code = project::ProjectError::Code;
         switch (e.code()) {
         case Code::Locked:
             // 7.1: the file is live and locked while it is open.
             return fail(file.string() +
-                        " is open in another Yantra window or program. A project is a live file that can be open "
-                        "in one place only: close it there, then open it here.");
+                        tr(" is open in another Yantra window or program. A project is a live file that can be open "
+                        "in one place only: close it there, then open it here."));
         case Code::TooNew:
-            return fail("Cannot open " + file.string() + ": it was saved by a newer Yantra. Open it with that "
-                        "version (this one does not change it).");
-        default: return fail("Cannot open " + file.string() + ": " + e.what());
+            return fail(tr("Cannot open ") + file.string() + tr(": it was saved by a newer Yantra. Open it with that "
+                        "version (this one does not change it)."));
+        default: return fail(tr("Cannot open ") + file.string() + ": " + e.what());
         }
     } catch (const std::exception& e) {
-        return fail("Cannot open " + file.string() + ": " + e.what());
+        return fail(tr("Cannot open ") + file.string() + ": " + e.what());
     }
 }
 
@@ -654,8 +654,8 @@ std::optional<fs::path> AppState::installed_demo() const {
 
 Result AppState::open_demo() {
     const auto installed = installed_demo();
-    if (!installed) return fail("The demo project is not installed with this copy of Yantra.");
-    if (paths_.user_data.empty()) return fail("No user folder for the demo copy: set HOME or XDG_DATA_HOME.");
+    if (!installed) return fail(tr("The demo project is not installed with this copy of Yantra."));
+    if (paths_.user_data.empty()) return fail(tr("No user folder for the demo copy: set HOME or XDG_DATA_HOME."));
     // The copy may be the open project: close it before it is replaced.
     if (demo()) {
         const Result r = close_project();
@@ -667,42 +667,42 @@ Result AppState::open_demo() {
     if (copy.empty()) return fail(error);
     Result r = open_project(copy);
     if (r.ok)
-        r = done(std::string(refreshed ? "Opened a fresh copy of the demo project: " : "Opened your copy of the demo "
-                                                                                       "project: ") +
+        r = done(std::string(refreshed ? tr("Opened a fresh copy of the demo project: ") : tr("Opened your copy of the demo "
+                                                                                       "project: ")) +
                  copy.string());
     return r;
 }
 
 Result AppState::save() {
-    if (!project_) return fail("No project is open.");
+    if (!project_) return fail(tr("No project is open."));
     try {
         project_->save();
-        return done("Saved " + project_->path().string());
+        return done(tr("Saved ") + project_->path().string());
     } catch (const std::exception& e) {
-        return fail(std::string("Cannot save: ") + e.what());
+        return fail(std::string(tr("Cannot save: ")) + e.what());
     }
 }
 
 Result AppState::save_as(const fs::path& file) {
-    if (!project_) return fail("No project is open.");
-    if (file.empty()) return fail("Choose a file name.");
+    if (!project_) return fail(tr("No project is open."));
+    if (file.empty()) return fail(tr("Choose a file name."));
     try {
         project_->save_as(with_extension(file), /*replace=*/true);
         add_recent_project(settings_, project_->path());
         settings_changed_ = true;
         dialog_ = Dialog::None;
-        return done("Saved as " + project_->path().string());
+        return done(tr("Saved as ") + project_->path().string());
     } catch (const std::exception& e) {
-        return fail(std::string("Cannot save as: ") + e.what());
+        return fail(std::string(tr("Cannot save as: ")) + e.what());
     }
 }
 
 Result AppState::add_floor(const std::string& name, int level, double height_m) {
-    if (!project_) return fail("No project is open.");
-    if (name.empty()) return fail("The floor needs a name.");
-    if (!(height_m > 0.0 && height_m <= 50.0)) return fail("The floor height must be more than 0 and at most 50 m.");
+    if (!project_) return fail(tr("No project is open."));
+    if (name.empty()) return fail(tr("The floor needs a name."));
+    if (!(height_m > 0.0 && height_m <= 50.0)) return fail(tr("The floor height must be more than 0 and at most 50 m."));
     for (const building::Floor& f : project_->floors())
-        if (f.level == level) return fail("Level " + std::to_string(level) + " is used by floor \"" + f.name + "\".");
+        if (f.level == level) return fail(tr("Level ") + std::to_string(level) + tr(" is used by floor \"") + f.name + "\".");
     try {
         building::Floor f;
         f.name = name;
@@ -711,15 +711,15 @@ Result AppState::add_floor(const std::string& name, int level, double height_m) 
         const std::string id = project_->add_floor(f);
         if (window_) (void)window_->select(id);
         dialog_ = Dialog::None;
-        return done("Added floor " + name);
+        return done(tr("Added floor ") + name);
     } catch (const std::exception& e) {
-        return fail(std::string("Cannot add the floor: ") + e.what());
+        return fail(std::string(tr("Cannot add the floor: ")) + e.what());
     }
 }
 
 Result AppState::close_project() {
-    if (!project_) return fail("No project is open.");
-    if (live_ && live_->exit_guard()) return fail("A recording is running: stop it first (REC-11).");
+    if (!project_) return fail(tr("No project is open."));
+    if (live_ && live_->exit_guard()) return fail(tr("A recording is running: stop it first (REC-11)."));
     const std::string path = project_->path().string();
     if (dialog_ == Dialog::AddFloor || dialog_ == Dialog::Browse || dialog_ == Dialog::FloorProperties ||
         dialog_ == Dialog::RemoveFloor || dialog_ == Dialog::PlanImport)
@@ -735,10 +735,10 @@ Result AppState::close_project() {
         project_->close();
     } catch (const std::exception& e) {
         project_.reset();
-        return fail("Closed " + path + " with an error: " + e.what());
+        return fail(tr("Closed ") + path + tr(" with an error: ") + e.what());
     }
     project_.reset();
-    return done("Closed " + path);
+    return done(tr("Closed ") + path);
 }
 
 std::string AppState::find_demo_label() const {
@@ -768,7 +768,7 @@ std::string AppState::find_demo_label() const {
             }
         }
     }
-    return "DEMO - simulated data";
+    return tr("DEMO - simulated data");
 }
 
 // ---- add floor and plan import ---------------------------------------------------
@@ -783,7 +783,7 @@ std::vector<SourceChoice> AppState::plan_sources() const {
         c.name = s.plan.file_name;
         const std::vector<project::SourcePage> pages = project_->source_pages(s.plan.id);
         if (s.media_type == "application/pdf")
-            c.detail = "PDF, " + std::to_string(pages.size()) + (pages.size() == 1 ? " page" : " pages");
+            c.detail = tr("PDF, ") + std::to_string(pages.size()) + (pages.size() == 1 ? " page" : " pages");
         else
             c.detail = s.media_type;
         const auto n = std::count_if(floors.begin(), floors.end(),
@@ -792,11 +792,11 @@ std::vector<SourceChoice> AppState::plan_sources() const {
         if (!s.plan.embedded) {
             std::error_code ec;
             c.available = !s.reference.empty() && fs::is_regular_file(s.reference, ec);
-            c.detail += c.available ? ", referenced (licence-restricted)" : ", referenced file missing";
+            c.detail += c.available ? tr(", referenced (licence-restricted)") : tr(", referenced file missing");
             if (!c.available)
-                c.reason = "The project only references this licence-restricted plan, and the file " +
-                           (s.reference.empty() ? std::string("it refers to") : s.reference) +
-                           " is not there. Fetch it again (Help > Tour) to use it.";
+                c.reason = tr("The project only references this licence-restricted plan, and the file ") +
+                           (s.reference.empty() ? std::string(tr("it refers to")) : s.reference) +
+                           tr(" is not there. Fetch it again (Help > Tour) to use it.");
         }
         out.push_back(std::move(c));
     }
@@ -804,7 +804,7 @@ std::vector<SourceChoice> AppState::plan_sources() const {
 }
 
 Result AppState::import_plan_file(const fs::path& file) {
-    if (!project_) return fail("No project is open.");
+    if (!project_) return fail(tr("No project is open."));
     std::string error;
     auto w = PlanImportWindow::open_file(*project_, file, paths_.data_folders, error);
     if (!w) {
@@ -814,25 +814,25 @@ Result AppState::import_plan_file(const fs::path& file) {
     import_window_ = std::move(w);
     dialog_ = Dialog::PlanImport;
     if (window_) window_->invalidate();
-    return done("Plan added: " + import_window_->title() + " (" + import_window_->description() + ")");
+    return done(tr("Plan added: ") + import_window_->title() + " (" + import_window_->description() + ")");
 }
 
 Result AppState::import_plan_source(const std::string& source_id) {
-    if (!project_) return fail("No project is open.");
+    if (!project_) return fail(tr("No project is open."));
     const auto s = project_->source(source_id);
-    if (!s) return fail("The project has no plan " + source_id + ".");
+    if (!s) return fail(tr("The project has no plan ") + source_id + ".");
     std::string error;
     auto w = PlanImportWindow::open_source(*project_, source_id, paths_.data_folders, error);
     if (!w) return fail(error);
     import_window_ = std::move(w);
     dialog_ = Dialog::PlanImport;
-    return done("Plan opened: " + s->plan.file_name);
+    return done(tr("Plan opened: ") + s->plan.file_name);
 }
 
 std::string AppState::edit_plan_reason(const std::string& floor_id) const {
-    if (!project_) return "No project is open.";
+    if (!project_) return tr("No project is open.");
     const auto f = project_->floor(floor_id);
-    if (!f) return "The project has no floor " + floor_id + ".";
+    if (!f) return tr("The project has no floor ") + floor_id + ".";
     if (f->source.empty())
         return "\"" + f->name + "\" is a floor without a plan: add its plan with File > Add floor.";
     return {};
@@ -862,20 +862,20 @@ void AppState::close_plan_import() {
 }
 
 Result AppState::edit_floor(const std::string& floor_id) {
-    if (!project_) return fail("No project is open.");
+    if (!project_) return fail(tr("No project is open."));
     const std::optional<building::Floor> f = project_->floor(floor_id);
-    if (!f) return fail("No such floor.");
+    if (!f) return fail(tr("No such floor."));
     props_form_ = FloorForm{f->id, f->name, f->level, f->height_m};
     dialog_ = Dialog::FloorProperties;
     return Result{};
 }
 
 Result AppState::confirm_floor_properties() {
-    if (!window_) return fail("No project is open.");
+    if (!window_) return fail(tr("No project is open."));
     const FloorForm f = props_form_;
     const std::optional<building::Floor> now = project_->floor(f.floor_id);
-    if (!now) return fail("The floor no longer exists.");
-    if (f.name.empty()) return fail("The floor needs a name.");
+    if (!now) return fail(tr("The floor no longer exists."));
+    if (f.name.empty()) return fail(tr("The floor needs a name."));
     if (f.name != now->name) {
         const Result r = window_->rename_floor(f.floor_id, f.name);
         if (!r.ok) return fail(r.message);
@@ -885,16 +885,16 @@ Result AppState::confirm_floor_properties() {
         if (!r.ok) return fail(r.message);
     }
     dialog_ = Dialog::None;
-    return done("Floor " + f.name + ": level " + std::to_string(f.level));
+    return done(tr("Floor ") + f.name + tr(": level ") + std::to_string(f.level));
 }
 
 Result AppState::move_floor(const std::string& floor_id, int steps) {
-    if (!window_) return fail("No project is open.");
+    if (!window_) return fail(tr("No project is open."));
     return show(window_->move_floor(floor_id, steps));
 }
 
 Result AppState::request_remove_floor(const std::string& floor_id) {
-    if (!window_) return fail("No project is open.");
+    if (!window_) return fail(tr("No project is open."));
     const Result r = window_->request_remove(floor_id);
     if (!r.ok) return fail(r.message);
     dialog_ = Dialog::RemoveFloor;
@@ -902,7 +902,7 @@ Result AppState::request_remove_floor(const std::string& floor_id) {
 }
 
 Result AppState::confirm_remove_floor() {
-    if (!window_) return fail("No project is open.");
+    if (!window_) return fail(tr("No project is open."));
     const Result r = window_->confirm_remove();
     dialog_ = Dialog::None;
     return show(r);
@@ -916,13 +916,13 @@ void AppState::set_layer_visible(Layer layer, bool visible) {
 
 Result AppState::move_layer(Layer layer, int steps) {
     if (!settings_.layers.move(layer, steps))
-        return fail(steps > 0 ? "The layer is already on top." : "The layer is already at the bottom.");
+        return fail(steps > 0 ? tr("The layer is already on top.") : tr("The layer is already at the bottom."));
     settings_changed_ = true;
     return Result{};
 }
 
 Result AppState::set_bin_size(double size_m) {
-    if (!(size_m >= 0.5 && size_m <= 50.0)) return fail("The square size must be from 0.5 to 50 m.");
+    if (!(size_m >= 0.5 && size_m <= 50.0)) return fail(tr("The square size must be from 0.5 to 50 m."));
     settings_.layers.bin_size_m = size_m;
     settings_changed_ = true;
     return Result{};
@@ -984,34 +984,34 @@ void AppState::drop_tools() {
 }
 
 Result AppState::edit_antenna() {
-    if (!editor_ || !editor_->selected_antenna()) return fail("Select an antenna first.");
+    if (!editor_ || !editor_->selected_antenna()) return fail(tr("Select an antenna first."));
     dialog_ = Dialog::AntennaProperties;
     return {};
 }
 
 Result AppState::confirm_antenna() {
-    if (!editor_) return fail("No project is open.");
+    if (!editor_) return fail(tr("No project is open."));
     const Result r = editor_->apply_antenna_form();
     if (!r.ok) return fail(r.message);
     dialog_ = Dialog::None;
-    return done("Antenna properties stored.");
+    return done(tr("Antenna properties stored."));
 }
 
 Result AppState::edit_materials() {
-    if (!editor_) return fail("No project is open.");
+    if (!editor_) return fail(tr("No project is open."));
     dialog_ = Dialog::Materials;
     return {};
 }
 
 Result AppState::edit_propagation() {
-    if (!runner_) return fail("No project is open.");
+    if (!runner_) return fail(tr("No project is open."));
     runner_->open_settings();
     dialog_ = Dialog::Propagation;
     return {};
 }
 
 Result AppState::confirm_propagation() {
-    if (!runner_) return fail("No project is open.");
+    if (!runner_) return fail(tr("No project is open."));
     const Result r = runner_->apply_settings();
     if (!r.ok) return fail(r.message);
     dialog_ = Dialog::None;
@@ -1019,7 +1019,7 @@ Result AppState::confirm_propagation() {
 }
 
 Result AppState::run_interpolation(bool again) {
-    if (!runner_ || !window_) return fail("No project is open.");
+    if (!runner_ || !window_) return fail(tr("No project is open."));
     const std::string floor = window_->selected();
     const FloorContent* c = window_->content(settings_.layers.bin_size_m);
     const survey::Interpolation* shown = again && c && c->interpolation ? &c->interpolation->data : nullptr;
@@ -1029,7 +1029,7 @@ Result AppState::run_interpolation(bool again) {
 void AppState::tick() {
     if (plugins_) {
         // PLG-09: a plugin whose call failed is disabled with its message.
-        if (plugins_->poll() > 0) (void)fail("A plugin reported an error and was disabled (File > Settings > Plugins).");
+        if (plugins_->poll() > 0) (void)fail(tr("A plugin reported an error and was disabled (File > Settings > Plugins)."));
         plugin_ui().tick();
     }
     if (runner_) {
@@ -1070,9 +1070,9 @@ void AppState::set_audio(std::shared_ptr<AudioIo> audio) {
 }
 
 Result AppState::open_replay(const RecordingChoice& recording) {
-    if (!replay_ || !live_) return fail("No project is open.");
-    if (live_->running()) return fail("Stop the walk test first.");
-    if (live_->recording()) return fail("Stop the recording first.");
+    if (!replay_ || !live_) return fail(tr("No project is open."));
+    if (live_->running()) return fail(tr("Stop the walk test first."));
+    if (live_->recording()) return fail(tr("Stop the recording first."));
     if (live_->radio_running()) (void)live_->stop_radio();
     replay_->set_catalog(live_->catalog());
     return show(replay_->open(recording));
@@ -1080,14 +1080,14 @@ Result AppState::open_replay(const RecordingChoice& recording) {
 
 Result AppState::request_exit() {
     if (live_ && live_->exit_guard())
-        return fail("A recording is running: stop it first (Survey > Recording), then close Yantra.");
+        return fail(tr("A recording is running: stop it first (Survey > Recording), then close Yantra."));
     return {};
 }
 
 Result AppState::close_replay() {
-    if (!replay_ || !replay_->is_open()) return fail("No recording is open.");
+    if (!replay_ || !replay_->is_open()) return fail(tr("No recording is open."));
     replay_->close();
-    return done("Replay closed.");
+    return done(tr("Replay closed."));
 }
 
 const SystemStatus& AppState::system_status(double now_s) {
@@ -1107,29 +1107,29 @@ AppState::StatusBar AppState::status_bar(double now_s) {
     b.power = s.power_text();
     b.power_warning = s.battery_low();
     if (replay_ && replay_->is_open()) {
-        b.radio = "Replay: " + replay_->view().name;
+        b.radio = tr("Replay: ") + replay_->view().name;
     } else if (live_) {
         const RadioState r = live_->radio_state();
         b.radio = r.text;
         b.radio_warning = r.lost;
     } else {
-        b.radio = "No project";
+        b.radio = tr("No project");
     }
     if (live_ && live_->recording()) {
         const recording::RecorderStatus st = live_->recording_status();
         b.recording_active = st.state == recording::RecorderState::Recording;
-        b.recording = std::string(st.state == recording::RecorderState::Paused ? "Paused: " : "Recording: ") + st.name +
+        b.recording = std::string(st.state == recording::RecorderState::Paused ? tr("Paused: ") : tr("Recording: ")) + st.name +
                       " file " + std::to_string(st.file_index);
         if (!st.error.empty()) b.recording += " (" + st.error + ")";
     } else {
-        b.recording = "Monitoring (no file)";
+        b.recording = tr("Monitoring (no file)");
     }
     const SurveyStats st = monitor_->stats();
-    b.dropped = "Dropped " + std::to_string(st.records_dropped);
+    b.dropped = tr("Dropped ") + std::to_string(st.records_dropped);
     b.dropped_warning = st.records_dropped > 0 || st.data_loss_cycles > 0;
     const measure::SelfInterferenceWarning w = monitor_->interference();
     b.interference_warning = w.active;
-    b.interference = w.active ? "Self-interference" : "";
+    b.interference = w.active ? tr("Self-interference") : "";
     return b;
 }
 
@@ -1209,10 +1209,10 @@ PluginManagerView AppState::plugin_manager() {
     ensure_plugins();
     // Why no plugin may change now ("" when it may).
     std::string busy;
-    if (live_ && live_->running()) busy = "Stop the walk test first.";
-    else if (live_ && live_->recording()) busy = "Stop the recording first.";
-    else if (live_ && live_->radio_running()) busy = "Stop the radio first.";
-    else if (replay_ && replay_->is_open()) busy = "Close the replay first.";
+    if (live_ && live_->running()) busy = tr("Stop the walk test first.");
+    else if (live_ && live_->recording()) busy = tr("Stop the recording first.");
+    else if (live_ && live_->radio_running()) busy = tr("Stop the radio first.");
+    else if (replay_ && replay_->is_open()) busy = tr("Close the replay first.");
     for (const plugin::PluginEntry& e : plugins_->list()) {
         PluginRowView r;
         r.kind = plugin::kinds_text(e.kinds);
@@ -1226,13 +1226,13 @@ PluginManagerView AppState::plugin_manager() {
         r.status = plugin::status_text(e.status);
         r.message = e.message;
         r.enabled = e.status == plugin::PluginStatus::Enabled || e.status == plugin::PluginStatus::Failed;
-        if (e.status == plugin::PluginStatus::Refused) r.toggle_reason = "Not loaded: " + e.message;
+        if (e.status == plugin::PluginStatus::Refused) r.toggle_reason = tr("Not loaded: ") + e.message;
         else r.toggle_reason = busy;
         r.can_toggle = r.toggle_reason.empty();
         v.plugins.push_back(std::move(r));
     }
     if (!live_) {
-        v.note = "Radio plugins are loaded with a project: open or create one to see and switch them.";
+        v.note = tr("Radio plugins are loaded with a project: open or create one to see and switch them.");
         return v;
     }
     if (const Result r = live_->load_radio_plugins(); !r.ok) v.note = r.message;
@@ -1251,7 +1251,7 @@ PluginManagerView AppState::plugin_manager() {
             r.status = radio::status_text(e.status);
             r.message = e.message;
             r.enabled = e.status == radio::RadioPluginStatus::Enabled || e.status == radio::RadioPluginStatus::Failed;
-            if (e.status == radio::RadioPluginStatus::Refused) r.toggle_reason = "Not loaded: " + e.message;
+            if (e.status == radio::RadioPluginStatus::Refused) r.toggle_reason = tr("Not loaded: ") + e.message;
             else r.toggle_reason = busy;
             r.can_toggle = r.toggle_reason.empty();
             v.plugins.push_back(std::move(r));
@@ -1264,7 +1264,7 @@ Result AppState::set_plugin_enabled(bool radio, const std::string& id, bool enab
     const PluginManagerView v = plugin_manager();
     const auto it = std::find_if(v.plugins.begin(), v.plugins.end(),
                                  [&](const PluginRowView& r) { return r.radio == radio && r.id == id; });
-    if (it == v.plugins.end()) return fail("No plugin " + id + " is loaded.");
+    if (it == v.plugins.end()) return fail(tr("No plugin ") + id + tr(" is loaded."));
     if (!it->can_toggle) return fail(it->name + ": " + it->toggle_reason);
     auto change = [&]() -> Result {
         if (radio) {
@@ -1275,7 +1275,7 @@ Result AppState::set_plugin_enabled(bool radio, const std::string& id, bool enab
         const yantra_status st = enabled ? plugins_->enable(id) : plugins_->disable(id);
         if (st != YANTRA_OK) {
             const auto e = plugins_->entry(id);
-            return Result{false, "The plugin could not be " + std::string(enabled ? "enabled" : "disabled") +
+            return Result{false, tr("The plugin could not be ") + std::string(enabled ? "enabled" : "disabled") +
                                      (e && !e->message.empty() ? ": " + e->message : ".")};
         }
         return Result{true, ""};
@@ -1288,7 +1288,7 @@ Result AppState::set_plugin_enabled(bool radio, const std::string& id, bool enab
     plugin_ui().tick();
     if (!r.ok) return fail(r.message);
     return done(it->name + (enabled ? " enabled." : " disabled.") +
-                (live_ ? " Find the radios again (Radio > Radios)." : ""));
+                (live_ ? tr(" Find the radios again (Radio > Radios).") : ""));
 }
 
 ResetSummary AppState::reset_summary() const { return app::reset_summary(reset_form_.also_calibration); }
@@ -1298,7 +1298,7 @@ fs::path AppState::reset_backup_root() const {
 }
 
 Result AppState::confirm_reset_settings() {
-    if (live_ && live_->exit_guard()) return fail("A recording is running: stop it first (Survey > Recording).");
+    if (live_ && live_->exit_guard()) return fail(tr("A recording is running: stop it first (Survey > Recording)."));
     if (project_) {
         if (const Result r = close_project(); !r.ok) return fail(r.message);
     }
