@@ -11,6 +11,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -66,10 +67,11 @@ AppPaths beacon_paths(const fs::path& dir) {
 
 constexpr const char* kBeacon = "yantra.example.beacon";
 
-const PluginRowView* row(const PluginManagerView& v, const std::string& id) {
+/// A copy of the row (the view is often a temporary).
+std::optional<PluginRowView> row(const PluginManagerView& v, const std::string& id) {
     for (const PluginRowView& r : v.plugins)
-        if (r.id == id) return &r;
-    return nullptr;
+        if (r.id == id) return r;
+    return std::nullopt;
 }
 
 }  // namespace
@@ -235,8 +237,8 @@ TEST_CASE("Reset all settings from the app (UI-16): closes the project, defaults
     CHECK_FALSE(fs::exists(paths.settings_file));
     CHECK_FALSE(fs::exists(paths.radios.plugin_state));
     // The plugins load again with their defaults: the beacon is on again.
-    const PluginRowView* b = row(st.plugin_manager(), kBeacon);
-    REQUIRE(b != nullptr);
+    const std::optional<PluginRowView> b = row(st.plugin_manager(), kBeacon);
+    REQUIRE(b);
     CHECK(b->enabled);
 }
 
@@ -327,8 +329,8 @@ TEST_CASE("plugin manager (PLG-09): name, version, API, author, licence, status;
     {
         AppState st({}, paths);
         const PluginManagerView v = st.plugin_manager();
-        const PluginRowView* b = row(v, kBeacon);
-        REQUIRE(b != nullptr);
+        const std::optional<PluginRowView> b = row(v, kBeacon);
+        REQUIRE(b);
         CHECK_FALSE(b->radio);
         CHECK(b->name == "Beacon technology (example)");
         CHECK(b->api == "1.0");
