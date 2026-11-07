@@ -313,7 +313,7 @@ void parse_ui(const yantra_plugin_ui_api* raw, Errors& errors, UiInfo& out) {
         }
         UiWindow win{text_of(w->id), text_of(w->title), text_of(w->help),
                      text_of(w->manual_section), w->kind,
-                     (w->flags & YANTRA_UI_WINDOW_OPEN_AT_START) != 0};
+                     (w->flags & YANTRA_UI_WINDOW_OPEN_AT_START) != 0, w->default_width, w->default_height};
         const std::string at = "UI window '" + win.id + "'";
         if (!is_identifier(win.id) || !window_ids.insert(win.id).second) {
             errors.push_back(at + ": needs a unique id [a-z][a-z0-9_]*");

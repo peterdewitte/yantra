@@ -81,6 +81,8 @@ struct UiWindow {
     std::string manual_section;
     std::uint32_t kind = YANTRA_UI_PANEL;
     bool open_at_start = false;
+    double default_width = 0.0;   // logical pixels, 0 = the host chooses
+    double default_height = 0.0;
 };
 
 struct UiMenuItem {
