@@ -78,6 +78,8 @@ public:
         AppState::StatusBar status;       ///< UI-08
     };
     const SurveyOverlay& survey_overlay() const { return survey_; }
+    /// The Post page's figures as last drawn (step 9.8 tests).
+    const PostStatsView& post_view() const { return post_view_; }
     /// What the About dialog drew in the last frame (tests).
     struct AboutOverlay {
         bool shown = false;
@@ -146,6 +148,7 @@ private:
     void draw_propagation_dialog();
     // Survey panels, recording and replay (survey_view.cpp, step 9.5).
     void draw_survey_section();
+    void draw_post_section();  // step 9.8, post_view.cpp
     void draw_recording_controls(LiveSurvey& live);
     void draw_replay_controls();
     void draw_survey_panels(float height);
@@ -209,6 +212,7 @@ private:
         bool log_not_seen = false;
     };
     NetworkText network_;
+    PostStatsView post_view_;  // the Post page's figures, last frame
     // Step 9.7: theme in use, UI restarts, About logos, plugin windows.
     Theme theme_ = Theme::Dark;
     std::uint64_t ui_generation_ = 0;

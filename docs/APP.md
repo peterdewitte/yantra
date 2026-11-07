@@ -576,6 +576,46 @@ as `celldb::Technologies`.
   is the plugin's as it is (`celldb::simulate`; its check against
   EN 300 392-2 clause 18.3.4 is an open owner question).
 
+The **Post** page of the side panel `panel.post` (`PostProcessing`,
+PP-01..05) sets `ProjectWindow::set_post(PostSettings)`, so the plan's
+points, the binned layer, the legend and the figures show the same view;
+the default `PostSettings{}` is the plain serving level of 9.2.
+
+- PP-01: `post.folder` and `post.load.<n>` load a recording into the
+  project as walk-test points (`survey::import_recordings` with the live
+  run's technology catalog; a recording already in the project is
+  refused). The hover readout adds the plan position, the serving, the
+  strongest and every neighbour cell (`ProjectWindow::point_detail`,
+  cached per point).
+- PP-02: the value `post.carrier.{serving,strongest,frequency}` (with
+  `post.frequency`) and `post.value.{level,c1,quality}` (with
+  `post.quality_field`, e.g. `mer_pct`, `ber_pct`); the view
+  `post.mode.{values,goodbad,offset}` with `post.threshold`; good/bad
+  recolours the points (`survey::classify`); `post.changes` marks the
+  serving-cell changes (yellow squares); the figures give the points'
+  statistics, the share at or above the threshold and the coverage of
+  the tested area (`survey::area_coverage` on the binned squares).
+- PP-03: `post.fail.<n>` switches cells off (the cells the floor's points
+  name, `survey::cells_seen`); the best server is chosen again from the
+  measured levels (`Metric::failed_cells`).
+- PP-04: `post.offset` adds dB to every level (`survey::with_offset`);
+  the view's label ("Simulation: ...") is a badge on the plan.
+- PP-05: `post.percentile` is the binned layer's percentile (the square
+  size stays the Layers page's).
+- EXP-06 view: `post.basis.{points,tested,floor}`, `post.acc_threshold`,
+  `post.acc_percent`: one criterion evaluated on the measured points, the
+  tested squares or the shown interpolation's confident area
+  (`survey::evaluate`, `survey::evaluate_area`), PASS or FAIL. Stored
+  profiles and the acceptance report are phase 10's.
+
+Hooks for the next steps: 9.9 translates the texts of `network_view.cpp`
+and `post_view.cpp`, gives the windows touch sizes and help pages
+(`network.*` tooltips are the in-app help, DOC-07); 9.10's tour can open
+`win.cell_db` and `panel.post` by their ids; 9.11's screenshots use the
+same ids; phase 10 reports the same views (`NetworkChecks::verification`,
+`PostProcessing::stats`) and adds stored acceptance profiles and the
+exports.
+
 The TETRA calculator (DB-07: channel <-> frequency with offset, duplex and
 reverse operation, subscriber class bits) is the TETRA plugin's own
 window `plg.yantra.tetra.calculator` under Tools (docs/plugins/TETRA.md),
@@ -584,9 +624,11 @@ so it needs no core code.
 Tests: `test_app` (`test_network.cpp`: the editor's form, neighbours,
 filter, CSV round trip, match fields; verification, log, learn and
 cross-check with generated received cells; the reselection cases of the
-TETRA rule; the Network actions), `test_app_ui` (`ui/test_ui_cells.cpp`:
-the calculator, the editor on the demo, verification and reselection
-with the demo's replayed walk).
+TETRA rule; the Network actions; the post-processing views, acceptance
+bases and loading a recording on the demo), `test_app_ui`
+(`ui/test_ui_cells.cpp`: the calculator, the editor on the demo,
+verification and reselection with the demo's replayed walk, the Post
+page and the hover readout).
 
 ## Headless UI tests (tests/app/harness)
 

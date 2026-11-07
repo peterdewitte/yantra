@@ -47,6 +47,7 @@
 #include "yantra/app/plan_import_window.h"
 #include "yantra/app/project_window.h"
 #include "yantra/app/plugin_ui.h"
+#include "yantra/app/post_processing.h"
 #include "yantra/app/radio_windows.h"
 #include "yantra/app/result.h"
 #include "yantra/app/settings.h"
@@ -324,6 +325,8 @@ public:
     /// DB-08; nullptr on the start screen).
     NetworkChecks* network_checks() { return checks_.get(); }
     NetworkWindows& network_windows() { return network_windows_; }
+    /// The post-processing page (PP-01..05; nullptr on the start screen).
+    PostProcessing* post_processing() { return post_.get(); }
     /// The enabled technology plugins as celldb technologies (PLG-01).
     celldb::Technologies technologies();
     /// The plugin.h plugins (technology, feature, exporter), loaded on
@@ -510,6 +513,7 @@ private:
     std::unique_ptr<ProjectWindow> window_;
     std::unique_ptr<CellDbEditor> cell_db_;
     std::unique_ptr<NetworkChecks> checks_;
+    std::unique_ptr<PostProcessing> post_;
     NetworkWindows network_windows_;
     std::unique_ptr<FloorEditor> editor_;
     std::unique_ptr<InterpolationRunner> runner_;

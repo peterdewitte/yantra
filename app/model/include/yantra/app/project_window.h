@@ -44,6 +44,8 @@
 #include "yantra/core/survey/bins.h"
 #include "yantra/core/survey/interpolation.h"
 #include "yantra/core/survey/points.h"
+#include "yantra/core/survey/viewer.h"
+#include "yantra/core/survey/views.h"
 
 namespace yantra::project {
 class Project;
@@ -129,6 +131,22 @@ struct InterpolationLayer {
     survey::Interpolation data;  ///< for the hover readout
 };
 
+/// The post-processing view of the measured points (PP-02..05, step 9.8;
+/// the Post page of the side panel): which value of which carrier, shown
+/// as values, as good/bad against a threshold, or with a level offset;
+/// failed cells taken out of the best server (PP-03); the binned layer's
+/// percentile. The default is the plain serving level (IND-30).
+struct PostSettings {
+    enum class Mode { Values, GoodBad, Offset };
+    survey::Metric metric;  ///< carrier, value, quality field, failed cells
+    Mode mode = Mode::Values;
+    double threshold = -95.0;   ///< GoodBad (in the metric's unit)
+    double offset_db = 0.0;     ///< Offset: a simulation, labelled so
+    double bin_percentile = 50.0;
+    bool serving_changes = false;  ///< mark the points where the serving cell changed
+    bool operator==(const PostSettings&) const = default;
+};
+
 /// What the selected floor shows.
 struct FloorContent {
     std::string floor_id;
@@ -150,6 +168,11 @@ struct FloorContent {
     /// Every stored interpolation of the floor (id, key), newest first.
     std::vector<std::pair<std::int64_t, std::string>> interpolations;
     survey::ColourScale legend;  ///< the points' scale, also used by the interpolation and the bins
+    /// PostSettings applied: "" for the measured values, else the
+    /// classification's or the simulation's label, always shown.
+    std::string view_label;
+    std::optional<survey::Classified> classified;  ///< GoodBad
+    std::vector<survey::ServingChange> serving_changes;  ///< PostSettings::serving_changes
 };
 
 /// The plan picture of a floor: its source and background tiles of the
@@ -198,6 +221,12 @@ public:
     /// The selected floor's layers (nullptr without floors). The binned
     /// layer uses `bin_size_m`.
     const FloorContent* content(double bin_size_m = 2.0);
+    /// The post-processing view (PP-02..05); a change rebuilds the content.
+    const PostSettings& post() const noexcept { return post_; }
+    void set_post(const PostSettings& post);
+    /// PP-01: the full readout of a measured point of the content (serving,
+    /// strongest and every neighbour cell); cached for the last point.
+    const survey::PointDetail* point_detail(std::size_t index);
     /// Shows another stored interpolation of the selected floor (IND-43).
     bool show_interpolation(std::int64_t id);
     /// The layer list for the selected floor, top layer first (the
@@ -248,6 +277,9 @@ private:
     std::optional<std::int64_t> chosen_interpolation_;
     std::uint64_t generation_ = 0;
     std::optional<RemoveQuestion> pending_remove_;
+    PostSettings post_;
+    std::optional<std::pair<std::uint64_t, std::size_t>> detail_key_;  // (generation, index)
+    std::optional<survey::PointDetail> detail_;
 };
 
 }  // namespace yantra::app

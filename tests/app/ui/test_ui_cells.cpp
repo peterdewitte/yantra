@@ -223,4 +223,56 @@ TEST_CASE("DB-04, DB-05, DB-08: verification and reselection windows with the de
     REQUIRE(s.ui.frames(2));
     CHECK(s.state.close_replay().ok);
 }
+TEST_CASE("PP-01..05: the Post page on the demo: good/bad, serving changes, offset badge, acceptance bases, hover") {
+    Shell s(demo_paths(scratch("post")));
+    open_demo(s);
+    s.gui.set_wait_for_tiles(true);
+    REQUIRE_MESSAGE(s.ui.click("panel.post"), s.ui.dump());
+    REQUIRE(s.ui.frames(2));
+    const std::size_t n = s.state.project_window()->content()->points.count();
+    REQUIRE(n > 0);
+    CHECK(s.gui.post_view().stats.points == n);
+    CHECK_FALSE(s.gui.canvas().stats().view_badge);
+
+    REQUIRE(s.ui.click("post.mode.goodbad"));
+    REQUIRE(s.ui.frames(3));
+    REQUIRE(s.gui.post_view().classified);
+    CHECK(s.gui.post_view().classified->good + s.gui.post_view().classified->bad +
+              s.gui.post_view().classified->no_value == n);
+    CHECK(s.gui.canvas().stats().view_badge);
+    CHECK(s.gui.canvas().stats().points == n);
+
+    REQUIRE(s.ui.click("post.changes"));
+    REQUIRE(s.ui.frames(3));
+    CHECK(s.gui.canvas().stats().serving_changes == s.state.project_window()->content()->serving_changes.size());
+    CHECK(s.gui.post_view().serving_changes == s.state.project_window()->content()->serving_changes.size());
+
+    REQUIRE(s.ui.click("post.mode.offset"));
+    REQUIRE(s.ui.frames(1));
+    enter(s, "post.offset", "-10", "");
+    CHECK(s.state.post_processing()->settings().offset_db == doctest::Approx(-10.0));
+    CHECK(s.gui.post_view().view_label.find("Simulation") != std::string::npos);
+
+    REQUIRE(s.ui.click("post.basis.tested"));
+    REQUIRE(s.ui.frames(2));
+    CHECK(s.gui.post_view().acceptance.basis == yantra::survey::AcceptanceProfile::Basis::TestedArea);
+    CHECK(s.gui.post_view().acceptance.squares > 0);
+    REQUIRE(s.ui.click("post.basis.floor"));
+    REQUIRE(s.ui.frames(2));
+    CHECK(s.gui.post_view().acceptance.basis == yantra::survey::AcceptanceProfile::Basis::FloorArea);
+
+    REQUIRE(s.ui.click("post.reset"));
+    REQUIRE(s.ui.frames(3));
+    CHECK(s.state.project_window()->post() == PostSettings{});
+    CHECK_FALSE(s.gui.canvas().stats().view_badge);
+
+    // PP-01: hovering a point names the serving cell and the neighbours.
+    const FloorContent* c = s.state.project_window()->content();
+    const auto canvas = *s.ui.find("plan.canvas");
+    const auto at = s.gui.canvas().view().page_to_screen(c->points.points.front().plan);
+    s.ui.mouse_move(canvas.x0 + static_cast<float>(at.x), canvas.y0 + static_cast<float>(at.y));
+    REQUIRE(s.ui.frames(3));
+    REQUIRE(s.gui.canvas().hover().point);
+    CHECK(s.gui.canvas().hover().text.find("Serving: ") != std::string::npos);
+}
 #endif

@@ -200,6 +200,14 @@ void PlanCanvas::draw_points(ImDrawList* dl, ImVec2 origin, ImVec2 size, const F
         if (radius >= 3.0F) dl->AddCircle(s, radius, IM_COL32(30, 30, 30, 200), 0, 1.0F);
         ++stats_.points;
     }
+    // PP-02: the serving-cell changes, a square around the point.
+    for (const survey::ServingChange& ch : c.serving_changes) {
+        if (ch.index >= n) continue;
+        const ImVec2 s = to_screen(origin, c.points.points[ch.index].plan);
+        const float r = radius + 3.0F;
+        dl->AddRect(ImVec2(s.x - r, s.y - r), ImVec2(s.x + r, s.y + r), IM_COL32(255, 235, 59, 255), 0.0F, 2.0F);
+        ++stats_.serving_changes;
+    }
     if (hover_.point && *hover_.point < n) {
         const ImVec2 s = to_screen(origin, c.points.points[*hover_.point].plan);
         dl->AddCircle(s, radius + 3.0F, IM_COL32(255, 255, 255, 255), 0, 2.0F);
@@ -226,6 +234,11 @@ void PlanCanvas::draw_overlay(ImDrawList* dl, ImVec2 origin, ImVec2 size, const 
             }
             next(s);
         }
+    }
+    // PP-02/PP-04: a classified or simulated view says so.
+    if (layers.visible(Layer::Points) && !c.view_label.empty()) {
+        next(badge(dl, at, c.view_label.c_str(), IM_COL32(120, 60, 0, 220), IM_COL32(255, 255, 255, 255)));
+        stats_.view_badge = true;
     }
     if (layers.visible(Layer::Binned) && c.binned)
         next(badge(dl, at, c.binned->label.c_str(), IM_COL32(30, 30, 30, 200), IM_COL32(255, 230, 150, 255)));

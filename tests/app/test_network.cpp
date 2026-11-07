@@ -357,3 +357,148 @@ TEST_CASE("Network menu: the windows need a project; the survey monitor collects
     CHECK(st.cell_db() == nullptr);
     CHECK_FALSE(st.network_windows().cell_db);
 }
+
+#ifdef YANTRA_TEST_DEMO_PROJECT
+#include "yantra/app/post_processing.h"
+#include "yantra/core/survey/views.h"
+
+TEST_CASE("PP-01..05: post-processing views on the demo: good/bad, offset, failed cells, bins, acceptance, load") {
+    const fs::path dir = scratch("post");
+    fs::copy_file(YANTRA_TEST_DEMO_PROJECT, dir / "fraunces.yantra");
+    std::shared_ptr<project::Project> p = project::Project::open(dir / "fraunces.yantra");
+    ProjectWindow w(*p);
+    PostProcessing pp(p, w, {});
+    CHECK(pp.settings() == PostSettings{});
+    const FloorContent* c = w.content();
+    REQUIRE(c);
+    REQUIRE(c->points.count() > 10);
+    CHECK(c->view_label.empty());
+    const std::size_t n = c->points.count();
+    const PostStatsView plain = pp.stats(2.0);
+    REQUIRE(plain.stats.median);
+    CHECK(plain.stats.points == n);
+    REQUIRE(plain.area);
+    CHECK(plain.area->squares > 0);
+
+    // PP-02 good/bad against a threshold.
+    pp.settings().mode = PostSettings::Mode::GoodBad;
+    pp.settings().threshold = *plain.stats.median;
+    pp.apply();
+    c = w.content();
+    REQUIRE(c->classified);
+    CHECK(c->classified->good + c->classified->bad + c->classified->no_value == n);
+    CHECK(c->classified->good > 0);
+    CHECK(c->classified->bad > 0);
+    CHECK_FALSE(c->view_label.empty());
+    for (const survey::SurveyPoint& sp : c->points.points)
+        CHECK((sp.rgb == c->classified->good_rgb || sp.rgb == c->classified->bad_rgb ||
+               sp.rgb == c->classified->no_value_rgb));
+    const PostStatsView gb = pp.stats(2.0);
+    REQUIRE(gb.classified);
+    REQUIRE(gb.stats.thresholds.size() == 1);
+    CHECK(gb.stats.thresholds[0].threshold == doctest::Approx(*plain.stats.median));
+
+    // PP-04 a level offset: a labelled simulation, the median 10 dB lower.
+    pp.settings().mode = PostSettings::Mode::Offset;
+    pp.settings().offset_db = -10.0;
+    pp.apply();
+    c = w.content();
+    CHECK(c->view_label.find("Simulation") != std::string::npos);
+    const PostStatsView off = pp.stats(2.0);
+    REQUIRE(off.stats.median);
+    CHECK(*off.stats.median == doctest::Approx(*plain.stats.median - 10.0));
+    REQUIRE(off.area);
+    CHECK(off.area->percent <= plain.area->percent);
+
+    // PP-02 serving changes and PP-05 the bin percentile.
+    pp.reset();
+    pp.settings().serving_changes = true;
+    pp.settings().bin_percentile = 90.0;
+    pp.apply();
+    c = w.content();
+    CHECK(c->serving_changes == survey::serving_changes(c->points.points));
+    REQUIRE(c->binned);
+    CHECK(c->binned->label.find("P90") != std::string::npos);
+
+    // PP-03 failed cells: the best server is chosen without them.
+    const std::vector<survey::CellRef> cells = pp.cells_seen();
+    REQUIRE(cells.size() >= 2);
+    survey::CellRef busiest = cells.front();
+    std::size_t most = 0;
+    for (const survey::CellRef& cr : cells) {
+        std::size_t k = 0;
+        for (const survey::SurveyPoint& sp : c->points.points) k += sp.serving_hz == cr.frequency_hz ? 1 : 0;
+        if (k > most) {
+            most = k;
+            busiest = cr;
+        }
+    }
+    REQUIRE(most > 0);
+    pp.set_failed(busiest, true);
+    CHECK(pp.failed(busiest));
+    pp.apply();
+    c = w.content();
+    for (const survey::SurveyPoint& sp : c->points.points) CHECK(sp.serving_hz != busiest.frequency_hz);
+    CHECK(pp.cells_seen().size() == cells.size());  // the failed cell stays in the choice
+    pp.set_failed(busiest, false);
+    pp.apply();
+
+    // EXP-06 acceptance on the three bases.
+    pp.reset();
+    pp.acceptance().threshold_dbm = *plain.stats.median;
+    pp.acceptance().min_percent = 40.0;
+    pp.acceptance().basis = survey::AcceptanceProfile::Basis::Points;
+    PostStatsView a = pp.stats(2.0);
+    CHECK(a.acceptance.points == n);
+    REQUIRE(a.acceptance.criteria.size() == 1);
+    CHECK(a.acceptance.pass);
+    CHECK(a.acceptance_text.find("PASS") != std::string::npos);
+    pp.acceptance().basis = survey::AcceptanceProfile::Basis::TestedArea;
+    a = pp.stats(2.0);
+    CHECK(a.acceptance.squares > 0);
+    CHECK(a.acceptance.area_m2 > 0.0);
+    pp.acceptance().basis = survey::AcceptanceProfile::Basis::FloorArea;
+    a = pp.stats(2.0);
+    REQUIRE(w.content()->interpolation);
+    CHECK_MESSAGE(a.acceptance.cells > 0, a.acceptance.note);
+    pp.acceptance().min_percent = 100.0;
+    pp.acceptance().threshold_dbm = 0.0;
+    CHECK_FALSE(pp.stats(2.0).acceptance.pass);
+
+    // PP-01 the hover readout: serving, strongest and every neighbour.
+    const survey::PointDetail* d = w.point_detail(0);
+    REQUIRE(d);
+    CHECK(d->serving);
+    const auto& p0 = w.content()->points.points.front();
+    LayerSettings layers;
+    const HoverReadout h = w.hover(p0.plan, 1.0, layers);
+    REQUIRE(h.point);
+    CHECK(h.text.find("Measured point") != std::string::npos);
+    CHECK(h.text.find("Serving: ") != std::string::npos);
+    CHECK(h.text.find("Plan ") != std::string::npos);
+
+    // PP-01 loading a recording into the project.
+    pp.import_folder() = fs::path(YANTRA_TEST_DEMO_PROJECT).parent_path() / "recordings";
+    const std::vector<RecordingChoice> recs = pp.recordings();
+    REQUIRE_FALSE(recs.empty());
+    // The demo already holds it: refused.
+    const Result again = pp.import(recs.front());
+    CHECK_FALSE(again.ok);
+    CHECK(again.message.find("already in the project") != std::string::npos);
+    // Without its walk tests the recording loads again as points.
+    std::string rec_session;
+    for (const project::RecordingFile& f : p->recordings())
+        if (f.session_name == recs.front().name) rec_session = f.session_id;
+    REQUIRE_FALSE(rec_session.empty());
+    for (const project::Session& ss : p->sessions())
+        if (ss.recording_session == rec_session) p->remove_session(ss.id);
+    for (const project::RecordingFile& f : p->recordings())
+        if (f.session_id == rec_session) p->remove_recording(f.id);
+    const std::size_t before = p->sessions().size();
+    const Result r = pp.import(recs.front());
+    REQUIRE_MESSAGE(r.ok, r.message);
+    CHECK(r.message.find("Loaded " + recs.front().name) != std::string::npos);
+    CHECK(p->sessions().size() > before);
+    CHECK_FALSE(pp.import(RecordingChoice{}).ok);
+}
+#endif

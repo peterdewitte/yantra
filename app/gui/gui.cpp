@@ -340,6 +340,10 @@ void Gui::draw_project_screen() {
             draw_survey_section();
             ImGui::EndTabItem();
         }
+        if (c != nullptr && ImGui::BeginTabItem("Post###panel.post")) {
+            draw_post_section();
+            ImGui::EndTabItem();
+        }
         ImGui::EndTabBar();
     }
     ImGui::EndChild();

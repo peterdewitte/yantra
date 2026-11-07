@@ -395,6 +395,9 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     cell_db_ = std::make_unique<CellDbEditor>(*project_, [this] { return technologies(); });
     checks_ = std::make_unique<NetworkChecks>(*project_, [this] { return technologies(); },
                                               [m = monitor_] { return m->observed_cells(); });
+    post_ = std::make_unique<PostProcessing>(project_, *window_, [this] {
+        return live_ ? live_->catalog() : std::shared_ptr<measure::TechnologyCatalog>{};
+    });
     replay_ = std::make_unique<ReplaySession>(project_, monitor_);
     replay_->set_audio(audio_);
     demo_label_ = find_demo_label();
@@ -907,6 +910,7 @@ bool AppState::save_settings(std::string& error) {
 // -- editing, walk test, interpolation ------------------------------------------------------
 
 void AppState::drop_network() {
+    post_.reset();
     checks_.reset();
     cell_db_.reset();
     network_windows_ = NetworkWindows{};

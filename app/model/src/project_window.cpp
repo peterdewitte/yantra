@@ -89,6 +89,27 @@ ProjectWindow::~ProjectWindow() {
 
 void ProjectWindow::invalidate() noexcept { dirty_->store(true); }
 
+void ProjectWindow::set_post(const PostSettings& post) {
+    if (post == post_) return;
+    post_ = post;
+    content_.reset();  // rebuilt with the new view at the next content()
+}
+
+const survey::PointDetail* ProjectWindow::point_detail(std::size_t index) {
+    const FloorContent* c = content(content_bin_size_ > 0.0 ? content_bin_size_ : 2.0);
+    if (c == nullptr || index >= c->points.count()) return nullptr;
+    const std::pair<std::uint64_t, std::size_t> key{c->generation, index};
+    if (detail_key_ != key) {
+        try {
+            detail_ = survey::point_detail(project_, c->points.points[index], post_.metric.device);
+        } catch (const std::exception&) {
+            detail_.reset();
+        }
+        detail_key_ = key;
+    }
+    return detail_ ? &*detail_ : nullptr;
+}
+
 void ProjectWindow::refresh() {
     if (!dirty_->exchange(false)) return;
     tabs_.clear();
@@ -197,7 +218,28 @@ FloorContent ProjectWindow::build_content(const std::string& floor_id, double bi
 
     survey::PointQuery q;
     q.floor_id = floor_id;
-    c.points = survey::point_list(project_, q);
+    q.metric = post_.metric;
+    try {
+        c.points = survey::point_list(project_, q);
+    } catch (const std::exception& e) {
+        c.view_label = std::string("Cannot list the points: ") + e.what();
+        c.points = survey::PointList{};
+    }
+    // PP-02..04: the view of the points (default: the measured values).
+    if (post_.mode == PostSettings::Mode::Offset && post_.offset_db != 0.0) {
+        survey::OffsetList o = survey::with_offset(c.points, post_.offset_db);
+        c.view_label = o.label;
+        c.points = std::move(o.list);
+    } else if (post_.mode == PostSettings::Mode::GoodBad) {
+        survey::Classified k = survey::classify(c.points, post_.threshold);
+        for (std::size_t i = 0; i < c.points.points.size() && i < k.verdicts.size(); ++i)
+            c.points.points[i].rgb = k.verdicts[i] == survey::Verdict::Good  ? k.good_rgb
+                                     : k.verdicts[i] == survey::Verdict::Bad ? k.bad_rgb
+                                                                             : k.no_value_rgb;
+        c.view_label = k.label;
+        c.classified = std::move(k);
+    }
+    if (post_.serving_changes) c.serving_changes = survey::serving_changes(c.points.points);
     c.legend = c.points.scale;
 
     // Without a plan picture the sheet is the drawing's extent.
@@ -233,7 +275,7 @@ void ProjectWindow::build_binned(FloorContent& c, const building::Building& b, c
     }
     BinnedLayer layer;
     try {
-        layer.view = survey::bin_points(c.points, size_m);
+        layer.view = survey::bin_points(c.points, size_m, post_.bin_percentile);
     } catch (const std::exception& e) {
         c.binned_note = std::string("Cannot bin the points: ") + e.what();
         return;
@@ -425,6 +467,25 @@ HoverReadout ProjectWindow::hover(Point2 plan, double radius, const LayerSetting
             if (!p.label.empty()) h.text += "\n" + p.label;
             if (!p.cell.empty()) h.text += "\nCell: " + p.cell;
             if (p.metres) h.text += "\nAt " + fixed(p.metres->x, 1, " m, ") + fixed(p.metres->y, 1, " m");
+            h.text += "\nPlan " + fixed(p.plan.x, 0, ", ") + fixed(p.plan.y, 0, "");
+            if (!c->view_label.empty()) h.text += "\n" + c->view_label;
+            // PP-01: strongest, serving and every neighbour cell of the point.
+            const std::size_t index = *i;
+            if (const survey::PointDetail* d = point_detail(index)) {
+                auto line = [](const survey::CarrierReading& r) {
+                    std::string t = r.cell.empty() ? fixed(static_cast<double>(r.frequency_hz) / 1e6, 4, " MHz") : r.cell;
+                    if (r.level) t += "  " + fixed(*r.level, 1, (" " + r.unit).c_str());
+                    if (r.c1) t += "  C1 " + fixed(*r.c1, 1, " dB");
+                    return t;
+                };
+                if (d->serving) h.text += "\nServing: " + line(*d->serving);
+                if (d->strongest) h.text += "\nStrongest: " + line(*d->strongest);
+                if (!d->neighbours.empty()) {
+                    h.text += "\nNeighbours (" + std::to_string(d->neighbours.size()) + "):";
+                    for (const survey::CarrierReading& n : d->neighbours)
+                        h.text += "\n  " + line(n) + (n.role == "neighbour_entry" ? "  (listed)" : "");
+                }
+            }
             return h;
         }
     }
