@@ -13,7 +13,7 @@ target_link_libraries(yantra_tetra_rules PRIVATE yantra::warnings)
 set_target_properties(yantra_tetra_rules PROPERTIES POSITION_INDEPENDENT_CODE ON
                                                     CXX_VISIBILITY_PRESET hidden)
 
-add_library(yantra_tetra MODULE tetra_technology.cpp)
+add_library(yantra_tetra MODULE tetra_technology.cpp tetra_calculator.cpp)
 target_link_libraries(yantra_tetra PRIVATE yantra::plugin_api yantra::tetra_rules yantra::warnings)
 target_compile_definitions(yantra_tetra PRIVATE YANTRA_TETRA_PLUGIN_VERSION="${PROJECT_VERSION}")
 set_target_properties(yantra_tetra PROPERTIES

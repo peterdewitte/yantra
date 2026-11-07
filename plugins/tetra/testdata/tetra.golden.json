@@ -6155,5 +6155,248 @@
       "relinquishable",
       "radio_link_failure"
     ]
+  },
+  "ui": {
+    "menu": [
+      {
+        "id": "calculator_open",
+        "label": "TETRA calculator",
+        "menu": 4,
+        "window": "calculator"
+      }
+    ],
+    "windows": [
+      {
+        "frame": [
+          {
+            "call": "heading",
+            "text": "Channel to frequency"
+          },
+          {
+            "call": "number",
+            "id": "band",
+            "unit": "",
+            "value": 3.0
+          },
+          {
+            "call": "number",
+            "id": "carrier",
+            "unit": "",
+            "value": 3600.0
+          },
+          {
+            "call": "choice",
+            "id": "offset",
+            "value": 0
+          },
+          {
+            "call": "choice",
+            "id": "duplex",
+            "value": 0
+          },
+          {
+            "call": "checkbox",
+            "id": "reverse",
+            "value": 0
+          },
+          {
+            "call": "value",
+            "id": "downlink",
+            "unit": "MHz",
+            "value": "390.00000"
+          },
+          {
+            "call": "value",
+            "id": "spacing",
+            "unit": "MHz",
+            "value": "10.00000"
+          },
+          {
+            "call": "value",
+            "id": "uplink",
+            "unit": "MHz",
+            "value": "380.00000"
+          },
+          {
+            "call": "value",
+            "id": "channel",
+            "unit": "",
+            "value": "33600"
+          },
+          {
+            "call": "separator"
+          },
+          {
+            "call": "heading",
+            "text": "Frequency to channel"
+          },
+          {
+            "call": "text_input",
+            "id": "frequency"
+          },
+          {
+            "call": "value",
+            "id": "found_band",
+            "unit": "",
+            "value": "3"
+          },
+          {
+            "call": "value",
+            "id": "found_carrier",
+            "unit": "",
+            "value": "3600"
+          },
+          {
+            "call": "value",
+            "id": "found_offset",
+            "unit": "",
+            "value": "0 kHz"
+          },
+          {
+            "call": "value",
+            "id": "found_channel",
+            "unit": "",
+            "value": "33600"
+          },
+          {
+            "call": "separator"
+          },
+          {
+            "call": "heading",
+            "text": "Subscriber classes"
+          },
+          {
+            "call": "number",
+            "id": "subscriber_value",
+            "unit": "",
+            "value": 65535.0
+          },
+          {
+            "call": "checkbox",
+            "id": "class_1",
+            "value": 1
+          },
+          {
+            "call": "same_line"
+          },
+          {
+            "call": "checkbox",
+            "id": "class_2",
+            "value": 1
+          },
+          {
+            "call": "same_line"
+          },
+          {
+            "call": "checkbox",
+            "id": "class_3",
+            "value": 1
+          },
+          {
+            "call": "same_line"
+          },
+          {
+            "call": "checkbox",
+            "id": "class_4",
+            "value": 1
+          },
+          {
+            "call": "checkbox",
+            "id": "class_5",
+            "value": 1
+          },
+          {
+            "call": "same_line"
+          },
+          {
+            "call": "checkbox",
+            "id": "class_6",
+            "value": 1
+          },
+          {
+            "call": "same_line"
+          },
+          {
+            "call": "checkbox",
+            "id": "class_7",
+            "value": 1
+          },
+          {
+            "call": "same_line"
+          },
+          {
+            "call": "checkbox",
+            "id": "class_8",
+            "value": 1
+          },
+          {
+            "call": "checkbox",
+            "id": "class_9",
+            "value": 1
+          },
+          {
+            "call": "same_line"
+          },
+          {
+            "call": "checkbox",
+            "id": "class_10",
+            "value": 1
+          },
+          {
+            "call": "same_line"
+          },
+          {
+            "call": "checkbox",
+            "id": "class_11",
+            "value": 1
+          },
+          {
+            "call": "same_line"
+          },
+          {
+            "call": "checkbox",
+            "id": "class_12",
+            "value": 1
+          },
+          {
+            "call": "checkbox",
+            "id": "class_13",
+            "value": 1
+          },
+          {
+            "call": "same_line"
+          },
+          {
+            "call": "checkbox",
+            "id": "class_14",
+            "value": 1
+          },
+          {
+            "call": "same_line"
+          },
+          {
+            "call": "checkbox",
+            "id": "class_15",
+            "value": 1
+          },
+          {
+            "call": "same_line"
+          },
+          {
+            "call": "checkbox",
+            "id": "class_16",
+            "value": 1
+          },
+          {
+            "call": "value",
+            "id": "subscriber_hex",
+            "unit": "",
+            "value": "0xFFFF"
+          }
+        ],
+        "id": "calculator",
+        "title": "TETRA calculator"
+      }
+    ]
   }
 }

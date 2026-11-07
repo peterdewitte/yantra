@@ -17,6 +17,7 @@
 #include <cstring>
 #include <optional>
 
+#include "tetra_calculator.h"
 #include "tetra_raster.h"
 #include "tetra_rules.h"
 
@@ -268,6 +269,7 @@ constexpr yantra_translation kTranslations[] = {
 
 struct yantra_plugin_instance {
     const yantra_host_api* host;
+    yantra::tetra::CalculatorState calculator;  // the tools window (DB-07); UI thread only
 };
 
 namespace {
@@ -288,6 +290,32 @@ void tetra_shutdown(yantra_plugin_instance* instance) noexcept
     if (instance != nullptr)
         instance->host = nullptr;
 }
+
+// ---------------------------------------------------------------------------
+// 5. Tools window (DB-07, PLG-06): tetra_calculator.h
+// ---------------------------------------------------------------------------
+
+constexpr yantra_ui_window_def kCalculatorWindowDef = {
+    sizeof(yantra_ui_window_def), YANTRA_UI_WINDOW, 0, 0, yt::kCalculatorWindow, "TETRA calculator",
+    "Channel <-> frequency (band, offset, duplex spacing, reverse operation) and the subscriber-class bitmask of "
+    "TETRA cells (DB-07).",
+    nullptr, 420.0, 0.0};
+constexpr const yantra_ui_window_def* kWindows[] = {&kCalculatorWindowDef};
+constexpr yantra_ui_menu_item kCalculatorMenu = {
+    sizeof(yantra_ui_menu_item), YANTRA_MENU_TOOLS, 0, 0, "calculator_open", nullptr, "TETRA calculator",
+    "Opens the TETRA channel, frequency and subscriber-class calculator (DB-07).", nullptr, yt::kCalculatorWindow};
+constexpr const yantra_ui_menu_item* kMenuItems[] = {&kCalculatorMenu};
+
+void tetra_draw(yantra_plugin_instance* instance, const char* window_id, const yantra_ui_api* ui) noexcept
+{
+    if (instance == nullptr || ui == nullptr || window_id == nullptr ||
+        std::strcmp(window_id, yt::kCalculatorWindow) != 0)
+        return;
+    yt::draw_calculator(instance->calculator, ui);
+}
+
+constexpr yantra_plugin_ui_api kUi = {
+    sizeof(yantra_plugin_ui_api), 1, 1, 0, kWindows, kMenuItems, tetra_draw, nullptr, nullptr, nullptr};
 
 constexpr yantra_plugin_descriptor kDescriptor = {
     sizeof(yantra_plugin_descriptor),
@@ -310,7 +338,7 @@ constexpr yantra_plugin_descriptor kDescriptor = {
     &kTechnology,
     nullptr,  // feature
     nullptr,  // exporter
-    nullptr,  // ui: the channel calculator (DB-07) comes with the cell database
+    &kUi,  // the TETRA calculator (DB-07)
 };
 
 }  // namespace

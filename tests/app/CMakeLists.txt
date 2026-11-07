@@ -28,10 +28,12 @@ target_link_libraries(test_app PRIVATE yantra_test_main yantra_warnings yantra::
                                        yantra_plan_fixtures yantra::json)
 target_compile_definitions(test_app PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scratch}/test_app"
                                             YANTRA_TEST_SOURCE_DATA_DIR="${PROJECT_SOURCE_DIR}/data"
-                                            YANTRA_TEST_EXAMPLE_PLUGIN_DIR="${PROJECT_BINARY_DIR}/lib/yantra/examples")
+                                            YANTRA_TEST_EXAMPLE_PLUGIN_DIR="${PROJECT_BINARY_DIR}/lib/yantra/examples"
+                                            YANTRA_TEST_TECH_PLUGIN_DIR="${PROJECT_BINARY_DIR}/lib/yantra/plugins")
 # Step 9.7: the plugin manager and the plugins' UI (PLG-06, PLG-09) with
-# the example beacon plugin.
-add_dependencies(test_app yantra_example_beacon)
+# the example beacon plugin; step 9.8: the cell database, network checks
+# and reselection with the TETRA plugin.
+add_dependencies(test_app yantra_example_beacon yantra_tetra)
 if(TARGET demo_fraunces)
   add_dependencies(test_app demo_fraunces)
   target_compile_definitions(test_app PRIVATE YANTRA_TEST_DEMO_PROJECT="${YANTRA_DEMO_FRAUNCES_DIR}/fraunces.yantra")
@@ -51,8 +53,9 @@ target_link_libraries(test_app_ui PRIVATE yantra_test_main yantra_warnings yantr
                                           yantra::app_model yantra::core yantra_plan_fixtures yantra::json)
 target_compile_definitions(test_app_ui PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scratch}/test_app_ui"
                                                YANTRA_TEST_SOURCE_DATA_DIR="${PROJECT_SOURCE_DIR}/data"
-                                               YANTRA_TEST_EXAMPLE_PLUGIN_DIR="${PROJECT_BINARY_DIR}/lib/yantra/examples")
-add_dependencies(test_app_ui yantra_example_beacon)
+                                               YANTRA_TEST_EXAMPLE_PLUGIN_DIR="${PROJECT_BINARY_DIR}/lib/yantra/examples"
+                                               YANTRA_TEST_TECH_PLUGIN_DIR="${PROJECT_BINARY_DIR}/lib/yantra/plugins")
+add_dependencies(test_app_ui yantra_example_beacon yantra_tetra)
 if(TARGET demo_fraunces)
   add_dependencies(test_app_ui demo_fraunces)
   target_compile_definitions(test_app_ui PRIVATE YANTRA_TEST_DEMO_DATA_DIR="${PROJECT_BINARY_DIR}")

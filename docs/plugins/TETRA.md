@@ -127,12 +127,35 @@ MS_TXPWR_MAX_CELL (5 dB steps from 15 dBm) and the access parameter
 (2 dB steps from -53 dBm) match when the stored value stands for the
 received code (nearest code, ties to the higher one).
 
+## Tools window (DB-07)
+
+The plugin adds Tools > TETRA calculator (PLG-06, window
+`plg.yantra.tetra.calculator`, `tetra_calculator.cpp`), drawn by Yantra
+through `yantra_ui_api`, so the TETRA arithmetic stays here:
+
+- Channel to frequency: frequency band code (1..15), carrier number
+  (0..4095), offset (0, +6.25, -6.25, +12.5 kHz), duplex spacing code
+  (0..7) and reverse operation give the downlink, the duplex spacing of
+  that band and code ("reserved" when the table has none), the uplink and
+  Yantra's channel number (band x 10000 + carrier).
+- Frequency to channel: a downlink frequency in MHz gives its band,
+  carrier number, offset and channel number, or "Not on the TETRA raster".
+- Subscriber classes: the `subscriber_class` value (0..65535) and the 16
+  classes as check boxes, both ways, with the hexadecimal value. Class 1
+  is the first bit sent in D-MLE-SYSINFO, the most significant bit of the
+  value (0x8000 = class 1 only).
+
+Every text of the window is translated (nl, fr, de); the kit checks it
+(`--strict-translations`) and the golden file holds the first frame.
+
 ## Tests
 
 - `conformance_tetra`: the plugin test kit (PLG-13) on two record files,
   `yantra-gen --scenario fraunces` (dBm) and the simulator through
   `yantra-radio-host` (dBFS, with C1), against `testdata/tetra.golden.json`;
   `conformance_tetra_live` on the live simulator.
+- `test_app_ui` (`ui/test_ui_cells.cpp`): the calculator window through
+  the app, both directions and the subscriber classes.
 - `test_tetra`: raster and duplex values, C1 by hand, against
   `tetra_c1_db` and against the C1 in the record files, reselection and
   verification cases, the schemas of every shipped radio plugin.

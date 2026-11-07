@@ -19,9 +19,12 @@ all come from the technology plugin (`yantra_technology_api` in
 [PLUGIN_API.md](PLUGIN_API.md); for TETRA [plugins/TETRA.md](plugins/TETRA.md)).
 `celldb::Technology` collects that part of a loaded plugin.
 
-The editor (the "database editor" of DB-02), the colours of the
-verification view and the subscriber-class calculator of DB-07 are UI
-(phase 9); the channel/frequency part of DB-07 is the plugin's raster
+The editor (the "database editor" of DB-02) and the colours of the
+verification view are the app's (docs/APP.md "Cell database, network
+checks and post-processing"); the DB-07 calculator (channel <->
+frequency with band, offset, duplex and reverse operation, and the
+subscriber-class bitmask) is a window of the technology plugin (for
+TETRA: docs/plugins/TETRA.md "Tools window"), built on its raster
 (`Technology::channel_of_frequency`, `frequency_of_channel`). DB-06 (alias
 database of SSI/GSSI) is out of Yantra's scope (no subscriber addresses)
 and is not built.
