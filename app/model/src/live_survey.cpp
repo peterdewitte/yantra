@@ -88,8 +88,9 @@ struct LiveSurvey::Impl {
     std::shared_ptr<std::atomic<bool>> building_dirty = std::make_shared<std::atomic<bool>>(true);
 
     // Technology plugins (schema mapping, C1) and the plugin settings.
+    PluginServices services;  // given by the app (empty: own ones)
     std::shared_ptr<plugin::PluginStateStore> state;
-    std::unique_ptr<plugin::PluginLoader> loader;
+    std::shared_ptr<plugin::PluginLoader> loader;
     std::shared_ptr<measure::TechnologyCatalog> catalog = std::make_shared<measure::TechnologyCatalog>();
     std::shared_ptr<const calibration::Table> table;
     // Observers of every pipeline (radio windows) and the device generation.
@@ -273,6 +274,10 @@ struct LiveSurvey::Impl {
 
     void ensure_state() {
         if (state) return;
+        if (services.state) {
+            state = services.state;
+            return;
+        }
         if (!paths.plugin_state.empty()) state = std::make_shared<PluginStateFile>(paths.plugin_state);
         else state = std::make_shared<plugin::MemoryStateStore>();
     }
@@ -280,20 +285,30 @@ struct LiveSurvey::Impl {
     void ensure_loader() {
         if (loader) return;
         ensure_state();
-        plugin::PluginLoaderConfig c;
-        c.folders = paths.plugin_folders;
-        c.state = state;
-        loader = std::make_unique<plugin::PluginLoader>(std::move(c));
-        loader->load_all();
-        for (const plugin::PluginEntry& e : loader->list()) {
-            if (e.status != plugin::PluginStatus::Enabled) continue;
-            if (const plugin::PluginInfo* info = loader->info(e.id))
-                (void)catalog->add(*info, loader->descriptor(e.id), loader->instance(e.id));
+        if (services.loader) {
+            loader = services.loader;
+        } else {
+            plugin::PluginLoaderConfig c;
+            c.folders = paths.plugin_folders;
+            c.state = state;
+            loader = std::make_shared<plugin::PluginLoader>(std::move(c));
+            loader->load_all();
         }
+        fill_catalog();
         if (!paths.calibration_table.empty()) {
             auto t = std::make_shared<calibration::Table>();
             std::string error;
             if (calibration::Table::load_if_present(paths.calibration_table, *t, error) && error.empty()) table = t;
+        }
+    }
+
+    // The enabled technology plugins (schema mapping, C1).
+    void fill_catalog() {
+        catalog = std::make_shared<measure::TechnologyCatalog>();
+        for (const plugin::PluginEntry& e : loader->list()) {
+            if (e.status != plugin::PluginStatus::Enabled) continue;
+            if (const plugin::PluginInfo* info = loader->info(e.id))
+                (void)catalog->add(*info, loader->descriptor(e.id), loader->instance(e.id));
         }
     }
 
@@ -321,9 +336,11 @@ struct LiveSurvey::Impl {
     }
 };
 
-LiveSurvey::LiveSurvey(std::shared_ptr<project::Project> project, RadioPaths paths) : impl_(std::make_unique<Impl>()) {
+LiveSurvey::LiveSurvey(std::shared_ptr<project::Project> project, RadioPaths paths, PluginServices services)
+    : impl_(std::make_unique<Impl>()) {
     impl_->project = std::move(project);
     impl_->paths = std::move(paths);
+    impl_->services = std::move(services);
     std::weak_ptr<std::atomic<bool>> dirty = impl_->building_dirty;
     impl_->token = impl_->project->subscribe([dirty](const project::Change& c) {
         using K = project::Change::Kind;
@@ -482,6 +499,41 @@ plugin::PluginStateStore& LiveSurvey::state() {
 }
 
 const RadioChoice* LiveSurvey::chosen() const { return chosen_ ? &radios_[*chosen_] : nullptr; }
+
+Result LiveSurvey::load_radio_plugins() {
+    Impl& m = *impl_;
+    if (m.host) return Result{true, ""};
+    try {
+        m.ensure_host(m.period_ns != 0 ? m.period_ns : kWalkPeriodNs);
+    } catch (const std::exception& e) {
+        return Result{false, std::string("The radio plugins could not be loaded: ") + e.what()};
+    }
+    return Result{true, ""};
+}
+
+Result LiveSurvey::change_plugins(const std::function<Result()>& change) {
+    Impl& m = *impl_;
+    if (running()) return Result{false, "Stop the walk test first."};
+    if (recording()) return Result{false, "Stop the recording first."};
+    if (radio_running()) return Result{false, "Stop the radio first."};
+    m.ensure_loader();
+    // Nothing may call a plugin while it changes: the device, the host
+    // (radio plugins) and the pipeline (the catalog of technology plugins).
+    m.close_radio();
+    m.connected = false;
+    m.host.reset();
+    m.pipeline.reset();
+    m.period_ns = 0;
+    m.catalog = std::make_shared<measure::TechnologyCatalog>();
+    ++m.device_generation;
+    radios_.clear();
+    chosen_.reset();
+    searched_ = false;
+    const Result r = change();
+    m.fill_catalog();
+    radio_note_ = "The plugins changed: find the radios again.";
+    return r;
+}
 
 // -- context ----------------------------------------------------------------------------
 

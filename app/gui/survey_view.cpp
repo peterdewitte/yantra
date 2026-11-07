@@ -116,9 +116,9 @@ void Gui::draw_survey_section() {
     ImGui::SeparatorText("Coverage");
     double th = state_.monitor()->stats().threshold_dbm;
     ImGui::SetNextItemWidth(110.0F);
-    if (ImGui::InputDouble("dBm###survey.threshold", &th, 1.0, 5.0, "%.0f") && th > -200.0 && th < 0.0)
-        state_.monitor()->set_threshold(th);
-    text_tooltip("The serving level that counts as covered in the statistics (UI-11).");
+    if (ImGui::InputDouble("dBm###survey.threshold", &th, 1.0, 5.0, "%.0f") && th >= kMinThresholdDbm && th <= kMaxThresholdDbm)
+        (void)state_.show(state_.set_coverage_threshold(th));
+    text_tooltip("The serving level that counts as covered in the statistics (UI-11); kept in the settings.");
 }
 
 void Gui::draw_recording_controls(LiveSurvey& live) {
@@ -472,10 +472,12 @@ void Gui::draw_graphs_panel() {
         ImGui::TextDisabled("No measurements yet.");
         return;
     }
-    // The time axis: the last ten minutes live, the whole recording in a replay.
+    // The time axis: the graph span of the settings live, the whole recording in a replay.
     const std::int64_t t1 = plot_.samples.back().t_ns;
+    const auto span_max = static_cast<std::int64_t>(state_.settings().survey.graph_span_min * 60e9);
     const std::int64_t span = replaying ? std::max<std::int64_t>(1, t1 - plot_.samples.front().t_ns)
-                                        : std::max<std::int64_t>(60'000'000'000LL, std::min<std::int64_t>(600'000'000'000LL, t1 - plot_.samples.front().t_ns));
+                                        : std::max<std::int64_t>(std::min<std::int64_t>(60'000'000'000LL, span_max),
+                                                                 std::min<std::int64_t>(span_max, t1 - plot_.samples.front().t_ns));
     const std::int64_t t0 = t1 - span;
     const int graphs = (graph_level_ ? 1 : 0) + (graph_c1_ ? 1 : 0) + (graph_quality_ ? 1 : 0);
     if (graphs == 0) return;

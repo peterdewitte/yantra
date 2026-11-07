@@ -82,6 +82,34 @@ bool LayerSettings::move(Layer layer, int steps) {
     return true;
 }
 
+const char* theme_key(Theme theme) {
+    return theme == Theme::Light ? "light" : "dark";
+}
+
+std::optional<Theme> parse_theme(std::string_view key) {
+    if (key == "dark") return Theme::Dark;
+    if (key == "light") return Theme::Light;
+    return std::nullopt;
+}
+
+namespace {
+
+bool within(double v, double lo, double hi) { return v >= lo && v <= hi; }
+
+}  // namespace
+
+std::string check_settings(const AppSettings& s) {
+    if (!parse_window_system(s.window_system)) return "The window system is auto, x11 or wayland.";
+    if (!within(s.tooltip_delay_s, 0.0, kMaxTooltipDelayS)) return "The tooltip delay is 0 to 5 seconds.";
+    if (!within(s.layers.bin_size_m, 0.5, 50.0)) return "The binned view's squares are 0.5 to 50 m.";
+    if (!within(s.survey.threshold_dbm, kMinThresholdDbm, kMaxThresholdDbm))
+        return "The coverage threshold is -150 to -20 dBm.";
+    if (!within(s.survey.graph_span_min, kMinGraphSpanMin, kMaxGraphSpanMin))
+        return "The graphs show 1 to 60 minutes.";
+    if (!within(s.survey.ring_minutes, kMinRingMinutes, kMaxRingMinutes)) return "The ring buffer keeps 2 to 60 minutes.";
+    return {};
+}
+
 std::string settings_to_json(const AppSettings& s) {
     json j;
     j["format"] = "yantra-app-settings/1";
@@ -98,6 +126,12 @@ std::string settings_to_json(const AppSettings& s) {
     j["window_system"] = s.window_system;
     j["tooltips"] = s.tooltips;
     j["tooltip_delay_s"] = s.tooltip_delay_s;
+    j["theme"] = theme_key(s.theme);
+    j["survey"] = json::object();
+    j["survey"]["threshold_dbm"] = s.survey.threshold_dbm;
+    j["survey"]["graph_span_min"] = s.survey.graph_span_min;
+    j["survey"]["ring"] = s.survey.ring;
+    j["survey"]["ring_minutes"] = s.survey.ring_minutes;
     return j.dump(1) + "\n";
 }
 
@@ -147,7 +181,19 @@ AppSettings settings_from_json(const std::string& text, std::string& error) {
     if (const auto it = j.find("tooltips"); it != j.end() && it->is_boolean()) s.tooltips = it->get<bool>();
     if (const auto it = j.find("tooltip_delay_s"); it != j.end() && it->is_number()) {
         const double d = it->get<double>();
-        if (d >= 0.0 && d <= 5.0) s.tooltip_delay_s = d;
+        if (d >= 0.0 && d <= kMaxTooltipDelayS) s.tooltip_delay_s = d;
+    }
+    if (const auto it = j.find("theme"); it != j.end() && it->is_string())
+        if (const auto t = parse_theme(it->get<std::string>())) s.theme = *t;
+    if (const auto it = j.find("survey"); it != j.end() && it->is_object()) {
+        auto number = [&](const char* key, double lo, double hi, double& out) {
+            if (const auto v = it->find(key); v != it->end() && v->is_number() && within(v->get<double>(), lo, hi))
+                out = v->get<double>();
+        };
+        number("threshold_dbm", kMinThresholdDbm, kMaxThresholdDbm, s.survey.threshold_dbm);
+        number("graph_span_min", kMinGraphSpanMin, kMaxGraphSpanMin, s.survey.graph_span_min);
+        number("ring_minutes", kMinRingMinutes, kMaxRingMinutes, s.survey.ring_minutes);
+        if (const auto v = it->find("ring"); v != it->end() && v->is_boolean()) s.survey.ring = v->get<bool>();
     }
     return s;
 }

@@ -16,6 +16,7 @@
 
 #include <cstdio>
 #include <cstdlib>
+#include <ctime>
 #include <exception>
 #include <filesystem>
 #include <string>
@@ -30,6 +31,7 @@
 #include "yantra/core/calibration/table.h"
 #include "yantra/core/plugin/folders.h"
 #include "yantra/app/settings.h"
+#include "yantra/app/settings_reset.h"
 #include "yantra/app/window_system.h"
 #include "yantra/core/build_info.h"
 
@@ -143,6 +145,20 @@ int main(int argc, char** argv) {
         }
     }
 
+    // UI-16: --reset-settings does what Help > Reset all settings does,
+    // without the UI, and exits.
+    if (cli.reset_settings) {
+        if (config.empty()) {
+            std::fprintf(stderr, "yantra: no settings folder (set HOME or XDG_CONFIG_HOME)\n");
+            return 1;
+        }
+        const app::ResetOutcome o = app::reset_settings_files(
+            app::SettingsFiles{config / "app.json", config / "plugin_state.json", paths.radios.calibration_table},
+            cli.reset_calibration, std::time(nullptr));
+        std::printf("yantra: %s\n", o.message.c_str());
+        return o.ok ? 0 : 1;
+    }
+
     // Window system (NFR-10).
     const app::WindowSystemChoice ws =
         app::choose_window_system(app::window_system_inputs(cli.window_system, settings.window_system));
@@ -179,7 +195,7 @@ int main(int argc, char** argv) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::GetIO().IniFilename = nullptr;  // fixed layout for now; window layouts come with the docking windows
-    app::Gui::apply_style();
+    app::Gui::apply_style(settings.theme);
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 140");
 
@@ -199,6 +215,8 @@ int main(int argc, char** argv) {
             if (cli.dialog == "save-as") r = state.trigger(app::Action::SaveAs);
             if (cli.dialog == "add-floor") r = state.trigger(app::Action::AddFloor);
             if (cli.dialog == "about") r = state.trigger(app::Action::About);
+            if (cli.dialog == "settings") r = state.trigger(app::Action::Settings);
+            if (cli.dialog == "reset-settings") r = state.trigger(app::Action::ResetSettings);
             if (!r.ok) std::fprintf(stderr, "yantra: --dialog %s: %s\n", cli.dialog.c_str(), r.message.c_str());
         }
         app::Gui gui(state);

@@ -7,17 +7,26 @@
 
 #include <algorithm>
 #include <cctype>
+#include <ctime>
 #include <stdexcept>
 #include <system_error>
 
+#include "yantra/app/app_icon.h"
 #include "yantra/app/data_paths.h"
+#include "yantra/app/plugin_state_file.h"
 #include "yantra/core/build_info.h"
 #include "yantra/core/platform/clock.h"
 #include "yantra/core/demo/demo_project.h"
+#include "yantra/core/plugin/loader.h"
+#include "yantra/core/plugin/state_store.h"
+#include "yantra/core/radio/radio_host.h"
 #include "yantra/core/project/project.h"
 
 #ifndef YANTRA_SOURCE_URL
 #define YANTRA_SOURCE_URL ""
+#endif
+#ifndef YANTRA_BUILD_DATE
+#define YANTRA_BUILD_DATE ""
 #endif
 
 namespace yantra::app {
@@ -63,6 +72,10 @@ const ActionDef kActions[] = {
     {Action::Export, "file.export", "Export...", "", "Export measurements, points and the cell database.", "10"},
     {Action::Report, "file.report", "Report...", "", "Make a coverage report of the project.", "10"},
     {Action::About, "file.about", "About Yantra", "", "Version, licence, source code link and credits.", nullptr},
+    {Action::Settings, "file.settings", "Settings...", "Ctrl+,",
+     "Theme, tooltips, window system, survey defaults (coverage threshold, graph span, ring buffer) and the plugin "
+     "manager.",
+     nullptr},
     {Action::Exit, "file.exit", "Exit", "Ctrl+Q", "Close Yantra. All project changes are already stored.", nullptr},
     {Action::Tour, "help.tour", "Tour", "",
      "A guided tour through an indoor survey with an example building and the simulated radio.", "9.10"},
@@ -72,7 +85,7 @@ const ActionDef kActions[] = {
     {Action::ResetSettings, "help.reset_settings", "Reset all settings...", "",
      "Reset layout, theme, language, device and plugin settings to their defaults (projects and recordings are "
      "kept). A backup of the current settings is saved first.",
-     "9.7"},
+     nullptr},
     {Action::HelpAbout, "help.about", "About Yantra", "", "Version, licence, source code link and credits.", nullptr},
 };
 
@@ -102,7 +115,9 @@ void remove_project_file(const fs::path& target, std::error_code& ec) {
 
 }  // namespace
 
-AppState::AppState(AppSettings settings, AppPaths paths) : settings_(std::move(settings)), paths_(std::move(paths)) {}
+AppState::AppState(AppSettings settings, AppPaths paths) : settings_(std::move(settings)), paths_(std::move(paths)) {
+    monitor_->set_threshold(settings_.survey.threshold_dbm);
+}
 
 AppState::~AppState() {
     drop_tools();
@@ -187,7 +202,8 @@ std::vector<Menu> AppState::menus() const {
                     item(Action::SaveAs),       sep,                       item(Action::AddFloor),
                     sep,                        item(Action::CloseProject), sep,
                     item(Action::Export),       item(Action::Report),      sep,
-                    item(Action::About),        sep,                       item(Action::Exit)};
+                    item(Action::Settings),     item(Action::About),       sep,
+                    item(Action::Exit)};
     // The Radio menu (PLG-16, step 9.6) is drawn between File and Help
     // from RadioWindows (app/gui/radio_view.cpp): its entries follow the
     // radios found. Enabled plugins add their own entries (UI-14).
@@ -229,16 +245,30 @@ std::optional<ProjectView> AppState::project_view() const {
     return v;
 }
 
-AboutView AppState::about() const {
+AboutView AppState::about() {
     const auto& info = core::build_info();
     AboutView v;
     v.name = "Yantra";
     v.version = std::string(info.version_string);
+    v.build_date = YANTRA_BUILD_DATE;
     v.licence = "GPL-3.0-or-later";
     v.source_url = YANTRA_SOURCE_URL;
+    v.source_note = "The complete corresponding source of this program, including the AGPL-3.0 parts of the radio "
+                    "plugins (osmo-tetra), is available at the source code link (GPL-3.0 section 13).";
     v.homepage = "https://curtat.be";
     v.statement = "Yantra is made by curtat.be as a reference on building new programs with Claude (Anthropic's AI "
                   "assistant).";
+    auto file = [&](const fs::path& rel) {
+        const auto f = find_data_file(paths_.data_folders, rel);
+        return f ? *f : fs::path();
+    };
+    v.yantra_logo = file(app_icon_relative(128));
+    v.curtat_logo = file(curtat_logo_relative(settings_.theme == Theme::Dark, 256));
+    if (!credits_) credits_ = load_credits(paths_.data_folders);
+    v.credits = *credits_;
+    const PluginManagerView m = plugin_manager();
+    v.plugins = m.plugins;
+    v.plugins_note = m.note;
     return v;
 }
 
@@ -289,6 +319,14 @@ Result AppState::trigger(Action a) {
     case Action::CloseProject: return close_project();
     case Action::About:
     case Action::HelpAbout: dialog_ = Dialog::About; return Result{};
+    case Action::Settings:
+        settings_form_ = settings_;
+        dialog_ = Dialog::Settings;
+        return Result{};
+    case Action::ResetSettings:
+        reset_form_ = ResetForm{};
+        dialog_ = Dialog::ResetSettings;
+        return Result{};
     case Action::Exit:
         if (const Result r = request_exit(); !r.ok) return r;
         quit_ = true;
@@ -323,7 +361,8 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     window_ = std::make_unique<ProjectWindow>(*project_);
     editor_ = std::make_unique<FloorEditor>(*project_);
     runner_ = std::make_unique<InterpolationRunner>(project_, InterpolationRunner::Options{paths_.interpolation_threads});
-    live_ = std::make_unique<LiveSurvey>(project_, paths_.radios);
+    live_ = std::make_unique<LiveSurvey>(project_, paths_.radios, plugin_services());
+    apply_survey_defaults();
     monitor_->clear();
     live_->set_monitor(monitor_);
     live_->set_audio(audio_);
@@ -893,6 +932,11 @@ Result AppState::run_interpolation(bool again) {
 }
 
 void AppState::tick() {
+    if (plugins_) {
+        // PLG-09: a plugin whose call failed is disabled with its message.
+        if (plugins_->poll() > 0) (void)fail("A plugin reported an error and was disabled (File > Settings > Plugins).");
+        plugin_ui().tick();
+    }
     if (runner_) {
         std::int64_t id = 0;
         if (const auto r = runner_->poll(&id)) {
@@ -984,6 +1028,194 @@ AppState::StatusBar AppState::status_bar(double now_s) {
     b.interference_warning = w.active;
     b.interference = w.active ? "Self-interference" : "";
     return b;
+}
+
+// -- plugins, settings window, reset (PLG-06, PLG-09, UI-16; step 9.7) ----------------------
+
+void AppState::ensure_plugins() {
+    if (plugins_) return;
+    if (!paths_.radios.plugin_state.empty()) plugin_state_ = std::make_shared<PluginStateFile>(paths_.radios.plugin_state);
+    else plugin_state_ = std::make_shared<plugin::MemoryStateStore>();
+    plugin::PluginLoaderConfig c;
+    c.folders = paths_.radios.plugin_folders;
+    c.state = plugin_state_;
+    plugins_ = std::make_shared<plugin::PluginLoader>(std::move(c));
+    plugins_->load_all();
+    plugin_ui_ = std::make_unique<PluginUi>(*plugins_);
+}
+
+plugin::PluginLoader& AppState::plugins() {
+    ensure_plugins();
+    return *plugins_;
+}
+
+PluginUi& AppState::plugin_ui() {
+    ensure_plugins();
+    return *plugin_ui_;
+}
+
+PluginServices AppState::plugin_services() {
+    ensure_plugins();
+    return PluginServices{plugin_state_, plugins_};
+}
+
+void AppState::apply_survey_defaults() {
+    monitor_->set_threshold(settings_.survey.threshold_dbm);
+    if (!live_ || live_->recording_form().ring) return;
+    live_->recording_form().ring = settings_.survey.ring;
+    live_->recording_form().ring_minutes = settings_.survey.ring_minutes;
+}
+
+Result AppState::apply_settings(const AppSettings& s) {
+    if (const std::string why = check_settings(s); !why.empty()) return fail(why);
+    if (s == settings_) return Result{};
+    const bool ring_changed = s.survey.ring != settings_.survey.ring || s.survey.ring_minutes != settings_.survey.ring_minutes;
+    settings_ = s;
+    settings_changed_ = true;
+    monitor_->set_threshold(settings_.survey.threshold_dbm);
+    // A running ring buffer keeps its length; the default applies to the
+    // next one (and to the next project).
+    if (ring_changed && live_ && live_->ring_files().empty()) {
+        live_->recording_form().ring = settings_.survey.ring;
+        live_->recording_form().ring_minutes = settings_.survey.ring_minutes;
+    }
+    return Result{};
+}
+
+Result AppState::set_coverage_threshold(double dbm) {
+    AppSettings s = settings_;
+    s.survey.threshold_dbm = dbm;
+    const Result r = apply_settings(s);
+    if (r.ok) settings_form_.survey.threshold_dbm = settings_.survey.threshold_dbm;
+    return r;
+}
+
+namespace {
+
+std::string api_text(std::uint32_t major, std::uint32_t minor) {
+    return std::to_string(major) + "." + std::to_string(minor);
+}
+
+}  // namespace
+
+PluginManagerView AppState::plugin_manager() {
+    PluginManagerView v;
+    ensure_plugins();
+    // Why no plugin may change now ("" when it may).
+    std::string busy;
+    if (live_ && live_->running()) busy = "Stop the walk test first.";
+    else if (live_ && live_->recording()) busy = "Stop the recording first.";
+    else if (live_ && live_->radio_running()) busy = "Stop the radio first.";
+    else if (replay_ && replay_->is_open()) busy = "Close the replay first.";
+    for (const plugin::PluginEntry& e : plugins_->list()) {
+        PluginRowView r;
+        r.kind = plugin::kinds_text(e.kinds);
+        r.id = e.id;
+        r.name = e.name.empty() ? e.path.filename().string() : e.name;
+        r.version = e.version;
+        r.api = api_text(e.api_version.major, e.api_version.minor);
+        r.author = e.author;
+        r.licence = e.licence;
+        r.description = e.description;
+        r.status = plugin::status_text(e.status);
+        r.message = e.message;
+        r.enabled = e.status == plugin::PluginStatus::Enabled || e.status == plugin::PluginStatus::Failed;
+        if (e.status == plugin::PluginStatus::Refused) r.toggle_reason = "Not loaded: " + e.message;
+        else r.toggle_reason = busy;
+        r.can_toggle = r.toggle_reason.empty();
+        v.plugins.push_back(std::move(r));
+    }
+    if (!live_) {
+        v.note = "Radio plugins are loaded with a project: open or create one to see and switch them.";
+        return v;
+    }
+    if (const Result r = live_->load_radio_plugins(); !r.ok) v.note = r.message;
+    if (radio::RadioHost* host = live_->host(); host != nullptr) {
+        for (const radio::RadioPluginEntry& e : host->list()) {
+            PluginRowView r;
+            r.radio = true;
+            r.kind = "radio";
+            r.id = e.id;
+            r.name = e.name.empty() ? e.path.filename().string() : e.name;
+            r.version = e.version;
+            r.api = api_text(e.api_version.major, e.api_version.minor);
+            r.author = e.author;
+            r.licence = e.licence;
+            r.description = e.description;
+            r.status = radio::status_text(e.status);
+            r.message = e.message;
+            r.enabled = e.status == radio::RadioPluginStatus::Enabled || e.status == radio::RadioPluginStatus::Failed;
+            if (e.status == radio::RadioPluginStatus::Refused) r.toggle_reason = "Not loaded: " + e.message;
+            else r.toggle_reason = busy;
+            r.can_toggle = r.toggle_reason.empty();
+            v.plugins.push_back(std::move(r));
+        }
+    }
+    return v;
+}
+
+Result AppState::set_plugin_enabled(bool radio, const std::string& id, bool enabled) {
+    const PluginManagerView v = plugin_manager();
+    const auto it = std::find_if(v.plugins.begin(), v.plugins.end(),
+                                 [&](const PluginRowView& r) { return r.radio == radio && r.id == id; });
+    if (it == v.plugins.end()) return fail("No plugin " + id + " is loaded.");
+    if (!it->can_toggle) return fail(it->name + ": " + it->toggle_reason);
+    auto change = [&]() -> Result {
+        if (radio) {
+            // The radio host is rebuilt from the stored state (LiveSurvey::change_plugins).
+            plugin_state_->set_enabled(id, enabled);
+            return Result{true, ""};
+        }
+        const yantra_status st = enabled ? plugins_->enable(id) : plugins_->disable(id);
+        if (st != YANTRA_OK) {
+            const auto e = plugins_->entry(id);
+            return Result{false, "The plugin could not be " + std::string(enabled ? "enabled" : "disabled") +
+                                     (e && !e->message.empty() ? ": " + e->message : ".")};
+        }
+        return Result{true, ""};
+    };
+    Result r = live_ ? live_->change_plugins(change) : change();
+    if (live_) {
+        if (replay_) replay_->set_catalog(live_->catalog());
+        (void)live_->load_radio_plugins();
+    }
+    plugin_ui().tick();
+    if (!r.ok) return fail(r.message);
+    return done(it->name + (enabled ? " enabled." : " disabled.") +
+                (live_ ? " Find the radios again (Radio > Radios)." : ""));
+}
+
+ResetSummary AppState::reset_summary() const { return app::reset_summary(reset_form_.also_calibration); }
+
+fs::path AppState::reset_backup_root() const {
+    return backup_root(SettingsFiles{paths_.settings_file, paths_.radios.plugin_state, paths_.radios.calibration_table});
+}
+
+Result AppState::confirm_reset_settings() {
+    if (live_ && live_->exit_guard()) return fail("A recording is running: stop it first (Survey > Recording).");
+    if (project_) {
+        if (const Result r = close_project(); !r.ok) return fail(r.message);
+    }
+    // The plugins go (they keep the plugin state); they load again with the defaults.
+    plugin_ui_.reset();
+    plugins_.reset();
+    plugin_state_.reset();
+    const ResetOutcome o =
+        reset_settings_files(SettingsFiles{paths_.settings_file, paths_.radios.plugin_state, paths_.radios.calibration_table},
+                             reset_form_.also_calibration, std::time(nullptr));
+    if (!o.ok && o.removed.empty()) return fail(o.message);
+    // As on first start: defaults in memory, nothing written until a change.
+    settings_ = AppSettings{};
+    settings_form_ = settings_;
+    settings_changed_ = false;
+    monitor_->clear();
+    monitor_->set_threshold(settings_.survey.threshold_dbm);
+    browser_.reset();
+    reset_form_ = ResetForm{};
+    ++ui_generation_;
+    dialog_ = Dialog::None;
+    if (!o.ok) return fail(o.message);
+    return done(o.message);
 }
 
 }  // namespace yantra::app

@@ -6,7 +6,14 @@
 // what this model returns and calls its commands, so the logic is tested
 // without a window (TST-50). Help texts and tooltips live here, next to
 // the actions they explain (DOC-07 b, c). The app calls the core only
-// (project::Project); no radio or plugin code here yet.
+// (project::Project, plugin::PluginLoader).
+//
+// Step 9.7: About (UI-15: logos, credits, loaded plugins), the settings
+// window (Dialog::Settings: general, survey defaults, the plugin manager
+// of PLG-09), Reset all settings (UI-16, settings_reset.h) and the
+// plugins' own UI (PLG-06, plugin_ui.h). AppState owns the plugin state
+// and the loader of the plugin.h plugins for the whole run and shares
+// them with the project's LiveSurvey (PluginServices).
 //
 // The project file is live (7.1): every change is stored at once, Save
 // folds the log into the file (a checkpoint), Close and Exit never ask
@@ -28,6 +35,7 @@
 #include <string>
 #include <vector>
 
+#include "yantra/app/credits.h"
 #include "yantra/app/file_browser.h"
 #include "yantra/app/floor_editor.h"
 #include "yantra/app/interpolation_runner.h"
@@ -36,9 +44,11 @@
 #include "yantra/app/system_status.h"
 #include "yantra/app/plan_import_window.h"
 #include "yantra/app/project_window.h"
+#include "yantra/app/plugin_ui.h"
 #include "yantra/app/radio_windows.h"
 #include "yantra/app/result.h"
 #include "yantra/app/settings.h"
+#include "yantra/app/settings_reset.h"
 
 namespace yantra::project {
 class Project;
@@ -59,6 +69,7 @@ enum class Action {
     Export,
     Report,
     About,
+    Settings,
     Exit,
     Tour,
     UserManual,
@@ -109,12 +120,14 @@ enum class Dialog {
     Browse,      ///< the file browser (browser(), browse_purpose())
     AddFloor,    ///< a new floor (IND-10): a plan file, a plan already in the project, or blank
     PlanImport,  ///< the plan import window (IND-05..09): plan_import()
-    About,       ///< name, version, licence, links (UI-15; logos, credits, plugins in 9.7)
+    About,       ///< name, version, licence, links, logos, credits, plugins (UI-15)
     FloorProperties,  ///< rename a floor, its level and height (IND-04)
     RemoveFloor,      ///< the confirmation before a floor is removed (IND-04)
     AntennaProperties,  ///< the selected antenna's properties (IND-12): floor_editor()->antenna_form()
     Materials,          ///< the wall-class table (IND-11): floor_editor()->materials()
     Propagation,        ///< the ray-tracing settings (IND-40, IND-44): interpolation()->settings_form()
+    Settings,           ///< the settings window (general, survey, plugins): settings_form()
+    ResetSettings,      ///< Reset all settings (UI-16): reset_form()
 };
 
 /// What the file browser was opened for.
@@ -190,15 +203,43 @@ struct ProjectView {
     std::string file_note;
 };
 
-/// The About dialog's text (UI-15). Step 9.7 adds the logos, credits and
-/// the loaded plugins.
+/// A loaded plugin in About (UI-15) and the plugin manager (PLG-09).
+struct PluginRowView {
+    bool radio = false;     ///< a radio plugin (yantra-radios) or a plugin.h plugin
+    std::string kind;       ///< "radio", "technology", "feature, exporter", ...
+    std::string id, name, version, api, author, licence, description, status, message;
+    bool enabled = false;   ///< the switch: on unless the user switched it off
+    bool can_toggle = false;
+    std::string toggle_reason;  ///< why the switch is greyed
+};
+
+/// The About dialog's content (UI-15).
 struct AboutView {
     std::string name;     ///< "Yantra"
     std::string version;  ///< "0.1.0"
+    std::string build_date;  ///< "2026-11-07" (configure date, UTC)
     std::string licence;  ///< "GPL-3.0-or-later"
     std::string source_url;
+    std::string source_note;  ///< NFR-01: complete corresponding source, AGPL parts
     std::string homepage;
     std::string statement;  ///< UI-15: made by curtat.be as a reference ...
+    /// Logos as data-folder files (BRD-03, BRD-06): the Yantra logo and
+    /// the curtat.be logo for the current theme (dark PNG on a dark theme).
+    std::filesystem::path yantra_logo, curtat_logo;
+    Credits credits;  ///< THIRD_PARTY.md: libraries and data (Library of Congress, MAK)
+    std::vector<PluginRowView> plugins;  ///< the loaded plugins with versions and licences
+    std::string plugins_note;  ///< e.g. radio plugins load with a project
+};
+
+/// The plugin manager (PLG-09) in the settings window.
+struct PluginManagerView {
+    std::vector<PluginRowView> plugins;  ///< plugin.h plugins first, then radio plugins
+    std::string note;                    ///< about the radio plugins, problems
+};
+
+/// The Reset all settings dialog (UI-16).
+struct ResetForm {
+    bool also_calibration = false;
 };
 
 /// Where the app finds and keeps files.
@@ -243,7 +284,7 @@ public:
     /// Hint on a project without floors: how to add the first one.
     std::string no_floor_hint() const;
     std::vector<RecentView> recent_projects() const;
-    AboutView about() const;
+    AboutView about();
     Dialog dialog() const;
     const std::string& status() const;  ///< last message for the status line
     bool status_is_error() const;
@@ -264,6 +305,11 @@ public:
     LiveSurvey* live() { return live_.get(); }
     /// The radio windows' model (PLG-16, step 9.6; nullptr on the start screen).
     RadioWindows* radio_windows() { return radios_.get(); }
+    /// The plugin.h plugins (technology, feature, exporter), loaded on
+    /// first use from AppPaths::radios.plugin_folders; kept for the run.
+    plugin::PluginLoader& plugins();
+    /// The plugins' own menus and windows (PLG-06).
+    PluginUi& plugin_ui();
     /// The survey panels' model (UI-01..04, UI-11, NFR-07): live or replay.
     const std::shared_ptr<SurveyMonitor>& monitor() const { return monitor_; }
     /// Replay of the project's recordings (REC-06..08; nullptr on the start screen).
@@ -289,6 +335,30 @@ public:
              power_warning = false, interference_warning = false;
     };
     StatusBar status_bar(double now_s);
+
+    // -- settings, plugin manager, reset (UI-16, PLG-09; step 9.7) ---------
+    /// The settings window's working copy (applied by apply_settings).
+    AppSettings& settings_form() { return settings_form_; }
+    /// Checks and applies a whole settings value (the settings window
+    /// applies each change at once): the coverage threshold goes to the
+    /// survey panels, the ring buffer default to the open project's form.
+    Result apply_settings(const AppSettings& settings);
+    /// UI-11: the coverage threshold from the Survey page (kept in the settings).
+    Result set_coverage_threshold(double dbm);
+    PluginManagerView plugin_manager();
+    /// Switches a plugin on or off (PLG-09); refused while a walk, a
+    /// recording, the radio or a replay runs. The radios must be found again.
+    Result set_plugin_enabled(bool radio, const std::string& id, bool enabled);
+    ResetForm& reset_form() { return reset_form_; }
+    /// What the dialog lists, and where the backup goes ("" in memory).
+    ResetSummary reset_summary() const;
+    std::filesystem::path reset_backup_root() const;
+    /// UI-16: backs the settings up, resets them (and the calibration
+    /// table when ticked), closes the project and restarts the UI with
+    /// defaults (ui_generation() changes). Refused while a recording runs.
+    Result confirm_reset_settings();
+    /// Changes when the UI restarts after a reset: the Gui drops its own state.
+    std::uint64_t ui_generation() const { return ui_generation_; }
 
     // -- commands -------------------------------------------------------
     /// Runs an action: opens its dialog, runs it, or refuses it with the
@@ -405,7 +475,15 @@ private:
     std::string find_demo_label() const;
 
     void drop_tools();
+    void ensure_plugins();
+    PluginServices plugin_services();
+    void apply_survey_defaults();
 
+    // The plugin state and loader live longer than the project's tools
+    // (the LiveSurvey's catalog points into the loader's plugins).
+    std::shared_ptr<plugin::PluginStateStore> plugin_state_;
+    std::shared_ptr<plugin::PluginLoader> plugins_;
+    std::unique_ptr<PluginUi> plugin_ui_;
     std::shared_ptr<project::Project> project_;
     std::unique_ptr<ProjectWindow> window_;
     std::unique_ptr<FloorEditor> editor_;
@@ -430,6 +508,10 @@ private:
     bool status_error_ = false;
     bool quit_ = false;
     bool settings_changed_ = false;
+    AppSettings settings_form_;
+    ResetForm reset_form_;
+    std::uint64_t ui_generation_ = 0;
+    std::optional<Credits> credits_;  // read once (THIRD_PARTY.md)
 };
 
 }  // namespace yantra::app

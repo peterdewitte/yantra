@@ -261,8 +261,8 @@ TEST_CASE("menus (UI-14): File and Help items, tooltips, disabled reasons") {
     CHECK(menus[0].label == "File");
     CHECK(ids(menus[0]) == std::vector<std::string>{"file.new_project", "file.open_project", "file.recent",
                                                      "file.open_demo", "file.save", "file.save_as", "file.add_floor",
-                                                     "file.close_project", "file.export", "file.report", "file.about",
-                                                     "file.exit"});
+                                                     "file.close_project", "file.export", "file.report", "file.settings",
+                                                     "file.about", "file.exit"});
     CHECK(menus[1].label == "Help");
     CHECK(ids(menus[1]) == std::vector<std::string>{"help.tour", "help.user_manual", "help.quick_starts",
                                                      "help.reset_settings", "help.about"});
@@ -285,14 +285,14 @@ TEST_CASE("menus (UI-14): File and Help items, tooltips, disabled reasons") {
         }
     }
     // Not wired yet, each with the step that wires it.
-    CHECK(st.action(Action::ResetSettings).planned_step == "9.7");
     CHECK(st.action(Action::Tour).planned_step == "9.10");
     CHECK(st.action(Action::UserManual).planned_step == "9.9");
     CHECK(st.action(Action::QuickStarts).planned_step == "9.9");
     CHECK(st.action(Action::Export).planned_step == "10");
     CHECK(st.action(Action::Report).planned_step == "10");
     // Available now.
-    for (Action a : {Action::NewProject, Action::OpenProject, Action::Exit, Action::About, Action::HelpAbout})
+    for (Action a : {Action::NewProject, Action::OpenProject, Action::Exit, Action::About, Action::HelpAbout,
+                     Action::Settings, Action::ResetSettings})
         CHECK(st.action(a).enabled);
     // Without data folders there is no demo to open.
     CHECK_FALSE(st.action(Action::OpenDemo).enabled);
@@ -306,7 +306,12 @@ TEST_CASE("menus (UI-14): File and Help items, tooltips, disabled reasons") {
         CHECK(st.status_is_error());
     }
     CHECK_FALSE(st.trigger(Action::Tour).ok);
-    CHECK_FALSE(st.trigger(Action::ResetSettings).ok);
+    CHECK(st.trigger(Action::ResetSettings).ok);  // step 9.7
+    CHECK(st.dialog() == Dialog::ResetSettings);
+    st.cancel_dialog();
+    CHECK(st.trigger(Action::Settings).ok);
+    CHECK(st.dialog() == Dialog::Settings);
+    st.cancel_dialog();
     CHECK(st.trigger(Action::NewProject).ok);
     CHECK(st.dialog() == Dialog::NewProject);
     st.cancel_dialog();
@@ -326,7 +331,7 @@ TEST_CASE("menus (UI-14): File and Help items, tooltips, disabled reasons") {
 }
 
 TEST_CASE("About (UI-15 hook): name, version, licence, source link, homepage, statement") {
-    const AppState st({}, {});
+    AppState st({}, {});
     const AboutView a = st.about();
     CHECK(a.name == "Yantra");
     CHECK(a.version == std::string(yantra::core::build_info().version_string));

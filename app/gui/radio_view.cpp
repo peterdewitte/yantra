@@ -189,6 +189,7 @@ void Gui::draw_radio_menu() {
         }
         ImGui::EndMenu();
     }
+    draw_plugin_entries(YANTRA_MENU_RADIO);  // PLG-06: plugin.h plugins' entries
     ImGui::EndMenu();
 }
 

@@ -23,11 +23,15 @@ set(_scratch ${CMAKE_CURRENT_BINARY_DIR}/scratch)
 file(MAKE_DIRECTORY ${_scratch})
 
 add_executable(test_app test_app_model.cpp test_file_browser.cpp test_floor_editor.cpp test_interpolation_runner.cpp test_plan_import_window.cpp test_project_window.cpp
-                        test_radio_windows.cpp test_survey_monitor.cpp)
+                        test_radio_windows.cpp test_settings_plugins.cpp test_survey_monitor.cpp)
 target_link_libraries(test_app PRIVATE yantra_test_main yantra_warnings yantra::app_model yantra::audio yantra::core
                                        yantra_plan_fixtures yantra::json)
 target_compile_definitions(test_app PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scratch}/test_app"
-                                            YANTRA_TEST_SOURCE_DATA_DIR="${PROJECT_SOURCE_DIR}/data")
+                                            YANTRA_TEST_SOURCE_DATA_DIR="${PROJECT_SOURCE_DIR}/data"
+                                            YANTRA_TEST_EXAMPLE_PLUGIN_DIR="${PROJECT_BINARY_DIR}/lib/yantra/examples")
+# Step 9.7: the plugin manager and the plugins' UI (PLG-06, PLG-09) with
+# the example beacon plugin.
+add_dependencies(test_app yantra_example_beacon)
 if(TARGET demo_fraunces)
   add_dependencies(test_app demo_fraunces)
   target_compile_definitions(test_app PRIVATE YANTRA_TEST_DEMO_PROJECT="${YANTRA_DEMO_FRAUNCES_DIR}/fraunces.yantra")
@@ -46,7 +50,9 @@ add_executable(test_app_ui ${_ui_srcs})
 target_link_libraries(test_app_ui PRIVATE yantra_test_main yantra_warnings yantra_ui_harness yantra::app_gui
                                           yantra::app_model yantra::core yantra_plan_fixtures yantra::json)
 target_compile_definitions(test_app_ui PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scratch}/test_app_ui"
-                                               YANTRA_TEST_SOURCE_DATA_DIR="${PROJECT_SOURCE_DIR}/data")
+                                               YANTRA_TEST_SOURCE_DATA_DIR="${PROJECT_SOURCE_DIR}/data"
+                                               YANTRA_TEST_EXAMPLE_PLUGIN_DIR="${PROJECT_BINARY_DIR}/lib/yantra/examples")
+add_dependencies(test_app_ui yantra_example_beacon)
 if(TARGET demo_fraunces)
   add_dependencies(test_app_ui demo_fraunces)
   target_compile_definitions(test_app_ui PRIVATE YANTRA_TEST_DEMO_DATA_DIR="${PROJECT_BINARY_DIR}")
@@ -142,6 +148,17 @@ if(TARGET demo_fraunces)
     COMMAND sh -c "rm -rf \"$1\" && cp -r \"$0\" \"$1\" && exec \"$2\" --size 1280x800 --screenshot \"$1/project_demo.png\" \"$1/fraunces.yantra\""
             ${YANTRA_DEMO_FRAUNCES_DIR} ${_scratch}/project_demo $<TARGET_FILE:yantra>)
 endif()
+
+# Step 9.7: the settings window renders over the start screen.
+yantra_app_launch_test(app_settings
+  PATTERNS "^yantra: first frame" "^yantra: screenshot .*settings\\.png \\(1024x700\\)"
+  COMMAND $<TARGET_FILE:yantra> --dialog settings --size 1024x700 --screenshot ${_scratch}/settings.png)
+# UI-16: --reset-settings backs up and removes the stored settings and
+# exits without a window; the calibration table stays.
+add_test(NAME app_reset_settings
+         COMMAND sh -c "c=\"$1/yantra\"; rm -rf \"$c\" && mkdir -p \"$c\" && echo '{}' > \"$c/app.json\" && echo '{}' > \"$c/plugin_state.json\" && \"$0\" --reset-settings | grep -q 'saved in .*backups' && test ! -e \"$c/app.json\" && test ! -e \"$c/plugin_state.json\" && ls \"$c\"/backups/*/app.json >/dev/null"
+                 $<TARGET_FILE:yantra> ${_scratch}/config)
+set_tests_properties(app_reset_settings PROPERTIES LABELS "fast;app" ENVIRONMENT "${_env}")
 
 # Command line errors exit with 2 and say why (no window needed).
 add_test(NAME app_bad_option COMMAND sh -c "\"$0\" --no-such-option; test $? -eq 2" $<TARGET_FILE:yantra>)

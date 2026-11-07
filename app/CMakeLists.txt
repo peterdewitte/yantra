@@ -30,6 +30,7 @@ add_library(yantra_app_model STATIC
   model/src/audio.cpp
   model/src/app_state.cpp
   model/src/cli.cpp
+  model/src/credits.cpp
   model/src/data_paths.cpp
   model/src/file_browser.cpp
   model/src/floor_editor.cpp
@@ -37,19 +38,25 @@ add_library(yantra_app_model STATIC
   model/src/live_survey.cpp
   model/src/plan_import_window.cpp
   model/src/plugin_state_file.cpp
+  model/src/plugin_ui.cpp
   model/src/project_window.cpp
   model/src/radio_windows.cpp
   model/src/replay_session.cpp
   model/src/settings.cpp
+  model/src/settings_reset.cpp
   model/src/survey_monitor.cpp
   model/src/system_status.cpp
   model/src/window_system.cpp)
 add_library(yantra::app_model ALIAS yantra_app_model)
 target_include_directories(yantra_app_model PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/model/include)
-target_compile_definitions(yantra_app_model PRIVATE YANTRA_SOURCE_URL="${YANTRA_SOURCE_URL}")
+# UI-15: the build date in About (the configure date in UTC; SOURCE_DATE_EPOCH
+# when set, for reproducible builds).
+string(TIMESTAMP YANTRA_BUILD_DATE "%Y-%m-%d" UTC)
+target_compile_definitions(yantra_app_model PRIVATE YANTRA_SOURCE_URL="${YANTRA_SOURCE_URL}"
+                                                    YANTRA_BUILD_DATE="${YANTRA_BUILD_DATE}")
 target_link_libraries(yantra_app_model
   PUBLIC yantra::core
-  PRIVATE yantra::json yantra::warnings)
+  PRIVATE yantra::json yantra::warnings yantra_stb_image)  # stb: the logos with transparency (UI-15)
 
 set(_imgui ${PROJECT_SOURCE_DIR}/third_party/imgui)
 add_library(yantra_ui_probe OBJECT gui/ui_probe.cpp)
@@ -66,7 +73,7 @@ target_include_directories(yantra_imgui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/gui)
 target_compile_definitions(yantra_imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS IMGUI_ENABLE_TEST_ENGINE)
 
 add_library(yantra_app_gui STATIC gui/gui.cpp gui/gui_tools.cpp gui/plan_canvas.cpp gui/plan_import_view.cpp
-  gui/survey_view.cpp gui/radio_view.cpp gui/user_texture.cpp)
+  gui/survey_view.cpp gui/radio_view.cpp gui/user_texture.cpp gui/plugin_view.cpp gui/settings_view.cpp)
 add_library(yantra::app_gui ALIAS yantra_app_gui)
 target_include_directories(yantra_app_gui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/gui)
 target_link_libraries(yantra_app_gui PUBLIC yantra::app_model yantra_imgui PRIVATE yantra::warnings)
@@ -107,3 +114,8 @@ foreach(_size 16 24 32 48 64 128 256 512)
           DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${_size}x${_size}/apps RENAME yantra.png)
 endforeach()
 install(FILES ${PROJECT_SOURCE_DIR}/data/yantra.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+# UI-15, BRD-03/04: the curtat.be logo PNGs (light and dark) for About, in
+# their own folder (trademark, not GPL), and the credits file About reads.
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/data/branding/ DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra/branding
+        FILES_MATCHING PATTERN "curtat_logo_*.png" PATTERN "README.md")
+install(FILES ${PROJECT_SOURCE_DIR}/THIRD_PARTY.md DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra)

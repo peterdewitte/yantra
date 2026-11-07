@@ -74,20 +74,23 @@ TEST_CASE("menus (UI-14): every File and Help entry, disabled ones not clickable
     REQUIRE(s.ui.run_until([&] { return s.ui.has("file.exit"); }, 10));
     for (const char* id : {"file.new_project", "file.open_project", "file.recent", "file.open_demo", "file.save",
                            "file.save_as", "file.add_floor", "file.close_project", "file.export", "file.report",
-                           "file.about", "file.exit"})
+                           "file.settings", "file.about", "file.exit"})
         CHECK_MESSAGE(s.ui.has(id), id << "\n" << s.ui.dump());
     for (const char* id : {"file.save", "file.add_floor", "file.export", "file.open_demo"}) CHECK(s.ui.find(id)->disabled);
     CHECK_FALSE(s.ui.find("file.about")->disabled);
+    CHECK_FALSE(s.ui.find("file.settings")->disabled);
     s.ui.click_at(1200.0F, 700.0F);  // empty space closes the menu
     REQUIRE(s.ui.run_until([&] { return !s.ui.has("file.exit"); }, 10));
 
     REQUIRE(s.ui.click("menu.help"));
     REQUIRE(s.ui.run_until([&] { return s.ui.has("help.about"); }, 10));
-    for (const char* id : {"help.tour", "help.user_manual", "help.quick_starts", "help.reset_settings"}) {
+    for (const char* id : {"help.tour", "help.user_manual", "help.quick_starts"}) {
         CAPTURE(id);
         REQUIRE(s.ui.has(id));
-        CHECK(s.ui.find(id)->disabled);  // later steps (9.7, 9.9, 9.10)
+        CHECK(s.ui.find(id)->disabled);  // later steps (9.9, 9.10)
     }
+    REQUIRE(s.ui.has("help.reset_settings"));
+    CHECK_FALSE(s.ui.find("help.reset_settings")->disabled);  // step 9.7
     REQUIRE(s.ui.click("help.about"));
     CHECK(s.ui.wait_window("dlg.about"));
     CHECK(s.state.dialog() == Dialog::About);

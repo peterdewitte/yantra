@@ -5,6 +5,7 @@
 // Copied from yantra-v2 68ea20a: app/src/gui.cpp, adapted.
 #include "gui.h"
 #include "gui_widgets.h"
+#include "yantra/app/app_icon.h"
 
 #include <imgui.h>
 #include <imgui_internal.h>  // ImGuiTabBar::TabsAddedNew (tab order)
@@ -37,16 +38,22 @@ const char* dialog_id(Dialog d, const AppState& state) {
     case Dialog::AntennaProperties: return "Antenna properties###dlg.antenna";
     case Dialog::Materials: return "Wall classes###dlg.materials";
     case Dialog::Propagation: return "Propagation settings###dlg.propagation";
+    case Dialog::Settings: return "Settings###dlg.settings";
+    case Dialog::ResetSettings: return "Reset all settings?###dlg.reset_settings";
     case Dialog::None: break;
     }
     return "###dlg.none";
 }
 
-Gui::Gui(AppState& state) : state_(state), canvas_(std::make_unique<PlanCanvas>()) {}
+Gui::Gui(AppState& state)
+    : state_(state), canvas_(std::make_unique<PlanCanvas>()), theme_(state.settings().theme),
+      ui_generation_(state.ui_generation()) {}
 
 Gui::~Gui() {
     canvas_.reset();
     import_view_.close();
+    yantra_logo_.reset();
+    curtat_logo_.reset();
     UserTexture::release_all();
 }
 
@@ -55,14 +62,43 @@ void Gui::set_wait_for_tiles(bool on) {
     import_view_.set_wait_for_tiles(on);
 }
 
-void Gui::apply_style() {
-    ImGui::StyleColorsDark();
+void Gui::apply_theme(Theme theme) {
+    if (theme == Theme::Light) ImGui::StyleColorsLight();
+    else ImGui::StyleColorsDark();
+}
+
+void Gui::apply_style(Theme theme) {
+    apply_theme(theme);
     ImGuiStyle& s = ImGui::GetStyle();
     s.WindowRounding = 4.0F;
     s.FrameRounding = 4.0F;
     s.FramePadding = ImVec2(10.0F, 7.0F);
     s.ItemSpacing = ImVec2(10.0F, 8.0F);
-    s.HoverDelayNormal = 0.5F;  // DOC-07 h default; a setting in step 9.7
+    s.HoverDelayNormal = 0.5F;  // DOC-07 h default; Gui::draw follows the setting
+}
+
+void Gui::restart_ui() {
+    // UI-16: after Reset all settings the UI starts as on first start.
+    canvas_->close();
+    import_view_.close();
+    shown_ = Dialog::None;
+    shown_floor_.clear();
+    tab_order_.clear();
+    panels_ = false;
+    panels_auto_ = true;
+    was_active_ = false;
+    marker_label_.clear();
+    ring_name_.clear();
+    cut_name_.clear();
+    replay_pick_ = -1;
+    replay_speed_ = 1.0;
+    graph_level_ = graph_c1_ = graph_quality_ = true;
+    threshold_on_.clear();
+    setting_text_.clear();
+    setting_input_error_.clear();
+    setting_editing_.clear();
+    calibration_file_.clear();
+    plugin_windows_.clear();
 }
 
 void Gui::run(Action a) {
@@ -80,6 +116,7 @@ void Gui::handle_shortcuts() {
         {ImGuiMod_Ctrl | ImGuiKey_N, Action::NewProject},  {ImGuiMod_Ctrl | ImGuiKey_O, Action::OpenProject},
         {ImGuiMod_Ctrl | ImGuiMod_Shift | ImGuiKey_S, Action::SaveAs}, {ImGuiMod_Ctrl | ImGuiKey_S, Action::Save},
         {ImGuiMod_Ctrl | ImGuiKey_W, Action::CloseProject}, {ImGuiMod_Ctrl | ImGuiKey_Q, Action::Exit},
+        {ImGuiMod_Ctrl | ImGuiKey_Comma, Action::Settings},
     };
     for (const Key& k : keys) {
         if (ImGui::IsKeyChordPressed(k.chord)) {
@@ -93,7 +130,10 @@ void Gui::draw_menu_bar() {
     if (!ImGui::BeginMainMenuBar()) return;
     for (const Menu& m : state_.menus()) {
         if (!ImGui::BeginMenu((m.label + "###menu." + m.id).c_str())) {
-            if (m.id == "file") draw_radio_menu();  // PLG-16: between File and Help
+            if (m.id == "file") {
+                draw_radio_menu();  // PLG-16: between File and Help
+                draw_plugin_menus();  // PLG-06: View and Tools when plugins add entries
+            }
             continue;
         }
         for (const MenuEntry& e : m.entries) {
@@ -120,8 +160,13 @@ void Gui::draw_menu_bar() {
                 break;
             }
         }
+        // PLG-06: the entries enabled plugins add to this menu.
+        draw_plugin_entries(m.id == "file" ? YANTRA_MENU_FILE : YANTRA_MENU_HELP);
         ImGui::EndMenu();
-        if (m.id == "file") draw_radio_menu();  // PLG-16: between File and Help
+        if (m.id == "file") {
+            draw_radio_menu();  // PLG-16: between File and Help
+            draw_plugin_menus();  // PLG-06: View and Tools when plugins add entries
+        }
     }
     ImGui::EndMainMenuBar();
 }
@@ -657,20 +702,105 @@ void Gui::draw_plan_import() {
     if (!import_view_.draw(state_, *w)) state_.close_plan_import();
 }
 
+void Gui::draw_logo(UserTexture& tex, std::string& loaded, const std::filesystem::path& file, float size) {
+    if (file.empty()) return;
+    if (loaded != file.string()) {
+        loaded = file.string();
+        tex.reset();
+        std::string error;
+        if (const auto r = load_data_png({file.parent_path()}, file.filename(), error)) tex.set(r->width, r->height, r->rgba.data());
+    }
+    if (!tex.valid()) return;
+    ImGui::Image(tex.ref(), ImVec2(size, size * static_cast<float>(tex.height()) / static_cast<float>(std::max(1, tex.width()))));
+}
+
 void Gui::draw_about() {
     const AboutView a = state_.about();
+    about_.shown = true;
+    // BRD-06: the Yantra logo next to the name.
+    draw_logo(yantra_logo_, yantra_logo_file_, a.yantra_logo, 64.0F);
+    about_.yantra_logo = yantra_logo_.valid();
+    if (yantra_logo_.valid()) ImGui::SameLine();
+    ImGui::BeginGroup();
     ImGui::PushFont(nullptr, ImGui::GetStyle().FontSizeBase * 1.5F);
     ImGui::Text("%s %s", a.name.c_str(), a.version.c_str());
     ImGui::PopFont();
     ImGui::TextUnformatted("Indoor coverage survey");
+    if (!a.build_date.empty()) ImGui::Text("Built %s", a.build_date.c_str());
+    ImGui::EndGroup();
     ImGui::Spacing();
     ImGui::Text("Licence: %s", a.licence.c_str());
-    if (!a.source_url.empty()) ImGui::Text("Source code: %s", a.source_url.c_str());
-    ImGui::Text("Homepage: %s", a.homepage.c_str());
+    if (!a.source_url.empty()) {
+        ImGui::Text("Source code: %s", a.source_url.c_str());
+        help_marker(a.source_note.c_str());
+    }
     ImGui::Spacing();
-    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 34.0F);
+    // BRD-01, BRD-03: the curtat.be logo (light or dark PNG by theme), the link and the statement.
+    draw_logo(curtat_logo_, curtat_logo_file_, a.curtat_logo, 48.0F);
+    about_.curtat_logo = curtat_logo_.valid();
+    about_.curtat_file = a.curtat_logo.filename().string();
+    if (curtat_logo_.valid()) ImGui::SameLine();
+    ImGui::BeginGroup();
+    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
     ImGui::TextUnformatted(a.statement.c_str());
     ImGui::PopTextWrapPos();
+    ImGui::Text("Homepage: %s", a.homepage.c_str());
+    ImGui::EndGroup();
+    ImGui::Spacing();
+    // Credits and plugins (UI-15, NFR-01, PLG-09), scrolled.
+    if (ImGui::BeginChild("###about.credits", ImVec2(0.0F, ImGui::GetFontSize() * 14.0F), ImGuiChildFlags_Borders)) {
+        auto table = [](const char* id, const std::vector<CreditRow>& rows, const char* first) {
+            if (rows.empty()) return;
+            if (!ImGui::BeginTable(id, 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_SizingStretchProp))
+                return;
+            ImGui::TableSetupColumn(first);
+            ImGui::TableSetupColumn("Licence");
+            ImGui::TableSetupColumn("Source");
+            ImGui::TableHeadersRow();
+            for (const CreditRow& r : rows) {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextWrapped("%s", r.name.c_str());
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextWrapped("%s", r.licence.c_str());
+                ImGui::TableSetColumnIndex(2);
+                ImGui::TextWrapped("%s", r.source.c_str());
+            }
+            ImGui::EndTable();
+        };
+        ImGui::SeparatorText("Third-party components");
+        if (!a.credits.error.empty()) ImGui::TextDisabled("%s", a.credits.error.c_str());
+        table("###about.libraries", a.credits.libraries, "Component");
+        ImGui::SeparatorText("Data");
+        table("###about.data", a.credits.data, "Item");
+        ImGui::SeparatorText("Loaded plugins");
+        if (a.plugins.empty()) ImGui::TextDisabled("No plugins are loaded.");
+        if (!a.plugins.empty() &&
+            ImGui::BeginTable("###about.plugins", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_SizingStretchProp)) {
+            ImGui::TableSetupColumn("Plugin");
+            ImGui::TableSetupColumn("Version");
+            ImGui::TableSetupColumn("Licence");
+            ImGui::TableSetupColumn("Status");
+            ImGui::TableHeadersRow();
+            for (const PluginRowView& p : a.plugins) {
+                ImGui::TableNextRow();
+                ImGui::TableSetColumnIndex(0);
+                ImGui::TextWrapped("%s (%s)", p.name.c_str(), p.kind.c_str());
+                ImGui::TableSetColumnIndex(1);
+                ImGui::TextUnformatted(p.version.c_str());
+                ImGui::TableSetColumnIndex(2);
+                ImGui::TextWrapped("%s", p.licence.c_str());
+                ImGui::TableSetColumnIndex(3);
+                ImGui::TextUnformatted(p.status.c_str());
+            }
+            ImGui::EndTable();
+        }
+        if (!a.plugins_note.empty()) ImGui::TextDisabled("%s", a.plugins_note.c_str());
+    }
+    ImGui::EndChild();
+    about_.libraries = a.credits.libraries.size();
+    about_.data = a.credits.data.size();
+    about_.plugins = a.plugins.size();
     ImGui::Spacing();
     if (dialog_button("Close###dlg.cancel", "Close [Esc]") || ImGui::IsKeyPressed(ImGuiKey_Escape) ||
         ImGui::IsKeyPressed(ImGuiKey_Enter))
@@ -727,6 +857,8 @@ void Gui::draw_dialog_body(Dialog d) {
     case Dialog::AntennaProperties: draw_antenna_dialog(); break;
     case Dialog::Materials: draw_materials_dialog(); break;
     case Dialog::Propagation: draw_propagation_dialog(); break;
+    case Dialog::Settings: draw_settings(); break;
+    case Dialog::ResetSettings: draw_reset_settings(); break;
     case Dialog::None: break;
     }
 }
@@ -754,10 +886,11 @@ void Gui::draw_dialogs() {
         ImGui::SetNextWindowSize(ImVec2(vp->WorkSize.x * 0.96F, vp->WorkSize.y * 0.94F), ImGuiCond_Appearing);
     } else {
         // Dialogs fit small windows too (UI-13).
-        const float width = std::min(d == Dialog::Browse || d == Dialog::Materials ? 820.0F : 600.0F, vp->WorkSize.x * 0.95F);
+        const bool wide = d == Dialog::Browse || d == Dialog::Materials || d == Dialog::Settings || d == Dialog::About;
+        const float width = std::min(wide ? 820.0F : 600.0F, vp->WorkSize.x * 0.95F);
         // Dialogs whose content grows (the class form, the walls' own
-        // value) fit their height every frame.
-        const bool grows = d == Dialog::Materials || d == Dialog::AntennaProperties;
+        // value, the settings tabs) fit their height every frame.
+        const bool grows = d == Dialog::Materials || d == Dialog::AntennaProperties || d == Dialog::Settings;
         ImGui::SetNextWindowSize(ImVec2(width, 0.0F), grows ? ImGuiCond_Always : ImGuiCond_Appearing);
     }
     ImGui::SetNextWindowPos(vp->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5F, 0.5F));
@@ -780,8 +913,20 @@ void Gui::draw_dialogs() {
 
 void Gui::draw() {
     survey_ = SurveyOverlay{};
+    about_ = AboutOverlay{};
     UserTexture::collect();
     state_.tick();
+    if (state_.ui_generation() != ui_generation_) {
+        ui_generation_ = state_.ui_generation();
+        restart_ui();
+    }
+    // The settings: theme (colours only) and tooltips (DOC-07 h).
+    if (state_.settings().theme != theme_) {
+        theme_ = state_.settings().theme;
+        apply_theme(theme_);
+    }
+    ImGui::GetStyle().HoverDelayNormal = static_cast<float>(state_.settings().tooltip_delay_s);
+    set_tooltips_shown(state_.settings().tooltips);
     handle_shortcuts();
     draw_menu_bar();
     const ImGuiViewport* vp = ImGui::GetMainViewport();
@@ -805,6 +950,7 @@ void Gui::draw() {
     ImGui::PopStyleVar();
     draw_status_bar();
     draw_radio_windows();
+    draw_plugin_windows();
     draw_dialogs();
 }
 

@@ -13,6 +13,7 @@
 // step 9.1; project window 9.2, plan import 9.3; no radio list yet).
 #pragma once
 
+#include <cstdint>
 #include <map>
 #include <memory>
 #include <string>
@@ -20,6 +21,7 @@
 
 #include "plan_canvas.h"
 #include "plan_import_view.h"
+#include "user_texture.h"
 #include "yantra/app/app_state.h"
 
 namespace yantra::app {
@@ -32,7 +34,9 @@ public:
     Gui(const Gui&) = delete;
     Gui& operator=(const Gui&) = delete;
     /// Applies the theme and sizes (call once after ImGui is set up).
-    static void apply_style();
+    static void apply_style(Theme theme = Theme::Dark);
+    /// The theme's colours only (the settings window switches it).
+    static void apply_theme(Theme theme);
     /// Draws one frame (between ImGui::NewFrame and ImGui::Render).
     void draw();
 
@@ -74,6 +78,33 @@ public:
         AppState::StatusBar status;       ///< UI-08
     };
     const SurveyOverlay& survey_overlay() const { return survey_; }
+    /// What the About dialog drew in the last frame (tests).
+    struct AboutOverlay {
+        bool shown = false;
+        bool yantra_logo = false;  ///< the Yantra logo texture is drawn (BRD-06)
+        bool curtat_logo = false;  ///< the curtat.be logo texture is drawn (BRD-03)
+        std::string curtat_file;   ///< which PNG (light/dark by theme)
+        std::size_t libraries = 0, data = 0, plugins = 0;  ///< credit and plugin rows
+    };
+    const AboutOverlay& about_overlay() const { return about_; }
+    /// State a plugin window keeps between frames (PLG-06).
+    struct PluginWindowState {
+        std::string confirm, confirm_text;  ///< a CONFIRM button asks
+        std::string confirmed;              ///< answered yes: reported next frame
+        std::map<std::string, std::string> values;       ///< value() texts by control id (tests)
+        std::map<std::string, std::uint64_t> table_rows;  ///< table() rows by control id (tests)
+    };
+    /// What the plugin windows drew in the last frame (tests).
+    struct PluginFrame {
+        std::string id;
+        bool drawn = false;
+        int controls = 0;
+    };
+    const std::vector<PluginFrame>& plugin_frame() const { return plugin_frame_; }
+    const PluginWindowState* plugin_window_state(const std::string& id) const {
+        const auto it = plugin_windows_.find(id);
+        return it == plugin_windows_.end() ? nullptr : &it->second;
+    }
 
 private:
     void draw_menu_bar();
@@ -92,6 +123,18 @@ private:
     void draw_add_floor();
     void draw_plan_import();
     void draw_about();
+    void draw_logo(UserTexture& tex, std::string& loaded, const std::filesystem::path& file, float size);
+    // Settings window and Reset all settings (settings_view.cpp, step 9.7).
+    void draw_settings();
+    void draw_settings_general(AppSettings& f);
+    void draw_settings_survey(AppSettings& f);
+    void draw_plugin_manager();
+    void draw_reset_settings();
+    // The plugins' own menus and windows (plugin_view.cpp, PLG-06).
+    void draw_plugin_menus();
+    void draw_plugin_entries(std::uint32_t menu);
+    void draw_plugin_windows();
+    void restart_ui();
     // Editing, walk test and interpolation (gui_tools.cpp, step 9.4).
     void draw_edit_section();
     void draw_walk_section(const FloorContent* c);
@@ -153,6 +196,14 @@ private:
     std::map<std::string, std::string> setting_input_error_;
     std::string setting_editing_;  // the field being typed into
     std::string calibration_file_;
+    // Step 9.7: theme in use, UI restarts, About logos, plugin windows.
+    Theme theme_ = Theme::Dark;
+    std::uint64_t ui_generation_ = 0;
+    AboutOverlay about_;
+    UserTexture yantra_logo_, curtat_logo_;
+    std::string yantra_logo_file_, curtat_logo_file_;  // the files the textures hold
+    std::map<std::string, PluginWindowState> plugin_windows_;
+    std::vector<PluginFrame> plugin_frame_;
 };
 
 /// The ImGui popup id of a dialog ("New indoor project###dlg.new_project").

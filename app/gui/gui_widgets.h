@@ -20,8 +20,17 @@ inline constexpr float kTouchTarget = 48.0F;  // UI-13: >= 48 px targets
 inline const ImVec4 kBannerColour{0.95F, 0.62F, 0.07F, 1.0F};
 inline const ImVec4 kErrorColour{1.0F, 0.45F, 0.40F, 1.0F};
 
+/// Tooltips on or off (settings, DOC-07 h). Off hides the hover texts;
+/// the "(?)" markers and the reasons of disabled controls stay.
+inline bool& tooltips_shown() {
+    static bool shown = true;
+    return shown;
+}
+inline void set_tooltips_shown(bool on) { tooltips_shown() = on; }
+
 /// The hover text of the last item, also when it is disabled (DOC-07 b, c).
 inline void item_tooltip(const ActionView& a) {
+    if (!tooltips_shown() && a.enabled) return;
     if (!ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) return;
     ImGui::BeginTooltip();
     ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
@@ -35,6 +44,7 @@ inline void item_tooltip(const ActionView& a) {
 }
 
 inline void text_tooltip(const char* text) {
+    if (!tooltips_shown()) return;
     if (!ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) return;
     ImGui::BeginTooltip();
     ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);

@@ -5,9 +5,12 @@
 // data/logo/png (installed to share/yantra/logo/png), decoded through the
 // core's stb_image plan reader (as BRD-03), so the app links no image
 // library of its own. app/src/main.cpp hands them to glfwSetWindowIcon.
+// The About dialog (UI-15) shows the same logo and the curtat.be logo
+// (data/branding, BRD-03: the light or dark PNG by theme).
 #pragma once
 
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -25,5 +28,14 @@ std::filesystem::path app_icon_relative(int size);
 /// folder that has each file. A missing or unreadable file (or one with
 /// another pixel size) is left out and named in `error`.
 std::vector<plan::Raster> load_app_icons(const std::vector<std::filesystem::path>& data_folders, std::string& error);
+
+/// "branding/curtat_logo_<dark|light>_<size>.png" (size 64, 256 or 1024):
+/// `dark` is the variant for dark backgrounds (BRD-03).
+std::filesystem::path curtat_logo_relative(bool dark, int size);
+
+/// A PNG of the first data folder that has `relative`, as RGBA; nullopt
+/// with `error` when it is missing or unreadable.
+std::optional<plan::Raster> load_data_png(const std::vector<std::filesystem::path>& data_folders,
+                                          const std::filesystem::path& relative, std::string& error);
 
 }  // namespace yantra::app

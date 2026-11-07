@@ -31,6 +31,10 @@ struct CommandLine {
     /// --dialog NAME: open a dialog at start (launch tests, screenshots,
     /// docs): one of dialog_names().
     std::string dialog;
+    /// --reset-settings: Reset all settings without the UI (UI-16), then
+    /// exit; --reset-calibration also resets the calibration table.
+    bool reset_settings = false;
+    bool reset_calibration = false;
     /// A project file to open at start.
     std::optional<std::filesystem::path> project;
 };
@@ -44,7 +48,8 @@ struct ParseResult {
 ParseResult parse_command_line(const std::vector<std::string>& args);
 
 /// The names --dialog accepts: "new-project", "open-project", "save-as",
-/// "add-floor", "about". Later steps add theirs here.
+/// "add-floor", "about", "settings", "reset-settings". Later steps add
+/// theirs here.
 const std::vector<std::string>& dialog_names();
 
 /// The --help text.

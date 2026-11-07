@@ -48,6 +48,7 @@
 
 #include <atomic>
 #include <cstddef>
+#include <functional>
 #include <cstdint>
 #include <filesystem>
 #include <memory>
@@ -70,6 +71,7 @@ class RadioDevice;
 }
 namespace yantra::plugin {
 class PluginStateStore;
+class PluginLoader;
 }
 namespace yantra::calibration {
 class Table;
@@ -90,6 +92,15 @@ struct RadioPaths {
     /// The ring buffer's temporary recordings (REC-09; main(): the user's
     /// cache folder). "" = no ring buffer.
     std::filesystem::path ring_folder;
+};
+
+/// The plugin state and the loaded technology, feature and exporter
+/// plugins, shared with the app (AppState owns them for the plugin
+/// manager, About and the plugins' own UI, PLG-06/09). Empty members: the
+/// LiveSurvey makes its own (tests).
+struct PluginServices {
+    std::shared_ptr<plugin::PluginStateStore> state;
+    std::shared_ptr<plugin::PluginLoader> loader;  ///< already loaded (load_all)
 };
 
 /// The recording settings (REC-01..03, REC-09).
@@ -159,7 +170,7 @@ struct WalkView {
 
 class LiveSurvey {
 public:
-    LiveSurvey(std::shared_ptr<project::Project> project, RadioPaths paths);
+    LiveSurvey(std::shared_ptr<project::Project> project, RadioPaths paths, PluginServices services = {});
     /// Stops a running walk (its points are kept) and every radio.
     ~LiveSurvey();
     LiveSurvey(const LiveSurvey&) = delete;
@@ -267,6 +278,15 @@ public:
     std::uint64_t device_generation() const;
     /// The radio host (nullptr before find_radios). One per process.
     radio::RadioHost* host();
+    /// Loads the radio plugins without looking for devices (the plugin
+    /// manager lists them); host() is set afterwards unless it failed.
+    Result load_radio_plugins();
+    /// A plugin is switched on or off (PLG-09): refused while a walk, a
+    /// recording or the radio runs. Closes the radio, drops the radio host
+    /// and the pipeline (they hold the plugins), runs `change` (which
+    /// enables or disables in the loader or the radio host's state), then
+    /// takes the technology plugins again; the radios must be found again.
+    Result change_plugins(const std::function<Result()>& change);
     /// Observers of the measurement pipeline (the radio windows); kept when
     /// the pipeline is rebuilt.
     void add_observer(std::shared_ptr<measure::MeasurementObserver> observer);

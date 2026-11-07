@@ -21,7 +21,8 @@ bool parse_int(const std::string& s, int& out) {
 }  // namespace
 
 const std::vector<std::string>& dialog_names() {
-    static const std::vector<std::string> names{"new-project", "open-project", "save-as", "add-floor", "about"};
+    static const std::vector<std::string> names{"new-project", "open-project", "save-as", "add-floor",
+                                                 "about",       "settings",     "reset-settings"};
     return names;
 }
 
@@ -72,6 +73,10 @@ ParseResult parse_command_line(const std::vector<std::string>& args) {
                 return fail("--dialog needs one of: " + list);
             }
             c.dialog = v;
+        } else if (a == "--reset-settings") {
+            c.reset_settings = true;
+        } else if (a == "--reset-calibration") {
+            c.reset_calibration = true;
         } else if (!a.empty() && a[0] == '-') {
             return fail("unknown option '" + a + "' (try --help)");
         } else {
@@ -79,6 +84,7 @@ ParseResult parse_command_line(const std::vector<std::string>& args) {
             c.project = a;
         }
     }
+    if (c.reset_calibration && !c.reset_settings) return fail("--reset-calibration only goes with --reset-settings");
     r.command_line = c;
     return r;
 }
@@ -95,7 +101,11 @@ std::string usage_text() {
            "  --size WIDTHxHEIGHT     window size in pixels (default 1280x800)\n"
            "  --frames N              exit after N frames (launch tests)\n"
            "  --dialog NAME           open a dialog at start: new-project, open-project, save-as,\n"
-           "                          add-floor (needs PROJECT), about\n"
+           "                          add-floor (needs PROJECT), about, settings, reset-settings\n"
+           "  --reset-settings        reset all settings to their defaults (as Help > Reset all\n"
+           "                          settings), after a time-stamped backup, and exit; projects,\n"
+           "                          recordings, cell databases and calibration are kept\n"
+           "  --reset-calibration     with --reset-settings: also reset the calibration table\n"
            "  --version               print the version and exit\n"
            "  -h, --help              print this help and exit\n";
 }
