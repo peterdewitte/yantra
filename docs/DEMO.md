@@ -166,11 +166,16 @@ yantra-demo --description data/demo/mak/mak_villa_bunzl.json --out DIR \
   --sheets CACHE_DIR --gen ... --scenario-dir ... --tetra-plugin ...
 ```
 
-On first use the app (phase 9 tour) asks the user, downloads the
-unaltered image from `source_url` with a plain request, checks it with
-`demo::check_sheet_file` and keeps it in the cache; the project then
-reads it with `Project::read_source_from`. If the download fails or the
-hash differs, the tour says so and opens the Fraunces project instead.
+On first use the app's guided tour (step 9.10, docs/APP.md "Guided
+tour") asks the user, downloads the unaltered image from `source_url`
+with a plain request (libcurl, client name "Yantra/<version>") into the
+user's cache (`<XDG_CACHE_HOME or ~/.cache>/yantra/mak`, or
+`$YANTRA_MAK_CACHE`), checks it with `demo::check_sheet_file` and keeps
+it there; a project reads it through `Project::read_source_from` (the
+plan window looks in the cache when the kept path is gone). If the user
+says no, the download fails or the file differs (hash, size or pixel
+size; the message shows both SHA-256 values and the URL), the tour says
+so and continues with the Fraunces Tavern.
 
 The tests (`tests/measure_host/test_measure_demo_mak.cpp`) need no MAK
 image: a synthetic JPEG of the same pixel size stands in for each sheet

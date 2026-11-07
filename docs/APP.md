@@ -709,6 +709,56 @@ Hooks for the next steps:
   headless; the windows and pages to shoot are those `visit_all()`
   opens (the demo project for the project pages).
 
+## Guided tour (step 9.10)
+
+Help > Tour, the first-start offer on the start screen (`start.tour_offer.yes/no`, once; UI-16 resets it) and
+`yantra --tour` open the guided tour (DEMO-11); `yantra --demo` opens the demo project with the simulator
+(DEMO-01). Model: `app/model/include/yantra/app/tour.h` (`Tour`, owned by `AppState::tour()`); views:
+`app/gui/tour_view.cpp`; manual 1.3.
+
+- Steps (`TourStep`, keys in `tour_step_key`): choose, new_project, import_sheet, trim_floors, second_source,
+  scale, walls, antennas, mouse_survey, results, switch_floors, report, finish. Each `TourView` has the title and
+  text, `targets` (control ids, most specific first; the Gui frames the first one the UiProbe saw in the last
+  frame, `Gui::tour_overlay().target`), `done` (from the app state), `progress`, "Show me" (`can_show`,
+  `show_reason`) and the DEMO-07 label. Back, Skip/Next, Leave; progress in `AppSettings::tour`
+  (`TourProgress`: offered, building, step, done, finished) saved with the settings.
+- Show me goes through the same commands as the controls: `AppState::new_project` (the tour's project
+  `<user_data>/tour/<id>.yantra`), `import_plan_file`/`import_plan_source`, the plan import window's rectangle and
+  Add as floor per described floor (several floors from one sheet), the described scale (factor or scale bar,
+  mapped through the page), walls and antennas mapped from the description's trim to the user's trim, the
+  description's cell database, the mouse survey with the simulated radio (`request_panel("walk")`), the layers,
+  the next floor tab, and at the end the finished example (Fraunces: Open demo; MAK: a copy of the DEMO-13
+  project in `<user_data>/demo/mak/<id>`). New floors on a described sheet get its `example_id` (trim centre
+  inside the user's trim), so the DEMO-07 label and the simulator's scenario follow.
+- DEMO-12, MAK buildings: `choose` checks the cache (`AppPaths::sheet_cache`: `$YANTRA_MAK_CACHE`, else
+  `<XDG_CACHE_HOME or ~/.cache>/yantra/mak`); a missing or wrong file opens `Dialog::TourConsent`
+  (`dlg.tour_consent`: credit, licence, URL, size, cache file, what is sent). Download (`dlg.ok`) runs
+  `SheetFetch` (sheet_fetch.h) on a worker: the `Downloader` (main: `make_curl_downloader`, app/net, library
+  `yantra_app_net`; default: none, with the reason) writes `<cache>/.download/<file>`, `demo::check_sheet_file`
+  checks hash, size and pixel size, and only then is it renamed into the cache (unchanged). No, Esc, offline, a
+  failure or a different file (message with both SHA-256 values and the URL): `Tour::fall_back` continues with
+  the Fraunces Tavern and says why; nothing stays in the cache. Projects reference the sheet (IND-03);
+  `ProjectWindow::set_sheet_folder` reads it with `Project::read_source_from` when the kept path is gone. The
+  credit, licence and approximate-scale note are shown under the floor tabs (`AppState::plan_credit`,
+  `Gui::tour_overlay().credit_text`); trims and overlays stay display-time only.
+- curl: one GET, `User-Agent: Yantra/<version>`, no cookies or referrer; protocols https, http and file
+  (descriptions must use https; the tests map it to file:// or a loopback server), redirects to https only (5).
+- Dialogs block windows behind them, so inside an open dialog the tour shows as a strip at its top
+  (`Gui::tour_overlay().strip`).
+- Not done here: the report step is shown as not available (phase 10, File > Report). The simulator's levels
+  are dBFS without a calibration table, so a click in the tour's mouse survey runs the interpolation but on a
+  new project it reports "no measured point with a level in dBm" (the demo project interpolates with its
+  ground-truth walk); see BUILD_LOG Open questions.
+- Tests: `tests/app/test_tour.cpp` (steps and settings, first-start offer, Fraunces by Show me with progress,
+  Leave, Back, reset; MAK with a synthetic stand-in through file:// and a loopback HTTP server checking the
+  request; refused, Esc, no downloader, offline, wrong hash/size/pixel size, a wrong cached file),
+  `tests/app/ui/test_ui_tour.cpp` (clicks, framed control, consent, strip, credit line),
+  `tests/app/test_live_ui.cpp` (the tour's mouse survey with the simulator), and the tour windows in
+  `test_ui_lint.cpp`.
+- Hooks for 9.11 (screenshots): `yantra --tour` and `--demo`; `AppState::tour()` with `go_to(step)` and
+  `show_me()` put any step on screen; `request_panel(key)` selects a side-panel page. Screenshots use the Fraunces
+  Tavern only (never a MAK sheet).
+
 ## Headless UI tests (tests/app/harness)
 
 `yantra::test::UiHarness` (library `yantra_ui_harness`) runs a real
