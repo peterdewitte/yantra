@@ -35,11 +35,13 @@
 #include <string>
 #include <vector>
 
+#include "yantra/app/cell_db_editor.h"
 #include "yantra/app/credits.h"
 #include "yantra/app/file_browser.h"
 #include "yantra/app/floor_editor.h"
 #include "yantra/app/interpolation_runner.h"
 #include "yantra/app/live_survey.h"
+#include "yantra/app/network_checks.h"
 #include "yantra/app/replay_session.h"
 #include "yantra/app/system_status.h"
 #include "yantra/app/plan_import_window.h"
@@ -76,6 +78,17 @@ enum class Action {
     QuickStarts,
     ResetSettings,
     HelpAbout,
+    CellDatabase,  ///< Network > Cell database (DB-01, DB-02, step 9.8)
+    Verification,  ///< Network > Verification (DB-03..05)
+    Reselection,   ///< Network > Reselection simulator (DB-08)
+};
+
+/// The non-modal windows of the Network menu (step 9.8); the Gui closes
+/// them with the window's close button.
+struct NetworkWindows {
+    bool cell_db = false;
+    bool verification = false;
+    bool reselection = false;
 };
 
 /// How an action is shown: label, shortcut, tooltip (DOC-07 b) and, when
@@ -305,6 +318,14 @@ public:
     LiveSurvey* live() { return live_.get(); }
     /// The radio windows' model (PLG-16, step 9.6; nullptr on the start screen).
     RadioWindows* radio_windows() { return radios_.get(); }
+    /// The cell database editor (DB-01, DB-02; nullptr on the start screen).
+    CellDbEditor* cell_db() { return cell_db_.get(); }
+    /// Verification, auto-learn, cross-check and reselection (DB-03..05,
+    /// DB-08; nullptr on the start screen).
+    NetworkChecks* network_checks() { return checks_.get(); }
+    NetworkWindows& network_windows() { return network_windows_; }
+    /// The enabled technology plugins as celldb technologies (PLG-01).
+    celldb::Technologies technologies();
     /// The plugin.h plugins (technology, feature, exporter), loaded on
     /// first use from AppPaths::radios.plugin_folders; kept for the run.
     plugin::PluginLoader& plugins();
@@ -476,6 +497,7 @@ private:
 
     void drop_tools();
     void ensure_plugins();
+    void drop_network();
     PluginServices plugin_services();
     void apply_survey_defaults();
 
@@ -486,6 +508,9 @@ private:
     std::unique_ptr<PluginUi> plugin_ui_;
     std::shared_ptr<project::Project> project_;
     std::unique_ptr<ProjectWindow> window_;
+    std::unique_ptr<CellDbEditor> cell_db_;
+    std::unique_ptr<NetworkChecks> checks_;
+    NetworkWindows network_windows_;
     std::unique_ptr<FloorEditor> editor_;
     std::unique_ptr<InterpolationRunner> runner_;
     std::unique_ptr<LiveSurvey> live_;

@@ -174,6 +174,7 @@ void SurveyMonitor::clear() {
     history_->version = version;
     interference_.reset();
     frames_.clear();
+    if (observations_) observations_ = std::make_unique<celldb::Observations>(observations_->technologies());
     shown_.reset();
     cursor_.reset();
     frozen_ = false;
@@ -193,7 +194,18 @@ bool SurveyMonitor::history_frozen() const {
 void SurveyMonitor::show_cycle(const std::optional<ym::MeasurementCycle>& cycle) {
     const std::lock_guard lock(mutex_);
     shown_ = cycle;
+    if (cycle && observations_) observations_->add(*cycle);
     interference_.reset();
+}
+
+void SurveyMonitor::set_technologies(celldb::Technologies technologies) {
+    const std::lock_guard lock(mutex_);
+    observations_ = std::make_unique<celldb::Observations>(std::move(technologies));
+}
+
+std::vector<celldb::ObservedCell> SurveyMonitor::observed_cells() const {
+    const std::lock_guard lock(mutex_);
+    return observations_ ? observations_->cells() : std::vector<celldb::ObservedCell>{};
 }
 
 void SurveyMonitor::set_cursor(std::optional<std::int64_t> t_ns) {
@@ -433,6 +445,7 @@ void SurveyMonitor::on_cycle(const ym::MeasurementCycle& c) {
     const ym::CarrierSample* sv = c.serving();
     if (sv && !std::isnan(sv->latest.level)) ++samples_;
     (void)interference_.on_cycle(c);
+    if (observations_) observations_->add(c);
     if (frozen_) {
         shown_ = c;
         return;

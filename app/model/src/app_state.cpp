@@ -87,6 +87,19 @@ const ActionDef kActions[] = {
      "kept). A backup of the current settings is saved first.",
      nullptr},
     {Action::HelpAbout, "help.about", "About Yantra", "", "Version, licence, source code link and credits.", nullptr},
+    {Action::CellDatabase, "network.cell_db", "Cell database...", "",
+     "The cells of the network: their identity, carrier, broadcast parameters and neighbour lists, edited here or "
+     "imported from a CSV file, and the fields received cells are paired by.",
+     nullptr},
+    {Action::Verification, "network.verification", "Verification...", "",
+     "Compare the cells received (radio or replay) with the cell database: matches, differences, new and missing "
+     "cells and neighbours in colour, a difference log, learning the database from the air, and the neighbour "
+     "cross-check.",
+     nullptr},
+    {Action::Reselection, "network.reselection", "Reselection simulator...", "",
+     "Choose a serving cell and the levels of its neighbours: the technology plugin's reselection rule says what a "
+     "radio would do.",
+     nullptr},
 };
 
 const ActionDef& def(Action a) {
@@ -121,6 +134,7 @@ AppState::AppState(AppSettings settings, AppPaths paths) : settings_(std::move(s
 
 AppState::~AppState() {
     drop_tools();
+    drop_network();
     window_.reset();
     try {
         if (project_) project_->close();
@@ -164,6 +178,9 @@ ActionView AppState::action(Action a) const {
     case Action::SaveAs:
     case Action::AddFloor:
     case Action::CloseProject:
+    case Action::CellDatabase:
+    case Action::Verification:
+    case Action::Reselection:
         if (!open) {
             v.enabled = false;
             v.disabled_reason = "No project is open: create one (File > New indoor project) or open one first.";
@@ -207,10 +224,13 @@ std::vector<Menu> AppState::menus() const {
     // The Radio menu (PLG-16, step 9.6) is drawn between File and Help
     // from RadioWindows (app/gui/radio_view.cpp): its entries follow the
     // radios found. Enabled plugins add their own entries (UI-14).
+    // Step 9.8: the cell database and the checks against it.
+    Menu network{"network", "Network", {}};
+    network.entries = {item(Action::CellDatabase), item(Action::Verification), item(Action::Reselection)};
     Menu help{"help", "Help", {}};
     help.entries = {item(Action::Tour),          item(Action::UserManual), item(Action::QuickStarts), sep,
                     item(Action::ResetSettings), sep,                      item(Action::HelpAbout)};
-    return {file, help};
+    return {file, network, help};
 }
 
 std::vector<RecentView> AppState::recent_projects() const {
@@ -331,6 +351,9 @@ Result AppState::trigger(Action a) {
         if (const Result r = request_exit(); !r.ok) return r;
         quit_ = true;
         return Result{};
+    case Action::CellDatabase: network_windows_.cell_db = true; return Result{};
+    case Action::Verification: network_windows_.verification = true; return Result{};
+    case Action::Reselection: network_windows_.reselection = true; return Result{};
     default: break;
     }
     return fail(v.label + ": not available");
@@ -349,6 +372,7 @@ void AppState::cancel_dialog() {
 Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& verb) {
     import_window_.reset();
     drop_tools();
+    drop_network();
     window_.reset();
     if (project_) {
         try {
@@ -367,6 +391,10 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     live_->set_monitor(monitor_);
     live_->set_audio(audio_);
     radios_ = std::make_unique<RadioWindows>(*live_);
+    monitor_->set_technologies(technologies());
+    cell_db_ = std::make_unique<CellDbEditor>(*project_, [this] { return technologies(); });
+    checks_ = std::make_unique<NetworkChecks>(*project_, [this] { return technologies(); },
+                                              [m = monitor_] { return m->observed_cells(); });
     replay_ = std::make_unique<ReplaySession>(project_, monitor_);
     replay_->set_audio(audio_);
     demo_label_ = find_demo_label();
@@ -654,6 +682,7 @@ Result AppState::close_project() {
         dialog_ = Dialog::None;
     import_window_.reset();
     drop_tools();
+    drop_network();
     window_.reset();
     demo_label_.clear();
     try {
@@ -876,6 +905,25 @@ bool AppState::save_settings(std::string& error) {
 }
 
 // -- editing, walk test, interpolation ------------------------------------------------------
+
+void AppState::drop_network() {
+    checks_.reset();
+    cell_db_.reset();
+    network_windows_ = NetworkWindows{};
+}
+
+celldb::Technologies AppState::technologies() {
+    celldb::Technologies out;
+    plugin::PluginLoader& loader = plugins();
+    for (const plugin::PluginEntry& e : loader.list()) {
+        if (e.status != plugin::PluginStatus::Enabled || e.id.empty()) continue;
+        const plugin::PluginInfo* info = loader.info(e.id);
+        if (info == nullptr) continue;
+        if (auto t = celldb::Technology::from_plugin(*info, loader.descriptor(e.id), loader.instance(e.id)))
+            out.push_back(std::move(*t));
+    }
+    return out;
+}
 
 void AppState::drop_tools() {
     // The walk first (its cycle thread stores points), then a running

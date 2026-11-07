@@ -166,6 +166,11 @@ private:
     void draw_radio_calibration(RadioWindows& rw);
     void draw_radio_info(RadioWindows& rw);
     void draw_radio_confirmation(RadioWindows& rw);
+    // Network menu windows (step 9.8, network_view.cpp).
+    void draw_network_windows();
+    void draw_cell_db(CellDbEditor& ed);
+    void draw_verification(NetworkChecks& nc);
+    void draw_reselection(NetworkChecks& nc);
 
     AppState& state_;
     Dialog shown_ = Dialog::None;  // the dialog whose popup is open
@@ -196,6 +201,14 @@ private:
     std::map<std::string, std::string> setting_input_error_;
     std::string setting_editing_;  // the field being typed into
     std::string calibration_file_;
+    // Step 9.8: the Network windows' typed text.
+    struct NetworkText {
+        std::string filter, csv_file, log_file;
+        std::map<std::string, std::string> match_text;
+        bool show_matches = true;
+        bool log_not_seen = false;
+    };
+    NetworkText network_;
     // Step 9.7: theme in use, UI restarts, About logos, plugin windows.
     Theme theme_ = Theme::Dark;
     std::uint64_t ui_generation_ = 0;

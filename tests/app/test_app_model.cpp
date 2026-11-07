@@ -254,17 +254,19 @@ TEST_CASE("application icon (BRD-06): the Yantra logo PNGs at every icon size") 
     CHECK(error.find("yantra_logo_16.png") != std::string::npos);
 }
 
-TEST_CASE("menus (UI-14): File and Help items, tooltips, disabled reasons") {
+TEST_CASE("menus (UI-14): File, Network and Help items, tooltips, disabled reasons") {
     AppState st({}, {});
     const auto menus = st.menus();
-    REQUIRE(menus.size() == 2);
+    REQUIRE(menus.size() == 3);
     CHECK(menus[0].label == "File");
     CHECK(ids(menus[0]) == std::vector<std::string>{"file.new_project", "file.open_project", "file.recent",
                                                      "file.open_demo", "file.save", "file.save_as", "file.add_floor",
                                                      "file.close_project", "file.export", "file.report", "file.settings",
                                                      "file.about", "file.exit"});
-    CHECK(menus[1].label == "Help");
-    CHECK(ids(menus[1]) == std::vector<std::string>{"help.tour", "help.user_manual", "help.quick_starts",
+    CHECK(menus[1].label == "Network");
+    CHECK(ids(menus[1]) == std::vector<std::string>{"network.cell_db", "network.verification", "network.reselection"});
+    CHECK(menus[2].label == "Help");
+    CHECK(ids(menus[2]) == std::vector<std::string>{"help.tour", "help.user_manual", "help.quick_starts",
                                                      "help.reset_settings", "help.about"});
     std::set<std::string> seen;
     for (const Menu& m : menus) {
@@ -280,7 +282,7 @@ TEST_CASE("menus (UI-14): File and Help items, tooltips, disabled reasons") {
             // Disabled either because it is not wired yet, for want of a
             // project, or (Open demo) without the installed demo.
             const bool needs_project = a.id == "file.save" || a.id == "file.save_as" || a.id == "file.add_floor" ||
-                                       a.id == "file.close_project";
+                                       a.id == "file.close_project" || a.id.rfind("network.", 0) == 0;
             if (!needs_project && a.id != "file.open_demo") CHECK(a.enabled == a.planned_step.empty());
         }
     }

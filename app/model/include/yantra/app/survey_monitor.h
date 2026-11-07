@@ -40,6 +40,7 @@
 #include <vector>
 
 #include "yantra/core/celldb/database.h"
+#include "yantra/core/celldb/network.h"
 #include "yantra/core/measure/measurement_pipeline.h"
 #include "yantra/core/measure/self_interference.h"
 
@@ -192,6 +193,12 @@ public:
 
     /// Cell names and colours (UI-02/03/04); may change at any time.
     void set_cell_database(std::shared_ptr<const celldb::CellDatabase> db);
+    /// The technology plugins whose records are collected as received
+    /// cells (DB-03/DB-04/DB-05, NetworkChecks); none until set.
+    void set_technologies(celldb::Technologies technologies);
+    /// The cells received since the last clear() (live cycles and replay
+    /// cycles shown), each with its latest record and neighbour list.
+    std::vector<celldb::ObservedCell> observed_cells() const;
     void set_threshold(double dbm);
     /// The noise with the antenna away from the PC as the NFR-07 reference (nullopt: thermal floor).
     void set_interference_reference(std::optional<double> noise_dbm);
@@ -243,6 +250,7 @@ private:
     mutable std::mutex mutex_;
     std::shared_ptr<const celldb::CellDatabase> db_;
     std::deque<measure::MeasurementCycle> frames_;
+    std::unique_ptr<celldb::Observations> observations_;
     std::optional<measure::MeasurementCycle> shown_;  // replay: the cycle at the player's position
     std::optional<std::int64_t> cursor_;
     bool frozen_ = false;

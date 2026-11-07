@@ -36,10 +36,11 @@ e.g. Tour "9.10"). Disabled entries stay visible with their reason
 ImGui labels are `"<text>###<id>"`; tests and screenshots use the id:
 
 - menus `menu.file`, `menu.radio`, `menu.view` and `menu.tools` (only when
-  a plugin adds entries), `menu.help`; menu items the action id (`file.new_project`,
+  a plugin adds entries), `menu.network`, `menu.help`; menu items the action id (`file.new_project`,
   `file.open_project`, `file.recent`, `file.open_demo`, `file.save`, `file.save_as`,
   `file.add_floor`, `file.close_project`, `file.export`, `file.report`,
-  `file.settings`, `file.about`, `file.exit`, `help.tour`, `help.user_manual`,
+  `file.settings`, `file.about`, `file.exit`, `network.cell_db`,
+  `network.verification`, `network.reselection`, `help.tour`, `help.user_manual`,
   `help.quick_starts`, `help.reset_settings`, `help.about`);
 - windows `main` (the screen below the menu bar), `status_bar`;
 - start screen buttons `start.<action id>`, recent projects `start.recent.<n>`;
@@ -526,6 +527,66 @@ reset, `--reset-settings`, credits and logos, the plugin manager and
 (`ui/test_ui_settings.cpp`: About, the settings tabs by clicking, the
 plugin switch, Reset, and the beacon's Tools entry and window with its
 channel field), launch tests `app_settings` and `app_reset_settings`.
+
+## Cell database, network checks and post-processing (step 9.8)
+
+The Network menu opens three non-modal windows (`AppState::network_windows()`
+flags, drawn by `app/gui/network_view.cpp`); they need an open project.
+The models call core `celldb` only; the technology rules (key fields,
+channel raster, value comparison, C1 and reselection) are the
+technology plugin's (PLG-01), so the windows work for any technology
+plugin. `AppState::technologies()` gives the enabled technology plugins
+as `celldb::Technologies`.
+
+- **Cell database** `win.cell_db` (`CellDbEditor`, DB-01, DB-02): the
+  list `cells.table` (rows `cells.row.<id>`: name, technology, site and
+  sector, carrier in MHz, the plugin's channel number, identity with `la`
+  in hexadecimal, neighbour count) with the filter `cells.filter`;
+  `cells.new.<technology>` starts an entry whose form lists the plugin's
+  KEY and VERIFY fields (`cells.field.<name>`; typed as decimal, `0x..`,
+  a number or a text), `cells.form.*` (id, label, site, sector,
+  azimuth, colour, notes), the neighbour list `cells.form.neighbours`
+  (one `name=value/name=value` line per neighbour, at most 31),
+  `cells.add_field` for another field; `cells.apply` stores the whole
+  database at once (`Project::set_cell_database`), `cells.cancel`,
+  `cells.remove` (refused while an antenna serves the cell). CSV
+  `cells.csv.*`: file, `la` in hexadecimal, semicolons, import replaces
+  or merges, `cells.import` / `cells.export`; skipped rows are listed.
+  Pairing `cells.match.<technology>` / `cells.match_apply.<technology>`:
+  the fields received cells are paired by (empty: the KEY fields).
+- **Verification** `win.verification` (`NetworkChecks`, DB-03..05): the
+  cells received since the radio or the replay started
+  (`SurveyMonitor::observed_cells()`, a `celldb::Observations` fed by
+  every cycle, cleared with the monitor) against the database: counts,
+  then one row per check coloured match (green), differs (red), new
+  (blue), missing / not seen (amber) (`state_rgb`); `verify.matches`
+  hides the matches. `verify.learn` learns (adds new cells, fills fields
+  entries lack, never overwrites); `verify.log` appends the differences
+  to the CSV `verify.log_file` (default `<project>_differences.csv`;
+  each difference once, `verify.not_seen` adds the entries not seen);
+  the neighbour cross-check over the database and the survey lists
+  not-mutual, unknown-list, not-seen and ambiguous entries. The report
+  tables of the same checks are phase 10's.
+- **Reselection simulator** `win.reselection` (DB-08): serving cell
+  `resel.serving.<id>` (entries of a technology with a reselection
+  rule), MS power `resel.ms_power`, a level per cell
+  `resel.level.<id>` (its neighbours from the database list), or
+  `resel.received` for the levels received; the plugin's answer: C1 per
+  cell, the serving state, the cell chosen and its reason line. The rule
+  is the plugin's as it is (`celldb::simulate`; its check against
+  EN 300 392-2 clause 18.3.4 is an open owner question).
+
+The TETRA calculator (DB-07: channel <-> frequency with offset, duplex and
+reverse operation, subscriber class bits) is the TETRA plugin's own
+window `plg.yantra.tetra.calculator` under Tools (docs/plugins/TETRA.md),
+so it needs no core code.
+
+Tests: `test_app` (`test_network.cpp`: the editor's form, neighbours,
+filter, CSV round trip, match fields; verification, log, learn and
+cross-check with generated received cells; the reselection cases of the
+TETRA rule; the Network actions), `test_app_ui` (`ui/test_ui_cells.cpp`:
+the calculator, the editor on the demo, verification and reselection
+with the demo's replayed walk).
 
 ## Headless UI tests (tests/app/harness)
 
