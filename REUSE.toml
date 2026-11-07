@@ -125,3 +125,9 @@ path = ["data/demo/*.json", "data/demo/fraunces/*.json", "data/demo/fraunces/*.c
         "data/demo/mak/*.csv"]
 SPDX-FileCopyrightText = "2026 The Yantra contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# The UI language files (UI-12; JSON has no comment syntax).
+[[annotations]]
+path = ["data/i18n/*.json"]
+SPDX-FileCopyrightText = "2026 The Yantra contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"

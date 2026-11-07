@@ -5,6 +5,8 @@
 // Copied from yantra-v2 68ea20a: app/model/src/settings.cpp, adapted.
 #include "yantra/app/settings.h"
 
+#include "yantra/app/i18n.h"
+
 #include <algorithm>
 #include <cstdlib>
 #include <fstream>
@@ -83,12 +85,17 @@ bool LayerSettings::move(Layer layer, int steps) {
 }
 
 const char* theme_key(Theme theme) {
-    return theme == Theme::Light ? "light" : "dark";
+    switch (theme) {
+    case Theme::Light: return "light";
+    case Theme::HighContrast: return "high_contrast";
+    case Theme::Dark: break;
+    }
+    return "dark";
 }
 
 std::optional<Theme> parse_theme(std::string_view key) {
-    if (key == "dark") return Theme::Dark;
-    if (key == "light") return Theme::Light;
+    for (Theme t : kThemes)
+        if (key == theme_key(t)) return t;
     return std::nullopt;
 }
 
@@ -107,6 +114,17 @@ std::string check_settings(const AppSettings& s) {
     if (!within(s.survey.graph_span_min, kMinGraphSpanMin, kMaxGraphSpanMin))
         return "The graphs show 1 to 60 minutes.";
     if (!within(s.survey.ring_minutes, kMinRingMinutes, kMaxRingMinutes)) return "The ring buffer keeps 2 to 60 minutes.";
+    if (!parse_language(s.language)) return "The language is en, nl, fr or de.";
+    if (!within(s.ui_scale, kMinUiScale, kMaxUiScale)) return "The UI scale is 75 to 250 %.";
+    if (!within(s.sound.volume, 0.0, 1.0)) return "The volume is 0 to 100 %.";
+    if (!within(s.sound.level_interval_s, kMinLevelIntervalS, kMaxLevelIntervalS))
+        return "The level tone comes every 2 to 120 seconds.";
+    if (s.sound.alerts.size() > kMaxLevelAlerts) return "At most 8 level alerts.";
+    for (const LevelAlert& a : s.sound.alerts) {
+        if (a.cell.empty()) return "Every level alert needs a cell.";
+        if (!within(a.threshold_dbm, kMinThresholdDbm, kMaxThresholdDbm))
+            return "A level alert's threshold is -150 to -20 dBm.";
+    }
     return {};
 }
 
@@ -127,6 +145,21 @@ std::string settings_to_json(const AppSettings& s) {
     j["tooltips"] = s.tooltips;
     j["tooltip_delay_s"] = s.tooltip_delay_s;
     j["theme"] = theme_key(s.theme);
+    j["language"] = s.language;
+    j["touch"] = s.touch;
+    j["ui_scale"] = s.ui_scale;
+    j["sound"] = json::object();
+    j["sound"]["enabled"] = s.sound.enabled;
+    j["sound"]["volume"] = s.sound.volume;
+    j["sound"]["level_tone"] = s.sound.level_tone;
+    j["sound"]["level_interval_s"] = s.sound.level_interval_s;
+    j["sound"]["sync_loss"] = s.sound.sync_loss;
+    j["sound"]["reselection"] = s.sound.reselection;
+    j["sound"]["low_battery"] = s.sound.low_battery;
+    j["sound"]["alert_popup"] = s.sound.alert_popup;
+    j["sound"]["alerts"] = json::array();
+    for (const LevelAlert& a : s.sound.alerts)
+        j["sound"]["alerts"].push_back({{"cell", a.cell}, {"threshold_dbm", a.threshold_dbm}});
     j["survey"] = json::object();
     j["survey"]["threshold_dbm"] = s.survey.threshold_dbm;
     j["survey"]["graph_span_min"] = s.survey.graph_span_min;
@@ -185,6 +218,39 @@ AppSettings settings_from_json(const std::string& text, std::string& error) {
     }
     if (const auto it = j.find("theme"); it != j.end() && it->is_string())
         if (const auto t = parse_theme(it->get<std::string>())) s.theme = *t;
+    if (const auto it = j.find("language"); it != j.end() && it->is_string() && parse_language(it->get<std::string>()))
+        s.language = it->get<std::string>();
+    if (const auto it = j.find("touch"); it != j.end() && it->is_boolean()) s.touch = it->get<bool>();
+    if (const auto it = j.find("ui_scale"); it != j.end() && it->is_number() &&
+                                            within(it->get<double>(), kMinUiScale, kMaxUiScale))
+        s.ui_scale = it->get<double>();
+    if (const auto it = j.find("sound"); it != j.end() && it->is_object()) {
+        auto flag = [&](const char* key, bool& out) {
+            if (const auto v = it->find(key); v != it->end() && v->is_boolean()) out = v->get<bool>();
+        };
+        auto number = [&](const char* key, double lo, double hi, double& out) {
+            if (const auto v = it->find(key); v != it->end() && v->is_number() && within(v->get<double>(), lo, hi))
+                out = v->get<double>();
+        };
+        flag("enabled", s.sound.enabled);
+        number("volume", 0.0, 1.0, s.sound.volume);
+        flag("level_tone", s.sound.level_tone);
+        number("level_interval_s", kMinLevelIntervalS, kMaxLevelIntervalS, s.sound.level_interval_s);
+        flag("sync_loss", s.sound.sync_loss);
+        flag("reselection", s.sound.reselection);
+        flag("low_battery", s.sound.low_battery);
+        flag("alert_popup", s.sound.alert_popup);
+        if (const auto a = it->find("alerts"); a != it->end() && a->is_array()) {
+            for (const auto& e : *a) {
+                if (!e.is_object() || s.sound.alerts.size() >= kMaxLevelAlerts) continue;
+                LevelAlert x;
+                if (const auto c = e.find("cell"); c != e.end() && c->is_string()) x.cell = c->get<std::string>();
+                if (const auto t = e.find("threshold_dbm"); t != e.end() && t->is_number()) x.threshold_dbm = t->get<double>();
+                if (!x.cell.empty() && within(x.threshold_dbm, kMinThresholdDbm, kMaxThresholdDbm))
+                    s.sound.alerts.push_back(x);
+            }
+        }
+    }
     if (const auto it = j.find("survey"); it != j.end() && it->is_object()) {
         auto number = [&](const char* key, double lo, double hi, double& out) {
             if (const auto v = it->find(key); v != it->end() && v->is_number() && within(v->get<double>(), lo, hi))

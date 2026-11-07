@@ -5,9 +5,10 @@
 // DOC-07 h tooltips), stored as JSON in the user's config folder:
 // $XDG_CONFIG_HOME/yantra/app.json (default ~/.config/yantra/app.json).
 // Plugin settings live in the plugin state file (PLG-07). Step 9.7 added
-// the theme (dark/light; 9.9 adds more), the survey defaults (coverage
-// threshold, graph span, ring buffer) and the settings window; later steps
-// add theirs (language 9.9, tour progress 9.10). Reset all settings
+// the theme, the survey defaults (coverage threshold, graph span, ring
+// buffer) and the settings window; 9.9 the language (UI-12), the touch
+// layout and scale (UI-13) and the sounds (UI-09/UI-10); later steps add
+// theirs (tour progress 9.10). Reset all settings
 // (UI-16, settings_reset.h) resets this whole file. The project window's
 // layers (IND-04) are a viewing preference kept here, not in the project
 // file: a project looks the same to everyone and reports are not affected.
@@ -59,11 +60,45 @@ struct LayerSettings {
     bool operator==(const LayerSettings&) const = default;
 };
 
-/// The app's colour theme (UI-13; step 9.9 adds more themes). The logos
-/// follow it (BRD-03: the light or dark PNG).
-enum class Theme { Dark, Light };
-const char* theme_key(Theme theme);  ///< "dark", "light"
+/// The app's colour theme (UI-13): dark for dark rooms, light, and high
+/// contrast for bright sites (white on black, yellow focus). The logos
+/// follow it (BRD-03: the light PNG on the light theme, else the dark one).
+enum class Theme { Dark, Light, HighContrast };
+inline constexpr Theme kThemes[] = {Theme::Dark, Theme::Light, Theme::HighContrast};
+const char* theme_key(Theme theme);  ///< "dark", "light", "high_contrast"
 std::optional<Theme> parse_theme(std::string_view key);
+/// The theme has a light background (logos, graph palettes).
+inline bool theme_is_light(Theme theme) { return theme == Theme::Light; }
+
+/// UI-13 layout: the touch layout for 7-12" tablets makes every control
+/// at least kTouchTargetPx high and spaces them out; the scale follows
+/// the display scaling (1 = 100 %), on top of the monitor's own scale.
+inline constexpr double kTouchTargetPx = 48.0;
+inline constexpr double kMinUiScale = 0.75, kMaxUiScale = 2.5;
+
+/// UI-09 audible events and UI-10 level alerts.
+inline constexpr std::size_t kMaxLevelAlerts = 8;  ///< UI-10 "up to N cells"
+inline constexpr double kMinLevelIntervalS = 2.0, kMaxLevelIntervalS = 120.0;
+struct LevelAlert {
+    /// The cell: its name in the cell database or its identity text as
+    /// the panels show it ("la=1;mcc=..."), or a carrier in MHz ("390.0125").
+    std::string cell;
+    double threshold_dbm = -95.0;  ///< kMinThresholdDbm .. kMaxThresholdDbm
+    bool operator==(const LevelAlert&) const = default;
+};
+struct SoundSettings {
+    /// Sounds at all (UI-09/UI-10); the popups of level alerts stay.
+    bool enabled = false;
+    double volume = 0.6;                ///< 0 .. 1
+    bool level_tone = false;            ///< UI-09: the serving level as a tone at an interval
+    double level_interval_s = 10.0;     ///< kMinLevelIntervalS .. kMaxLevelIntervalS
+    bool sync_loss = true;              ///< UI-09: loss of sync (and its return)
+    bool reselection = true;            ///< UI-09: a new serving cell
+    bool low_battery = true;            ///< UI-09
+    std::vector<LevelAlert> alerts;     ///< UI-10, at most kMaxLevelAlerts
+    bool alert_popup = true;            ///< UI-10: a popup besides the sound
+    bool operator==(const SoundSettings&) const = default;
+};
 
 /// Survey defaults kept across runs (UI-11, REC-09, graphs of UI-02..04).
 struct SurveySettings {
@@ -95,7 +130,13 @@ struct AppSettings {
     bool tooltips = true;
     double tooltip_delay_s = 0.5;
     Theme theme = Theme::Dark;
+    /// UI-12: "en", "nl", "fr", "de" (i18n.h language_key).
+    std::string language = "en";
+    /// UI-13: touch layout and the UI scale (kMinUiScale .. kMaxUiScale).
+    bool touch = false;
+    double ui_scale = 1.0;
     SurveySettings survey;
+    SoundSettings sound;
 
     bool operator==(const AppSettings&) const = default;
 };

@@ -35,6 +35,7 @@
 #include <string>
 #include <vector>
 
+#include "yantra/app/audible_alerts.h"
 #include "yantra/app/cell_db_editor.h"
 #include "yantra/app/credits.h"
 #include "yantra/app/file_browser.h"
@@ -86,6 +87,17 @@ enum class Action {
 
 /// The non-modal windows of the Network menu (step 9.8); the Gui closes
 /// them with the window's close button.
+/// The help window (DOC-07 e): a section of the user manual.
+struct HelpView {
+    bool open = false;
+    std::string number;  ///< "13.2"; "" the contents
+    std::string title;   ///< translated
+    std::string text;    ///< Markdown of the section ("" with error)
+    std::string error;
+    /// The chapters (number, translated title) for the contents.
+    std::vector<std::pair<std::string, std::string>> chapters;
+};
+
 struct NetworkWindows {
     bool cell_db = false;
     bool verification = false;
@@ -325,6 +337,17 @@ public:
     /// DB-08; nullptr on the start screen).
     NetworkChecks* network_checks() { return checks_.get(); }
     NetworkWindows& network_windows() { return network_windows_; }
+
+    // -- in-app help (DOC-07 e) and sounds (UI-09/UI-10; step 9.9) ----------
+    /// Opens the help window at a manual section ("13.2"; "" the contents);
+    /// false with the status line when the manual has no such section.
+    Result open_help(const std::string& section);
+    void close_help() { help_.open = false; }
+    const HelpView& help_view() const { return help_; }
+    /// The sounds and level alerts of the live survey (popups for the Gui).
+    AudibleAlerts& alerts() { return alerts_; }
+    /// Plays a sound of the settings window's Test buttons.
+    Result test_sound(AlertSound sound);
     /// The post-processing page (PP-01..05; nullptr on the start screen).
     PostProcessing* post_processing() { return post_.get(); }
     /// The enabled technology plugins as celldb technologies (PLG-01).
@@ -503,6 +526,7 @@ private:
     void drop_network();
     PluginServices plugin_services();
     void apply_survey_defaults();
+    void apply_language();
 
     // The plugin state and loader live longer than the project's tools
     // (the LiveSurvey's catalog points into the loader's plugins).
@@ -515,6 +539,8 @@ private:
     std::unique_ptr<NetworkChecks> checks_;
     std::unique_ptr<PostProcessing> post_;
     NetworkWindows network_windows_;
+    HelpView help_;
+    AudibleAlerts alerts_;
     std::unique_ptr<FloorEditor> editor_;
     std::unique_ptr<InterpolationRunner> runner_;
     std::unique_ptr<LiveSurvey> live_;

@@ -209,6 +209,11 @@ void Gui::draw_radio_windows() {
         bool open = true;
         const std::string name = std::string(radio_window_title(w)) + "###win." + radio_window_id(w);
         if (ImGui::Begin(name.c_str(), &open, ImGuiWindowFlags_NoSavedSettings)) {
+            help_button(w == RadioWindow::List       ? "2.1"
+                        : w == RadioWindow::Settings ? "2.2"
+                        : w == RadioWindow::Debug    ? "2.3"
+                        : w == RadioWindow::Info     ? "2.4"
+                                                     : "3.1");
             switch (w) {
             case RadioWindow::List: draw_radio_list(*rw); break;
             case RadioWindow::Settings: draw_radio_settings(*rw); break;

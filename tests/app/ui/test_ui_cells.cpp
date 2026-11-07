@@ -51,7 +51,7 @@ struct Shell {
     explicit Shell(AppPaths paths, AppSettings settings = {}) : state(std::move(settings), std::move(paths)) {
         ImGui::SetCurrentContext(ui.context());
         ui.set_display_size(1400.0F, 1600.0F);  // the cell form of TETRA is long
-        Gui::apply_style(state.settings().theme);
+        Gui::apply_style(Gui::style_of(state.settings()));
         ui.set_draw([this] { gui.draw(); });
         REQUIRE(ui.frames(3));
     }

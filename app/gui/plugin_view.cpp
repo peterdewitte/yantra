@@ -446,6 +446,7 @@ void Gui::draw_plugin_windows() {
                                         ImGuiCond_Appearing);
             ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_Appearing);
             if (ImGui::Begin(title.c_str(), &open, ImGuiWindowFlags_NoSavedSettings)) {
+                help_button("14.2");
                 ImGui::TextDisabled("(?)");
                 text_tooltip(w.help.c_str());
                 model.draw(w, api);

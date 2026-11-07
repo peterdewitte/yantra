@@ -195,7 +195,7 @@ int main(int argc, char** argv) {
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
     ImGui::GetIO().IniFilename = nullptr;  // fixed layout for now; window layouts come with the docking windows
-    app::Gui::apply_style(settings.theme);
+    app::Gui::apply_style(app::Gui::style_of(settings));
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 140");
 

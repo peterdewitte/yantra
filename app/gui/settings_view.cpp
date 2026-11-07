@@ -12,22 +12,53 @@
 
 #include <imgui.h>
 
+#include <cfloat>
+#include <iterator>
 #include <string>
+
+#include "yantra/app/i18n.h"
 
 namespace yantra::app {
 
 using namespace gui_detail;
 
 void Gui::draw_settings_general(AppSettings& f) {
-    ImGui::SeparatorText("Appearance");
-    int theme = f.theme == Theme::Light ? 1 : 0;
-    ImGui::RadioButton("Dark###settings.theme.dark", &theme, 0);
-    text_tooltip("Dark colours (the default).");
+    ImGui::SeparatorText(tr("Language"));
+    int lang = 0;
+    for (std::size_t i = 0; i < std::size(kLanguages); ++i)
+        if (f.language == language_key(kLanguages[i])) lang = static_cast<int>(i);
+    ImGui::SetNextItemWidth(px(160.0F));
+    if (ImGui::BeginCombo(tr("Language###settings.language"), language_name(kLanguages[lang]))) {
+        for (std::size_t i = 0; i < std::size(kLanguages); ++i) {
+            const std::string item = std::string(language_name(kLanguages[i])) + "###settings.language." +
+                                     language_key(kLanguages[i]);
+            if (ImGui::Selectable(item.c_str(), static_cast<int>(i) == lang)) f.language = language_key(kLanguages[i]);
+            text_tooltip(tr("Show Yantra in this language."));
+        }
+        ImGui::EndCombo();
+    }
+    text_tooltip(tr("The language of menus, windows, help texts and plugin windows (UI-12)."));
+    help_marker(tr("English, Dutch, French or German. Names of cells, floors and projects stay as you typed them. "
+                   "See manual 15.1."));
+
+    ImGui::SeparatorText(tr("Appearance"));
+    int theme = static_cast<int>(f.theme);
+    ImGui::RadioButton(tr("Dark###settings.theme.dark"), &theme, static_cast<int>(Theme::Dark));
+    text_tooltip(tr("Dark colours, for dark rooms (the default)."));
     ImGui::SameLine();
-    ImGui::RadioButton("Light###settings.theme.light", &theme, 1);
-    text_tooltip("Light colours, for bright rooms and daylight.");
-    f.theme = theme == 1 ? Theme::Light : Theme::Dark;
-    help_marker("The colour theme; it changes when you press Apply.");
+    ImGui::RadioButton(tr("Light###settings.theme.light"), &theme, static_cast<int>(Theme::Light));
+    text_tooltip(tr("Light colours, for bright rooms and daylight."));
+    ImGui::SameLine();
+    ImGui::RadioButton(tr("High contrast###settings.theme.high_contrast"), &theme, static_cast<int>(Theme::HighContrast));
+    text_tooltip(tr("White on black with yellow highlights, readable in sunlight on bright sites."));
+    f.theme = static_cast<Theme>(theme);
+    help_marker(tr("The colour theme (UI-13); it changes when you press Apply. See manual 15.1."));
+    ImGui::Checkbox(tr("Touch layout###settings.touch"), &f.touch);
+    text_tooltip(tr("Large controls of at least 48 pixels with more space between them, for 7 to 12 inch tablets."));
+    double percent = f.ui_scale * 100.0;
+    ImGui::SetNextItemWidth(px(120.0F));
+    if (ImGui::InputDouble(tr("UI scale (%)###settings.ui_scale"), &percent, 5.0, 25.0, "%.0f")) f.ui_scale = percent / 100.0;
+    text_tooltip(tr("Makes text and controls larger or smaller (75 to 250 %), on top of the display's own scaling."));
 
     ImGui::SeparatorText("Help");
     ImGui::Checkbox("Show tooltips###settings.tooltips", &f.tooltips);
@@ -66,6 +97,100 @@ void Gui::draw_settings_survey(AppSettings& f) {
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
     ImGui::InputDouble("Ring buffer length (min)###settings.ring_minutes", &f.survey.ring_minutes, 1.0, 5.0, "%.0f");
     text_tooltip("How many minutes the ring buffer keeps (2 to 60). A running ring buffer keeps its length.");
+}
+
+void Gui::draw_settings_sound(AppSettings& f) {
+    SoundSettings& s = f.sound;
+    ImGui::Checkbox(tr("Sounds on###settings.sound"), &s.enabled);
+    text_tooltip(tr("Play the sounds below during a live survey (UI-09, UI-10). The popups of level alerts show "
+                    "also without sound."));
+    help_marker(tr("Yantra plays tones: there is no speech. The level tone is higher for a stronger level "
+                   "(300 Hz at -120 dBm to 1500 Hz at -40 dBm). See manual 5.5."));
+    ImGui::BeginDisabled(!s.enabled);
+    int volume = static_cast<int>(s.volume * 100.0 + 0.5);
+    ImGui::SetNextItemWidth(px(200.0F));
+    if (ImGui::SliderInt(tr("Volume (%)###settings.volume"), &volume, 0, 100)) s.volume = volume / 100.0;
+    ActionView need_sound;
+    need_sound.enabled = s.enabled;
+    need_sound.disabled_reason = tr("Switch the sounds on first.");
+    need_sound.tooltip = tr("The loudness of every sound (0 to 100 %).");
+    item_tooltip(need_sound);
+
+    ImGui::SeparatorText(tr("Events"));
+    struct Row {
+        const char* label;
+        bool* on;
+        const char* tip;
+        AlertSound sound;
+        const char* test;
+    };
+    const Row rows[] = {
+        {tr("Level tone###settings.level_tone"), &s.level_tone,
+         tr("The serving level as a tone at an interval: the higher the tone, the stronger the level."),
+         AlertSound::LevelTone, "###settings.test.level"},
+        {tr("Loss of sync###settings.sound_sync"), &s.sync_loss,
+         tr("Falling tones when the radio loses the serving cell's sync, rising ones when it is back."),
+         AlertSound::SyncLost, "###settings.test.sync_lost"},
+        {tr("Cell reselection###settings.sound_reselection"), &s.reselection,
+         tr("Two short tones when the serving cell changes."), AlertSound::Reselection, "###settings.test.reselection"},
+        {tr("Low battery###settings.sound_battery"), &s.low_battery,
+         tr("Two low tones when the battery is under 15 % and not charging, again every 5 minutes."),
+         AlertSound::LowBattery, "###settings.test.low_battery"},
+    };
+    for (const Row& r : rows) {
+        ImGui::Checkbox(r.label, r.on);
+        need_sound.tooltip = r.tip;
+        item_tooltip(need_sound);
+        ImGui::SameLine(px(260.0F));
+        ImGui::PushID(r.test);
+        if (ImGui::Button((std::string(tr("Test")) + r.test).c_str())) (void)state_.show(state_.test_sound(r.sound));
+        ImGui::PopID();
+        need_sound.tooltip = tr("Play this sound once now.");
+        item_tooltip(need_sound);
+    }
+    ImGui::BeginDisabled(!s.level_tone);
+    ImGui::SetNextItemWidth(px(120.0F));
+    ImGui::InputDouble(tr("Level tone every (s)###settings.level_interval"), &s.level_interval_s, 1.0, 10.0, "%.0f");
+    ActionView interval;
+    interval.enabled = s.enabled && s.level_tone;
+    interval.tooltip = tr("Seconds between two level tones (2 to 120).");
+    interval.disabled_reason = s.enabled ? tr("Switch the level tone on first.") : tr("Switch the sounds on first.");
+    item_tooltip(interval);
+    ImGui::EndDisabled();
+    ImGui::EndDisabled();
+
+    ImGui::SeparatorText(tr("Level alerts"));
+    help_marker(tr("Up to 8 cells, each with a threshold: when a cell drops below it, or is no longer received after "
+                   "it was above it, a popup and a sound tell you. Give the cell's name from the cell database, its "
+                   "identity as the panels show it, or its carrier in MHz. See manual 5.5."));
+    ImGui::Checkbox(tr("Popup on an alert###settings.alert_popup"), &s.alert_popup);
+    text_tooltip(tr("Show a popup besides the sound when a level alert fires."));
+    int remove = -1;
+    for (std::size_t i = 0; i < s.alerts.size(); ++i) {
+        LevelAlert& a = s.alerts[i];
+        const std::string n = std::to_string(i);
+        ImGui::SetNextItemWidth(px(240.0F));
+        input_text((std::string(tr("Cell")) + "###settings.alert.cell." + n).c_str(), a.cell, 128);
+        text_tooltip(tr("The cell's name, its identity text or its carrier in MHz (e.g. 390.0125)."));
+        ImGui::SameLine();
+        ImGui::SetNextItemWidth(px(120.0F));
+        ImGui::InputDouble((std::string(tr("dBm")) + "###settings.alert.threshold." + n).c_str(), &a.threshold_dbm, 1.0,
+                           5.0, "%.0f");
+        text_tooltip(tr("The alert fires when the cell's level drops below this (-150 to -20 dBm)."));
+        ImGui::SameLine();
+        if (ImGui::Button((std::string(tr("Remove")) + "###settings.alert.remove." + n).c_str())) remove = static_cast<int>(i);
+        text_tooltip(tr("Remove this alert."));
+    }
+    if (remove >= 0) s.alerts.erase(s.alerts.begin() + remove);
+    const bool full = s.alerts.size() >= kMaxLevelAlerts;
+    ImGui::BeginDisabled(full);
+    if (ImGui::Button(tr("Add alert###settings.alert.add"))) s.alerts.push_back(LevelAlert{"", f.survey.threshold_dbm});
+    ImGui::EndDisabled();
+    ActionView add;
+    add.enabled = !full;
+    add.tooltip = tr("Watch one more cell (at most 8).");
+    add.disabled_reason = tr("There are 8 alerts already: remove one first.");
+    item_tooltip(add);
 }
 
 void Gui::draw_plugin_manager() {
@@ -133,19 +258,24 @@ void Gui::draw_settings() {
     AppSettings& f = state_.settings_form();
     // Enter in a field only ends the edit; Enter elsewhere presses OK.
     const bool editing = ImGui::IsAnyItemActive();
+    // A tab's content scrolls when it is higher than the app window leaves
+    // room for, so Apply, OK and Cancel stay in view (UI-13 touch layout).
+    auto tab = [&](const char* label, const auto& body) {
+        if (!ImGui::BeginTabItem(label)) return;
+        const ImGuiViewport* vp = ImGui::GetMainViewport();
+        const float used = ImGui::GetCursorScreenPos().y - vp->WorkPos.y;
+        const float footer = target_h() + ImGui::GetFrameHeightWithSpacing() * 3.0F;
+        const float max_h = std::max(px(120.0F), vp->WorkSize.y * 0.94F - used - footer);
+        ImGui::SetNextWindowSizeConstraints(ImVec2(0.0F, 0.0F), ImVec2(FLT_MAX, max_h));
+        if (ImGui::BeginChild("###settings.body", ImVec2(0.0F, 0.0F), ImGuiChildFlags_AutoResizeY)) body();
+        ImGui::EndChild();
+        ImGui::EndTabItem();
+    };
     if (ImGui::BeginTabBar("###settings.tabs")) {
-        if (ImGui::BeginTabItem("General###settings.tab.general")) {
-            draw_settings_general(f);
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Survey###settings.tab.survey")) {
-            draw_settings_survey(f);
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Plugins###settings.tab.plugins")) {
-            draw_plugin_manager();
-            ImGui::EndTabItem();
-        }
+        tab(tr("General###settings.tab.general"), [&] { draw_settings_general(f); });
+        tab(tr("Survey###settings.tab.survey"), [&] { draw_settings_survey(f); });
+        tab(tr("Sound###settings.tab.sound"), [&] { draw_settings_sound(f); });
+        tab(tr("Plugins###settings.tab.plugins"), [&] { draw_plugin_manager(); });
         ImGui::EndTabBar();
     }
     ImGui::Separator();

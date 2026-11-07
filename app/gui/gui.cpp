@@ -46,7 +46,7 @@ const char* dialog_id(Dialog d, const AppState& state) {
 }
 
 Gui::Gui(AppState& state)
-    : state_(state), canvas_(std::make_unique<PlanCanvas>()), theme_(state.settings().theme),
+    : state_(state), canvas_(std::make_unique<PlanCanvas>()), style_(style_of(state.settings())),
       ui_generation_(state.ui_generation()) {}
 
 Gui::~Gui() {
@@ -62,19 +62,79 @@ void Gui::set_wait_for_tiles(bool on) {
     import_view_.set_wait_for_tiles(on);
 }
 
-void Gui::apply_theme(Theme theme) {
-    if (theme == Theme::Light) ImGui::StyleColorsLight();
-    else ImGui::StyleColorsDark();
+Gui::Style Gui::style_of(const AppSettings& s) {
+    return Style{s.theme, s.touch, static_cast<float>(s.ui_scale)};
 }
 
-void Gui::apply_style(Theme theme) {
-    apply_theme(theme);
-    ImGuiStyle& s = ImGui::GetStyle();
-    s.WindowRounding = 4.0F;
-    s.FrameRounding = 4.0F;
-    s.FramePadding = ImVec2(10.0F, 7.0F);
-    s.ItemSpacing = ImVec2(10.0F, 8.0F);
-    s.HoverDelayNormal = 0.5F;  // DOC-07 h default; Gui::draw follows the setting
+namespace {
+
+// UI-13 high contrast for bright sites: white text on black, white frame
+// borders, yellow for what is active or hovered.
+void style_colors_high_contrast(ImGuiStyle& st) {
+    ImGui::StyleColorsDark(&st);
+    ImVec4* c = st.Colors;
+    const ImVec4 black(0.0F, 0.0F, 0.0F, 1.0F), white(1.0F, 1.0F, 1.0F, 1.0F), yellow(1.0F, 0.86F, 0.0F, 1.0F);
+    const ImVec4 grey(0.16F, 0.16F, 0.16F, 1.0F), dark_yellow(0.55F, 0.45F, 0.0F, 1.0F);
+    c[ImGuiCol_Text] = white;
+    c[ImGuiCol_TextDisabled] = ImVec4(0.75F, 0.75F, 0.75F, 1.0F);
+    c[ImGuiCol_WindowBg] = c[ImGuiCol_ChildBg] = c[ImGuiCol_PopupBg] = black;
+    c[ImGuiCol_MenuBarBg] = black;
+    c[ImGuiCol_Border] = white;
+    c[ImGuiCol_FrameBg] = grey;
+    c[ImGuiCol_FrameBgHovered] = c[ImGuiCol_FrameBgActive] = dark_yellow;
+    c[ImGuiCol_TitleBg] = c[ImGuiCol_TitleBgCollapsed] = black;
+    c[ImGuiCol_TitleBgActive] = dark_yellow;
+    c[ImGuiCol_Button] = grey;
+    c[ImGuiCol_ButtonHovered] = c[ImGuiCol_ButtonActive] = dark_yellow;
+    c[ImGuiCol_Header] = grey;
+    c[ImGuiCol_HeaderHovered] = c[ImGuiCol_HeaderActive] = dark_yellow;
+    c[ImGuiCol_Tab] = grey;
+    c[ImGuiCol_TabHovered] = dark_yellow;
+    c[ImGuiCol_TabSelected] = dark_yellow;
+    c[ImGuiCol_CheckMark] = c[ImGuiCol_SliderGrab] = c[ImGuiCol_SliderGrabActive] = yellow;
+    c[ImGuiCol_Separator] = white;
+    c[ImGuiCol_NavCursor] = yellow;
+    c[ImGuiCol_TableBorderStrong] = c[ImGuiCol_TableBorderLight] = white;
+    c[ImGuiCol_TableRowBg] = black;
+    c[ImGuiCol_TableRowBgAlt] = ImVec4(0.10F, 0.10F, 0.10F, 1.0F);
+    c[ImGuiCol_TextSelectedBg] = dark_yellow;
+}
+
+}  // namespace
+
+void Gui::apply_style(const Style& style) {
+    ImGuiStyle st;
+    switch (style.theme) {
+    case Theme::Light: ImGui::StyleColorsLight(&st); break;
+    case Theme::HighContrast: style_colors_high_contrast(st); break;
+    case Theme::Dark: ImGui::StyleColorsDark(&st); break;
+    }
+    st.WindowRounding = 4.0F;
+    st.FrameRounding = 4.0F;
+    st.FramePadding = ImVec2(10.0F, 7.0F);
+    st.ItemSpacing = ImVec2(10.0F, 8.0F);
+    if (style.theme == Theme::HighContrast) st.FrameBorderSize = 1.0F;
+    float font_scale = 1.0F;
+    if (style.touch) {
+        // UI-13 touch layout: a larger font and every control at least
+        // kTouchTargetPx high, with room between them for fingers.
+        font_scale = 1.5F;
+        const float font_px = 13.0F * font_scale;
+        st.FramePadding = ImVec2(14.0F, std::max(7.0F, (static_cast<float>(kTouchTargetPx) - font_px) * 0.5F));
+        st.ItemSpacing = ImVec2(14.0F, 12.0F);
+        st.ItemInnerSpacing = ImVec2(10.0F, 8.0F);
+        st.ScrollbarSize = 30.0F;
+        st.GrabMinSize = 30.0F;
+        st.TouchExtraPadding = ImVec2(4.0F, 4.0F);
+        st.WindowPadding = ImVec2(14.0F, 14.0F);
+    }
+    st.ScaleAllSizes(style.scale);
+    st.FontSizeBase = ImGui::GetStyle().FontSizeBase;
+    st.FontScaleMain = font_scale * style.scale;
+    st.FontScaleDpi = ImGui::GetStyle().FontScaleDpi;
+    st.HoverDelayNormal = ImGui::GetStyle().HoverDelayNormal;  // DOC-07 h: Gui::draw follows the setting
+    ImGui::GetStyle() = st;
+    gui_detail::set_layout(style.touch, style.scale, style.theme);
 }
 
 void Gui::restart_ui() {
@@ -177,6 +237,7 @@ void Gui::draw_start_screen() {
     const float column = std::min(ImGui::GetContentRegionAvail().x, 760.0F);
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + std::max(0.0F, (ImGui::GetContentRegionAvail().x - column) * 0.5F));
     ImGui::BeginChild("###start_column", ImVec2(column, 0.0F));
+    help_button("1.1");
     ImGui::PushFont(nullptr, ImGui::GetStyle().FontSizeBase * 1.8F);
     ImGui::TextUnformatted(v.title.c_str());
     ImGui::PopFont();
@@ -190,7 +251,7 @@ void Gui::draw_start_screen() {
     for (const ActionView& a : v.actions) {
         if (n % 2 == 1) ImGui::SameLine();
         ImGui::BeginDisabled(!a.enabled);
-        if (ImGui::Button((a.label + "###start." + a.id).c_str(), ImVec2(button_w, kTouchTarget * 1.25F))) run(a.action);
+        if (ImGui::Button((a.label + "###start." + a.id).c_str(), ImVec2(button_w, target_h(1.25F)))) run(a.action);
         ImGui::EndDisabled();
         item_tooltip(a);
         ++n;
@@ -207,7 +268,7 @@ void Gui::draw_start_screen() {
         for (const RecentView& r : v.recent) {
             ImGui::BeginDisabled(!r.exists);
             if (ImGui::Selectable((r.label + "###start.recent." + std::to_string(i++)).c_str(), false, 0,
-                                  ImVec2(column, std::max(ImGui::GetTextLineHeight() + 6.0F, kTouchTarget * 0.75F))))
+                                  ImVec2(column, std::max(ImGui::GetTextLineHeight() + 6.0F, target_h(0.75F)))))
                 (void)state_.open_project(r.path);
             ImGui::EndDisabled();
             text_tooltip(r.exists ? r.path.string().c_str() : "This file no longer exists.");
@@ -321,26 +382,32 @@ void Gui::draw_project_screen() {
     // Shrink, never scroll: every page's tab stays in view on a narrow panel.
     if (ImGui::BeginTabBar("###panel.tabs", ImGuiTabBarFlags_FittingPolicyShrink)) {
         if (ImGui::BeginTabItem("Layers###panel.layers")) {
+            help_button("13.4");
             draw_layer_panel(*w, c);
             ImGui::EndTabItem();
         }
         if (c != nullptr && ImGui::BeginTabItem("Edit###panel.edit")) {
+            help_button("13.3");
             draw_edit_section();
             ImGui::EndTabItem();
         }
         if (c != nullptr && ImGui::BeginTabItem("Walk###panel.walk")) {
+            help_button("7.1");
             draw_walk_section(c);
             ImGui::EndTabItem();
         }
         if (c != nullptr && ImGui::BeginTabItem("Map###panel.map")) {
+            help_button("13.5");
             draw_interpolation_section(c);
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("Survey###panel.survey")) {
+            help_button("5.1");
             draw_survey_section();
             ImGui::EndTabItem();
         }
         if (c != nullptr && ImGui::BeginTabItem("Post###panel.post")) {
+            help_button("11.1");
             draw_post_section();
             ImGui::EndTabItem();
         }
@@ -850,7 +917,32 @@ void Gui::draw_remove_floor() {
         state_.cancel_dialog();
 }
 
+namespace {
+
+// DOC-07 e: the manual section of each dialog (manual.h).
+const char* dialog_section(Dialog d) {
+    switch (d) {
+    case Dialog::NewProject:
+    case Dialog::Browse:
+    case Dialog::AddFloor:
+    case Dialog::FloorProperties:
+    case Dialog::RemoveFloor: return "13.1";
+    case Dialog::PlanImport: return "13.2";
+    case Dialog::About: return "1.2";
+    case Dialog::AntennaProperties:
+    case Dialog::Materials: return "13.3";
+    case Dialog::Propagation: return "13.5";
+    case Dialog::Settings: return "15";
+    case Dialog::ResetSettings: return "15.4";
+    case Dialog::None: break;
+    }
+    return "1";
+}
+
+}  // namespace
+
 void Gui::draw_dialog_body(Dialog d) {
+    if (d != Dialog::PlanImport) help_button(dialog_section(d));
     switch (d) {
     case Dialog::NewProject: draw_new_project(); break;
     case Dialog::Browse: draw_browser(); break;
@@ -899,6 +991,7 @@ void Gui::draw_dialogs() {
         ImGui::SetNextWindowSize(ImVec2(width, 0.0F), grows ? ImGuiCond_Always : ImGuiCond_Appearing);
     }
     ImGui::SetNextWindowPos(vp->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5F, 0.5F));
+    ImGui::SetNextWindowSizeConstraints(ImVec2(0.0F, 0.0F), ImVec2(vp->WorkSize.x, vp->WorkSize.y * 0.98F));
     if (!ImGui::BeginPopupModal(id, nullptr, ImGuiWindowFlags_NoSavedSettings)) {
         // Closed by ImGui (it should not happen for modals without a close
         // button): give up the dialog.
@@ -907,6 +1000,7 @@ void Gui::draw_dialogs() {
         return;
     }
     draw_dialog_body(d);
+    draw_help_popup();  // DOC-07 e: over the dialog
     // A command moved to another dialog (or closed it): close this popup;
     // the next frame opens the next one.
     if (state_.dialog() != d) {
@@ -925,13 +1019,17 @@ void Gui::draw() {
         ui_generation_ = state_.ui_generation();
         restart_ui();
     }
-    // The settings: theme (colours only) and tooltips (DOC-07 h).
-    if (state_.settings().theme != theme_) {
-        theme_ = state_.settings().theme;
-        apply_theme(theme_);
+    // The settings: theme, touch layout and scale (UI-13), tooltips (DOC-07 h).
+    if (const Style st = style_of(state_.settings()); !(st == style_)) {
+        style_ = st;
+        apply_style(style_);
     }
     ImGui::GetStyle().HoverDelayNormal = static_cast<float>(state_.settings().tooltip_delay_s);
     set_tooltips_shown(state_.settings().tooltips);
+    // DOC-07 e: F1 opens the help of the window in front (last frame's).
+    const std::string f1 = help_section_;
+    help_section_.clear();
+    if (ImGui::IsKeyPressed(ImGuiKey_F1, false)) (void)state_.open_help(f1);
     handle_shortcuts();
     draw_menu_bar();
     const ImGuiViewport* vp = ImGui::GetMainViewport();
@@ -958,6 +1056,8 @@ void Gui::draw() {
     draw_network_windows();
     draw_plugin_windows();
     draw_dialogs();
+    draw_help_window();
+    draw_alerts_window();
 }
 
 }  // namespace yantra::app

@@ -5,6 +5,8 @@
 // Copied from yantra-v2 68ea20a: app/src/plan_import_view.cpp, adapted.
 #include "plan_import_view.h"
 
+#include "gui_widgets.h"
+
 #include <imgui.h>
 
 #include <algorithm>
@@ -21,7 +23,6 @@ constexpr std::size_t kTileBudget = 256U * 1024U * 1024U;  // decoded page tiles
 constexpr int kThumbPx = 112;
 constexpr int kPreviewPx = 240;
 constexpr float kPanelWidth = 360.0F;
-constexpr float kTouchTarget = 48.0F;  // UI-13
 const ImVec4 kErrorColour{1.0F, 0.45F, 0.40F, 1.0F};
 const ImVec4 kWarnColour{0.95F, 0.62F, 0.07F, 1.0F};
 constexpr ImU32 kTrimColour = IM_COL32(255, 140, 0, 255);       // the current trim
@@ -173,7 +174,7 @@ bool PlanImportView::draw(AppState& state, PlanImportWindow& w) {
         ImGui::TextDisabled("%s", w.hint().c_str());
     }
     ImGui::SameLine(std::max(right - 140.0F, 0.0F));
-    if (ImGui::Button("Close###dlg.cancel", ImVec2(140.0F, kTouchTarget * 0.8F))) open = false;
+    if (ImGui::Button("Close###dlg.cancel", ImVec2(gui_detail::button_w("Close###dlg.cancel", 140.0F), gui_detail::target_h()))) open = false;
     tooltip("Close the plan import window. The floors added are kept; the project window shows the last one.");
     if (!open) (void)state.show(Result{true, "Plan import closed."});
     return open;
@@ -407,7 +408,7 @@ void PlanImportView::draw_panel(PlanImportWindow& w) {
         if (ImGui::Button("Cancel###pi.add_cancel", ImVec2(120.0F, 0.0F))) w.cancel_add_floor();
         tooltip("Do not add a floor.");
     } else {
-        if (ImGui::Button("Add as floor...###pi.add", ImVec2(-1.0F, kTouchTarget * 0.8F))) w.begin_add_floor();
+        if (ImGui::Button("Add as floor...###pi.add", ImVec2(-1.0F, gui_detail::target_h()))) w.begin_add_floor();
         tooltip("Turn the current trim into a floor of the project; asks for its name and level.");
     }
 

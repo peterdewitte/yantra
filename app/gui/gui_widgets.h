@@ -8,17 +8,67 @@
 #pragma once
 
 #include <imgui.h>
+#include <imgui_internal.h>
 
 #include <algorithm>
 #include <string>
+#include <vector>
 
 #include "yantra/app/app_state.h"
 
 namespace yantra::app::gui_detail {
 
 inline constexpr float kTouchTarget = 48.0F;  // UI-13: >= 48 px targets
+
+/// The layout in use (Gui::apply_style): touch sizes, the UI scale, the theme.
+struct Layout {
+    bool touch = false;
+    float scale = 1.0F;
+    Theme theme = Theme::Dark;
+};
+inline Layout& layout() {
+    static Layout l;
+    return l;
+}
+inline void set_layout(bool touch, float scale, Theme theme) { layout() = Layout{touch, scale, theme}; }
+/// A size in pixels at the UI scale.
+inline float px(float v) { return v * layout().scale; }
+/// The height of a large button: `desktop` x kTouchTarget on the desktop,
+/// at least kTouchTarget in the touch layout (UI-13), at the UI scale.
+inline float target_h(float desktop = 0.8F) {
+    const float h = kTouchTarget * (layout().touch ? std::max(1.0F, desktop) : desktop) * layout().scale;
+    return std::max(h, ImGui::GetFrameHeight());
+}
+/// A button width of at least `min_w` (at the UI scale) that fits its
+/// (translated) label.
+inline float button_w(const char* label, float min_w) {
+    const float text = ImGui::CalcTextSize(label, nullptr, true).x + ImGui::GetStyle().FramePadding.x * 2.0F;
+    return std::max(px(min_w), text);
+}
 inline const ImVec4 kBannerColour{0.95F, 0.62F, 0.07F, 1.0F};
 inline const ImVec4 kErrorColour{1.0F, 0.45F, 0.40F, 1.0F};
+
+/// UI lint (DOC-20, TST-50): when a test sets a record, every hover text
+/// notes the rectangle of the item it belongs to (and whether it says why
+/// the item is disabled), so the lint can find controls without one.
+struct HelpRecord {
+    struct Entry {
+        ImRect rect;
+        ImGuiID window = 0;
+        bool reason = false;
+    };
+    std::vector<Entry> entries;
+};
+inline HelpRecord*& help_record() {
+    static HelpRecord* r = nullptr;
+    return r;
+}
+inline void note_help(bool reason) {
+    HelpRecord* r = help_record();
+    if (r == nullptr) return;
+    const ImGuiContext& g = *ImGui::GetCurrentContext();
+    r->entries.push_back({g.LastItemData.Rect, g.CurrentWindow != nullptr ? g.CurrentWindow->ID : 0, reason});
+}
 
 /// Tooltips on or off (settings, DOC-07 h). Off hides the hover texts;
 /// the "(?)" markers and the reasons of disabled controls stay.
@@ -30,6 +80,7 @@ inline void set_tooltips_shown(bool on) { tooltips_shown() = on; }
 
 /// The hover text of the last item, also when it is disabled (DOC-07 b, c).
 inline void item_tooltip(const ActionView& a) {
+    note_help(!a.enabled && !a.disabled_reason.empty());
     if (!tooltips_shown() && a.enabled) return;
     if (!ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) return;
     ImGui::BeginTooltip();
@@ -44,6 +95,7 @@ inline void item_tooltip(const ActionView& a) {
 }
 
 inline void text_tooltip(const char* text) {
+    note_help(false);
     if (!tooltips_shown()) return;
     if (!ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) return;
     ImGui::BeginTooltip();
@@ -51,6 +103,16 @@ inline void text_tooltip(const char* text) {
     ImGui::TextUnformatted(text);
     ImGui::PopTextWrapPos();
     ImGui::EndTooltip();
+}
+
+/// The hover text of the last item, and why it is disabled when it is
+/// (DOC-07 b, c): for controls inside BeginDisabled(!enabled).
+inline void disabled_tooltip(const char* tooltip, bool enabled, const std::string& reason) {
+    ActionView a;
+    a.tooltip = tooltip;
+    a.enabled = enabled;
+    a.disabled_reason = reason;
+    item_tooltip(a);
 }
 
 /// A dimmed "(?)" marker with an explanation on hover (DOC-07 a).
@@ -78,7 +140,7 @@ inline bool input_text(const char* label, std::string& s, std::size_t capacity =
 }
 
 inline bool dialog_button(const char* label, const char* tooltip, float width = 140.0F) {
-    const bool pressed = ImGui::Button(label, ImVec2(width, kTouchTarget * 0.8F));
+    const bool pressed = ImGui::Button(label, ImVec2(button_w(label, width), target_h()));
     text_tooltip(tooltip);
     return pressed;
 }

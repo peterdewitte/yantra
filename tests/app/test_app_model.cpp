@@ -288,8 +288,9 @@ TEST_CASE("menus (UI-14): File, Network and Help items, tooltips, disabled reaso
     }
     // Not wired yet, each with the step that wires it.
     CHECK(st.action(Action::Tour).planned_step == "9.10");
-    CHECK(st.action(Action::UserManual).planned_step == "9.9");
-    CHECK(st.action(Action::QuickStarts).planned_step == "9.9");
+    CHECK(st.action(Action::UserManual).planned_step.empty());  // step 9.9: the help window
+    CHECK(st.action(Action::UserManual).enabled);
+    CHECK(st.action(Action::QuickStarts).planned_step == "12");  // DOC-03, written with the manual
     CHECK(st.action(Action::Export).planned_step == "10");
     CHECK(st.action(Action::Report).planned_step == "10");
     // Available now.

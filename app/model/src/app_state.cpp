@@ -5,6 +5,9 @@
 // Copied from yantra-v2 68ea20a: app/model/src/app_state.cpp, adapted.
 #include "yantra/app/app_state.h"
 
+#include "yantra/app/i18n.h"
+#include "yantra/app/manual.h"
+
 #include <algorithm>
 #include <cctype>
 #include <ctime>
@@ -79,9 +82,9 @@ const ActionDef kActions[] = {
     {Action::Exit, "file.exit", "Exit", "Ctrl+Q", "Close Yantra. All project changes are already stored.", nullptr},
     {Action::Tour, "help.tour", "Tour", "",
      "A guided tour through an indoor survey with an example building and the simulated radio.", "9.10"},
-    {Action::UserManual, "help.user_manual", "User manual", "F1", "Open the user manual (works offline).", "9.9"},
+    {Action::UserManual, "help.user_manual", "User manual", "", "Open the user manual (works offline).", nullptr},
     {Action::QuickStarts, "help.quick_starts", "Quick starts", "", "Short step-by-step guides for common tasks.",
-     "9.9"},
+     "12"},
     {Action::ResetSettings, "help.reset_settings", "Reset all settings...", "",
      "Reset layout, theme, language, device and plugin settings to their defaults (projects and recordings are "
      "kept). A backup of the current settings is saved first.",
@@ -130,6 +133,44 @@ void remove_project_file(const fs::path& target, std::error_code& ec) {
 
 AppState::AppState(AppSettings settings, AppPaths paths) : settings_(std::move(settings)), paths_(std::move(paths)) {
     monitor_->set_threshold(settings_.survey.threshold_dbm);
+    alerts_.set_settings(settings_.sound);
+    apply_language();
+}
+
+Result AppState::open_help(const std::string& section) {
+    const ManualSection* m = section.empty() ? nullptr : find_manual_section(section);
+    if (!section.empty() && m == nullptr) return fail(trf("The manual has no section {}.", {section}));
+    // The section is read once when it opens (the manual is installed with the app).
+    HelpView v;
+    v.open = true;
+    v.number = section;
+    for (const ManualSection& c : manual_sections())
+        if (std::string_view(c.number).find('.') == std::string_view::npos) v.chapters.emplace_back(c.number, tr(c.title));
+    if (m == nullptr) {
+        v.title = tr("User manual");
+    } else {
+        v.title = std::string(m->number) + " " + tr(m->title);
+        v.text = manual_section_text(*m, manual_folders(paths_.data_folders), v.error);
+    }
+    help_ = std::move(v);
+    return Result{};
+}
+
+Result AppState::test_sound(AlertSound sound) {
+    std::string error;
+    AudibleAlerts a;
+    a.set_settings(settings_form_.sound);
+    if (!a.play_now(sound, -80.0, *audio_, error)) return fail(error);
+    return Result{};
+}
+
+void AppState::apply_language() {
+    // UI-12: the app's texts, the plugins' windows (PLG-06) and the radio
+    // windows (PLG-16) follow the settings' language.
+    const Language l = parse_language(settings_.language).value_or(Language::En);
+    set_language(l);
+    if (plugin_ui_) plugin_ui_->set_language(language_key(l));
+    if (radios_) radios_->set_language(language_key(l));
 }
 
 AppState::~AppState() {
@@ -283,7 +324,7 @@ AboutView AppState::about() {
         return f ? *f : fs::path();
     };
     v.yantra_logo = file(app_icon_relative(128));
-    v.curtat_logo = file(curtat_logo_relative(settings_.theme == Theme::Dark, 256));
+    v.curtat_logo = file(curtat_logo_relative(!theme_is_light(settings_.theme), 256));
     if (!credits_) credits_ = load_credits(paths_.data_folders);
     v.credits = *credits_;
     const PluginManagerView m = plugin_manager();
@@ -351,6 +392,7 @@ Result AppState::trigger(Action a) {
         if (const Result r = request_exit(); !r.ok) return r;
         quit_ = true;
         return Result{};
+    case Action::UserManual: return open_help("");
     case Action::CellDatabase: network_windows_.cell_db = true; return Result{};
     case Action::Verification: network_windows_.verification = true; return Result{};
     case Action::Reselection: network_windows_.reselection = true; return Result{};
@@ -391,6 +433,7 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     live_->set_monitor(monitor_);
     live_->set_audio(audio_);
     radios_ = std::make_unique<RadioWindows>(*live_);
+    radios_->set_language(language_key(language()));
     monitor_->set_technologies(technologies());
     cell_db_ = std::make_unique<CellDbEditor>(*project_, [this] { return technologies(); });
     checks_ = std::make_unique<NetworkChecks>(*project_, [this] { return technologies(); },
@@ -1005,6 +1048,14 @@ void AppState::tick() {
         live_->update();
     }
     if (radios_) radios_->tick(static_cast<double>(platform::monotonic_ns()) / 1e9);
+    // UI-09/UI-10: sounds and level alerts follow the live radio only (a
+    // replay's history arrives all at once).
+    if (live_ && live_->radio_running() && !(replay_ && replay_->is_open())) {
+        const double now = static_cast<double>(platform::monotonic_ns()) / 1e9;
+        alerts_.update(monitor_->events(), monitor_->frame(), system_status(now).battery_low(), now, *audio_);
+    } else {
+        alerts_.reset();
+    }
     if (editor_ && window_) editor_->set_floor(window_->selected());
     if (replay_) replay_->tick();
 }
@@ -1094,6 +1145,7 @@ void AppState::ensure_plugins() {
     plugins_ = std::make_shared<plugin::PluginLoader>(std::move(c));
     plugins_->load_all();
     plugin_ui_ = std::make_unique<PluginUi>(*plugins_);
+    plugin_ui_->set_language(language_key(language()));
 }
 
 plugin::PluginLoader& AppState::plugins() {
@@ -1125,6 +1177,8 @@ Result AppState::apply_settings(const AppSettings& s) {
     settings_ = s;
     settings_changed_ = true;
     monitor_->set_threshold(settings_.survey.threshold_dbm);
+    alerts_.set_settings(settings_.sound);
+    apply_language();
     // A running ring buffer keeps its length; the default applies to the
     // next one (and to the next project).
     if (ring_changed && live_ && live_->ring_files().empty()) {
@@ -1260,6 +1314,10 @@ Result AppState::confirm_reset_settings() {
     settings_ = AppSettings{};
     settings_form_ = settings_;
     settings_changed_ = false;
+    alerts_.set_settings(settings_.sound);
+    alerts_.dismiss_popups();
+    help_ = HelpView{};
+    apply_language();
     monitor_->clear();
     monitor_->set_threshold(settings_.survey.threshold_dbm);
     browser_.reset();

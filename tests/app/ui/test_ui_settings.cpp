@@ -48,7 +48,7 @@ AppPaths paths_with_beacon(const fs::path& dir) {
 struct Shell {
     explicit Shell(AppPaths paths, AppSettings settings = {}) : state(std::move(settings), std::move(paths)) {
         ImGui::SetCurrentContext(ui.context());
-        Gui::apply_style(state.settings().theme);
+        Gui::apply_style(Gui::style_of(state.settings()));
         ui.set_draw([this] { gui.draw(); });
         REQUIRE(ui.frames(3));
     }

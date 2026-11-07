@@ -26,6 +26,15 @@
 
 namespace yantra::app {
 
+/// The look of the UI (UI-13): theme colours, desktop or touch sizes, the
+/// UI scale.
+struct GuiStyle {
+    Theme theme = Theme::Dark;
+    bool touch = false;
+    float scale = 1.0F;
+    bool operator==(const GuiStyle&) const = default;
+};
+
 class Gui {
 public:
     explicit Gui(AppState& state);
@@ -33,10 +42,11 @@ public:
     ~Gui();
     Gui(const Gui&) = delete;
     Gui& operator=(const Gui&) = delete;
-    /// Applies the theme and sizes (call once after ImGui is set up).
-    static void apply_style(Theme theme = Theme::Dark);
-    /// The theme's colours only (the settings window switches it).
-    static void apply_theme(Theme theme);
+    using Style = GuiStyle;
+    static Style style_of(const AppSettings& s);
+    /// Applies a style to the current ImGui context (call once after ImGui
+    /// is set up; draw() follows the settings afterwards).
+    static void apply_style(const Style& style = Style{});
     /// Draws one frame (between ImGui::NewFrame and ImGui::Render).
     void draw();
 
@@ -130,6 +140,13 @@ private:
     void draw_settings();
     void draw_settings_general(AppSettings& f);
     void draw_settings_survey(AppSettings& f);
+    void draw_settings_sound(AppSettings& f);
+    // Step 9.9: help (DOC-07 e) and the level alerts' popup (UI-10).
+    void help_button(const char* section);
+    void draw_help_body();
+    void draw_help_window();
+    void draw_help_popup();
+    void draw_alerts_window();
     void draw_plugin_manager();
     void draw_reset_settings();
     // The plugins' own menus and windows (plugin_view.cpp, PLG-06).
@@ -214,7 +231,8 @@ private:
     NetworkText network_;
     PostStatsView post_view_;  // the Post page's figures, last frame
     // Step 9.7: theme in use, UI restarts, About logos, plugin windows.
-    Theme theme_ = Theme::Dark;
+    Style style_;
+    std::string help_section_;  // F1: the help of the focused window (last frame)
     std::uint64_t ui_generation_ = 0;
     AboutOverlay about_;
     UserTexture yantra_logo_, curtat_logo_;

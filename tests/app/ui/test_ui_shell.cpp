@@ -84,11 +84,13 @@ TEST_CASE("menus (UI-14): every File and Help entry, disabled ones not clickable
 
     REQUIRE(s.ui.click("menu.help"));
     REQUIRE(s.ui.run_until([&] { return s.ui.has("help.about"); }, 10));
-    for (const char* id : {"help.tour", "help.user_manual", "help.quick_starts"}) {
+    for (const char* id : {"help.tour", "help.quick_starts"}) {
         CAPTURE(id);
         REQUIRE(s.ui.has(id));
-        CHECK(s.ui.find(id)->disabled);  // later steps (9.9, 9.10)
+        CHECK(s.ui.find(id)->disabled);  // later steps (9.10, 12)
     }
+    REQUIRE(s.ui.has("help.user_manual"));
+    CHECK_FALSE(s.ui.find("help.user_manual")->disabled);  // step 9.9
     REQUIRE(s.ui.has("help.reset_settings"));
     CHECK_FALSE(s.ui.find("help.reset_settings")->disabled);  // step 9.7
     REQUIRE(s.ui.click("help.about"));
