@@ -518,6 +518,17 @@ static const yantra_plugin_ui_api ui_table = {
     sizeof(yantra_plugin_ui_api), 1, 1, 0, windows, menu_items, draw, NULL, NULL, NULL};
 ```
 
+How Yantra shows it: entries in the File, View, Radio, Tools and Help
+menus (View and Tools appear when a plugin adds entries; the Radio menu
+is there while a project is open),
+a `YANTRA_UI_PANEL` as a window at the right edge, a `YANTRA_UI_WINDOW` as
+a floating window and a `YANTRA_UI_DIALOG` as a modal dialog. A number
+with both limits gets a slider and a field to type the value; Yantra
+clamps it to the limits and the step. A `YANTRA_UI_CONFIRM` button asks
+first and `button` returns 1 in the frame after the user said yes. When
+the user switches the plugin off (Settings, Plugins tab, PLG-09) its
+windows close and its menu entries go.
+
 The English texts are the translation keys. The plugin ships Dutch,
 French and German for every text and for every schema and field label
 ([`beacon_translations.inc`](../plugins/example_beacon/beacon_translations.inc),

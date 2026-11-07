@@ -35,10 +35,11 @@ e.g. Tour "9.10"). Disabled entries stay visible with their reason
 
 ImGui labels are `"<text>###<id>"`; tests and screenshots use the id:
 
-- menus `menu.file`, `menu.help`; menu items the action id (`file.new_project`,
+- menus `menu.file`, `menu.radio`, `menu.view` and `menu.tools` (only when
+  a plugin adds entries), `menu.help`; menu items the action id (`file.new_project`,
   `file.open_project`, `file.recent`, `file.open_demo`, `file.save`, `file.save_as`,
   `file.add_floor`, `file.close_project`, `file.export`, `file.report`,
-  `file.about`, `file.exit`, `help.tour`, `help.user_manual`,
+  `file.settings`, `file.about`, `file.exit`, `help.tour`, `help.user_manual`,
   `help.quick_starts`, `help.reset_settings`, `help.about`);
 - windows `main` (the screen below the menu bar), `status_bar`;
 - start screen buttons `start.<action id>`, recent projects `start.recent.<n>`;
@@ -47,7 +48,7 @@ ImGui labels are `"<text>###<id>"`; tests and screenshots use the id:
   their buttons `dlg.ok` and `dlg.cancel`; fields by name (`name`, `site`,
   `operator`, `notes`, `file`, `level`, `height`); file browser items `fb.*`.
 
-`--dialog new-project|open-project|save-as|add-floor|about` opens a
+`--dialog new-project|open-project|save-as|add-floor|about|settings|reset-settings` opens a
 dialog at start (screenshots, launch tests).
 
 ## Data folders and the demo
@@ -421,9 +422,9 @@ Stored device settings (RAD-47, NFR-05): `RadioPaths::plugin_state`
 [{"key","type":"bool|int|uint|double|string|enum","value"}]}]}`. A file
 that cannot be read is reported and never overwritten.
 
-Hooks for the next steps: the plugin manager (9.7) uses
-`RadioWindows::list_view().plugins` and the `enabled` part of the state
-file; the language (9.9) calls `RadioWindows::set_language()`.
+Hooks for the next steps: the plugin manager (step 9.7, below) switches
+radio plugins through the `enabled` part of the state file; the
+language (9.9) calls `RadioWindows::set_language()`.
 
 Tests: `test_app` (`test_radio_windows.cpp`: widgets, validation, texts,
 groups, translations, the state file), `test_app_live`
@@ -432,6 +433,99 @@ groups, translations, the state file), `test_app_live`
 by clicking for the simulator, SoapySDR, HackRF and PEI plugins), and
 `test_app_live_pei` (the PEI cases under `yantra-pei-sim`). The fakes
 are test builds of yantra-radios (`YANTRA_RADIOS_FAKE_SDR`).
+
+## About, settings, reset and plugin UI (step 9.7)
+
+**About** (UI-15, `AppState::about()`, `Gui::draw_about`): the Yantra
+logo (BRD-06), name, version, build date (`YANTRA_BUILD_DATE`, the
+configure date in UTC), licence and the source link with the AGPL note
+(NFR-01), the curtat.be logo, statement and homepage (BRD-01..03), the
+credits read from `THIRD_PARTY.md` (`app/model/credits.h`: the
+"Libraries" and "Data" tables; installed as `share/yantra/THIRD_PARTY.md`,
+in a build tree the sources' copy next to `data/`) and the loaded plugins
+with versions, licences and status. The curtat.be logo follows the
+theme: `branding/curtat_logo_dark_256.png` on the dark theme, `_light_`
+on the light one (`curtat_logo_relative()`); logos keep their
+transparency (`load_data_png`, stb_image without the plan reader's white
+paper). Test overlay: `Gui::about_overlay()`.
+
+**Settings window** (`Dialog::Settings`, `file.settings`, Ctrl+,;
+`app/gui/settings_view.cpp`): a working copy `AppState::settings_form()`
+applied by `apply_settings()` (checked by `check_settings()`), tabs
+`settings.tab.general` (theme `settings.theme.dark|light`, tooltips
+`settings.tooltips` and `settings.tooltip_delay` (DOC-07 h; off hides the
+hover texts, the "(?)" markers and disabled reasons stay), window system
+(next start)), `settings.tab.survey` (`settings.threshold` coverage
+threshold, `settings.graph_span` live graph span 1..60 min,
+`settings.ring` / `settings.ring_minutes` ring buffer default for a
+project that opens) and `settings.tab.plugins`; buttons `dlg.apply`,
+`dlg.ok`, `dlg.cancel`. Enter in a field ends the edit only (ImGui
+applies typed numbers when the field is left). The survey panel's
+threshold field calls `set_coverage_threshold()`, so it is kept too.
+Settings JSON adds `"theme"` and `"survey"`. The theme switch is only
+dark/light here: `Gui::apply_theme()` follows `settings().theme` each
+frame; step 9.9 adds the themes, touch layout and language.
+
+**Plugin manager** (PLG-09, Plugins tab, `AppState::plugin_manager()`,
+`set_plugin_enabled(radio, id, on)`): one row per plugin.h plugin
+(`AppState::plugins()`, the loader `AppState` owns for the whole run)
+and, with a project open, per radio plugin (the `RadioHost` of
+`LiveSurvey`, one per process): name, version, API, author, licence,
+status, message; switch `plugins.toggle.<n>`. The loader and the state
+store (`plugin_state.json`) are shared with `LiveSurvey`
+(`PluginServices`) so two writers never clobber the file. A change is
+refused while a walk, a recording, the radio or a replay runs; it goes
+through `LiveSurvey::change_plugins()`, which closes the radio, rebuilds
+the host and pipeline and asks to find the radios again.
+
+**Reset all settings** (UI-16, TST-37; `help.reset_settings`,
+`Dialog::ResetSettings`, `dlg.reset_settings`): lists what is reset and
+what is kept (`reset_summary()`), `reset.calibration` also resets the
+calibration table, `dlg.ok` resets. `reset_settings_files()`
+(`app/model/settings_reset.h`) copies `app.json`, `plugin_state.json`
+(and the calibration table when asked) into
+`<config>/backups/YYYYMMDD-HHMMSS[-n]/` and removes them; projects,
+recordings and cell databases are not touched.
+`AppState::confirm_reset_settings()` closes the project (refused during a
+recording), drops the plugins, sets the defaults in memory (nothing is
+written until a change, as on first start) and bumps `ui_generation()`;
+the Gui then restarts its own state (`Gui::restart_ui`). `yantra
+--reset-settings [--reset-calibration]` does the same without a window
+and exits (launch test `app_reset_settings`).
+
+**Plugins' own UI** (PLG-06; model `PluginUi`, `app/model/plugin_ui.h`;
+drawing `app/gui/plugin_view.cpp`): the windows and menu entries that
+enabled plugin.h plugins declare. Menu entries go to File, View, Radio,
+Tools, Help (`plg.<plugin id>.<item id>`; the View and Tools menus appear only
+with entries; `menu_state` greys or checks them); choosing one opens its
+window or calls `menu_selected`. Windows `plg.<plugin id>.<window id>`:
+`YANTRA_UI_PANEL` is a window docked at the right edge, `YANTRA_UI_WINDOW`
+a floating window, `YANTRA_UI_DIALOG` a modal; closing calls
+`window_closed`; `ui_open_window` / `ui_close_window` requests are
+applied in `PluginUi::tick()`; a plugin switched off loses its windows.
+Yantra implements every `yantra_ui_api` control with ImGui, with the
+plugin's translations (`PluginUi::set_language`, step 9.9) and the help
+rules: controls `plg.<control id>`; a number with both limits is a slider
+`plg.<id>.slider` plus a typed field `plg.<id>.input` (clamped and
+snapped to the step); `YANTRA_UI_CONFIRM` asks first (`plg.confirm.ok`,
+the click is reported in the next frame); `YANTRA_UI_DISABLED` shows the
+reason. Test hooks: `Gui::plugin_frame()`, `Gui::plugin_window_state()`
+(texts of `value`, rows of `table`). No plugin API change was needed:
+the API stays 1.0.
+
+Hooks for the next steps: 9.8 adds its views as `Action`s/dialogs the
+same way and may add a settings tab in `Gui::draw_settings`; 9.9 extends
+`Theme` and `apply_theme`, sets the language with
+`PluginUi::set_language` and `RadioWindows::set_language`, and adds help
+to the settings tabs; the About logos already follow the theme.
+
+Tests: `test_app` (`test_settings_plugins.cpp`: settings round trip and
+range checks, apply and the threshold, reset with backup and the app
+reset, `--reset-settings`, credits and logos, the plugin manager and
+`PluginUi` with the example beacon plugin), `test_app_ui`
+(`ui/test_ui_settings.cpp`: About, the settings tabs by clicking, the
+plugin switch, Reset, and the beacon's Tools entry and window with its
+channel field), launch tests `app_settings` and `app_reset_settings`.
 
 ## Headless UI tests (tests/app/harness)
 
