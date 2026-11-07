@@ -31,6 +31,7 @@
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
+#include <filesystem>
 #include <memory>
 #include <optional>
 #include <string>
@@ -237,6 +238,11 @@ public:
     /// in plan units at plan::default_base_scale, `budget_bytes` cache).
     PlanTiles plan_tiles(const std::string& floor_id, std::size_t budget_bytes,
                          plan::TileRenderer::ReadyFn ready = {}) const;
+    /// Where a referenced licence-restricted sheet is looked for when the
+    /// path the project keeps is not there (DEMO-12, DEMO-13: an example
+    /// project made without the file, or a moved cache): the file of the
+    /// same name, checked by its SHA-256 (Project::read_source_from).
+    void set_sheet_folder(std::filesystem::path folder) { sheet_folder_ = std::move(folder); }
 
     /// Hover readout at a plan point of the selected floor: the measured
     /// point within `radius` plan units (points layer shown), else the
@@ -262,6 +268,7 @@ public:
     void invalidate() noexcept;
 
 private:
+    std::filesystem::path sheet_folder_;
     void refresh();
     FloorContent build_content(const std::string& floor_id, double bin_size_m) const;
     void build_binned(FloorContent& c, const building::Building& b, const building::Floor& f, double size_m) const;

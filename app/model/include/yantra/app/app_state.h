@@ -30,9 +30,11 @@
 #pragma once
 
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "yantra/app/audible_alerts.h"
@@ -53,6 +55,8 @@
 #include "yantra/app/result.h"
 #include "yantra/app/settings.h"
 #include "yantra/app/settings_reset.h"
+#include "yantra/app/sheet_fetch.h"
+#include "yantra/app/tour.h"
 
 namespace yantra::project {
 class Project;
@@ -154,6 +158,7 @@ enum class Dialog {
     Propagation,        ///< the ray-tracing settings (IND-40, IND-44): interpolation()->settings_form()
     Settings,           ///< the settings window (general, survey, plugins): settings_form()
     ResetSettings,      ///< Reset all settings (UI-16): reset_form()
+    TourConsent,        ///< the tour asks before a MAK sheet is downloaded (DEMO-12): tour().consent()
 };
 
 /// What the file browser was opened for.
@@ -281,6 +286,10 @@ struct AppPaths {
     /// The plugin folders and the calibration table of the walk-test view
     /// (empty: no radios; main() fills them from the plugin folder rule).
     RadioPaths radios;
+    /// The user's cache folder of the tour's licence-restricted plan sheets
+    /// (DEMO-12; main(): $YANTRA_MAK_CACHE, else <XDG_CACHE_HOME>/yantra/mak).
+    /// "" = no downloads.
+    std::filesystem::path sheet_cache;
     /// Worker threads of an interpolation run (0: all cores).
     unsigned interpolation_threads = 0;
 };
@@ -406,6 +415,34 @@ public:
     Result confirm_reset_settings();
     /// Changes when the UI restarts after a reset: the Gui drops its own state.
     std::uint64_t ui_generation() const { return ui_generation_; }
+
+    // -- guided tour (DEMO-11, DEMO-12; step 9.10) ---------------------------
+    Tour& tour() { return *tour_; }
+    const Tour& tour() const { return *tour_; }
+    /// The sheet download (main(): libcurl); default: none, with the reason.
+    void set_downloader(std::shared_ptr<Downloader> d) { downloader_ = std::move(d); }
+    const std::shared_ptr<Downloader>& downloader() const { return downloader_; }
+    /// The tour keeps its progress in the settings (saved like the others).
+    void set_tour_progress(const TourProgress& p);
+    /// The first-start offer of the tour (DEMO-11): on the start screen until
+    /// it is answered once (reset by UI-16).
+    bool tour_offer() const;
+    /// Yes starts the tour; either answer hides the offer for good.
+    Result answer_tour_offer(bool start);
+    /// The tour's consent dialog (Dialog::TourConsent).
+    void open_tour_consent() { dialog_ = Dialog::TourConsent; }
+    void close_tour_consent() {
+        if (dialog_ == Dialog::TourConsent) dialog_ = Dialog::None;
+    }
+    /// Asks the Gui to show a page of the project's side panel ("layers",
+    /// "edit", "walk", "map", "survey", "post") in the next frame.
+    void request_panel(std::string key) { panel_request_ = std::move(key); }
+    std::string take_panel_request() { return std::exchange(panel_request_, std::string()); }
+    /// The demo label again after the floors changed (example ids, DEMO-07).
+    void refresh_demo_label();
+    /// Credit, licence and scale note of a floor's licence-restricted plan
+    /// (DEMO-12), shown with the plan; nullopt for any other plan.
+    std::optional<PlanCreditView> plan_credit(const std::string& floor_id);
 
     // -- commands -------------------------------------------------------
     /// Runs an action: opens its dialog, runs it, or refuses it with the
@@ -567,6 +604,10 @@ private:
     ResetForm reset_form_;
     std::uint64_t ui_generation_ = 0;
     std::optional<Credits> credits_;  // read once (THIRD_PARTY.md)
+    std::map<std::string, std::optional<PlanCreditView>> plan_credits_;  // by SHA-256
+    std::shared_ptr<Downloader> downloader_;  // the constructor: none, with the reason
+    std::string panel_request_;
+    std::unique_ptr<Tour> tour_;  // last: goes first (its download thread)
 };
 
 }  // namespace yantra::app

@@ -99,6 +99,18 @@ public:
         std::size_t libraries = 0, data = 0, plugins = 0;  ///< credit and plugin rows
     };
     const AboutOverlay& about_overlay() const { return about_; }
+    /// What the guided tour drew in the last frame (tests, step 9.10).
+    struct TourOverlay {
+        bool window = false;     ///< the tour window
+        bool strip = false;      ///< the tour's strip inside a dialog
+        bool offer = false;      ///< the first-start offer on the start screen
+        bool consent = false;    ///< the download question (DEMO-12)
+        bool banner = false;     ///< the DEMO label in the tour (DEMO-07)
+        std::string target;      ///< the control pointed at ("" none drawn)
+        bool credit = false;     ///< a MAK sheet's credit with the plan (DEMO-12)
+        std::string credit_text;
+    };
+    const TourOverlay& tour_overlay() const { return tour_; }
     /// State a plugin window keeps between frames (PLG-06).
     struct PluginWindowState {
         std::string confirm, confirm_text;  ///< a CONFIRM button asks
@@ -191,6 +203,13 @@ private:
     void draw_cell_db(CellDbEditor& ed);
     void draw_verification(NetworkChecks& nc);
     void draw_reselection(NetworkChecks& nc);
+    // The guided tour (step 9.10, tour_view.cpp).
+    void draw_tour();
+    void draw_tour_body(const TourView& v, bool strip);
+    void draw_tour_consent();
+    void draw_tour_offer();
+    void draw_tour_highlight(const TourView& v);
+    void draw_plan_credit(const std::string& floor_id);
 
     AppState& state_;
     Dialog shown_ = Dialog::None;  // the dialog whose popup is open
@@ -239,6 +258,7 @@ private:
     std::string yantra_logo_file_, curtat_logo_file_;  // the files the textures hold
     std::map<std::string, PluginWindowState> plugin_windows_;
     std::vector<PluginFrame> plugin_frame_;
+    TourOverlay tour_;
 };
 
 /// The ImGui popup id of a dialog ("New indoor project###dlg.new_project").

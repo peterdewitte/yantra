@@ -19,6 +19,7 @@ const std::vector<ManualSection>& manual_sections() {
         {"1", tr_mark("Getting started"), "01-getting-started.md"},
         {"1.1", tr_mark("The start screen"), "01-getting-started.md"},
         {"1.2", tr_mark("About Yantra"), "01-getting-started.md"},
+        {"1.3", tr_mark("The guided tour"), "01-getting-started.md"},
         {"2", tr_mark("Radios"), "02-radios.md"},
         {"2.1", tr_mark("The radio list"), "02-radios.md"},
         {"2.2", tr_mark("Radio settings"), "02-radios.md"},

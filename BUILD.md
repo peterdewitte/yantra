@@ -20,7 +20,9 @@ with its headers and pkg-config (`libzstd-dev`, `pkg-config`; compressed
 recordings, REC-03), Python 3
 with PyYAML, binutils, and `reuse` for the licence lint test. The desktop
 app (`YANTRA_BUILD_APP`, ON by default) needs GLFW 3.3+ and OpenGL
-headers (`libglfw3-dev`, `libgl-dev`); Dear ImGui is vendored
+headers (`libglfw3-dev`, `libgl-dev`) and libcurl 7.85+ with its headers
+(`libcurl4-openssl-dev`; the tour's one-time MAK sheet download, DEMO-12);
+Dear ImGui is vendored
 (third_party/imgui). Its launch tests run the app on a private Xvfb
 (`xvfb`) with Mesa software OpenGL (`libgl1-mesa-dri`) and report Skipped
 without Xvfb. `-DYANTRA_BUILD_APP=OFF` builds the core, tools and plugins

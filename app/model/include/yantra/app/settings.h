@@ -117,6 +117,17 @@ inline constexpr double kMinGraphSpanMin = 1.0, kMaxGraphSpanMin = 60.0;
 inline constexpr double kMinRingMinutes = 2.0, kMaxRingMinutes = 60.0;
 inline constexpr double kMaxTooltipDelayS = 5.0;
 
+/// The guided tour's progress (DEMO-11): remembered between runs and
+/// reset with the other settings (UI-16).
+struct TourProgress {
+    bool offered = false;   ///< the first-start offer was answered (shown once)
+    std::string building;   ///< the example chosen: "mak_beer_house", ..., "fraunces"; "" none yet
+    std::string step;       ///< the step to continue at (tour.h step key); "" the first
+    std::vector<std::string> done;  ///< steps done or skipped (keys)
+    bool finished = false;  ///< reached the end once
+    bool operator==(const TourProgress&) const = default;
+};
+
 struct AppSettings {
     /// Most recent first, at most kMaxRecentProjects, no duplicates.
     std::vector<std::filesystem::path> recent_projects;
@@ -137,6 +148,7 @@ struct AppSettings {
     double ui_scale = 1.0;
     SurveySettings survey;
     SoundSettings sound;
+    TourProgress tour;
 
     bool operator==(const AppSettings&) const = default;
 };

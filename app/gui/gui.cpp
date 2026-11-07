@@ -41,6 +41,7 @@ const char* dialog_id(Dialog d, const AppState& state) {
     case Dialog::Propagation: return tr("Propagation settings###dlg.propagation");
     case Dialog::Settings: return tr("Settings###dlg.settings");
     case Dialog::ResetSettings: return tr("Reset all settings?###dlg.reset_settings");
+    case Dialog::TourConsent: return tr("Download a MAK plan sheet?###dlg.tour_consent");
     case Dialog::None: break;
     }
     return "###dlg.none";
@@ -255,6 +256,7 @@ void Gui::draw_start_screen() {
     ImGui::TextUnformatted(v.intro.c_str());
     ImGui::PopTextWrapPos();
     ImGui::Spacing();
+    draw_tour_offer();
 
     const float button_w = (column - ImGui::GetStyle().ItemSpacing.x) * 0.5F;
     int n = 0;
@@ -318,6 +320,7 @@ void Gui::draw_project_screen() {
                 "copy); Save as continues with a copy. While it is open here, no other Yantra can open it."));
 
     draw_floor_tabs(*w);
+    draw_plan_credit(w->selected());
     const FloorContent* c = w->content(state_.settings().layers.bin_size_m);
     if (c == nullptr) {
         ImGui::PushTextWrapPos(0.0F);
@@ -390,33 +393,36 @@ void Gui::draw_project_screen() {
     // The side panel's pages: the layers (9.2) and the tools (9.4).
     overlay_.progress = false;
     // Shrink, never scroll: every page's tab stays in view on a narrow panel.
+    // A page asked for by a command (the tour's Show me, step 9.10).
+    const std::string want = state_.take_panel_request();
+    auto pick = [&](const char* key) { return want == key ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None; };
     if (ImGui::BeginTabBar("###panel.tabs", ImGuiTabBarFlags_FittingPolicyShrink)) {
-        if (tab_item(tr("Layers###panel.layers"), tr("The layers of the plan: what is shown and in which order."))) {
+        if (tab_item(tr("Layers###panel.layers"), tr("The layers of the plan: what is shown and in which order."), pick("layers"))) {
             help_button("13.4");
             draw_layer_panel(*w, c);
             ImGui::EndTabItem();
         }
-        if (c != nullptr && tab_item(tr("Edit###panel.edit"), tr("Draw walls and place antennas on the floor."))) {
+        if (c != nullptr && tab_item(tr("Edit###panel.edit"), tr("Draw walls and place antennas on the floor."), pick("edit"))) {
             help_button("13.3");
             draw_edit_section();
             ImGui::EndTabItem();
         }
-        if (c != nullptr && tab_item(tr("Walk###panel.walk"), tr("Walk tests: measure the floor while you walk it."))) {
+        if (c != nullptr && tab_item(tr("Walk###panel.walk"), tr("Walk tests: measure the floor while you walk it."), pick("walk"))) {
             help_button("7.1");
             draw_walk_section(c);
             ImGui::EndTabItem();
         }
-        if (c != nullptr && tab_item(tr("Map###panel.map"), tr("The interpolated coverage map of the floor."))) {
+        if (c != nullptr && tab_item(tr("Map###panel.map"), tr("The interpolated coverage map of the floor."), pick("map"))) {
             help_button("13.5");
             draw_interpolation_section(c);
             ImGui::EndTabItem();
         }
-        if (tab_item(tr("Survey###panel.survey"), tr("The live survey: levels, cells, graphs, events and recording."))) {
+        if (tab_item(tr("Survey###panel.survey"), tr("The live survey: levels, cells, graphs, events and recording."), pick("survey"))) {
             help_button("5.1");
             draw_survey_section();
             ImGui::EndTabItem();
         }
-        if (c != nullptr && tab_item(tr("Post###panel.post"), tr("Post-processing of the measured points: views and acceptance."))) {
+        if (c != nullptr && tab_item(tr("Post###panel.post"), tr("Post-processing of the measured points: views and acceptance."), pick("post"))) {
             help_button("11.1");
             draw_post_section();
             ImGui::EndTabItem();
@@ -946,6 +952,7 @@ const char* dialog_section(Dialog d) {
     case Dialog::Propagation: return "13.5";
     case Dialog::Settings: return "15";
     case Dialog::ResetSettings: return "15.4";
+    case Dialog::TourConsent: return "1.3";
     case Dialog::None: break;
     }
     return "1";
@@ -955,6 +962,9 @@ const char* dialog_section(Dialog d) {
 
 void Gui::draw_dialog_body(Dialog d) {
     if (d != Dialog::PlanImport) help_button(dialog_section(d));
+    // DEMO-11: the tour goes on inside a dialog (the dialog blocks the
+    // tour window behind it).
+    if (d != Dialog::TourConsent && state_.tour().active()) draw_tour_body(state_.tour().view(), true);
     switch (d) {
     case Dialog::NewProject: draw_new_project(); break;
     case Dialog::Browse: draw_browser(); break;
@@ -968,6 +978,7 @@ void Gui::draw_dialog_body(Dialog d) {
     case Dialog::Propagation: draw_propagation_dialog(); break;
     case Dialog::Settings: draw_settings(); break;
     case Dialog::ResetSettings: draw_reset_settings(); break;
+    case Dialog::TourConsent: draw_tour_consent(); break;
     case Dialog::None: break;
     }
 }
@@ -1024,6 +1035,7 @@ void Gui::draw_dialogs() {
 
 void Gui::draw() {
     survey_ = SurveyOverlay{};
+    tour_ = TourOverlay{};
     about_ = AboutOverlay{};
     UserTexture::collect();
     state_.tick();
@@ -1067,9 +1079,11 @@ void Gui::draw() {
     draw_radio_windows();
     draw_network_windows();
     draw_plugin_windows();
+    draw_tour();
     draw_dialogs();
     draw_help_window();
     draw_alerts_window();
+    if (state_.tour().active()) draw_tour_highlight(state_.tour().view());
 }
 
 }  // namespace yantra::app

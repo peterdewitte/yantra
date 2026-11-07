@@ -12,6 +12,7 @@
 
 #include <imgui.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -23,6 +24,7 @@
 #include "ui_harness.h"
 #include "yantra/app/app_state.h"
 #include "yantra/core/project/project.h"
+#include "yantra/core/survey/points.h"
 
 namespace fs = std::filesystem;
 namespace bm = yantra::building;
@@ -262,4 +264,111 @@ TEST_CASE("UI-01..04, UI-08, UI-11, REC-01, REC-05, REC-07, REC-08, REC-11 in th
     REQUIRE(ui.click("replay.close"));
     REQUIRE(ui.frames(2));
     CHECK_FALSE(state.replay()->is_open());
+}
+
+TEST_CASE("DEMO-11 DEMO-14 the guided tour's mouse survey: Show me starts the simulator, move slowly, click to interpolate") {
+    const fs::path sim = fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator.so";
+    if (!fs::exists(sim)) return;
+    const fs::path d = fs::path(YANTRA_TEST_SCRATCH_DIR) / "live_tour";
+    fs::remove_all(d);
+    fs::create_directories(d / "radios");
+    fs::copy_file(sim, d / "radios" / "simulator.so");
+    AppPaths paths;
+    paths.data_folders = {YANTRA_TEST_SOURCE_DATA_DIR};
+    paths.user_data = d / "user";
+    paths.settings_file = d / "config" / "app.json";
+    paths.radios.plugin_folders = {YANTRA_TEST_TECH_PLUGIN_DIR};
+    paths.radios.radio_folders = {d / "radios"};
+    paths.interpolation_threads = 2;
+
+    UiHarness ui;
+    AppState state(AppSettings{}, paths);
+    ImGui::SetCurrentContext(ui.context());
+    Gui::apply_style();
+    Gui gui(state);
+    gui.set_wait_for_tiles(true);
+    ui.set_draw([&] { gui.draw(); });
+    ui.set_display_size(1400.0F, 1000.0F);
+    REQUIRE(ui.frames(3));
+
+    // The Fraunces Tavern up to the mouse survey, by Show me.
+    REQUIRE(state.trigger(Action::Tour).ok);
+    Tour& t = state.tour();
+    REQUIRE(t.choose("fraunces").ok);
+    while (t.view().step != TourStep::MouseSurvey) {
+        CAPTURE(t.view().key);
+        if (t.view().can_show) {
+            const Result r = t.show_me();
+            CAPTURE(r.message);
+            REQUIRE(r.ok);
+        }
+        REQUIRE(t.next().ok);
+        REQUIRE(ui.frames(2));
+    }
+    CHECK_FALSE(t.view().done);
+    REQUIRE(ui.frames(2));
+    CHECK(gui.tour_overlay().target == "panel.walk");
+    const Result r = t.show_me();
+    REQUIRE_MESSAGE(r.ok, r.message);
+    REQUIRE(state.live()->running());
+    REQUIRE(state.live()->chosen()->simulated);  // "Demo (simulated network)"
+    REQUIRE(ui.frames(3));
+    CHECK(gui.tour_overlay().target == "walk.stop");
+    CHECK(gui.tour_overlay().window);
+    CHECK(gui.tour_overlay().banner);
+
+    // DEMO-14: move slowly until points come, then click to interpolate.
+    const std::string floor = state.project_window()->selected();
+    const bm::Floor f = *state.project()->building().find_floor(floor);
+    // Until enough points carry a level (the simulated cell is decoded
+    // after its first frames).
+    auto with_level = [&] {
+        yantra::survey::PointQuery q;
+        q.floor_id = floor;
+        q.sessions = {state.live()->view().session};
+        const auto list = yantra::survey::point_list(*state.project(), q);
+        return std::count_if(list.points.begin(), list.points.end(),
+                             [](const yantra::survey::SurveyPoint& p) { return p.value && p.metres; });
+    };
+    double u = 0.0;
+    const auto end = std::chrono::steady_clock::now() + std::chrono::seconds(30 * YANTRA_TEST_TIME_SCALE);
+    while ((state.live()->view().points < 5 || with_level() < 3) && std::chrono::steady_clock::now() < end) {
+        u = std::fmod(u + 0.0005, 0.8);
+        const double fx = 0.30 + (u < 0.4 ? u : 0.8 - u);
+        const ImVec2 p = gui.canvas().screen_of({f.plan_width * fx, f.plan_height * 0.5});
+        ui.mouse_move(p.x, p.y);
+        REQUIRE(ui.frame());
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    REQUIRE(state.live()->view().points >= 5);
+    REQUIRE(with_level() >= 3);
+    CHECK(t.view().progress.find("points measured") != std::string::npos);
+    const ImVec2 c = gui.canvas().screen_of({f.plan_width * 0.5, f.plan_height * 0.5});
+    ui.click_at(c.x, c.y);
+    state.interpolation()->wait();
+    // The click ran the interpolation: with the uncalibrated simulator
+    // (dBFS, no calibration table here) it says why it has no map.
+    REQUIRE(ui.run_until([&] { return state.status().find("nterpolat") != std::string::npos; }, 30));
+    const bool mapped = state.status().rfind("Interpolated", 0) == 0;
+    CHECK((mapped || state.status().find("dBm") != std::string::npos));
+    REQUIRE(ui.run_until([&] { return t.view().done; }, 10));
+    ui.key(ImGuiKey_Escape);
+    REQUIRE(ui.frames(2));
+    CHECK_FALSE(state.live()->running());
+
+    // The results, then another floor.
+    REQUIRE(t.next().ok);
+    REQUIRE(t.show_me().ok);
+    REQUIRE(ui.frames(3));
+    CHECK(gui.canvas().stats().points > 0);
+    CHECK(gui.canvas().stats().interpolation == mapped);
+    REQUIRE(t.next().ok);
+    CHECK_FALSE(t.view().done);
+    REQUIRE(t.show_me().ok);
+    REQUIRE(ui.frames(2));
+    CHECK(t.view().done);
+    CHECK(state.project_window()->selected() != floor);
+    t.leave();
+    REQUIRE(state.close_project().ok);
+    REQUIRE(ui.frames(2));
 }

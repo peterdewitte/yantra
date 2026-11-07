@@ -35,6 +35,10 @@ struct CommandLine {
     /// exit; --reset-calibration also resets the calibration table.
     bool reset_settings = false;
     bool reset_calibration = false;
+    /// --demo: demo mode (DEMO-01), the demo project with the simulator;
+    /// --tour: the guided tour at start (DEMO-11).
+    bool demo = false;
+    bool tour = false;
     /// A project file to open at start.
     std::optional<std::filesystem::path> project;
 };

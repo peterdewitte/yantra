@@ -165,6 +165,8 @@ std::string settings_to_json(const AppSettings& s) {
     j["survey"]["graph_span_min"] = s.survey.graph_span_min;
     j["survey"]["ring"] = s.survey.ring;
     j["survey"]["ring_minutes"] = s.survey.ring_minutes;
+    j["tour"] = {{"offered", s.tour.offered}, {"building", s.tour.building}, {"step", s.tour.step},
+                 {"done", s.tour.done}, {"finished", s.tour.finished}};
     return j.dump(1) + "\n";
 }
 
@@ -260,6 +262,18 @@ AppSettings settings_from_json(const std::string& text, std::string& error) {
         number("graph_span_min", kMinGraphSpanMin, kMaxGraphSpanMin, s.survey.graph_span_min);
         number("ring_minutes", kMinRingMinutes, kMaxRingMinutes, s.survey.ring_minutes);
         if (const auto v = it->find("ring"); v != it->end() && v->is_boolean()) s.survey.ring = v->get<bool>();
+    }
+    if (const auto it = j.find("tour"); it != j.end() && it->is_object()) {
+        auto string_of = [&](const char* key, std::string& out) {
+            if (const auto v = it->find(key); v != it->end() && v->is_string()) out = v->get<std::string>();
+        };
+        if (const auto v = it->find("offered"); v != it->end() && v->is_boolean()) s.tour.offered = v->get<bool>();
+        if (const auto v = it->find("finished"); v != it->end() && v->is_boolean()) s.tour.finished = v->get<bool>();
+        string_of("building", s.tour.building);
+        string_of("step", s.tour.step);
+        if (const auto d = it->find("done"); d != it->end() && d->is_array())
+            for (const auto& e : *d)
+                if (e.is_string() && s.tour.done.size() < 64) s.tour.done.push_back(e.get<std::string>());
     }
     return s;
 }

@@ -82,8 +82,10 @@ add_library(yantra_app_model STATIC
   model/src/replay_session.cpp
   model/src/settings.cpp
   model/src/settings_reset.cpp
+  model/src/sheet_fetch.cpp
   model/src/survey_monitor.cpp
   model/src/system_status.cpp
+  model/src/tour.cpp
   model/src/window_system.cpp)
 add_library(yantra::app_model ALIAS yantra_app_model)
 target_include_directories(yantra_app_model PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/model/include)
@@ -112,7 +114,7 @@ target_compile_definitions(yantra_imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS 
 
 add_library(yantra_app_gui STATIC gui/gui.cpp gui/gui_tools.cpp gui/plan_canvas.cpp gui/plan_import_view.cpp
   gui/survey_view.cpp gui/radio_view.cpp gui/user_texture.cpp gui/plugin_view.cpp gui/settings_view.cpp
-  gui/network_view.cpp gui/post_view.cpp gui/help_view.cpp)
+  gui/network_view.cpp gui/post_view.cpp gui/help_view.cpp gui/tour_view.cpp)
 add_library(yantra::app_gui ALIAS yantra_app_gui)
 target_include_directories(yantra_app_gui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/gui)
 target_link_libraries(yantra_app_gui PUBLIC yantra::app_model yantra_imgui PRIVATE yantra::warnings)
@@ -126,6 +128,15 @@ target_include_directories(yantra_audio SYSTEM PRIVATE ${PROJECT_SOURCE_DIR}/thi
 target_link_libraries(yantra_audio PUBLIC yantra::app_model PRIVATE ${CMAKE_DL_LIBS} Threads::Threads m)
 set_source_files_properties(audio/miniaudio_impl.c PROPERTIES COMPILE_OPTIONS "-w")
 
+# The tour's one-time MAK sheet download (DEMO-12; spec 16.2: libcurl, a
+# system library): the Downloader of sheet_fetch.h. Only the executable and
+# its tests link it; the model sees the interface.
+find_package(CURL 7.85 REQUIRED)
+add_library(yantra_app_net STATIC net/curl_downloader.cpp)
+add_library(yantra::app_net ALIAS yantra_app_net)
+target_include_directories(yantra_app_net PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/net)
+target_link_libraries(yantra_app_net PUBLIC yantra::app_model PRIVATE CURL::libcurl yantra::warnings)
+
 add_library(yantra_imgui_backends STATIC
   ${_imgui}/backends/imgui_impl_glfw.cpp ${_imgui}/backends/imgui_impl_opengl3.cpp)
 target_include_directories(yantra_imgui_backends SYSTEM PUBLIC ${_imgui}/backends)
@@ -133,7 +144,8 @@ target_link_libraries(yantra_imgui_backends PUBLIC yantra_imgui glfw OpenGL::GL 
 
 add_executable(yantra src/main.cpp src/stb_image_write_impl.c)
 target_include_directories(yantra SYSTEM PRIVATE ${PROJECT_SOURCE_DIR}/third_party/stb)
-target_link_libraries(yantra PRIVATE yantra::app_gui yantra::audio yantra_imgui_backends yantra::core yantra::warnings)
+target_link_libraries(yantra PRIVATE yantra::app_gui yantra::audio yantra::app_net yantra_imgui_backends yantra::core
+                                     yantra::warnings)
 if(YANTRA_SANITIZER STREQUAL "asan-ubsan")
   # stb_image_write passes NULL with size 0 to memcpy (as stb_image, core/).
   set_source_files_properties(src/stb_image_write_impl.c PROPERTIES COMPILE_OPTIONS -fno-sanitize=nonnull-attribute)

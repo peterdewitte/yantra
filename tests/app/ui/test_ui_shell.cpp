@@ -53,11 +53,11 @@ TEST_CASE("harness: items, windows and the main window of the start screen") {
     CHECK(s.ui.has("menu.help"));
     for (const char* id : {"start.file.new_project", "start.file.open_project", "start.file.open_demo", "start.help.tour"})
         CHECK_MESSAGE(s.ui.has(id), id << "\n" << s.ui.dump());
-    // Not wired yet or not available: drawn, but disabled (DOC-07 c).
-    CHECK(s.ui.find("start.help.tour")->disabled);
-    CHECK(s.ui.find("start.file.open_demo")->disabled);  // no data folders here
+    // Not available: drawn, but disabled (DOC-07 c).
+    CHECK_FALSE(s.ui.find("start.help.tour")->disabled);  // step 9.10
+    CHECK(s.ui.find("start.file.open_demo")->disabled);   // no data folders here
     CHECK_FALSE(s.ui.find("start.file.new_project")->disabled);
-    CHECK_FALSE(s.ui.click("start.help.tour"));  // a disabled item is not clicked
+    CHECK_FALSE(s.ui.click("start.file.open_demo"));  // a disabled item is not clicked
     CHECK_FALSE(s.ui.has("no.such.item"));
     // Items lie inside the display.
     for (const ProbeItem& it : s.ui.items()) {
@@ -84,11 +84,10 @@ TEST_CASE("menus (UI-14): every File and Help entry, disabled ones not clickable
 
     REQUIRE(s.ui.click("menu.help"));
     REQUIRE(s.ui.run_until([&] { return s.ui.has("help.about"); }, 10));
-    for (const char* id : {"help.tour", "help.quick_starts"}) {
-        CAPTURE(id);
-        REQUIRE(s.ui.has(id));
-        CHECK(s.ui.find(id)->disabled);  // later steps (9.10, 12)
-    }
+    REQUIRE(s.ui.has("help.tour"));
+    CHECK_FALSE(s.ui.find("help.tour")->disabled);  // step 9.10
+    REQUIRE(s.ui.has("help.quick_starts"));
+    CHECK(s.ui.find("help.quick_starts")->disabled);  // a later step (12)
     REQUIRE(s.ui.has("help.user_manual"));
     CHECK_FALSE(s.ui.find("help.user_manual")->disabled);  // step 9.9
     REQUIRE(s.ui.has("help.reset_settings"));

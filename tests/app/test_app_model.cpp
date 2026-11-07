@@ -287,7 +287,8 @@ TEST_CASE("menus (UI-14): File, Network and Help items, tooltips, disabled reaso
         }
     }
     // Not wired yet, each with the step that wires it.
-    CHECK(st.action(Action::Tour).planned_step == "9.10");
+    CHECK(st.action(Action::Tour).planned_step.empty());  // step 9.10: the guided tour
+    CHECK(st.action(Action::Tour).enabled);
     CHECK(st.action(Action::UserManual).planned_step.empty());  // step 9.9: the help window
     CHECK(st.action(Action::UserManual).enabled);
     CHECK(st.action(Action::QuickStarts).planned_step == "12");  // DOC-03, written with the manual
@@ -308,7 +309,9 @@ TEST_CASE("menus (UI-14): File, Network and Help items, tooltips, disabled reaso
         CHECK_FALSE(r.ok);
         CHECK(st.status_is_error());
     }
-    CHECK_FALSE(st.trigger(Action::Tour).ok);
+    CHECK(st.trigger(Action::Tour).ok);  // step 9.10: opens the tour
+    CHECK(st.tour().active());
+    st.tour().leave();
     CHECK(st.trigger(Action::ResetSettings).ok);  // step 9.7
     CHECK(st.dialog() == Dialog::ResetSettings);
     st.cancel_dialog();

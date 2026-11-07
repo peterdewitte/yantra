@@ -22,7 +22,9 @@
 #include <string>
 #include <vector>
 
+#include "curl_downloader.h"
 #include "gui.h"
+#include "ui_probe.h"
 #include "miniaudio_io.h"
 #include "yantra/app/app_icon.h"
 #include "yantra/app/app_state.h"
@@ -137,11 +139,19 @@ int main(int argc, char** argv) {
         // RAD-47 / NFR-05: the radios' stored settings next to the app settings
         // (a screenshot run keeps them in memory).
         if (!screenshot && !config.empty()) paths.radios.plugin_state = config / "plugin_state.json";
-        // REC-09: the ring buffer's temporary files in the user's cache folder.
+        // REC-09: the ring buffer's temporary files in the user's cache folder;
+        // DEMO-12: the tour's MAK sheets there too (YANTRA_MAK_CACHE overrides).
         if (!screenshot) {
             const char* cache = std::getenv("XDG_CACHE_HOME");
-            if (cache != nullptr && fs::path(cache).is_absolute()) paths.radios.ring_folder = fs::path(cache) / "yantra" / "ring";
-            else if (!paths.home.empty()) paths.radios.ring_folder = paths.home / ".cache" / "yantra" / "ring";
+            fs::path user_cache;
+            if (cache != nullptr && fs::path(cache).is_absolute()) user_cache = fs::path(cache) / "yantra";
+            else if (!paths.home.empty()) user_cache = paths.home / ".cache" / "yantra";
+            if (!user_cache.empty()) {
+                paths.radios.ring_folder = user_cache / "ring";
+                paths.sheet_cache = user_cache / "mak";
+            }
+            const char* mak = std::getenv("YANTRA_MAK_CACHE");
+            if (mak != nullptr && fs::path(mak).is_absolute()) paths.sheet_cache = mak;
         }
     }
 
@@ -204,6 +214,18 @@ int main(int argc, char** argv) {
         app::AppState state(settings, paths);
         // REC-06: voice notes through miniaudio (none for a screenshot).
         if (!screenshot) state.set_audio(app::make_miniaudio_io());
+        // DEMO-12: the one-time sheet download of the tour (none in a screenshot).
+        if (!screenshot) state.set_downloader(app::make_curl_downloader());
+        // DEMO-01: demo mode opens the demo project; the simulator is the
+        // default radio there (LiveSurvey).
+        if (cli.demo) {
+            const app::Result r = state.open_demo();
+            if (!r.ok) std::fprintf(stderr, "yantra: --demo: %s\n", r.message.c_str());
+        }
+        if (cli.tour) {
+            const app::Result r = state.trigger(app::Action::Tour);
+            if (!r.ok) std::fprintf(stderr, "yantra: --tour: %s\n", r.message.c_str());
+        }
         if (cli.project) {
             const app::Result r = state.open_project(*cli.project);
             if (!r.ok) std::fprintf(stderr, "yantra: %s\n", r.message.c_str());
@@ -220,6 +242,9 @@ int main(int argc, char** argv) {
             if (!r.ok) std::fprintf(stderr, "yantra: --dialog %s: %s\n", cli.dialog.c_str(), r.message.c_str());
         }
         app::Gui gui(state);
+        // The item probe: the tour points at the controls it is about
+        // (their rectangles of the last frame).
+        app::UiProbe probe(ImGui::GetCurrentContext());
         // A screenshot shows the plan with its tiles, not while they render.
         gui.set_wait_for_tiles(screenshot);
 
@@ -240,9 +265,11 @@ int main(int argc, char** argv) {
             // A screenshot advances a fixed time per frame, so popups have
             // faded in by the capture frame whatever the machine's speed.
             if (screenshot) ImGui::GetIO().DeltaTime = 1.0F / 15.0F;
+            probe.begin_frame();
             ImGui::NewFrame();
             gui.draw();
             ImGui::Render();
+            probe.end_frame();
             int fw = 0, fh = 0;
             glfwGetFramebufferSize(window, &fw, &fh);
             glViewport(0, 0, fw, fh);

@@ -77,6 +77,10 @@ ParseResult parse_command_line(const std::vector<std::string>& args) {
             c.reset_settings = true;
         } else if (a == "--reset-calibration") {
             c.reset_calibration = true;
+        } else if (a == "--demo") {
+            c.demo = true;
+        } else if (a == "--tour") {
+            c.tour = true;
         } else if (!a.empty() && a[0] == '-') {
             return fail("unknown option '" + a + "' (try --help)");
         } else {
@@ -85,6 +89,7 @@ ParseResult parse_command_line(const std::vector<std::string>& args) {
         }
     }
     if (c.reset_calibration && !c.reset_settings) return fail("--reset-calibration only goes with --reset-settings");
+    if (c.demo && c.project) return fail("--demo opens the demo project: give no project file with it");
     r.command_line = c;
     return r;
 }
@@ -106,6 +111,9 @@ std::string usage_text() {
            "                          settings), after a time-stamped backup, and exit; projects,\n"
            "                          recordings, cell databases and calibration are kept\n"
            "  --reset-calibration     with --reset-settings: also reset the calibration table\n"
+           "  --demo                  demo mode (DEMO-01): open the demo project with the simulated\n"
+           "                          radio \"Demo (simulated network)\"; no radio needed\n"
+           "  --tour                  start the guided tour (Help > Tour)\n"
            "  --version               print the version and exit\n"
            "  -h, --help              print this help and exit\n";
 }

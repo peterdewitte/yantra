@@ -43,6 +43,7 @@ AppPaths lint_paths(const fs::path& dir) {
     p.data_folders.insert(p.data_folders.begin(), fs::path(YANTRA_TEST_DEMO_DATA_DIR));
 #endif
     p.user_data = dir / "data";
+    p.sheet_cache = dir / "cache";  // step 9.10: the tour asks before a download (none here)
     p.home = dir / "home";
     fs::create_directories(p.home);
     const fs::path folder = dir / "plugins";
@@ -110,6 +111,28 @@ void visit_all(Shell& s, UiLint& lint, const std::string& tag) {
     REQUIRE(s.state.open_help("13.2").ok);
     settle_check("help section");
     s.state.close_help();
+
+    // Step 9.10: the guided tour: its window, the download question, its
+    // strip inside a dialog and over the project.
+    REQUIRE(s.state.trigger(Action::Tour).ok);
+    settle_check("tour choose");
+    REQUIRE(s.state.tour().choose("mak_beer_house").ok);
+    REQUIRE(s.state.dialog() == Dialog::TourConsent);
+    settle_check("tour consent");
+    s.state.cancel_dialog();  // no: the Fraunces Tavern, with the message
+    settle_check("tour fallback");
+    REQUIRE(s.state.tour().show_me().ok);  // the tour's project
+    REQUIRE(s.ui.run_until([&] { return s.state.screen() == Screen::Project; }, 10));
+    settle_check("tour project");
+    REQUIRE(s.state.tour().next().ok);
+    REQUIRE(s.state.trigger(Action::AddFloor).ok);
+    settle_check("tour strip in add floor");
+    REQUIRE(s.state.tour().show_me().ok);  // the plan import window on the sheet
+    settle_check("tour strip in plan import");
+    s.state.tour().leave();
+    s.state.cancel_dialog();
+    REQUIRE(s.state.close_project().ok);
+    REQUIRE(s.ui.frames(2));
 
 #ifdef YANTRA_TEST_DEMO_DATA_DIR
     REQUIRE(s.state.open_demo().ok);

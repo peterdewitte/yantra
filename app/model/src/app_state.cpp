@@ -81,7 +81,7 @@ const ActionDef kActions[] = {
      nullptr},
     {Action::Exit, "file.exit", tr_mark("Exit"), "Ctrl+Q", tr_mark("Close Yantra. All project changes are already stored."), nullptr},
     {Action::Tour, "help.tour", tr_mark("Tour"), "",
-     tr_mark("A guided tour through an indoor survey with an example building and the simulated radio."), "9.10"},
+     tr_mark("A guided tour through an indoor survey with an example building and the simulated radio."), nullptr},
     {Action::UserManual, "help.user_manual", tr_mark("User manual"), "", tr_mark("Open the user manual (works offline)."), nullptr},
     {Action::QuickStarts, "help.quick_starts", tr_mark("Quick starts"), "", tr_mark("Short step-by-step guides for common tasks."),
      "12"},
@@ -132,6 +132,8 @@ void remove_project_file(const fs::path& target, std::error_code& ec) {
 }  // namespace
 
 AppState::AppState(AppSettings settings, AppPaths paths) : settings_(std::move(settings)), paths_(std::move(paths)) {
+    downloader_ = make_no_downloader(tr("Downloads are not set up in this copy of Yantra."));
+    tour_ = std::make_unique<Tour>(*this);
     monitor_->set_threshold(settings_.survey.threshold_dbm);
     alerts_.set_settings(settings_.sound);
     apply_language();
@@ -174,6 +176,7 @@ void AppState::apply_language() {
 }
 
 AppState::~AppState() {
+    tour_.reset();
     drop_tools();
     drop_network();
     window_.reset();
@@ -293,6 +296,38 @@ StartScreenView AppState::start_screen() const {
     return v;
 }
 
+void AppState::set_tour_progress(const TourProgress& p) {
+    if (settings_.tour == p) return;
+    settings_.tour = p;
+    settings_form_.tour = p;
+    settings_changed_ = true;
+}
+
+bool AppState::tour_offer() const { return !settings_.tour.offered && screen() == Screen::Start && !tour_->active(); }
+
+Result AppState::answer_tour_offer(bool start) {
+    TourProgress p = settings_.tour;
+    p.offered = true;
+    set_tour_progress(p);
+    if (start) return tour_->start();
+    return done(tr("The tour is in the Help menu whenever you want it."));
+}
+
+void AppState::refresh_demo_label() { demo_label_ = find_demo_label(); }
+
+std::optional<PlanCreditView> AppState::plan_credit(const std::string& floor_id) {
+    if (!project_) return std::nullopt;
+    const auto floor = project_->floor(floor_id);
+    if (!floor || floor->source.empty()) return std::nullopt;
+    const auto src = project_->source(floor->source);
+    if (!src || src->plan.embedded) return std::nullopt;
+    const auto it = plan_credits_.find(src->plan.sha256);
+    if (it != plan_credits_.end()) return it->second;
+    auto c = tour_->credit_for(src->plan.sha256);
+    plan_credits_[src->plan.sha256] = c;
+    return c;
+}
+
 std::optional<ProjectView> AppState::project_view() const {
     if (!project_) return std::nullopt;
     ProjectView v;
@@ -300,6 +335,14 @@ std::optional<ProjectView> AppState::project_view() const {
     v.path = project_->path();
     v.demo = demo();
     v.demo_label = demo_label_;
+    // DEMO-11: the tour runs in demo mode, so its project carries the banner
+    // from the start (before its floors are example floors).
+    if (const demo::DemoDescription* d = tour_->description();
+        v.demo_label.empty() && tour_->active() && d != nullptr &&
+        project_->path().lexically_normal() == tour_->project_file().lexically_normal()) {
+        const std::string& label = d->label;
+        v.demo_label = label.empty() ? std::string(tr("DEMO - simulated data")) : label;
+    }
     v.file_note = tr("Changes are stored in the file as you make them.");
     for (const building::Floor& f : project_->floors())
         v.floors.push_back(FloorView{f.id, f.name, f.level, !f.source.empty()});
@@ -393,6 +436,7 @@ Result AppState::trigger(Action a) {
         quit_ = true;
         return Result{};
     case Action::UserManual: return open_help("");
+    case Action::Tour: return tour_->start();
     case Action::CellDatabase: network_windows_.cell_db = true; return Result{};
     case Action::Verification: network_windows_.verification = true; return Result{};
     case Action::Reselection: network_windows_.reselection = true; return Result{};
@@ -402,6 +446,12 @@ Result AppState::trigger(Action a) {
 }
 
 void AppState::cancel_dialog() {
+    if (dialog_ == Dialog::TourConsent) {
+        // No answer is no: nothing is downloaded (DEMO-12).
+        (void)tour_->answer_consent(false);
+        dialog_ = Dialog::None;
+        return;
+    }
     if (dialog_ == Dialog::PlanImport) {
         close_plan_import();
         return;
@@ -425,6 +475,7 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     }
     project_ = std::move(p);
     window_ = std::make_unique<ProjectWindow>(*project_);
+    window_->set_sheet_folder(paths_.sheet_cache);  // DEMO-13: a referenced MAK sheet in the cache
     editor_ = std::make_unique<FloorEditor>(*project_);
     runner_ = std::make_unique<InterpolationRunner>(project_, InterpolationRunner::Options{paths_.interpolation_threads});
     live_ = std::make_unique<LiveSurvey>(project_, paths_.radios, plugin_services());
@@ -1027,6 +1078,7 @@ Result AppState::run_interpolation(bool again) {
 }
 
 void AppState::tick() {
+    tour_->update();
     if (plugins_) {
         // PLG-09: a plugin whose call failed is disabled with its message.
         if (plugins_->poll() > 0) (void)fail(tr("A plugin reported an error and was disabled (File > Settings > Plugins)."));
@@ -1311,6 +1363,9 @@ Result AppState::confirm_reset_settings() {
                              reset_form_.also_calibration, std::time(nullptr));
     if (!o.ok && o.removed.empty()) return fail(o.message);
     // As on first start: defaults in memory, nothing written until a change.
+    // The tour starts over too (DEMO-11).
+    tour_ = std::make_unique<Tour>(*this);
+    plan_credits_.clear();
     settings_ = AppSettings{};
     settings_form_ = settings_;
     settings_changed_ = false;

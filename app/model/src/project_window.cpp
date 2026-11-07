@@ -12,6 +12,7 @@
 #include <exception>
 
 #include "yantra/core/plan/import.h"
+#include "yantra/core/plan/source.h"
 #include "yantra/core/project/project.h"
 #include "yantra/core/survey/viewer.h"
 
@@ -443,7 +444,19 @@ PlanTiles ProjectWindow::plan_tiles(const std::string& floor_id, std::size_t bud
         return t;
     }
     try {
-        t.source = plan::open_project_source(project_, floor->source);
+        try {
+            t.source = plan::open_project_source(project_, floor->source);
+        } catch (const project::ProjectError& e) {
+            // A referenced sheet whose kept path is not there: the same file
+            // in the sheet folder, if it is the one (DEMO-12, DEMO-13).
+            const auto src = project_.source(floor->source);
+            if (!src || src->plan.embedded || sheet_folder_.empty()) throw;
+            const std::filesystem::path cached = sheet_folder_ / src->plan.file_name;
+            std::error_code ec;
+            if (!std::filesystem::is_regular_file(cached, ec)) throw;
+            const std::vector<std::uint8_t> bytes = project_.read_source_from(floor->source, cached);
+            t.source = std::shared_ptr<const plan::PlanSource>(plan::open_plan_source(bytes, src->plan.file_name));
+        }
         t.renderer = plan::floor_tiles(t.source, *floor, plan::default_base_scale(*t.source, floor->page),
                                        budget_bytes, std::move(ready));
     } catch (const std::exception& e) {
