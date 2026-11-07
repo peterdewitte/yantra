@@ -178,3 +178,21 @@ TEST_CASE("DOC-07 e help: Help > User manual, chapters, a window's Help button, 
     CHECK(s.ui.window_open("dlg.settings"));
     CHECK(s.state.dialog() == Dialog::Settings);
 }
+
+TEST_CASE("UI-12 the app in Dutch, French and German: menus and dialogs follow the language") {
+    for (Language l : {Language::Nl, Language::Fr, Language::De}) {
+        CAPTURE(language_key(l));
+        AppSettings settings;
+        settings.language = language_key(l);
+        Shell s(paths_in(scratch(std::string("lang_") + language_key(l))), settings);
+        CHECK(language() == l);
+        const auto& table = translations(l);
+        REQUIRE_FALSE(table.empty());
+        // The File menu's label is the language's word for it.
+        const auto file = s.ui.find("menu.file");
+        REQUIRE(file.has_value());
+        const auto it = table.find("File");
+        REQUIRE(it != table.end());
+        CHECK(file->label.substr(0, file->label.find("###")) == it->second);
+    }
+}
