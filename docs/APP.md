@@ -630,6 +630,85 @@ bases and loading a recording on the demo), `test_app_ui`
 verification and reselection with the demo's replayed walk, the Post
 page and the hover readout).
 
+## Touch layout, themes, languages, help and sounds (step 9.9)
+
+The style follows the settings (`Gui::style_of(AppSettings)`, applied
+by `Gui::apply_style` at start and whenever the settings change):
+
+- **Themes** (UI-13): `settings.theme.dark`, `settings.theme.light`,
+  `settings.theme.high_contrast` (black windows, white text, yellow
+  focus). `theme_is_light()` picks the logo variants (BRD-03).
+- **Touch layout and scale** (UI-13): `settings.touch` scales the font
+  by 1.5 and pads frames so buttons, fields, menu entries, list rows
+  and `small_button`s are at least `kTouchTargetPx` (48 px) high;
+  `settings.ui_scale` (75..250 %) scales every size. The widgets take
+  their sizes from `gui_detail::layout()` (`target_h`, `button_w`,
+  `row_h`, `px`). Dialogs never get higher than the app window; the
+  settings tabs scroll (`###settings.body`) so Apply, OK and Cancel stay
+  in view.
+- **Languages** (UI-12): `settings.language` (English, Nederlands,
+  Français, Deutsch). The code holds the English texts; `tr()` (labels,
+  tooltips, reasons, status texts), `trf()` (`{}` places) and
+  `tr_mark()` (static tables, translated where shown) look them up in
+  `data/i18n/<lang>.json`, embedded at build time
+  (`build/app/i18n_tables.cpp`). The `###id` part of a label never goes
+  through a table, so ids are the same in every language. The plugins'
+  windows and the radio windows get the language too
+  (`PluginUi::set_language`, `RadioWindows::set_language`). Texts written
+  to files (CSV, JSON, project keys) stay English. To add a text: write
+  it in English in `tr()`, then add it to the three tables;
+  `tools/ci/lint_ui.py --extract` lists every text.
+- **Help** (DOC-07 e): the user manual in `docs/manual/NN-*.md`
+  (installed to `share/yantra/manual`; `manual_sections()` in
+  `app/model/src/manual.cpp` lists its chapters and sections). Every
+  window and page has `help` at its top right, opening its section;
+  F1 opens the section of the window that had the focus; Help > User
+  manual opens the contents. The help window is `win.help`
+  (`help.contents`, `help.close`, `help.chapter.<n>`, the text in
+  `###help.text`); over a modal dialog it opens as a modal on top, and
+  the dialog stays as it was. `AppState::open_help(section)` /
+  `close_help()` / `help_view()`.
+- **Sounds and level alerts** (UI-09, UI-10): the Sound tab
+  `settings.tab.sound`: `settings.sound` (on/off), `settings.volume`,
+  `settings.sound_sync`, `settings.sound_reselection`,
+  `settings.sound_battery`, the level tone `settings.level_tone` with
+  `settings.level_interval` (2..120 s), the test buttons
+  `settings.test.<sound>`, and up to 8 level alerts
+  (`settings.alert.cell.<i>`, `settings.alert.threshold.<i>`,
+  `settings.alert.remove.<i>`, `settings.alert.add`, popup on/off
+  `settings.alert_popup`). `AudibleAlerts` (model) turns the live radio's
+  events (sync lost/back, serving cell change), a low battery and the
+  serving level into short tones (`alert_clip`: patterns of sine tones;
+  the level tone's pitch goes from 300 Hz at -120 dBm to 1500 Hz at
+  -40 dBm) played through the `AudioIo` (miniaudio; `FakeAudio` in the
+  tests). A sound never cuts a playing one (a voice note); at most 4
+  wait. A level alert's cell is matched by name, identity, key or
+  carrier in MHz; it fires once when the level drops below the
+  threshold (or the cell is no longer received) and again only after
+  it was 2 dB above. Its popup is `win.alerts` (`alerts.dismiss`).
+  Replay plays no sounds.
+- **UI lint** (DOC-20): `tools/ci/lint_ui.py` (ctest `ui_lint`) checks
+  the tables against the code; `tests/app/ui/test_ui_lint.cpp` draws
+  every window in every language, desktop and touch, and checks the
+  frame (`tests/app/ui/ui_lint.h`): every control with an id has a
+  hover text (the tooltip helpers of `gui_widgets.h` note their item
+  while a `HelpRecord` is set), a disabled control has its reason, no
+  controls overlap or are cut off at their window's edge, touch targets
+  are 48 px, and every text has its translation. A new window joins the
+  lint by adding it to `visit_all()`.
+
+Hooks for the next steps:
+
+- 9.10 (guided tour): the tour's steps can open help sections with
+  `AppState::open_help("N.M")` and point at the stable ids above; its
+  progress belongs in `AppSettings` next to `language` and `touch`
+  (settings JSON, `check_settings`, reset); its texts go through `tr()`
+  and the three tables, and `visit_all()` gets the tour window.
+- 9.11 (screenshots): `Gui::apply_style(GuiStyle{theme, touch, scale})`
+  and `set_language()` give every theme, language and the touch layout
+  headless; the windows and pages to shoot are those `visit_all()`
+  opens (the demo project for the project pages).
+
 ## Headless UI tests (tests/app/harness)
 
 `yantra::test::UiHarness` (library `yantra_ui_harness`) runs a real
