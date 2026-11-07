@@ -117,7 +117,7 @@ void Gui::draw_survey_section() {
     ImGui::SeparatorText(tr("Coverage"));
     double th = state_.monitor()->stats().threshold_dbm;
     ImGui::SetNextItemWidth(110.0F);
-    if (ImGui::InputDouble("dBm###survey.threshold", &th, 1.0, 5.0, "%.0f") && th >= kMinThresholdDbm && th <= kMaxThresholdDbm)
+    if (ImGui::InputDouble(tr("dBm###survey.threshold"), &th, 1.0, 5.0, "%.0f") && th >= kMinThresholdDbm && th <= kMaxThresholdDbm)
         (void)state_.show(state_.set_coverage_threshold(th));
     text_tooltip(tr("The serving level that counts as covered in the statistics (UI-11); kept in the settings."));
 }
@@ -130,7 +130,7 @@ void Gui::draw_recording_controls(LiveSurvey& live) {
         const bool paused = st.state == recording::RecorderState::Paused;
         ImGui::TextColored(paused ? kWarnColour : kRecordColour, "%s %s, file %u", paused ? tr("Paused:") : tr("Recording:"),
                            st.name.c_str(), st.file_index);
-        ImGui::TextDisabled("%llu messages in the file, %u markers, %u voice notes",
+        ImGui::TextDisabled(tr("%llu messages in the file, %u markers, %u voice notes"),
                             static_cast<unsigned long long>(st.messages_in_file), st.next_marker - 1, st.voice_notes);
         if (!st.error.empty()) ImGui::TextColored(kErrorColour, "%s", st.error.c_str());
         const std::string why_stop = live.running() ? tr("The walk test records into it: stop the walk test.") : "";
@@ -170,10 +170,10 @@ void Gui::draw_recording_controls(LiveSurvey& live) {
         input_text("###rec.notes", f.notes, 512);
         text_tooltip(tr("Notes for the recording's header (no personal data)."));
         ImGui::SetNextItemWidth(110.0F);
-        ImGui::InputDouble("min split###rec.split", &f.split_minutes, 1.0, 5.0, "%.0f");
+        ImGui::InputDouble(tr("min split###rec.split"), &f.split_minutes, 1.0, 5.0, "%.0f");
         text_tooltip(tr("A new file every so many minutes (0 = one file)."));
         ImGui::SameLine();
-        ImGui::Checkbox("zstd###rec.compress", &f.compress);
+        ImGui::Checkbox(tr("zstd###rec.compress"), &f.compress);
         text_tooltip(tr("Compress the files (zstd)."));
         const std::string why = live.record_reason();
         if (tool_button(tr("Record###rec.record"), why, tr("Record the measurements into the project's recordings folder.")))
@@ -193,8 +193,10 @@ void Gui::draw_recording_controls(LiveSurvey& live) {
     ImGui::SameLine();
     ImGui::SetNextItemWidth(90.0F);
     ImGui::BeginDisabled(f.ring);
-    ImGui::InputDouble("min###rec.ring_minutes", &f.ring_minutes, 1.0, 5.0, "%.0f");
+    ImGui::InputDouble(tr("min###rec.ring_minutes"), &f.ring_minutes, 1.0, 5.0, "%.0f");
     ImGui::EndDisabled();
+    text_tooltip(f.ring ? tr("The minutes the ring buffer keeps. Switch the ring buffer off to change them.")
+                        : tr("The minutes the ring buffer keeps."));
     const auto files = live.ring_files();
     if (!files.empty()) {
         ImGui::SetNextItemWidth(-1.0F);
@@ -225,7 +227,9 @@ void Gui::draw_replay_controls() {
         for (std::size_t i = 0; i < list.size(); ++i) {
             char label[256];
             std::snprintf(label, sizeof label, "%s (%zu)###replay.item.%zu", list[i].name.c_str(), list[i].files.size(), i);
-            if (ImGui::Selectable(label, replay_pick_ == static_cast<int>(i))) replay_pick_ = static_cast<int>(i);
+            if (ImGui::Selectable(label, replay_pick_ == static_cast<int>(i), 0, ImVec2(0.0F, row_h())))
+                replay_pick_ = static_cast<int>(i);
+            text_tooltip(tr("Choose this recording (its number of files in brackets)."));
         }
         ImGui::EndChild();
         const std::string why = replay_pick_ < 0 ? tr("Choose a recording first.")
@@ -371,7 +375,7 @@ void Gui::draw_cells_panel(const SurveyFrame& f) {
         ImGui::NewLine();
         ImGui::PopFont();
     }
-    ImGui::TextDisabled("%llu samples", static_cast<unsigned long long>(f.samples));
+    ImGui::TextDisabled(tr("%llu samples"), static_cast<unsigned long long>(f.samples));
     ImGui::EndGroup();
     ImGui::SameLine(std::max(start.x + 260.0F, ImGui::GetCursorPosX() + 20.0F));
 

@@ -95,7 +95,8 @@ inline void item_tooltip(const ActionView& a) {
 }
 
 inline void text_tooltip(const char* text) {
-    note_help(false);
+    // On a disabled item the text is written to say why (DOC-07 c).
+    note_help((ImGui::GetItemFlags() & ImGuiItemFlags_Disabled) != 0);
     if (!tooltips_shown()) return;
     if (!ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) return;
     ImGui::BeginTooltip();
@@ -103,6 +104,31 @@ inline void text_tooltip(const char* text) {
     ImGui::TextUnformatted(text);
     ImGui::PopTextWrapPos();
     ImGui::EndTooltip();
+}
+
+/// The height of a list row or menu entry in the touch layout (48 px
+/// with the spacing, UI-13); 0 (the text's height) on the desktop.
+inline float row_h() {
+    if (!layout().touch) return 0.0F;
+    return std::max(0.0F, static_cast<float>(kTouchTargetPx) * layout().scale - ImGui::GetStyle().ItemSpacing.y + 0.5F);
+}
+/// SmallButton on the desktop; a full touch target in the touch layout.
+inline bool small_button(const char* label) {
+    if (!layout().touch) return ImGui::SmallButton(label);
+    return ImGui::Button(label, ImVec2(0.0F, target_h()));
+}
+
+/// A tab with its hover text (DOC-07 b); true when its page shows.
+inline bool tab_item(const char* label, const char* tooltip, ImGuiTabItemFlags flags = 0) {
+    const bool open = ImGui::BeginTabItem(label, nullptr, flags);
+    text_tooltip(tooltip);
+    return open;
+}
+/// A collapsing header with its hover text (DOC-07 b).
+inline bool section_header(const char* label, const char* tooltip, ImGuiTreeNodeFlags flags = 0) {
+    const bool open = ImGui::CollapsingHeader(label, flags);
+    text_tooltip(tooltip);
+    return open;
 }
 
 /// The hover text of the last item, and why it is disabled when it is

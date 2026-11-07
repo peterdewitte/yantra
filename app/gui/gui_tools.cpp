@@ -37,6 +37,7 @@ bool tool_button(const std::string& label, bool enabled, const std::string& tip,
     const bool pressed = ImGui::Button(label.c_str());
     if (active) ImGui::PopStyleColor();
     ImGui::EndDisabled();
+    note_help(!enabled && !reason.empty());
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) {
         ImGui::BeginTooltip();
         ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
@@ -142,7 +143,7 @@ void Gui::draw_edit_section() {
         if (f.own_value) {
             ImGui::SameLine();
             ImGui::SetNextItemWidth(ImGui::GetFontSize() * 7.0F);
-            if (ImGui::InputDouble("dB###edit.attenuation", &f.attenuation_db, 0.5, 5.0, "%.1f",
+            if (ImGui::InputDouble(tr("dB###edit.attenuation"), &f.attenuation_db, 0.5, 5.0, "%.1f",
                                    ImGuiInputTextFlags_EnterReturnsTrue))
                 (void)state_.show(ed->apply_wall_form());
             text_tooltip(tr("The wall's own attenuation (0 to 100 dB); Enter stores it."));
@@ -234,7 +235,7 @@ void Gui::draw_walk_section(const FloorContent* c) {
         return;
     }
     const WalkView v = live->view();
-    ImGui::Text("%zu points stored", v.points);
+    ImGui::Text(tr("%zu points stored"), v.points);
     wrapped(v.radio);
     if (v.kind == WalkKind::PointAndClick || v.kind == WalkKind::Continuous) {
         if (ImGui::Button(tr("Pause###walk.pause"))) (void)state_.show(live->pause());
@@ -464,7 +465,7 @@ void Gui::draw_antenna_dialog() {
     text_tooltip(tr("The name of a new cell."));
     ImGui::SameLine();
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 7.0F);
-    ImGui::InputDouble("MHz###new_cell_mhz", &new_cell_mhz_, 0.0, 0.0, "%.4f");
+    ImGui::InputDouble(tr("MHz###new_cell_mhz"), &new_cell_mhz_, 0.0, 0.0, "%.4f");
     text_tooltip(tr("Its main carrier in MHz (0: not known)."));
     ImGui::SameLine();
     if (ImGui::Button(tr("Add cell###add_cell"))) {
@@ -489,7 +490,11 @@ void Gui::draw_materials_dialog() {
         ImGui::TableSetupColumn(tr("Class"));
         ImGui::TableSetupColumn(tr("Attenuation"));
         ImGui::TableSetupColumn(tr("Walls"));
-        ImGui::TableSetupColumn("");
+        // The buttons' column fits its two (translated, touch-sized) buttons.
+        const ImGuiStyle& st = ImGui::GetStyle();
+        const float buttons_w = ImGui::CalcTextSize(tr("Edit")).x + ImGui::CalcTextSize(tr("Remove")).x +
+                                st.FramePadding.x * 4.0F + st.ItemSpacing.x + 2.0F;
+        ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, buttons_w);
         ImGui::TableHeadersRow();
         for (const MaterialRow& m : ed->materials()) {
             ImGui::PushID(m.id.c_str());
@@ -501,7 +506,7 @@ void Gui::draw_materials_dialog() {
             ImGui::TableNextColumn();
             ImGui::Text("%zu", m.walls);
             ImGui::TableNextColumn();
-            if (ImGui::SmallButton((tr("Edit###mat.edit.") + m.id).c_str())) material_editing_ = state_.show(ed->edit_material(m.id)).ok;
+            if (small_button((tr("Edit###mat.edit.") + m.id).c_str())) material_editing_ = state_.show(ed->edit_material(m.id)).ok;
             text_tooltip(tr("Change the class's attenuation per frequency band."));
             ImGui::SameLine();
             const std::string why = m.walls > 0 ? std::to_string(m.walls) + tr(" walls use this class.") : std::string();
@@ -537,7 +542,7 @@ void Gui::draw_materials_dialog() {
             text_tooltip(tr("The attenuation of one wall of this class at that frequency (0 to 100 dB)."));
             ImGui::SameLine();
             ImGui::BeginDisabled(f.bands.size() <= 1);
-            if (ImGui::SmallButton((tr("Remove###mat.band.") + n + ".remove").c_str())) {
+            if (small_button((tr("Remove###mat.band.") + n + ".remove").c_str())) {
                 f.bands.erase(f.bands.begin() + static_cast<std::ptrdiff_t>(i));
                 ImGui::EndDisabled();
                 ImGui::PopID();
@@ -546,7 +551,7 @@ void Gui::draw_materials_dialog() {
             ImGui::EndDisabled();
             ImGui::PopID();
         }
-        if (ImGui::SmallButton(tr("Add band###mat.band_add")))
+        if (small_button(tr("Add band###mat.band_add")))
             f.bands.push_back({f.bands.empty() ? 400.0 : f.bands.back().frequency_mhz * 2.0, f.bands.empty() ? 10.0 : f.bands.back().attenuation_db});
         text_tooltip(tr("Add a frequency band."));
         if (dialog_button(tr("Apply###mat.apply"), tr("Store the class; walls of this class use it at once"))) {

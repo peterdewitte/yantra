@@ -189,6 +189,12 @@ void Gui::handle_shortcuts() {
 
 void Gui::draw_menu_bar() {
     if (!ImGui::BeginMainMenuBar()) return;
+    // Touch layout: menu entries of a touch target's height (UI-13).
+    const ImVec2 spacing = ImGui::GetStyle().ItemSpacing;
+    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,
+                        ImVec2(spacing.x, layout().touch ? std::max(spacing.y, px(static_cast<float>(kTouchTargetPx)) -
+                                                                                   ImGui::GetFontSize() + 0.5F)
+                                                         : spacing.y));
     for (const Menu& m : state_.menus()) {
         if (!ImGui::BeginMenu((m.label + "###menu." + m.id).c_str())) {
             if (m.id == "file") {
@@ -202,7 +208,9 @@ void Gui::draw_menu_bar() {
             case MenuEntry::Kind::Separator: ImGui::Separator(); break;
             case MenuEntry::Kind::Recent: {
                 const auto recent = state_.recent_projects();
-                if (ImGui::BeginMenu(tr("Recent projects###file.recent"), !recent.empty())) {
+                const bool open = ImGui::BeginMenu(tr("Recent projects###file.recent"), !recent.empty());
+                if (!recent.empty()) text_tooltip(tr("The projects you opened last."));
+                if (open) {
                     for (const RecentView& r : recent) {
                         if (ImGui::MenuItem(r.label.c_str(), nullptr, false, r.exists))
                             (void)state_.open_project(r.path);
@@ -230,6 +238,7 @@ void Gui::draw_menu_bar() {
             draw_plugin_menus();  // PLG-06: View and Tools when plugins add entries
         }
     }
+    ImGui::PopStyleVar();
     ImGui::EndMainMenuBar();
 }
 
@@ -382,32 +391,32 @@ void Gui::draw_project_screen() {
     overlay_.progress = false;
     // Shrink, never scroll: every page's tab stays in view on a narrow panel.
     if (ImGui::BeginTabBar("###panel.tabs", ImGuiTabBarFlags_FittingPolicyShrink)) {
-        if (ImGui::BeginTabItem(tr("Layers###panel.layers"))) {
+        if (tab_item(tr("Layers###panel.layers"), tr("The layers of the plan: what is shown and in which order."))) {
             help_button("13.4");
             draw_layer_panel(*w, c);
             ImGui::EndTabItem();
         }
-        if (c != nullptr && ImGui::BeginTabItem(tr("Edit###panel.edit"))) {
+        if (c != nullptr && tab_item(tr("Edit###panel.edit"), tr("Draw walls and place antennas on the floor."))) {
             help_button("13.3");
             draw_edit_section();
             ImGui::EndTabItem();
         }
-        if (c != nullptr && ImGui::BeginTabItem(tr("Walk###panel.walk"))) {
+        if (c != nullptr && tab_item(tr("Walk###panel.walk"), tr("Walk tests: measure the floor while you walk it."))) {
             help_button("7.1");
             draw_walk_section(c);
             ImGui::EndTabItem();
         }
-        if (c != nullptr && ImGui::BeginTabItem(tr("Map###panel.map"))) {
+        if (c != nullptr && tab_item(tr("Map###panel.map"), tr("The interpolated coverage map of the floor."))) {
             help_button("13.5");
             draw_interpolation_section(c);
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem(tr("Survey###panel.survey"))) {
+        if (tab_item(tr("Survey###panel.survey"), tr("The live survey: levels, cells, graphs, events and recording."))) {
             help_button("5.1");
             draw_survey_section();
             ImGui::EndTabItem();
         }
-        if (c != nullptr && ImGui::BeginTabItem(tr("Post###panel.post"))) {
+        if (c != nullptr && tab_item(tr("Post###panel.post"), tr("Post-processing of the measured points: views and acceptance."))) {
             help_button("11.1");
             draw_post_section();
             ImGui::EndTabItem();
@@ -504,7 +513,7 @@ void Gui::draw_layer_panel(ProjectWindow& w, const FloorContent* c) {
             ImGui::Indent();
             float size = static_cast<float>(state_.settings().layers.bin_size_m);
             ImGui::SetNextItemWidth(ImGui::GetFontSize() * 9.0F);
-            if (ImGui::InputFloat("Square (m)###layer.bin_size", &size, 0.5F, 1.0F, "%.1f",
+            if (ImGui::InputFloat(tr("Square (m)###layer.bin_size"), &size, 0.5F, 1.0F, "%.1f",
                                   ImGuiInputTextFlags_EnterReturnsTrue))
                 (void)state_.set_bin_size(static_cast<double>(size));
             text_tooltip(tr("The side of the squares in metres (0.5 to 50). Each square shows the median of its points."));
@@ -530,7 +539,7 @@ void Gui::draw_layer_panel(ProjectWindow& w, const FloorContent* c) {
     }
     if (c != nullptr) {
         ImGui::SeparatorText(tr("Floor"));
-        ImGui::TextDisabled("%zu measured points", c->points.count());
+        ImGui::TextDisabled(tr("%zu measured points"), c->points.count());
         if (c->metres_per_unit)
             ImGui::TextDisabled(tr("Scale: %.4g m per plan unit"), *c->metres_per_unit);
         else
@@ -649,10 +658,12 @@ void Gui::draw_browser() {
             ImGui::TableNextColumn();
             const std::string label = (e.directory ? "[folder]  " : "") + e.name + "###fb.e." + std::to_string(i);
             if (ImGui::Selectable(label.c_str(), b->selected() == i,
-                                  ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick)) {
+                                  ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick,
+                                  ImVec2(0.0F, row_h()))) {
                 b->select(i);
                 if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left) || e.directory) activate = i;
             }
+            text_tooltip(e.directory ? tr("Open this folder.") : tr("Choose this file; a double click opens it."));
             ImGui::TableNextColumn();
             if (!e.directory) ImGui::TextDisabled("%s", format_size(e.size).c_str());
         }
@@ -702,7 +713,7 @@ void Gui::draw_browser() {
         if (!ImGui::IsPopupOpen(tr("Replace file?###dlg.overwrite"))) ImGui::OpenPopup(tr("Replace file?###dlg.overwrite"));
         if (ImGui::BeginPopupModal(tr("Replace file?###dlg.overwrite"), nullptr,
                                    ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) {
-            ImGui::Text("%s already exists.", b->pending_overwrite()->filename().string().c_str());
+            ImGui::Text(tr("%s already exists."), b->pending_overwrite()->filename().string().c_str());
             ImGui::TextDisabled("%s", b->pending_overwrite()->parent_path().string().c_str());
             ImGui::TextUnformatted(tr("Replace it? The old file is lost."));
             if (dialog_button(tr("Replace###ow.yes"), tr("Replace the existing file"))) {
@@ -753,7 +764,7 @@ void Gui::draw_add_floor() {
     ImGui::InputInt(tr("Level###level"), &f.level);
     text_tooltip(tr("0 = ground floor, 1 = first floor, -1 = basement. Every floor has its own level."));
     float height = static_cast<float>(f.height_m);
-    if (ImGui::InputFloat("Height (m)###height", &height, 0.1F, 0.5F, "%.2f")) f.height_m = static_cast<double>(height);
+    if (ImGui::InputFloat(tr("Height (m)###height"), &height, 0.1F, 0.5F, "%.2f")) f.height_m = static_cast<double>(height);
     text_tooltip(tr("Floor-to-floor height in metres (more than 0, at most 50), used for the slab between floors."));
     ImGui::Spacing();
     if (dialog_button(tr("Add blank floor###dlg.ok"), tr("Add the floor without a plan [Enter]"), 180.0F) ||
@@ -889,7 +900,7 @@ void Gui::draw_floor_properties() {
     text_tooltip(tr("0 = ground floor, 1 = first floor, -1 = basement. Every floor has its own level; the tabs are "
                  "ordered by level."));
     float height = static_cast<float>(f.height_m);
-    if (ImGui::InputFloat("Height (m)###height", &height, 0.1F, 0.5F, "%.2f")) f.height_m = static_cast<double>(height);
+    if (ImGui::InputFloat(tr("Height (m)###height"), &height, 0.1F, 0.5F, "%.2f")) f.height_m = static_cast<double>(height);
     text_tooltip(tr("Floor-to-floor height in metres (more than 0, at most 50), used for the slab between floors."));
     ImGui::Spacing();
     if (dialog_button(tr("Apply###dlg.ok"), tr("Store the changes [Enter]")) ||

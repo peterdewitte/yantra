@@ -85,8 +85,6 @@ enum class Action {
     Reselection,   ///< Network > Reselection simulator (DB-08)
 };
 
-/// The non-modal windows of the Network menu (step 9.8); the Gui closes
-/// them with the window's close button.
 /// The help window (DOC-07 e): a section of the user manual.
 struct HelpView {
     bool open = false;
@@ -98,6 +96,8 @@ struct HelpView {
     std::vector<std::pair<std::string, std::string>> chapters;
 };
 
+/// The non-modal windows of the Network menu (step 9.8); the Gui closes
+/// them with the window's close button.
 struct NetworkWindows {
     bool cell_db = false;
     bool verification = false;

@@ -15,3 +15,11 @@ else()
   add_test(NAME reuse_lint COMMAND sh -c "echo 'reuse not found (pip install reuse)'; exit 77")
 endif()
 set_tests_properties(reuse_lint PROPERTIES LABELS "fast;lint" TIMEOUT 300 SKIP_RETURN_CODE 77)
+
+# The UI lint's source half (DOC-20, UI-12): every UI text has its NL, FR
+# and DE translation with the same placeholders, no stale entries, and the
+# manual sections it refers to exist (tools/ci/lint_ui.py; the run-time
+# half is test_app_ui's "DOC-20 UI lint" cases).
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+add_test(NAME ui_lint COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tools/ci/lint_ui.py ${PROJECT_SOURCE_DIR})
+set_tests_properties(ui_lint PROPERTIES LABELS "fast;lint" TIMEOUT 120)

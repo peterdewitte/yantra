@@ -65,7 +65,7 @@ void Gui::draw_settings_general(AppSettings& f) {
     text_tooltip(tr("Show the hover texts of the controls. The (?) markers and the reasons of greyed controls stay."));
     ImGui::BeginDisabled(!f.tooltips);
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
-    ImGui::InputDouble("Tooltip delay (s)###settings.tooltip_delay", &f.tooltip_delay_s, 0.1, 0.5, "%.1f");
+    ImGui::InputDouble(tr("Tooltip delay (s)###settings.tooltip_delay"), &f.tooltip_delay_s, 0.1, 0.5, "%.1f");
     text_tooltip(tr("How long the pointer rests on a control before its tooltip shows (0 to 5 s)."));
     ImGui::EndDisabled();
 
@@ -75,7 +75,8 @@ void Gui::draw_settings_general(AppSettings& f) {
     for (int i = 0; i < 3; ++i)
         if (f.window_system == systems[i]) ws = i;
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
-    if (ImGui::Combo(tr("Window system###settings.window_system"), &ws, tr("Automatic\0X11\0Wayland\0"))) f.window_system = systems[ws];
+    if (ImGui::Combo(tr("Window system###settings.window_system"), &ws, (std::string(tr("Automatic")) + '\0' + "X11" + '\0' + "Wayland" + '\0').c_str()))
+        f.window_system = systems[ws];
     text_tooltip(tr("Which window system Yantra uses on Linux (NFR-10). Applies at the next start."));
     help_marker(tr("Automatic picks Wayland when the desktop runs it, else X11. The command line option --window-system overrides it."));
 }
@@ -83,19 +84,19 @@ void Gui::draw_settings_general(AppSettings& f) {
 void Gui::draw_settings_survey(AppSettings& f) {
     ImGui::SeparatorText(tr("Coverage"));
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
-    ImGui::InputDouble("Coverage threshold (dBm)###settings.threshold", &f.survey.threshold_dbm, 1.0, 5.0, "%.0f");
+    ImGui::InputDouble(tr("Coverage threshold (dBm)###settings.threshold"), &f.survey.threshold_dbm, 1.0, 5.0, "%.0f");
     text_tooltip(tr("The serving level that counts as covered in the statistics and the survey panel (UI-11), -150 to -20 dBm."));
 
     ImGui::SeparatorText(tr("Live graphs"));
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
-    ImGui::InputDouble("Graph span (min)###settings.graph_span", &f.survey.graph_span_min, 1.0, 5.0, "%.0f");
+    ImGui::InputDouble(tr("Graph span (min)###settings.graph_span"), &f.survey.graph_span_min, 1.0, 5.0, "%.0f");
     text_tooltip(tr("How many minutes the live level, C1 and quality graphs show (1 to 60). A replay shows the whole recording."));
 
     ImGui::SeparatorText(tr("Ring buffer"));
     ImGui::Checkbox(tr("Ring buffer on when a project opens###settings.ring"), &f.survey.ring);
     text_tooltip(tr("Keep the last minutes of measurements while no recording runs, to save them afterwards (REC-09)."));
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
-    ImGui::InputDouble("Ring buffer length (min)###settings.ring_minutes", &f.survey.ring_minutes, 1.0, 5.0, "%.0f");
+    ImGui::InputDouble(tr("Ring buffer length (min)###settings.ring_minutes"), &f.survey.ring_minutes, 1.0, 5.0, "%.0f");
     text_tooltip(tr("How many minutes the ring buffer keeps (2 to 60). A running ring buffer keeps its length."));
 }
 
@@ -260,8 +261,8 @@ void Gui::draw_settings() {
     const bool editing = ImGui::IsAnyItemActive();
     // A tab's content scrolls when it is higher than the app window leaves
     // room for, so Apply, OK and Cancel stay in view (UI-13 touch layout).
-    auto tab = [&](const char* label, const auto& body) {
-        if (!ImGui::BeginTabItem(label)) return;
+    auto tab = [&](const char* label, const char* tip, const auto& body) {
+        if (!tab_item(label, tip)) return;
         const ImGuiViewport* vp = ImGui::GetMainViewport();
         const float used = ImGui::GetCursorScreenPos().y - vp->WorkPos.y;
         const float footer = target_h() + ImGui::GetFrameHeightWithSpacing() * 3.0F;
@@ -272,10 +273,10 @@ void Gui::draw_settings() {
         ImGui::EndTabItem();
     };
     if (ImGui::BeginTabBar("###settings.tabs")) {
-        tab(tr("General###settings.tab.general"), [&] { draw_settings_general(f); });
-        tab(tr("Survey###settings.tab.survey"), [&] { draw_settings_survey(f); });
-        tab(tr("Sound###settings.tab.sound"), [&] { draw_settings_sound(f); });
-        tab(tr("Plugins###settings.tab.plugins"), [&] { draw_plugin_manager(); });
+        tab(tr("General###settings.tab.general"), tr("Language, appearance, touch layout and tooltips."), [&] { draw_settings_general(f); });
+        tab(tr("Survey###settings.tab.survey"), tr("Coverage threshold, graphs and the ring buffer."), [&] { draw_settings_survey(f); });
+        tab(tr("Sound###settings.tab.sound"), tr("Audible events, the level tone and level alerts."), [&] { draw_settings_sound(f); });
+        tab(tr("Plugins###settings.tab.plugins"), tr("Switch plugins on or off."), [&] { draw_plugin_manager(); });
         ImGui::EndTabBar();
     }
     ImGui::Separator();
@@ -284,8 +285,11 @@ void Gui::draw_settings() {
     error_line(state_);
     const bool changed = !(f == state_.settings());
     ImGui::BeginDisabled(!why.empty() || !changed);
-    if (dialog_button(tr("Apply###dlg.apply"), tr("Use these settings and keep the window open."))) (void)state_.show(state_.apply_settings(f));
+    if (ImGui::Button(tr("Apply###dlg.apply"), ImVec2(button_w(tr("Apply###dlg.apply"), 140.0F), target_h())))
+        (void)state_.show(state_.apply_settings(f));
     ImGui::EndDisabled();
+    disabled_tooltip(tr("Use these settings and keep the window open."), why.empty() && changed,
+                     !why.empty() ? why : std::string(tr("Nothing changed yet.")));
     ImGui::SameLine();
     ImGui::BeginDisabled(!why.empty());
     if (dialog_button(tr("OK###dlg.ok"), tr("Use these settings and close [Enter]")) ||

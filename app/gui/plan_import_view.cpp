@@ -32,6 +32,8 @@ constexpr ImU32 kSelectedColour = IM_COL32(30, 110, 230, 255);  // the selected 
 constexpr ImU32 kScaleColour = IM_COL32(200, 30, 160, 255);
 
 void tooltip(const char* text) {
+    // A disabled control's text says why (DOC-07 c).
+    gui_detail::note_help((ImGui::GetItemFlags() & ImGuiItemFlags_Disabled) != 0);
     if (!ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) return;
     ImGui::BeginTooltip();
     ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
@@ -401,7 +403,7 @@ void PlanImportView::draw_panel(PlanImportWindow& w) {
         ImGui::InputInt(tr("Level###pi.add_level"), &f->level);
         tooltip(tr("0 = ground floor, 1 = first floor, -1 = basement. Every floor has its own level."));
         float h = static_cast<float>(f->height_m);
-        if (ImGui::InputFloat("Height (m)###pi.add_height", &h, 0.1F, 0.5F, "%.2f")) f->height_m = h;
+        if (ImGui::InputFloat(tr("Height (m)###pi.add_height"), &h, 0.1F, 0.5F, "%.2f")) f->height_m = h;
         tooltip(tr("Floor-to-floor height in metres (more than 0, at most 50)."));
         if (ImGui::Button(tr("Add###pi.add_ok"), ImVec2(120.0F, 0.0F))) report(w.confirm_add_floor());
         tooltip(tr("Add the trim as this floor. The window stays open for the next floor."));
@@ -421,16 +423,17 @@ void PlanImportView::draw_panel(PlanImportWindow& w) {
     if (placed.empty()) ImGui::TextDisabled(tr("None yet."));
     for (const PlacedView& p : placed) {
         const float row_right = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
-        if (ImGui::Selectable((p.label + "###pi.floor." + p.floor_id).c_str(), p.selected,
-                              ImGuiSelectableFlags_AllowOverlap))
+        // The row's name up to its buttons (they do not overlap it).
+        const float name_w = std::max(gui_detail::px(40.0F), row_right - gui_detail::px(130.0F) - ImGui::GetCursorPosX());
+        if (ImGui::Selectable((p.label + "###pi.floor." + p.floor_id).c_str(), p.selected, 0, ImVec2(name_w, gui_detail::row_h())))
             report(w.select_floor(p.floor_id));
         tooltip(tr("Select this floor for its scale and reference point."));
-        ImGui::SameLine(std::max(row_right - 120.0F, 0.0F));
+        ImGui::SameLine(std::max(row_right - gui_detail::px(120.0F), 0.0F));
         ImGui::BeginDisabled(w.editing().has_value());
-        if (ImGui::SmallButton((tr("Edit###pi.edit.") + p.floor_id).c_str())) report(w.edit_floor(p.floor_id));
+        if (gui_detail::small_button((tr("Edit###pi.edit.") + p.floor_id).c_str())) report(w.edit_floor(p.floor_id));
         tooltip(w.editing() ? tr("Apply or cancel the trim you are editing first.") : tr("Adjust this floor's trim."));
         ImGui::SameLine();
-        if (ImGui::SmallButton((tr("Remove###pi.remove.") + p.floor_id).c_str())) report(w.request_remove(p.floor_id));
+        if (gui_detail::small_button((tr("Remove###pi.remove.") + p.floor_id).c_str())) report(w.request_remove(p.floor_id));
         ImGui::EndDisabled();
         tooltip(tr("Remove this floor (asks first)."));
         const std::string extra = std::string(p.aligned ? tr(", aligned") : "") +

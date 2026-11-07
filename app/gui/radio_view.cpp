@@ -52,6 +52,7 @@ bool reason_button(const std::string& label, const char* tooltip, const std::str
     ImGui::BeginDisabled(!reason.empty());
     const bool pressed = ImGui::Button(label.c_str());
     ImGui::EndDisabled();
+    note_help(!reason.empty());
     if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) {
         ImGui::BeginTooltip();
         ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
@@ -304,7 +305,7 @@ void Gui::draw_radio_list(RadioWindows& rw) {
     if (reason_button(tr("Info###radio.list.info"), tr("Open the device info and self-test window."), open_reason))
         (void)rw.open(RadioWindow::Info);
     ImGui::Separator();
-    if (ImGui::CollapsingHeader(tr("Radio plugins###radio.list.plugins"))) {
+    if (section_header(tr("Radio plugins###radio.list.plugins"), tr("The radio plugins found, their state and version."))) {
         for (std::size_t i = 0; i < v.plugins.size(); ++i) {
             const PluginRow& p = v.plugins[i];
             ImGui::PushID(static_cast<int>(i));
@@ -454,7 +455,7 @@ void Gui::draw_radio_settings(RadioWindows& rw) {
     text_tooltip(tr("Show the settings the radio marks as advanced."));
     if (!v.advanced && v.advanced_hidden != 0) {
         ImGui::SameLine();
-        ImGui::TextDisabled("(%zu hidden)", v.advanced_hidden);
+        ImGui::TextDisabled(tr("(%zu hidden)"), v.advanced_hidden);
     }
     ImGui::SameLine();
     if (ImGui::Button(tr("Reset to defaults###set.reset"))) (void)rw.reset_defaults();
@@ -508,7 +509,7 @@ void Gui::draw_radio_debug(RadioWindows& rw) {
             std::snprintf(head, sizeof head, tr("%s %s  %.1f/s  %.1f s ago###dbg.rec.%zu"), r.carrier.c_str(), r.role.c_str(),
                           r.rate_hz, r.age_s, i);
             if (!ImGui::TreeNode(head)) continue;
-            ImGui::TextDisabled("%s  flags: %s", r.schema.c_str(), r.flags.empty() ? "none" : r.flags.c_str());
+            ImGui::TextDisabled(tr("%s  flags: %s"), r.schema.c_str(), r.flags.empty() ? "none" : r.flags.c_str());
             for (const auto& [name, value] : r.fields) row_text(name.c_str(), value);
             ImGui::TreePop();
         }
@@ -548,7 +549,7 @@ void Gui::draw_radio_calibration(RadioWindows& rw) {
         for (std::size_t i = 0; i < v.entries.size(); ++i) {
             const CalibrationEntryRow& e = v.entries[i];
             ImGui::PushID(static_cast<int>(i));
-            ImGui::Text("%s%s  %s, %zu points, %s until %s%s", e.current ? "> " : "  ", e.date.c_str(), e.method.c_str(),
+            ImGui::Text(tr("%s%s  %s, %zu points, %s until %s%s"), e.current ? "> " : "  ", e.date.c_str(), e.method.c_str(),
                         e.points, e.status.c_str(), e.expires.c_str(), e.simulated ? tr(" (simulated)") : "");
             text_tooltip((e.key_id + "\nSerial " + e.serial + "\nSettings: " + e.settings).c_str());
             ImGui::SameLine();
@@ -598,7 +599,7 @@ void Gui::draw_radio_calibration(RadioWindows& rw) {
                                    ImVec2(260.0F, 0.0F));
             for (const calibration::Reading& r : v.readings) {
                 if (r.accepted)
-                    ImGui::Text("%.4f MHz %.1f dBm: %.2f dBFS", r.frequency_hz / 1e6, r.level_dbm, r.measured_dbfs);
+                    ImGui::Text(tr("%.4f MHz %.1f dBm: %.2f dBFS"), r.frequency_hz / 1e6, r.level_dbm, r.measured_dbfs);
                 else
                     ImGui::TextColored(kErrorColour, "%.4f MHz %.1f dBm: %s", r.frequency_hz / 1e6, r.level_dbm, r.problem.c_str());
             }
@@ -607,16 +608,16 @@ void Gui::draw_radio_calibration(RadioWindows& rw) {
 
     if (ImGui::CollapsingHeader(tr("Verify and frequency error###cal.verify_section"))) {
         ImGui::SetNextItemWidth(140.0F);
-        ImGui::InputDouble("MHz###cal.verify_mhz", &f.verify_mhz, 0.0, 0.0, "%.4f");
+        ImGui::InputDouble(tr("MHz###cal.verify_mhz"), &f.verify_mhz, 0.0, 0.0, "%.4f");
         ImGui::SameLine();
         ImGui::SetNextItemWidth(100.0F);
-        ImGui::InputDouble("dBm###cal.verify_dbm", &f.verify_dbm, 0.0, 0.0, "%.1f");
+        ImGui::InputDouble(tr("dBm###cal.verify_dbm"), &f.verify_dbm, 0.0, 0.0, "%.1f");
         ImGui::SameLine();
         if (reason_button(tr("Verify###cal.verify"), tr("Measure a known level and compare with the table."), v.verify_reason))
             (void)rw.verify();
         if (v.verify_error_db) ImGui::Text(tr("Table error: %+.2f dB"), *v.verify_error_db);
         ImGui::SetNextItemWidth(140.0F);
-        ImGui::InputDouble("Known carrier (MHz)###cal.carrier_mhz", &f.carrier_mhz, 0.0, 0.0, "%.4f");
+        ImGui::InputDouble(tr("Known carrier (MHz)###cal.carrier_mhz"), &f.carrier_mhz, 0.0, 0.0, "%.4f");
         ImGui::SameLine();
         if (reason_button(tr("Measure ppm###cal.ppm"),
                           tr("The radio's frequency error from a carrier of known frequency (its records' frequency error)."),

@@ -87,7 +87,7 @@ void Gui::draw_cell_db(CellDbEditor& ed) {
     const std::vector<std::size_t> shown = ed.filtered(network_.filter);
     const std::vector<CellRowView>& rows = ed.rows();
     ImGui::SameLine();
-    ImGui::TextDisabled("%zu of %zu cells", shown.size(), rows.size());
+    ImGui::TextDisabled(tr("%zu of %zu cells"), shown.size(), rows.size());
     const float list_h = std::max(140.0F, ImGui::GetContentRegionAvail().y * 0.38F);
     if (ImGui::BeginTable("###cells.table", 7,
                           ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_ScrollY |
@@ -102,7 +102,8 @@ void Gui::draw_cell_db(CellDbEditor& ed) {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
             const std::string label = r.name + "###cells.row." + r.id;
-            if (ImGui::Selectable(label.c_str(), ed.selected() == r.id, ImGuiSelectableFlags_SpanAllColumns))
+            if (ImGui::Selectable(label.c_str(), ed.selected() == r.id, ImGuiSelectableFlags_SpanAllColumns,
+                                  ImVec2(0.0F, row_h())))
                 (void)state_.show(ed.select(r.id));
             text_tooltip((tr("Id ") + r.id + ", " + r.origin).c_str());
             ImGui::TableNextColumn();
@@ -137,7 +138,7 @@ void Gui::draw_cell_db(CellDbEditor& ed) {
     }
     ImGui::NewLine();
 
-    if (ImGui::CollapsingHeader(tr("Entry###cells.entry"), ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (section_header(tr("Entry###cells.entry"), tr("The selected entry, or a new one: its fields."), ImGuiTreeNodeFlags_DefaultOpen)) {
         if (!ed.editing()) {
             ImGui::TextDisabled(tr("Select a cell in the list, or start a new one."));
         } else {
@@ -182,28 +183,28 @@ void Gui::draw_cell_db(CellDbEditor& ed) {
         }
     }
 
-    if (ImGui::CollapsingHeader("CSV import and export###cells.csv")) {
+    if (section_header(tr("CSV import and export###cells.csv"), tr("Read or write the cell database as a CSV file."))) {
         CsvForm& c = ed.csv();
         if (network_.csv_file.empty()) network_.csv_file = ed.default_csv_file().string();
         ImGui::PushItemWidth(-160.0F);
         input_text("File###cells.csv.file", network_.csv_file, 1024);
         ImGui::PopItemWidth();
         c.file = network_.csv_file;
-        ImGui::Checkbox("Location area in hexadecimal###cells.csv.hex", &c.hex_la);
+        ImGui::Checkbox(tr("Location area in hexadecimal###cells.csv.hex"), &c.hex_la);
         text_tooltip(tr("Write la as 0x.. (reading takes both)."));
         ImGui::SameLine();
-        ImGui::Checkbox("Semicolons###cells.csv.semicolon", &c.semicolon);
+        ImGui::Checkbox(tr("Semicolons###cells.csv.semicolon"), &c.semicolon);
         text_tooltip(tr("Separate the columns with ';' (spreadsheets with a decimal comma); import finds out itself."));
         ImGui::SameLine();
-        ImGui::Checkbox("Import replaces###cells.csv.replace", &c.replace);
+        ImGui::Checkbox(tr("Import replaces###cells.csv.replace"), &c.replace);
         text_tooltip(tr("Replace the whole database instead of adding to it (rows with the same identity update)."));
-        if (ImGui::Button("Import###cells.import")) (void)state_.show(ed.import_csv());
+        if (ImGui::Button(tr("Import###cells.import"))) (void)state_.show(ed.import_csv());
         ImGui::SameLine();
-        if (ImGui::Button("Export###cells.export")) (void)state_.show(ed.export_csv());
+        if (ImGui::Button(tr("Export###cells.export"))) (void)state_.show(ed.export_csv());
         for (const std::string& p : ed.problems()) ImGui::TextColored(kErrorColour, "%s", p.c_str());
     }
 
-    if (ImGui::CollapsingHeader(tr("Pairing received cells###cells.match"))) {
+    if (section_header(tr("Pairing received cells###cells.match"), tr("Tie cells the radio receives to entries of the database."))) {
         ImGui::TextWrapped(tr("Received cells are paired with entries by these fields (e.g. by location area, by "
                            "carrier or by both). Empty: the technology's key fields."));
         for (const std::string& t : ed.technologies()) {
@@ -267,15 +268,16 @@ void Gui::draw_verification(NetworkChecks& nc) {
     if (network_.log_file.empty()) network_.log_file = nc.default_log_file().string();
     ImGui::PushItemWidth(-260.0F);
     input_text(tr("Log file###verify.log_file"), network_.log_file, 1024);
+    text_tooltip(tr("The file Write log writes the verification to."));
     ImGui::PopItemWidth();
     ImGui::SameLine();
     ImGui::Checkbox(tr("Not seen###verify.not_seen"), &network_.log_not_seen);
     text_tooltip(tr("Also log the entries no received cell paired with."));
     ImGui::SameLine();
-    if (ImGui::Button("Write log###verify.log")) (void)state_.show(nc.write_log(network_.log_file, network_.log_not_seen));
+    if (ImGui::Button(tr("Write log###verify.log"))) (void)state_.show(nc.write_log(network_.log_file, network_.log_not_seen));
     text_tooltip(tr("Add the differences to the CSV log; a difference already in it is not written again."));
 
-    if (ImGui::CollapsingHeader(tr("Neighbour cross-check###verify.cross"), ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (section_header(tr("Neighbour cross-check###verify.cross"), tr("Compare the neighbours each cell broadcasts with the cells received."), ImGuiTreeNodeFlags_DefaultOpen)) {
         const std::vector<CrossCheckRow> cc = nc.cross_check();
         if (cc.empty()) ImGui::TextDisabled(tr("No findings: the neighbour lists agree."));
         for (const CrossCheckRow& r : cc) ImGui::TextColored(rgb_colour(r.rgb), "%s: %s", r.kind.c_str(), r.text.c_str());
@@ -297,11 +299,12 @@ void Gui::draw_reselection(NetworkChecks& nc) {
     for (const auto& [id, name] : choices) {
         if (ImGui::RadioButton((name + "###resel.serving." + id).c_str(), f.serving == id))
             (void)state_.show(nc.choose_serving(id));
+        text_tooltip(tr("Simulate with this cell as the serving cell."));
         ImGui::SameLine();
     }
     ImGui::NewLine();
     ImGui::PushItemWidth(140.0F);
-    ImGui::InputDouble("MS power (dBm)###resel.ms_power", &f.ms_power_dbm, 1.0, 5.0, "%.1f");
+    ImGui::InputDouble(tr("MS power (dBm)###resel.ms_power"), &f.ms_power_dbm, 1.0, 5.0, "%.1f");
     ImGui::PopItemWidth();
     text_tooltip(tr("The radio's maximum transmit power, used by the C1 of the rule."));
     ImGui::SameLine();
