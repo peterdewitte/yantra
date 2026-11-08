@@ -63,6 +63,7 @@ add_library(yantra_core STATIC
   src/project/schema.cpp
   src/project/sqlite.cpp
   src/radio/radio_host.cpp
+  src/report/coverage.cpp
   src/report/document.cpp
   src/report/figure.cpp
   src/report/html.cpp
