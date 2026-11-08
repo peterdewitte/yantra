@@ -52,6 +52,14 @@ precedence = "override"
 SPDX-FileCopyrightText = ["2026 The Yantra contributors", "2026 Curtat BV"]
 SPDX-License-Identifier = "GPL-3.0-or-later AND LicenseRef-Curtat-Trademark"
 
+# Inter 4.1 (SIL OFL 1.1): the font of the exported floor images and the
+# reports (EXP-08), shipped as separate files and loaded at run time.
+[[annotations]]
+path = ["data/fonts/Inter-*"]
+precedence = "override"
+SPDX-FileCopyrightText = "2016 The Inter Project Authors (https://github.com/rsms/inter)"
+SPDX-License-Identifier = "OFL-1.1"
+
 # doctest 2.4.12 (MIT), vendored unchanged; tests only (TST-01).
 [[annotations]]
 path = ["third_party/doctest/doctest/**", "third_party/doctest/LICENSE.txt"]

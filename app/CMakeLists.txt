@@ -173,3 +173,7 @@ install(DIRECTORY ${PROJECT_SOURCE_DIR}/docs/manual/ DESTINATION ${CMAKE_INSTALL
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/data/branding/ DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra/branding
         FILES_MATCHING PATTERN "curtat_logo_*.png" PATTERN "README.md")
 install(FILES ${PROJECT_SOURCE_DIR}/THIRD_PARTY.md DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra)
+# EXP-08: the font of the exported images and reports, with its licence (OFL-1.1).
+install(FILES ${PROJECT_SOURCE_DIR}/data/fonts/Inter-Regular.ttf ${PROJECT_SOURCE_DIR}/data/fonts/Inter-SemiBold.ttf
+              ${PROJECT_SOURCE_DIR}/data/fonts/Inter-OFL.txt
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra/fonts)
