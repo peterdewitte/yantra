@@ -61,6 +61,7 @@ run time, never compiled into the binary (NFR-01).
 | Font | Version | Files | Licence | Source | Used for |
 |---|---|---|---|---|---|
 | Inter | 4.1 (copied unchanged from the earlier Yantra implementation's `data/fonts/`) | `data/fonts/Inter-Regular.ttf`, `data/fonts/Inter-SemiBold.ttf`, `data/fonts/Inter-OFL.txt` (its licence) | OFL-1.1 | https://github.com/rsms/inter | Text of the exported floor images (EXP-08, `core/src/export/image.cpp`) and of the reports; installed in `share/yantra/fonts/` |
+| JetBrains Mono | 2.304 (release tag `v2.304` of https://github.com/JetBrains/JetBrainsMono, `fonts/ttf/JetBrainsMono-Regular.ttf` unchanged, SHA-256 `a0bf60ef0f83c5ed4d7a75d45838548b1f6873372dfac88f71804491898d138f`; the same file as the earlier Yantra implementation's `data/fonts/`) | `data/fonts/JetBrainsMono-Regular.ttf`, `data/fonts/JetBrainsMono-OFL.txt` (its licence) | OFL-1.1 | https://github.com/JetBrains/JetBrainsMono | Numeric tables of the PDF reports (EXP-05, `core/src/report/pdf.cpp`), embedded as a subset; installed in `share/yantra/fonts/` |
 
 ## Data
 
