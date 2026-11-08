@@ -4,7 +4,8 @@
 #
 # The source half of the UI lint (DOC-20, UI-12; the run-time half is
 # tests/app/ui/test_ui_lint.cpp). It finds every text the app passes to
-# tr(), trf() and tr_mark() and checks the translation tables
+# tr(), trf() and tr_mark() (and the report composer's c.tr()/c.trf() in
+# core/src/report, which the app runs through tr(); step 10.4) and checks the translation tables
 # data/i18n/{nl,fr,de}.json against them:
 #   - every text has a translation in every language, and no table keeps
 #     a text the app no longer has;
@@ -24,7 +25,7 @@ import re
 import sys
 
 LANGUAGES = ("nl", "fr", "de")
-SOURCE_DIRS = ("app/gui", "app/model/src", "app/model/include/yantra/app")
+SOURCE_DIRS = ("app/gui", "app/model/src", "app/model/include/yantra/app", "core/src/report")
 CALL = re.compile(r'\b(tr|trf|tr_mark)\(\s*((?:"(?:[^"\\\n]|\\.)*"\s*)+)(?=[),])')
 LITERAL = re.compile(r'"((?:[^"\\\n]|\\.)*)"')
 PRINTF = re.compile(r"%(?:%|[-+ #0]*(?:\*|\d+)?(?:\.(?:\*|\d+))?(?:hh|h|ll|l|z|j|t|L)?[diouxXeEfFgGaAcspn])")
