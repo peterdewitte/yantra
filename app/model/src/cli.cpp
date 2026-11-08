@@ -81,6 +81,29 @@ ParseResult parse_command_line(const std::vector<std::string>& args) {
             c.demo = true;
         } else if (a == "--tour") {
             c.tour = true;
+        } else if (a == "--theme") {
+            const std::string key = value(v) ? (v == "high-contrast" ? std::string("high_contrast") : v) : std::string();
+            c.theme = parse_theme(key);
+            if (!c.theme) return fail("--theme needs dark, light or high-contrast");
+        } else if (a == "--language") {
+            if (value(v)) c.language = parse_language(v);
+            if (!c.language) return fail("--language needs en, nl, fr or de");
+        } else if (a == "--touch") {
+            c.touch = true;
+        } else if (a == "--scale") {
+            int pct = 0;
+            if (!value(v) || !parse_int(v, pct) || pct < static_cast<int>(kMinUiScale * 100.0) ||
+                pct > static_cast<int>(kMaxUiScale * 100.0))
+                return fail("--scale needs a UI scale in percent from 75 to 250");
+            c.scale = pct / 100.0;
+        } else if (a == "--shot") {
+            if (!value(v) || v.empty()) return fail("--shot needs a scene name (see --help)");
+            c.shot = v;
+        } else if (a == "--list-shots") {
+            c.list_shots = true;
+        } else if (a == "--input") {
+            if (!value(v) || v.empty()) return fail("--input needs a file");
+            c.input = v;
         } else if (!a.empty() && a[0] == '-') {
             return fail("unknown option '" + a + "' (try --help)");
         } else {
@@ -90,6 +113,9 @@ ParseResult parse_command_line(const std::vector<std::string>& args) {
     }
     if (c.reset_calibration && !c.reset_settings) return fail("--reset-calibration only goes with --reset-settings");
     if (c.demo && c.project) return fail("--demo opens the demo project: give no project file with it");
+    if (!c.shot.empty() && !c.screenshot) return fail("--shot goes with --screenshot");
+    if (!c.shot.empty() && (c.demo || c.tour || c.project || !c.dialog.empty()))
+        return fail("--shot sets up its own scene: give no project, --demo, --tour or --dialog with it");
     r.command_line = c;
     return r;
 }
@@ -114,6 +140,14 @@ std::string usage_text() {
            "  --demo                  demo mode (DEMO-01): open the demo project with the simulated\n"
            "                          radio \"Demo (simulated network)\"; no radio needed\n"
            "  --tour                  start the guided tour (Help > Tour)\n"
+           "  --theme THEME           dark, light or high-contrast for this run (screenshots)\n"
+           "  --language LANG         en, nl, fr or de for this run (screenshots)\n"
+           "  --touch                 the touch layout for this run (screenshots)\n"
+           "  --scale PERCENT         the UI scale for this run, 75 to 250 (screenshots)\n"
+           "  --shot NAME             with --screenshot: play a scene of the documentation's\n"
+           "                          screenshot set first (tools/screenshots lists them)\n"
+           "  --list-shots            list the scenes of the screenshot set and exit\n"
+           "  --input FILE            the scene's input file (plan_import: a sheet)\n"
            "  --version               print the version and exit\n"
            "  -h, --help              print this help and exit\n";
 }

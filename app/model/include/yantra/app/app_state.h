@@ -383,6 +383,12 @@ public:
     /// UI-08: disk space where recordings go and the power state (read at
     /// most every 2 s; `now_s` is the UI clock).
     const SystemStatus& system_status(double now_s);
+    /// Screenshots (SCR-02): a fixed status instead of this machine's disk
+    /// and battery, so the set does not change from one machine to another.
+    void fix_system_status(SystemStatus status) {
+        system_ = std::move(status);
+        system_fixed_ = true;
+    }
     /// The status bar's line (UI-08): radio, recording, records dropped,
     /// disk, power; and whether it shows a warning.
     struct StatusBar {
@@ -587,6 +593,7 @@ private:
     std::shared_ptr<AudioIo> audio_ = make_no_audio("Sound is not set up in this copy of Yantra.");
     SystemStatus system_;
     double system_read_s_ = -1e9;
+    bool system_fixed_ = false;
     std::unique_ptr<PlanImportWindow> import_window_;
     std::string demo_label_;
     NewProjectForm form_;

@@ -11,7 +11,9 @@ The network, the levels and the walks of the demo project are simulated
 
 - `fraunces.json`: the demo project description (floors, trims, scale
   bars, walls, DAS antennas, walk routes; format `yantra-demo-project`).
-- `cells.csv`: the demo cell database (fictitious cells T1 and M1).
+- `cells.csv`: the demo cell database (fictitious cells T1 and M1, with
+  the access parameters the simulated network broadcasts, so the reselection
+  simulator can decide, DB-08).
 - the two plan sheets below.
 
 | File | Sheet | Source |

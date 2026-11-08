@@ -1143,6 +1143,7 @@ Result AppState::close_replay() {
 }
 
 const SystemStatus& AppState::system_status(double now_s) {
+    if (system_fixed_) return system_;
     if (now_s - system_read_s_ >= 2.0 || now_s < system_read_s_) {
         system_read_s_ = now_s;
         const std::filesystem::path where = project_ ? project_->path().parent_path() : home();

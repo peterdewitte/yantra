@@ -9,6 +9,9 @@
 #   UI tests of every app step link;
 # - test_app_ui: the ImGui layer driven through the harness (ui/*.cpp):
 #   clicks, dialogs, disabled items, as a user does, without a window;
+#   the UI lint and the TST-50 layout check (ui/test_ui_lint.cpp);
+# - test_app_live: the walk-test view and radio windows with the simulator,
+#   and the screenshot scenes (test_screenshots.cpp, SCR-01..03);
 # - launch tests (NFR-10, TST-04): the app on a private Xvfb display shows
 #   its first frame, prefers X11 under WSL by itself, and renders a
 #   screenshot under Mesa software OpenGL 3.1 (llvmpipe). Skipped (77)
@@ -62,14 +65,16 @@ if(TARGET demo_fraunces)
   add_dependencies(test_app_ui demo_fraunces)
   target_compile_definitions(test_app_ui PRIVATE YANTRA_TEST_DEMO_DATA_DIR="${PROJECT_BINARY_DIR}")
 endif()
-add_test(NAME test_app_ui COMMAND test_app_ui)
-set_tests_properties(test_app_ui PROPERTIES LABELS "fast;app" TIMEOUT ${_app_timeout})
+# One ctest per case (step 9.11): the UI lint and the TST-50 layout check
+# visit every window several times, so in the TSan tree the whole binary
+# came close to its limit; each case has its own guard now.
+yantra_doctest_tests(test_app_ui GROUP test_app_ui LABELS "fast;app" TIMEOUT 300)
 
 # The walk-test view with the simulator (step 9.4): real time, one ctest
 # per case; the technology plugins and the simulator of the build tree.
-add_executable(test_app_live test_live_survey.cpp test_live_ui.cpp test_radio_windows_live.cpp test_radio_ui.cpp)
+add_executable(test_app_live test_live_survey.cpp test_live_ui.cpp test_radio_windows_live.cpp test_radio_ui.cpp test_screenshots.cpp)
 target_link_libraries(test_app_live PRIVATE yantra_test_main yantra_warnings yantra_ui_harness yantra::app_gui
-                                            yantra::app_model yantra::core)
+                                            yantra::app_model yantra::core yantra_plan_fixtures)
 target_compile_definitions(test_app_live PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scratch}/test_app_live"
                                                  YANTRA_TEST_SOURCE_DATA_DIR="${PROJECT_SOURCE_DIR}/data"
                                                  YANTRA_TEST_TECH_PLUGIN_DIR="${PROJECT_BINARY_DIR}/lib/yantra/plugins"
@@ -153,6 +158,41 @@ if(TARGET demo_fraunces)
     PATTERNS "^yantra: first frame" "^yantra: screenshot .*project_demo\\.png \\(1280x800\\)"
     COMMAND sh -c "rm -rf \"$1\" && cp -r \"$0\" \"$1\" && exec \"$2\" --size 1280x800 --screenshot \"$1/project_demo.png\" \"$1/fraunces.yantra\""
             ${YANTRA_DEMO_FRAUNCES_DIR} ${_scratch}/project_demo $<TARGET_FILE:yantra>)
+endif()
+
+# SCR-01..03 (step 9.11): scenes of the screenshot set render with OpenGL
+# (tools/screenshots makes the whole set): the survey view of a replayed
+# demo walk in the light theme and in German, the simulator's settings;
+# each with its own data folder (each opens its own copy of the demo).
+if(TARGET demo_fraunces)
+  yantra_app_launch_test(app_shot_survey_light
+    PATTERNS "^yantra: first frame" "^yantra: screenshot .*shot_survey_light\\.png \\(1280x800\\)"
+    COMMAND env XDG_DATA_HOME=${_scratch}/shot_light XDG_CONFIG_HOME=${_scratch}/shot_light
+            $<TARGET_FILE:yantra> --shot survey --theme light --screenshot ${_scratch}/shot_survey_light.png)
+  yantra_app_launch_test(app_shot_survey_de
+    PATTERNS "^yantra: first frame" "^yantra: screenshot .*shot_survey_de\\.png \\(1024x700\\)"
+    COMMAND env XDG_DATA_HOME=${_scratch}/shot_de XDG_CONFIG_HOME=${_scratch}/shot_de
+            $<TARGET_FILE:yantra> --shot survey --language de --touch --size 1024x700
+            --screenshot ${_scratch}/shot_survey_de.png)
+  yantra_app_launch_test(app_shot_radio_settings
+    PATTERNS "^yantra: first frame" "^yantra: screenshot .*shot_radio\\.png \\(1280x800\\)"
+    COMMAND env XDG_DATA_HOME=${_scratch}/shot_radio XDG_CONFIG_HOME=${_scratch}/shot_radio
+            $<TARGET_FILE:yantra> --shot radio_simulator_settings --screenshot ${_scratch}/shot_radio.png)
+endif()
+# --shot needs a known scene, --screenshot and, for plan_import, --input.
+add_test(NAME app_shot_errors
+         COMMAND sh -c "\"$0\" --shot nothing --screenshot x.png 2>&1 | grep -q 'no such scene' && \"$0\" --shot survey; test $? -eq 2 && \"$0\" --shot plan_import --screenshot x.png; test $? -eq 2 && \"$0\" --list-shots | grep -q '^plan_import'"
+                 $<TARGET_FILE:yantra>)
+set_tests_properties(app_shot_errors PROPERTIES LABELS "fast;app")
+
+# SCR-04/05 (opt-in, a few minutes): tools/screenshots makes the whole set
+# into the build tree and compares it with docs/img (threshold 2 % pixels).
+find_program(YANTRA_XVFB Xvfb)
+if(YANTRA_XVFB)
+  yantra_add_opt_in_test(screenshots_compare
+    COMMAND ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/screenshots/screenshots.py
+            --build ${PROJECT_BINARY_DIR} --out ${_scratch}/screenshots --compare ${PROJECT_SOURCE_DIR}/docs/img
+    LABELS "slow;app" TIMEOUT 3000)
 endif()
 
 # Step 9.7: the settings window renders over the start screen.

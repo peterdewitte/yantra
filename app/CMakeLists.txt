@@ -114,7 +114,7 @@ target_compile_definitions(yantra_imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS 
 
 add_library(yantra_app_gui STATIC gui/gui.cpp gui/gui_tools.cpp gui/plan_canvas.cpp gui/plan_import_view.cpp
   gui/survey_view.cpp gui/radio_view.cpp gui/user_texture.cpp gui/plugin_view.cpp gui/settings_view.cpp
-  gui/network_view.cpp gui/post_view.cpp gui/help_view.cpp gui/tour_view.cpp)
+  gui/network_view.cpp gui/post_view.cpp gui/help_view.cpp gui/tour_view.cpp gui/screenshot.cpp)
 add_library(yantra::app_gui ALIAS yantra_app_gui)
 target_include_directories(yantra_app_gui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/gui)
 target_link_libraries(yantra_app_gui PUBLIC yantra::app_model yantra_imgui PRIVATE yantra::warnings)

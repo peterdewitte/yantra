@@ -4,7 +4,7 @@
 // Command line of the desktop app (UI-13, NFR-10, SCR-01, TST-04). Pure
 // parsing, no window system: tested by tests/app (TST-50).
 // Copied from yantra-v2 68ea20a: app/model/include/yantra/app/cli.h,
-// adapted (no --demo/--floor yet; dialogs of step 9.1).
+// adapted (dialogs of step 9.1; screenshot options of step 9.11).
 #pragma once
 
 #include <filesystem>
@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+#include "yantra/app/i18n.h"
+#include "yantra/app/settings.h"
 #include "yantra/app/window_system.h"
 
 namespace yantra::app {
@@ -39,6 +41,19 @@ struct CommandLine {
     /// --tour: the guided tour at start (DEMO-11).
     bool demo = false;
     bool tour = false;
+    /// SCR-01: the screenshot's look and scene. --theme dark|light|high-contrast,
+    /// --language en|nl|fr|de, --touch, --scale PERCENT override the
+    /// settings of the run; --shot NAME plays a scene of the screenshot set
+    /// (app/gui/screenshot.h) before the capture; --input FILE is the
+    /// scene's input (e.g. the sheet of plan_import).
+    std::optional<Theme> theme;
+    std::optional<Language> language;
+    bool touch = false;
+    std::optional<double> scale;
+    std::string shot;
+    /// --list-shots: print the scenes (name, flags, what) and exit.
+    bool list_shots = false;
+    std::optional<std::filesystem::path> input;
     /// A project file to open at start.
     std::optional<std::filesystem::path> project;
 };

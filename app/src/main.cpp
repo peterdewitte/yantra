@@ -14,16 +14,20 @@
 #include <imgui_impl_opengl3.h>
 #include <stb_image_write.h>
 
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <ctime>
 #include <exception>
 #include <filesystem>
+#include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 #include "curl_downloader.h"
 #include "gui.h"
+#include "screenshot.h"
 #include "ui_probe.h"
 #include "miniaudio_io.h"
 #include "yantra/app/app_icon.h"
@@ -112,7 +116,32 @@ int main(int argc, char** argv) {
         std::fputs(app::usage_text().c_str(), stdout);
         return 0;
     }
+    if (cli.list_shots) {
+        // One scene per line: name, flags (demo, touch, radio=..., input), what.
+        for (const app::ShotScene& s : app::shot_scenes()) {
+            std::string flags = s.demo ? "demo" : "-";
+            if (s.touch) flags += ",touch";
+            if (!s.radio.empty()) flags += ",radio=" + s.radio;
+            if (s.needs_input) flags += ",input";
+            std::printf("%s\t%s\t%s\n", s.name.c_str(), flags.c_str(), s.what.c_str());
+        }
+        return 0;
+    }
     const bool screenshot = cli.screenshot.has_value();
+    const app::ShotScene* shot = nullptr;
+    if (!cli.shot.empty()) {
+        shot = app::find_shot_scene(cli.shot);
+        if (shot == nullptr) {
+            std::string list;
+            for (const app::ShotScene& s : app::shot_scenes()) list += " " + s.name;
+            std::fprintf(stderr, "yantra: --shot %s: no such scene; scenes:%s\n", cli.shot.c_str(), list.c_str());
+            return 2;
+        }
+        if (shot->needs_input && !cli.input) {
+            std::fprintf(stderr, "yantra: --shot %s needs --input FILE\n", cli.shot.c_str());
+            return 2;
+        }
+    }
 
     // Settings: a screenshot run uses the defaults and writes nothing, so
     // its picture does not depend on the user's recent files.
@@ -126,6 +155,12 @@ int main(int argc, char** argv) {
         settings = app::load_settings(paths.settings_file, error);
         if (!error.empty()) std::fprintf(stderr, "yantra: %s: %s\n", paths.settings_file.c_str(), error.c_str());
     }
+    // SCR-01: the run's look from the command line (never saved).
+    if (cli.theme) settings.theme = *cli.theme;
+    if (cli.language) settings.language = app::language_key(*cli.language);
+    if (cli.touch) settings.touch = true;
+    if (cli.scale) settings.ui_scale = *cli.scale;
+    if (shot != nullptr) settings = app::shot_settings(*shot, settings);
     paths.data_folders = app::data_folders(inputs);
     paths.user_data = app::user_data_folder(inputs);
     if (fs::path(inputs.home).is_absolute()) paths.home = inputs.home;
@@ -247,6 +282,15 @@ int main(int argc, char** argv) {
         app::UiProbe probe(ImGui::GetCurrentContext());
         // A screenshot shows the plan with its tiles, not while they render.
         gui.set_wait_for_tiles(screenshot);
+        // SCR-01..03: a scene of the screenshot set, played before the capture.
+        std::unique_ptr<app::ShotRunner> runner;
+        if (shot != nullptr) {
+            app::SystemStatus fixed;
+            fixed.free_bytes = 120ULL * 1000ULL * 1000ULL * 1000ULL;
+            fixed.on_mains = true;
+            state.fix_system_status(fixed);
+            runner = std::make_unique<app::ShotRunner>(*shot, state, cli.input.value_or(fs::path{}));
+        }
 
         std::string title;
         // A screenshot is taken after a few frames, so that windows and
@@ -260,6 +304,16 @@ int main(int argc, char** argv) {
                 glfwSetWindowShouldClose(window, GLFW_FALSE);
             }
             if (state.quit_requested()) break;
+            if (runner) {
+                runner->before_frame(probe.items());
+                if (runner->failed()) {
+                    std::fprintf(stderr, "yantra: --shot %s: %s\n", shot->name.c_str(), runner->error().c_str());
+                    rc = 1;
+                    break;
+                }
+                // Waiting on a radio or a worker: no need to spin.
+                if (runner->waiting()) std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            }
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
             // A screenshot advances a fixed time per frame, so popups have
@@ -276,7 +330,8 @@ int main(int argc, char** argv) {
             glClearColor(0.08F, 0.08F, 0.09F, 1.0F);
             glClear(GL_COLOR_BUFFER_BIT);
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-            if (screenshot && frame == capture_frame) {
+            const bool capture = runner ? runner->ready() : frame == capture_frame;
+            if (screenshot && capture) {
                 if (!save_png(*cli.screenshot, fw, fh)) {
                     std::fprintf(stderr, "yantra: cannot write %s\n", cli.screenshot->c_str());
                     rc = 1;
@@ -296,7 +351,7 @@ int main(int argc, char** argv) {
                 title = t;
                 glfwSetWindowTitle(window, title.c_str());
             }
-            if (screenshot && frame >= capture_frame) break;
+            if (screenshot && capture) break;
             if (cli.frames > 0 && frame >= cli.frames) break;
         }
         if (!screenshot) {

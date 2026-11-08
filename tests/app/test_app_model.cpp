@@ -94,6 +94,29 @@ TEST_CASE("command line: defaults, options and errors") {
     CHECK(usage_text().find("YANTRA_WINDOW_SYSTEM") != std::string::npos);
 }
 
+TEST_CASE("SCR-01 command line: theme, language, touch, scale, scene and input of a screenshot") {
+    const ParseResult r = parse_command_line({"--screenshot", "s.png", "--theme", "high-contrast", "--language", "fr",
+                                              "--touch", "--scale", "150", "--shot", "plan_import", "--input", "sheet.pdf"});
+    REQUIRE_MESSAGE(r.command_line, r.error);
+    const CommandLine& c = *r.command_line;
+    CHECK(*c.theme == Theme::HighContrast);
+    CHECK(*c.language == Language::Fr);
+    CHECK(c.touch);
+    CHECK(*c.scale == doctest::Approx(1.5));
+    CHECK(c.shot == "plan_import");
+    CHECK(*c.input == fs::path("sheet.pdf"));
+    CHECK(*parse_command_line({"--theme", "light"}).command_line->theme == Theme::Light);
+    CHECK(parse_command_line({"--list-shots"}).command_line->list_shots);
+    for (const std::vector<std::string>& bad :
+         {std::vector<std::string>{"--theme", "pink"}, {"--language", "it"}, {"--scale", "50"}, {"--scale", "300"},
+          {"--shot", "survey"}, {"--screenshot", "a.png", "--shot", "survey", "--demo"},
+          {"--screenshot", "a.png", "--shot", "survey", "p.yantra"}, {"--input"}, {"--shot"}}) {
+        CAPTURE(bad.front());
+        CHECK_FALSE(parse_command_line(bad).command_line);
+    }
+    CHECK(usage_text().find("--shot NAME") != std::string::npos);
+}
+
 TEST_CASE("window system (NFR-10): X11 preferred under WSL, with overrides") {
     CHECK(detect_wsl("6.18.33.2-microsoft-standard-WSL2", "", ""));
     CHECK(detect_wsl("6.8.0-generic", "Ubuntu", ""));
