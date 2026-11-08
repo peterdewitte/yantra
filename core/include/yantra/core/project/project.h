@@ -546,6 +546,10 @@ public:
     /// old file stays as it was. Exists when `path` exists and `replace`
     /// is false (the UI asks first); Invalid for the open file itself.
     void save_as(const std::filesystem::path& path, bool replace = false);
+    /// Writes a compact copy to `path` as save_as does, but keeps working
+    /// on the open file (e.g. a scratch copy for a batch export, EXP-04).
+    /// Exists, Locked and Invalid as save_as.
+    void write_copy(const std::filesystem::path& path, bool replace = false) const;
     /// Saves and closes; later calls throw Closed. The destructor closes
     /// too (without throwing).
     void close();

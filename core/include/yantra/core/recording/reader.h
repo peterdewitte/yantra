@@ -23,5 +23,8 @@ plugin::Parsed<File> read_file(const std::filesystem::path& path);
 plugin::Parsed<File> parse_bytes(const std::string& bytes, const std::string& name);
 // Only the header (fast: the first line), e.g. for a project's list.
 plugin::Parsed<Header> read_header(const std::filesystem::path& path);
+// A header line as text (e.g. the copy a project keeps in its
+// `recordings` list, project::RecordingFile::header).
+plugin::Parsed<Header> parse_header_line(const std::string& line);
 
 }  // namespace yantra::recording

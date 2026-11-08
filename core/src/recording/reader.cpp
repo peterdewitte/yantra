@@ -164,6 +164,19 @@ plugin::Parsed<File> read_file(const std::filesystem::path& path) {
     return out;
 }
 
+plugin::Parsed<Header> parse_header_line(const std::string& line) {
+    plugin::Parsed<Header> out;
+    const nlohmann::json j = nlohmann::json::parse(line, nullptr, false);
+    Header h;
+    std::string error;
+    if (j.is_discarded() || !codec::read_header(j, h, error)) {
+        out.errors.push_back(error.empty() ? "not a recording header line" : error);
+        return out;
+    }
+    out.value = std::move(h);
+    return out;
+}
+
 plugin::Parsed<Header> read_header(const std::filesystem::path& path) {
     plugin::Parsed<Header> out;
     std::ifstream in(path, std::ios::binary);

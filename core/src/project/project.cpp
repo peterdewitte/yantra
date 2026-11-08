@@ -2343,6 +2343,26 @@ void Project::save_as(const fs::path& path, bool replace) {
     notify({Change::Kind::Saved, ""});
 }
 
+void Project::write_copy(const fs::path& path, bool replace) const {
+    const std::lock_guard l(impl_->mutex);
+    impl_->require_open();
+    std::error_code ec;
+    const bool exists = fs::exists(path, ec);
+    if (exists && fs::equivalent(path, impl_->path, ec)) throw ProjectError(Code::Invalid, path.string() + " is the open project");
+    if (exists && !replace) throw ProjectError(Code::Exists, path.string() + ": file exists");
+    if (exists && locked_elsewhere(path)) throw ProjectError(Code::Locked, locked_message(path));
+    const fs::path tmp = temp_name(path);
+    try {
+        sql::Stmt s(impl_->db, "VACUUM INTO ?1");
+        s.bind(1, tmp.string()).run();
+        if (exists) remove_side_files(path);
+        publish(tmp, path, replace);
+    } catch (...) {
+        remove_quietly(tmp);
+        throw;
+    }
+}
+
 void Project::close() {
     const std::lock_guard l(impl_->mutex);
     if (!impl_->db) return;
