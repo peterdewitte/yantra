@@ -9,10 +9,13 @@
 #include "yantra/core/plugin/loader.h"
 
 #include <algorithm>
+#include <cstring>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <mutex>
+#include <shared_mutex>
+#include <system_error>
 #include <thread>
 #include <yantra/plugin.hpp>
 
@@ -79,6 +82,9 @@ struct Runtime {
     std::atomic<bool> timers_allowed{false};
     PluginStatus status = PluginStatus::Disabled;
     std::string message;
+    // yantra_host_api::control: the reply that did not fit, for the retry.
+    std::mutex control_mutex;
+    std::string control_request, control_reply;
 };
 
 struct PluginLoader::Impl {
@@ -99,6 +105,34 @@ struct PluginLoader::Impl {
 
     std::mutex ui_mutex;
     std::vector<UiRequest> ui_requests;
+
+    std::mutex controller_mutex;
+    std::shared_ptr<Controller> controller;
+
+    // Feature plugins with on_record (PLG-02), started; rebuilt on the main
+    // thread under the unique lock, read by the delivery threads under the
+    // shared lock, so after disable no on_record call is running.
+    struct Receiver {
+        yantra_plugin_instance* instance = nullptr;
+        void (*on_record)(yantra_plugin_instance*, const yantra_provenance*, const yantra_schema*,
+                          const yantra_record*) = nullptr;
+    };
+    mutable std::shared_mutex feature_mutex;
+    std::vector<std::pair<const Runtime*, Receiver>> receivers;
+    std::atomic<std::size_t> receiver_count{0};
+
+    void add_receiver(const Runtime& rt) {
+        const yantra_feature_api* f = rt.descriptor->feature;
+        if (f == nullptr || f->on_record == nullptr) return;
+        const std::unique_lock lock(feature_mutex);
+        receivers.push_back({&rt, Receiver{rt.instance, f->on_record}});
+        receiver_count = receivers.size();
+    }
+    void remove_receiver(const Runtime& rt) {
+        const std::unique_lock lock(feature_mutex);
+        std::erase_if(receivers, [&](const auto& r) { return r.first == &rt; });
+        receiver_count = receivers.size();
+    }
 
     // Timers (yantra_host_api::timer_start): one worker thread for all.
     struct Timer {
@@ -264,6 +298,23 @@ struct PluginLoader::Impl {
             const std::lock_guard lock(timer_mutex);
             rt.instance = instance;
         }
+        // A feature starts after init (PLG-02); a failed start disables it.
+        if (const yantra_feature_api* f = rt.descriptor->feature; f != nullptr && f->start != nullptr) {
+            const yantra_status fs = f->start(instance);
+            if (fs != YANTRA_OK) {
+                stop_timers(rt);
+                {
+                    const std::lock_guard lock(timer_mutex);
+                    rt.instance = nullptr;
+                }
+                rt.descriptor->shutdown(instance);
+                rt.status = PluginStatus::Failed;
+                rt.message = std::string("start failed: ") + plugin_api::status_name(fs);
+                log(rt.info.id, YANTRA_LOG_ERROR, rt.info.name + " disabled: " + rt.message);
+                return fs;
+            }
+        }
+        add_receiver(rt);
         rt.status = PluginStatus::Enabled;
         rt.message.clear();
         log(rt.info.id, YANTRA_LOG_INFO, rt.info.name + " enabled");
@@ -272,6 +323,9 @@ struct PluginLoader::Impl {
 
     void disable_runtime(Runtime& rt, PluginStatus status, const std::string& message) {
         if (rt.status == PluginStatus::Enabled) {
+            remove_receiver(rt);
+            if (const yantra_feature_api* f = rt.descriptor->feature; f != nullptr && f->stop != nullptr)
+                f->stop(rt.instance);
             stop_timers(rt);
             yantra_plugin_instance* instance = nullptr;
             {
@@ -421,6 +475,72 @@ yantra_status window_request(yantra_host* h, const char* window_id, bool open) {
 yantra_status host_ui_open(yantra_host* h, const char* id) { return window_request(h, id, true); }
 yantra_status host_ui_close(yantra_host* h, const char* id) { return window_request(h, id, false); }
 
+yantra_status copy_text(const std::string& text, char* buffer, std::uint32_t size, std::uint32_t* out_length) {
+    if (out_length != nullptr) *out_length = static_cast<std::uint32_t>(text.size());
+    if (buffer == nullptr || size <= text.size()) return YANTRA_ERR_BUFFER_TOO_SMALL;
+    std::memcpy(buffer, text.data(), text.size());
+    buffer[text.size()] = '\0';
+    return YANTRA_OK;
+}
+
+yantra_status host_control(yantra_host* h, const char* request, char* reply, std::uint32_t reply_size,
+                           std::uint32_t* out_length) {
+    Runtime* rt = rt_of(h);
+    if (rt == nullptr || request == nullptr) return YANTRA_ERR_INVALID_ARGUMENT;
+    return plugin_api::guarded([&]() -> yantra_status {
+        if (rt->m->on_main_thread() || on_measurement_thread()) {
+            rt->m->log(rt->info.id, YANTRA_LOG_WARNING,
+                       "control called on the main or a measurement thread: refused (PLG-07)");
+            return YANTRA_ERR_BUSY;
+        }
+        {
+            // The retry after BUFFER_TOO_SMALL gets the kept reply.
+            const std::lock_guard lock(rt->control_mutex);
+            if (!rt->control_request.empty() && rt->control_request == request) {
+                const yantra_status st = copy_text(rt->control_reply, reply, reply_size, out_length);
+                if (st == YANTRA_OK) {
+                    rt->control_request.clear();
+                    rt->control_reply.clear();
+                }
+                return st;
+            }
+        }
+        std::shared_ptr<Controller> controller;
+        {
+            const std::lock_guard lock(rt->m->controller_mutex);
+            controller = rt->m->controller;
+        }
+        if (!controller) return YANTRA_ERR_UNSUPPORTED;
+        const std::string answer = controller->control(rt->info.id, request);
+        const yantra_status st = copy_text(answer, reply, reply_size, out_length);
+        const std::lock_guard lock(rt->control_mutex);
+        if (st == YANTRA_ERR_BUFFER_TOO_SMALL) {
+            rt->control_request = request;
+            rt->control_reply = answer;
+        } else {
+            rt->control_request.clear();
+            rt->control_reply.clear();
+        }
+        return st;
+    });
+}
+
+yantra_status host_data_folder(yantra_host* h, char* buffer, std::uint32_t size, std::uint32_t* out_length) {
+    Runtime* rt = rt_of(h);
+    if (rt == nullptr) return YANTRA_ERR_INVALID_ARGUMENT;
+    return plugin_api::guarded([&]() -> yantra_status {
+        const std::filesystem::path& root = rt->m->config.data_root;
+        if (root.empty()) return YANTRA_ERR_UNSUPPORTED;
+        const std::filesystem::path folder = root / rt->info.id;
+        std::error_code ec;
+        std::filesystem::create_directories(folder, ec);
+        if (ec) return YANTRA_ERR_IO;
+        std::filesystem::permissions(folder, std::filesystem::perms::owner_all,
+                                     std::filesystem::perm_options::replace, ec);
+        return copy_text(folder.string(), buffer, size, out_length);
+    });
+}
+
 yantra_host_api make_host_api(Runtime& rt) {
     yantra_host_api api{};
     api.struct_size = sizeof(yantra_host_api);
@@ -437,6 +557,8 @@ yantra_host_api make_host_api(Runtime& rt) {
     api.emit_record = host_emit_record;
     api.ui_open_window = host_ui_open;
     api.ui_close_window = host_ui_close;
+    api.control = host_control;
+    api.data_folder = host_data_folder;
     return api;
 }
 
@@ -619,6 +741,28 @@ std::size_t PluginLoader::poll() {
 void PluginLoader::set_recording_sink(std::shared_ptr<RecordingSink> sink) {
     const std::lock_guard lock(impl_->recording_mutex);
     impl_->recording = std::move(sink);
+}
+
+void PluginLoader::set_controller(std::shared_ptr<Controller> controller) {
+    const std::lock_guard lock(impl_->controller_mutex);
+    impl_->controller = std::move(controller);
+}
+
+bool PluginLoader::has_record_receivers() const noexcept { return impl_->receiver_count.load() > 0; }
+
+void PluginLoader::deliver_record(const yantra_provenance& provenance, const yantra_schema& schema,
+                                  const yantra_record& record) {
+    Impl& m = *impl_;
+    const std::shared_lock lock(m.feature_mutex);
+    for (const auto& [rt, r] : m.receivers) {
+        try {
+            r.on_record(r.instance, &provenance, &schema, &record);
+        } catch (...) {
+            // A C++ plugin must not throw across the ABI (PLG-03): disable it.
+            const std::lock_guard fl(m.failure_mutex);
+            m.failures.emplace_back(rt->info.id, "on_record threw an exception");
+        }
+    }
 }
 
 std::vector<UiRequest> PluginLoader::take_ui_requests() {

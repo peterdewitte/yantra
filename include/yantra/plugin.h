@@ -178,7 +178,7 @@
  * version is not newer than its own (yantra_api_compatible()).
  * @{ */
 #define YANTRA_PLUGIN_API_VERSION_MAJOR 1u /**< Changes on any breaking change. */
-#define YANTRA_PLUGIN_API_VERSION_MINOR 0u /**< Changes on every compatible addition. */
+#define YANTRA_PLUGIN_API_VERSION_MINOR 1u /**< Changes on every compatible addition. */
 /** @} */
 
 /** Marks the entry point as exported from the plugin's shared library
@@ -484,8 +484,9 @@ typedef struct yantra_provenance {
 
 /** What Yantra offers a plugin (versioned struct, filled by Yantra). Every
  *  function takes the table's `host` as its first argument. All functions
- *  are present in API 1.0; later minor versions append functions, so a
- *  plugin checks #YANTRA_HAS_FIELD before calling a newer one. */
+ *  up to ui_close_window are present in API 1.0; `control` and
+ *  `data_folder` came with 1.1. Later minor versions append functions, so
+ *  a plugin checks #YANTRA_HAS_FIELD before calling a newer one. */
 typedef struct yantra_host_api {
     uint32_t struct_size;           /**< sizeof(yantra_host_api) of Yantra. */
     uint32_t reserved;              /**< Zero. */
@@ -539,6 +540,36 @@ typedef struct yantra_host_api {
     yantra_status (*ui_open_window)(yantra_host* host, const char* window_id);
     /** Closes one of this plugin's windows with the next frame. Any thread. */
     yantra_status (*ui_close_window)(yantra_host* host, const char* window_id);
+
+    /* -- API 1.1 (check with #YANTRA_HAS_FIELD) -------------------------- */
+
+    /** Runs one control command of the running application (API-01,
+     *  API-02): the same commands as its command line, e.g. start/stop a
+     *  recording, monitoring on/off, play a recording, sound on/off, the
+     *  status, quit. `request` is a JSON object
+     *  `{"command":"record.start","args":{"name":"x"}}` (UTF-8); the
+     *  reply, copied into `reply`, is a JSON object
+     *  `{"ok":true,"command":...,"result":{...}}` or
+     *  `{"ok":false,"command":...,"error":"..."}`. The commands and their
+     *  replies are listed in docs/API.md. Only broadcast information,
+     *  levels and quality are ever in a reply (PLG-08).
+     *  When the reply does not fit, #YANTRA_ERR_BUFFER_TOO_SMALL with the
+     *  length in `out_length`: calling again at once with the same request
+     *  returns that reply without running the command twice.
+     *  #YANTRA_ERR_UNSUPPORTED when the application offers no control
+     *  (e.g. a test host). It may wait for the application (at most about
+     *  10 s), so it is refused (#YANTRA_ERR_BUSY) on the main/UI thread and
+     *  on a measurement thread; call it from the plugin's own thread or
+     *  `on_timer`. */
+    yantra_status (*control)(yantra_host* host, const char* request, char* reply, uint32_t reply_size,
+                             uint32_t* out_length);
+    /** The folder for this plugin's own files (UTF-8 path, NUL-terminated,
+     *  no trailing separator): kept per user and per plugin id across runs,
+     *  created by Yantra (readable by the user only). For example the
+     *  probe's tokens and summaries (PLG-24). #YANTRA_ERR_UNSUPPORTED when
+     *  the host has none. Any thread. */
+    yantra_status (*data_folder)(yantra_host* host, char* buffer, uint32_t buffer_size,
+                                 uint32_t* out_length);
 } yantra_host_api;
 
 /** @} */

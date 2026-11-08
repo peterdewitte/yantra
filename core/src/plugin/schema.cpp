@@ -429,4 +429,35 @@ std::vector<std::string> check_radio_schema(const Schema& tech, const yr_schema&
     return problems;
 }
 
+SchemaView::SchemaView(Schema schema) : schema_(std::move(schema)) {
+    items_.reserve(schema_.fields.size());
+    defs_.reserve(schema_.fields.size());
+    for (const Field& f : schema_.fields) {
+        std::vector<yantra_enum_item> items;
+        for (const EnumItem& e : f.enum_items) items.push_back({e.value, e.name.c_str(), e.label.c_str()});
+        items_.push_back(std::move(items));
+        yantra_field_def d{};
+        d.struct_size = sizeof(yantra_field_def);
+        d.type = static_cast<std::uint32_t>(f.type);
+        d.category = static_cast<std::uint32_t>(f.category);
+        d.flags = (f.key ? YANTRA_FIELD_KEY : 0u) | (f.shown_by_default ? YANTRA_FIELD_DEFAULT : 0u) |
+                  (f.optional ? YANTRA_FIELD_OPTIONAL : 0u) | (f.verify ? YANTRA_FIELD_VERIFY : 0u);
+        d.name = f.name.c_str();
+        d.label = f.label.c_str();
+        d.unit = f.unit.c_str();
+        d.help = f.help.empty() ? nullptr : f.help.c_str();
+        d.enum_items = items_.back().empty() ? nullptr : items_.back().data();
+        d.enum_count = static_cast<std::uint32_t>(items_.back().size());
+        defs_.push_back(d);
+    }
+    for (const auto& d : defs_) ptrs_.push_back(&d);
+    c_.struct_size = sizeof(yantra_schema);
+    c_.kind = static_cast<std::uint32_t>(schema_.kind);
+    c_.id = schema_.id.c_str();
+    c_.label = schema_.label.c_str();
+    c_.version = schema_.version;
+    c_.field_count = static_cast<std::uint32_t>(defs_.size());
+    c_.fields = ptrs_.data();
+}
+
 }  // namespace yantra::plugin

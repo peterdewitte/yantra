@@ -54,40 +54,6 @@ ColumnType type_of(const std::string& name, const CsvLayout& l, const std::vecto
     return {};
 }
 
-// A C view of a schema: the strings stay in `schema`.
-struct SchemaView {
-    explicit SchemaView(const plugin::Schema& s) : schema(s) {
-        defs.reserve(schema.fields.size());
-        for (const plugin::Field& f : schema.fields) {
-            yantra_field_def d{};
-            d.struct_size = sizeof(yantra_field_def);
-            d.type = static_cast<std::uint32_t>(f.type);
-            d.category = static_cast<std::uint32_t>(f.category);
-            d.flags = (f.key ? YANTRA_FIELD_KEY : 0u) | (f.shown_by_default ? YANTRA_FIELD_DEFAULT : 0u) |
-                      (f.optional ? YANTRA_FIELD_OPTIONAL : 0u);
-            d.name = f.name.c_str();
-            d.label = f.label.c_str();
-            d.unit = f.unit.c_str();
-            d.help = f.help.empty() ? nullptr : f.help.c_str();
-            defs.push_back(d);
-        }
-        for (const auto& d : defs) ptrs.push_back(&d);
-        c.struct_size = sizeof(yantra_schema);
-        c.kind = static_cast<std::uint32_t>(schema.kind);
-        c.id = schema.id.c_str();
-        c.label = schema.label.c_str();
-        c.version = schema.version;
-        c.field_count = static_cast<std::uint32_t>(defs.size());
-        c.fields = ptrs.data();
-    }
-    SchemaView(const SchemaView&) = delete;
-    SchemaView& operator=(const SchemaView&) = delete;
-    plugin::Schema schema;
-    std::vector<yantra_field_def> defs;
-    std::vector<const yantra_field_def*> ptrs;
-    yantra_schema c{};
-};
-
 plugin::Value value_of(const std::string& text, FieldType type) {
     if (text == kInvalidValue) return {};
     switch (type) {
@@ -152,7 +118,7 @@ void run_exporter(const ExporterFormat& e, const std::filesystem::path& path, co
     if (e.api == nullptr) throw ExportError("exporter '" + e.format.id + "' of " + e.plugin_id + " is not loaded");
     if (const std::string err = validate(columns); !err.empty()) throw ExportError("export columns: " + err);
     const CsvLayout layout = csv_layout(rows, columns);
-    const SchemaView view(rows_schema(layout, columns, rows));
+    const plugin::SchemaView view(rows_schema(layout, columns, rows));
 
     // Records: the CSV cells typed by the schema.
     std::vector<plugin::Record> records;
@@ -160,13 +126,13 @@ void run_exporter(const ExporterFormat& e, const std::filesystem::path& path, co
     for (const Row& r : rows) {
         const std::vector<std::string> cells = csv_values(r, layout, columns);
         plugin::Record rec;
-        rec.schema_id = view.schema.id;
-        rec.schema_version = view.schema.version;
+        rec.schema_id = view.schema().id;
+        rec.schema_version = view.schema().version;
         rec.time.monotonic_ns = r.time_ns > 0 ? r.time_ns : 1;
         rec.time.utc_ns = r.utc_ns;
         rec.time.utc_source = r.utc_ns != 0 ? YANTRA_TIME_SOURCE_SYSTEM : YANTRA_TIME_SOURCE_NONE;
         if (r.serving && r.serving->unit == "dBFS") rec.flags |= YANTRA_RECORD_UNCALIBRATED;
-        for (std::size_t i = 0; i < cells.size(); ++i) rec.values.push_back(value_of(cells[i], view.schema.fields[i].type));
+        for (std::size_t i = 0; i < cells.size(); ++i) rec.values.push_back(value_of(cells[i], view.schema().fields[i].type));
         records.push_back(std::move(rec));
     }
     std::vector<std::unique_ptr<measure::RecordView>> views;
@@ -184,9 +150,9 @@ void run_exporter(const ExporterFormat& e, const std::filesystem::path& path, co
     if (st != YANTRA_OK || job == nullptr)
         throw ExportError("exporter '" + e.format.id + "' of " + e.plugin_id + " refused to start: " + plugin::status_name(st));
     const std::string version(core::build_info().version_string);
-    const yantra_provenance prov{sizeof(yantra_provenance), view.schema.version, "", "yantra", version.c_str(),
-                                 view.schema.id.c_str()};
-    st = e.api->write_table(job, &prov, &view.c, ptrs.data(), ptrs.size());
+    const yantra_provenance prov{sizeof(yantra_provenance), view.schema().version, "", "yantra", version.c_str(),
+                                 view.schema().id.c_str()};
+    st = e.api->write_table(job, &prov, &view.c(), ptrs.data(), ptrs.size());
     if (st != YANTRA_OK) {
         e.api->abort(job);
         throw ExportError("exporter '" + e.format.id + "' of " + e.plugin_id + " failed on the rows: " + plugin::status_name(st));

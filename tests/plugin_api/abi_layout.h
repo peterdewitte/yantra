@@ -81,7 +81,7 @@ YP_TEST_SIZE(yantra_provenance, 40);
 YP_TEST_OFF(yantra_provenance, technology_id, 8);
 YP_TEST_OFF(yantra_provenance, schema_id, 32);
 
-YP_TEST_SIZE(yantra_host_api, 112);
+YP_TEST_SIZE(yantra_host_api, 128);
 YP_TEST_OFF(yantra_host_api, api_version, 8);
 YP_TEST_OFF(yantra_host_api, host, 16);
 YP_TEST_OFF(yantra_host_api, log, 24);
@@ -90,6 +90,8 @@ YP_TEST_OFF(yantra_host_api, now, 64);
 YP_TEST_OFF(yantra_host_api, timer_start, 72);
 YP_TEST_OFF(yantra_host_api, emit_record, 88);
 YP_TEST_OFF(yantra_host_api, ui_close_window, 104);
+YP_TEST_OFF(yantra_host_api, control, 112);
+YP_TEST_OFF(yantra_host_api, data_folder, 120);
 
 YP_TEST_SIZE(yantra_band, 56);
 YP_TEST_OFF(yantra_band, first_hz, 24);

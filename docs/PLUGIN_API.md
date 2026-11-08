@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: 2026 The Yantra contributors
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
-# Yantra plugin API 1.0
+# Yantra plugin API 1.1
 
 This page describes the C interface between Yantra and its plugins
 (DOC-17), declared in [`include/yantra/plugin.h`](../include/yantra/plugin.h)
@@ -73,7 +73,9 @@ technology plugin only.
 | `on_timer` | worker | return quickly |
 | UI functions (`draw`, `menu_selected`, ...) | UI (main) | never block |
 
-Host services (`yantra_host_api`) are thread-safe and do not block. A
+Host services (`yantra_host_api`) are thread-safe and do not block,
+except `control` (1.1), which may wait for the application and is
+therefore refused on the main/UI thread and on a measurement thread. A
 service called where it is not allowed returns `YANTRA_ERR_BUSY`.
 
 ## Data model (PLG-05, PLG-12)
@@ -145,6 +147,12 @@ name.
 - `monotonic_ns` and `now` give time stamps; `timer_start` /
   `timer_stop` drive `on_timer`.
 - `emit_record` adds a RECORDING record of a feature to the measurement.
+- Since 1.1: `control` runs a command of the application's control set
+  (API-01/02; the commands and replies are in the remote API reference),
+  from the plugin's own thread or `on_timer`; `data_folder` gives the
+  plugin a folder of its own for files it keeps (created, owner-only).
+  Check `YANTRA_HAS_FIELD(host, yantra_host_api, control)` first: a 1.0
+  host does not have them.
 
 ## User interface (PLG-06)
 
@@ -160,7 +168,7 @@ keyed by the English text (UI-12).
 
 ## Versioning (PLG-04)
 
-The API version is `YANTRA_PLUGIN_API_VERSION_MAJOR.MINOR`, here 1.0.
+The API version is `YANTRA_PLUGIN_API_VERSION_MAJOR.MINOR`, here 1.1.
 
 - A plugin loads when its major equals Yantra's and its minor is not
   newer than Yantra's.

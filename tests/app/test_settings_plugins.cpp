@@ -333,7 +333,7 @@ TEST_CASE("plugin manager (PLG-09): name, version, API, author, licence, status;
         REQUIRE(b);
         CHECK_FALSE(b->radio);
         CHECK(b->name == "Beacon technology (example)");
-        CHECK(b->api == "1.0");
+        CHECK(b->api == "1.1");
         CHECK_FALSE(b->version.empty());
         CHECK_FALSE(b->author.empty());
         CHECK_FALSE(b->licence.empty());

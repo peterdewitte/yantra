@@ -143,6 +143,11 @@ TEST_CASE("YANTRA_HAS_FIELD judges by struct_size (PLG-03)")
     CHECK_FALSE(YANTRA_HAS_FIELD(&h, yantra_host_api, timer_start));
     h.struct_size = sizeof h;
     CHECK(YANTRA_HAS_FIELD(&h, yantra_host_api, ui_close_window));
+    // A 1.0 host table (up to ui_close_window) has no 1.1 services.
+    h.struct_size = static_cast<uint32_t>(offsetof(yantra_host_api, control));
+    CHECK(YANTRA_HAS_FIELD(&h, yantra_host_api, ui_close_window));
+    CHECK_FALSE(YANTRA_HAS_FIELD(&h, yantra_host_api, control));
+    CHECK_FALSE(YANTRA_HAS_FIELD(&h, yantra_host_api, data_folder));
 }
 
 TEST_CASE("plugin.hpp: refusal reasons read the frozen prefix only (PLG-04)")

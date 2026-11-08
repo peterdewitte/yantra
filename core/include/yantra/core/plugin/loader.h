@@ -14,8 +14,11 @@
 // Host services of the table: log and notify (to the configured
 // callbacks), settings (PluginStateStore), the clocks, timers (on_timer on
 // a worker thread), emit_record (a RecordingSink when a recording runs,
-// else BUSY) and the UI window requests (queued for the UI shell, which
-// takes them each frame; phase 9).
+// else BUSY), the UI window requests (queued for the UI shell, which
+// takes them each frame; phase 9) and, since plugin API 1.1, control (the
+// application's Controller) and data_folder (config.data_root). A feature
+// plugin's start runs after init and its stop before shutdown; its
+// on_record gets the pipeline's records through deliver_record.
 // Copied from yantra-v2 68ea20a: core/include/yantra/core/plugin/
 // manager.h, adapted for plugin API 1.0 (no radio or IQ parts).
 #pragma once
@@ -69,6 +72,16 @@ public:
     virtual void on_feature_record(const std::string& plugin_id, const Record& record) = 0;
 };
 
+// The application's control commands for yantra_host_api::control
+// (API-01/02, plugin API 1.1): the desktop app and the headless runner
+// each give one. Called on the plugin's own thread; may wait for the
+// application (bounded). Returns the reply JSON object as text.
+class Controller {
+public:
+    virtual ~Controller() = default;
+    virtual std::string control(const std::string& plugin_id, const std::string& request) = 0;
+};
+
 // A window request of a plugin (ui_open_window / ui_close_window).
 struct UiRequest {
     std::string plugin_id;
@@ -85,6 +98,9 @@ struct PluginLoaderConfig {
     std::function<void(const std::string& plugin_id, std::uint32_t level,
                        const std::string& message)>
         log;
+    // Root of the plugins' own folders (yantra_host_api::data_folder:
+    // <data_root>/<plugin id>, created 0700 on first use); empty = none.
+    std::filesystem::path data_root;
     // User notifications (notify). Any thread.
     std::function<void(const std::string& plugin_id, std::uint32_t level,
                        const std::string& text)>
@@ -150,6 +166,17 @@ public:
 
     // Recording that receives emit_record (nullptr: none, emit_record BUSY).
     void set_recording_sink(std::shared_ptr<RecordingSink> sink);
+    // Where yantra_host_api::control goes (nullptr: UNSUPPORTED). Thread-safe.
+    void set_controller(std::shared_ptr<Controller> controller);
+
+    // Feature records (PLG-02): every enabled feature plugin with on_record
+    // gets the record; any thread (the measurement threads,
+    // measure/feature_feed.h). Disabling a plugin waits for its running
+    // call. has_record_receivers() is a cheap check first.
+    bool has_record_receivers() const noexcept;
+    void deliver_record(const yantra_provenance& provenance, const yantra_schema& schema,
+                        const yantra_record& record);
+
     // Window requests since the last call (the UI shell takes them each frame).
     std::vector<UiRequest> take_ui_requests();
 

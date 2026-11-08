@@ -127,4 +127,23 @@ std::vector<std::string> check_schema_upgrade(const Schema& previous, const Sche
 // Returns the problems; empty when it matches.
 std::vector<std::string> check_radio_schema(const Schema& tech, const yr_schema& radio);
 
+// A C view (yantra_schema) of a schema, for calls into plugins (exporter
+// write_table, feature on_record): it owns a copy of the schema, and the
+// view points into it, so it is valid while the SchemaView lives.
+class SchemaView {
+public:
+    explicit SchemaView(Schema schema);
+    SchemaView(const SchemaView&) = delete;
+    SchemaView& operator=(const SchemaView&) = delete;
+    const yantra_schema& c() const noexcept { return c_; }
+    const Schema& schema() const noexcept { return schema_; }
+
+private:
+    Schema schema_;
+    std::vector<std::vector<yantra_enum_item>> items_;
+    std::vector<yantra_field_def> defs_;
+    std::vector<const yantra_field_def*> ptrs_;
+    yantra_schema c_{};
+};
+
 }  // namespace yantra::plugin

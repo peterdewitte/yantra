@@ -249,3 +249,138 @@ TEST_CASE("loader: settings_set is refused on a measurement thread (PLG-07)") {
     CHECK(loader.state().setting("org.example.ctest", "a.key") == "worker");
     CHECK(log.has("settings_set refused on a measurement thread (PLG-07)"));
 }
+
+namespace {
+
+// The C test plugin's instance (header_c.c): its host table and the
+// number of records its feature's on_record saw.
+struct CtestState {
+    const yantra_host_api* host;
+    int records_seen;
+};
+
+struct CountingController final : yp::Controller {
+    std::mutex m;
+    std::vector<std::string> requests;
+    std::string control(const std::string& plugin_id, const std::string& request) override {
+        const std::lock_guard lock(m);
+        requests.push_back(plugin_id + " " + request);
+        return R"({"ok":true,"command":"status","result":{"n":)" + std::to_string(requests.size()) + "}}";
+    }
+};
+
+}  // namespace
+
+TEST_CASE("loader: control and data_folder host services (plugin API 1.1)") {
+    Log log;
+    yp::PluginLoaderConfig c = config(log);
+    const fs::path root = fresh_dir("data_root");
+    c.data_root = root / "plugin-data";
+    yp::PluginLoader loader(std::move(c));
+    REQUIRE(loader.load_file(CTEST_OK_PATH).status == yp::PluginStatus::Enabled);
+    const auto* inst = reinterpret_cast<const CtestState*>(loader.instance("org.example.ctest"));
+    REQUIRE(inst != nullptr);
+    const yantra_host_api* host = inst->host;
+    REQUIRE(YANTRA_HAS_FIELD(host, yantra_host_api, data_folder));
+    CHECK(host->api_version.minor >= 1u);
+
+    const char* req = R"({"command":"status"})";
+    char reply[256];
+    std::uint32_t len = 0;
+    yantra_status st = YANTRA_OK;
+    // No controller: unsupported; on the main thread: refused.
+    std::thread([&] { st = host->control(host->host, req, reply, sizeof reply, &len); }).join();
+    CHECK(st == YANTRA_ERR_UNSUPPORTED);
+    auto ctl = std::make_shared<CountingController>();
+    loader.set_controller(ctl);
+    CHECK(host->control(host->host, req, reply, sizeof reply, &len) == YANTRA_ERR_BUSY);
+    CHECK(log.has("control called on the main or a measurement thread"));
+    std::thread([&] {
+        const yp::MeasurementThreadScope scope;
+        st = host->control(host->host, req, reply, sizeof reply, &len);
+    }).join();
+    CHECK(st == YANTRA_ERR_BUSY);
+    CHECK(ctl->requests.empty());
+
+    std::thread([&] { st = host->control(host->host, req, reply, sizeof reply, &len); }).join();
+    CHECK(st == YANTRA_OK);
+    CHECK(std::string(reply) == R"({"ok":true,"command":"status","result":{"n":1}})");
+    CHECK(len == std::string(reply).size());
+    REQUIRE(ctl->requests.size() == 1);
+    CHECK(ctl->requests[0] == std::string("org.example.ctest ") + req);
+
+    // Too small: the length, then the same reply without a second run.
+    char tiny[8];
+    std::thread([&] { st = host->control(host->host, req, tiny, sizeof tiny, &len); }).join();
+    CHECK(st == YANTRA_ERR_BUFFER_TOO_SMALL);
+    CHECK(len == std::string(R"({"ok":true,"command":"status","result":{"n":2}})").size());
+    std::thread([&] { st = host->control(host->host, req, reply, sizeof reply, &len); }).join();
+    CHECK(st == YANTRA_OK);
+    CHECK(std::string(reply) == R"({"ok":true,"command":"status","result":{"n":2}})");
+    CHECK(ctl->requests.size() == 2);
+    std::thread([&] { st = host->control(host->host, req, reply, sizeof reply, &len); }).join();
+    CHECK(std::string(reply) == R"({"ok":true,"command":"status","result":{"n":3}})");
+    CHECK(host->control(host->host, nullptr, reply, sizeof reply, &len) == YANTRA_ERR_INVALID_ARGUMENT);
+
+    // The plugin's own folder, created for the user only.
+    char folder[512];
+    REQUIRE(host->data_folder(host->host, folder, sizeof folder, &len) == YANTRA_OK);
+    CHECK(fs::path(folder) == root / "plugin-data" / "org.example.ctest");
+    CHECK(fs::is_directory(folder));
+    CHECK(fs::status(folder).permissions() == fs::perms::owner_all);
+    CHECK(host->data_folder(host->host, folder, 4, &len) == YANTRA_ERR_BUFFER_TOO_SMALL);
+    CHECK(len == std::string((root / "plugin-data" / "org.example.ctest").string()).size());
+}
+
+TEST_CASE("loader: data_folder is unsupported without a data root") {
+    Log log;
+    yp::PluginLoader loader(config(log));
+    REQUIRE(loader.load_file(CTEST_OK_PATH).status == yp::PluginStatus::Enabled);
+    const auto* inst = reinterpret_cast<const CtestState*>(loader.instance("org.example.ctest"));
+    char folder[64];
+    CHECK(inst->host->data_folder(inst->host->host, folder, sizeof folder, nullptr) == YANTRA_ERR_UNSUPPORTED);
+}
+
+TEST_CASE("loader: feature records reach on_record of enabled feature plugins (PLG-02)") {
+    Log log;
+    yp::PluginLoader loader(config(log));
+    CHECK_FALSE(loader.has_record_receivers());
+    REQUIRE(loader.load_file(CTEST_OK_PATH).status == yp::PluginStatus::Enabled);
+    CHECK(loader.has_record_receivers());
+    const auto* inst = reinterpret_cast<const CtestState*>(loader.instance("org.example.ctest"));
+    REQUIRE(inst != nullptr);
+    const int before = inst->records_seen;
+
+    yp::Schema s;
+    s.id = "ctest_cell";
+    s.label = "Cell";
+    yp::Field f;
+    f.name = "level";
+    f.label = "Level";
+    f.unit = "dBm";
+    f.type = yp::FieldType::Double;
+    f.category = yp::Category::Level;
+    s.fields.push_back(f);
+    const yp::SchemaView view(s);
+    CHECK(view.c().field_count == 1);
+    CHECK(std::string(view.c().fields[0]->unit) == "dBm");
+    const yantra_value v = yantra_value_double(-70.0);
+    yantra_record r{};
+    r.struct_size = sizeof r;
+    r.value_count = 1;
+    r.values = &v;
+    yp::Provenance p;
+    p.technology_id = "ctest";
+    p.plugin_id = "org.example.ctest";
+    p.schema_id = "ctest_cell";
+    const yantra_provenance cp = yp::to_c(p);
+    std::thread([&] {
+        const yp::MeasurementThreadScope scope;
+        for (int i = 0; i < 3; ++i) loader.deliver_record(cp, view.c(), r);
+    }).join();
+    CHECK(inst->records_seen == before + 3);
+
+    REQUIRE(loader.disable("org.example.ctest") == YANTRA_OK);
+    CHECK_FALSE(loader.has_record_receivers());
+    loader.deliver_record(cp, view.c(), r);  // nobody takes it
+}

@@ -38,6 +38,7 @@ add_library(yantra_core STATIC
   src/context/building_context.cpp
   src/context/context.cpp
   src/measure/catalog.cpp
+  src/measure/feature_feed.cpp
   src/measure/measurement_pipeline.cpp
   src/measure/pipeline.cpp
   src/measure/record_file.cpp
