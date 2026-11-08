@@ -27,7 +27,7 @@ file(MAKE_DIRECTORY ${_scratch})
 
 add_executable(test_app test_app_model.cpp test_file_browser.cpp test_floor_editor.cpp test_interpolation_runner.cpp test_plan_import_window.cpp test_project_window.cpp
                         test_radio_windows.cpp test_settings_plugins.cpp test_survey_monitor.cpp test_network.cpp test_i18n_sound.cpp
-                        test_tour.cpp test_report_export.cpp)
+                        test_tour.cpp test_report_export.cpp test_app_control.cpp)
 # Step 9.10: the tour's sheet download through libcurl (file:// and loopback only).
 target_link_libraries(test_app PRIVATE yantra_test_main yantra_warnings yantra::app_model yantra::app_net yantra::audio yantra::core
                                        yantra_plan_fixtures yantra::json)
@@ -38,7 +38,7 @@ target_compile_definitions(test_app PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scratch}
 # Step 9.7: the plugin manager and the plugins' UI (PLG-06, PLG-09) with
 # the example beacon plugin; step 9.8: the cell database, network checks
 # and reselection with the TETRA plugin.
-add_dependencies(test_app yantra_example_beacon yantra_tetra)
+add_dependencies(test_app yantra_example_beacon yantra_tetra yantra_probe)
 if(TARGET demo_fraunces)
   add_dependencies(test_app demo_fraunces)
   target_compile_definitions(test_app PRIVATE YANTRA_TEST_DEMO_PROJECT="${YANTRA_DEMO_FRAUNCES_DIR}/fraunces.yantra")
@@ -60,7 +60,7 @@ target_compile_definitions(test_app_ui PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scrat
                                                YANTRA_TEST_SOURCE_DATA_DIR="${PROJECT_SOURCE_DIR}/data"
                                                YANTRA_TEST_EXAMPLE_PLUGIN_DIR="${PROJECT_BINARY_DIR}/lib/yantra/examples"
                                                YANTRA_TEST_TECH_PLUGIN_DIR="${PROJECT_BINARY_DIR}/lib/yantra/plugins")
-add_dependencies(test_app_ui yantra_example_beacon yantra_tetra)
+add_dependencies(test_app_ui yantra_example_beacon yantra_tetra yantra_probe)
 if(TARGET demo_fraunces)
   add_dependencies(test_app_ui demo_fraunces)
   target_compile_definitions(test_app_ui PRIVATE YANTRA_TEST_DEMO_DATA_DIR="${PROJECT_BINARY_DIR}")

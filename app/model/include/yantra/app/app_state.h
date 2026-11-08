@@ -37,6 +37,7 @@
 #include <utility>
 #include <vector>
 
+#include "yantra/app/app_control.h"
 #include "yantra/app/audible_alerts.h"
 #include "yantra/app/cell_db_editor.h"
 #include "yantra/app/credits.h"
@@ -377,6 +378,8 @@ public:
     plugin::PluginLoader& plugins();
     /// The plugins' own menus and windows (PLG-06).
     PluginUi& plugin_ui();
+    /// The plugins' control service (API-01/02); loads the plugins.
+    AppControl& remote_control();
     /// The survey panels' model (UI-01..04, UI-11, NFR-07): live or replay.
     const std::shared_ptr<SurveyMonitor>& monitor() const { return monitor_; }
     /// Replay of the project's recordings (REC-06..08; nullptr on the start screen).
@@ -596,6 +599,7 @@ private:
 
     void drop_tools();
     void ensure_plugins();
+    void run_remote_commands();  // API-02: the probe plugin's queued commands, on the UI thread
     void drop_network();
     PluginServices plugin_services();
     void apply_survey_defaults();
@@ -604,6 +608,7 @@ private:
     // The plugin state and loader live longer than the project's tools
     // (the LiveSurvey's catalog points into the loader's plugins).
     std::shared_ptr<plugin::PluginStateStore> plugin_state_;
+    std::shared_ptr<AppControl> control_;  // the plugins' control service (API-01/02)
     std::shared_ptr<plugin::PluginLoader> plugins_;
     std::unique_ptr<PluginUi> plugin_ui_;
     std::shared_ptr<project::Project> project_;

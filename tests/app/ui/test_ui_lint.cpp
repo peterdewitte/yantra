@@ -52,6 +52,8 @@ AppPaths lint_paths(const fs::path& dir) {
     fs::create_directories(folder);
     fs::copy_file(fs::path(YANTRA_TEST_TECH_PLUGIN_DIR) / "tetra.so", folder / "tetra.so",
                   fs::copy_options::overwrite_existing);
+    fs::copy_file(fs::path(YANTRA_TEST_TECH_PLUGIN_DIR) / "probe.so", folder / "probe.so",
+                  fs::copy_options::overwrite_existing);
     fs::copy_file(fs::path(YANTRA_TEST_EXAMPLE_PLUGIN_DIR) / "example_beacon.so", folder / "example_beacon.so",
                   fs::copy_options::overwrite_existing);
     p.radios.plugin_folders = {folder};
@@ -201,9 +203,11 @@ void visit_all(Shell& s, UiLint& lint, const std::string& tag) {
         settle_check("radio list");
         rw->close(RadioWindow::List);
     }
-    // The plugins' own windows (PLG-06): the TETRA calculator and the beacon.
+    // The plugins' own windows (PLG-06): the TETRA calculator, the beacon
+    // and the probe's remote probes (PLG-24).
     for (const auto& [plugin, item] : {std::pair<const char*, const char*>{"yantra.tetra", "calculator"},
-                                       {"yantra.example.beacon", "beacon_channels"}})
+                                       {"yantra.example.beacon", "beacon_channels"},
+                                       {"yantra.probe", "remote_probes_open"}})
         (void)s.state.plugin_ui().select(plugin, item);
     settle_check("plugin windows");
     // A level alert's popup (UI-10).

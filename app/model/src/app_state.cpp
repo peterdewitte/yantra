@@ -18,6 +18,7 @@
 #include "yantra/app/data_paths.h"
 #include "yantra/app/plugin_state_file.h"
 #include "yantra/core/build_info.h"
+#include "yantra/core/measure/feature_feed.h"
 #include "yantra/core/platform/clock.h"
 #include "yantra/core/demo/demo_project.h"
 #include "yantra/core/plugin/loader.h"
@@ -512,6 +513,8 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     editor_ = std::make_unique<FloorEditor>(*project_);
     runner_ = std::make_unique<InterpolationRunner>(project_, InterpolationRunner::Options{paths_.interpolation_threads});
     live_ = std::make_unique<LiveSurvey>(project_, paths_.radios, plugin_services());
+    // Feature plugins (the probe's live view, PLG-24) see the walk test's records.
+    live_->add_observer(std::make_shared<measure::FeatureFeed>(plugins_));
     apply_survey_defaults();
     monitor_->clear();
     live_->set_monitor(monitor_);
@@ -1170,6 +1173,7 @@ void AppState::tick() {
         // PLG-09: a plugin whose call failed is disabled with its message.
         if (plugins_->poll() > 0) (void)fail(tr("A plugin reported an error and was disabled (File > Settings > Plugins)."));
         plugin_ui().tick();
+        run_remote_commands();
     }
     if (runner_) {
         std::int64_t id = 0;
@@ -1348,15 +1352,79 @@ void AppState::ensure_plugins() {
     plugin::PluginLoaderConfig c;
     c.folders = paths_.radios.plugin_folders;
     c.state = plugin_state_;
+    // Plugin data folders (data_folder, plugin API 1.1): <user data>/plugin-data/<id>.
+    if (!paths_.user_data.empty()) c.data_root = paths_.user_data / "plugin-data";
     plugins_ = std::make_shared<plugin::PluginLoader>(std::move(c));
+    control_ = std::make_shared<AppControl>();
+    plugins_->set_controller(control_);  // before load_all: features start there
     plugins_->load_all();
     plugin_ui_ = std::make_unique<PluginUi>(*plugins_);
     plugin_ui_->set_language(language_key(language()));
 }
 
+// The probe plugin's commands (API-01/02, PLG-24): run here on the UI
+// thread; the plugin got {"queued":true} and reads the effect in the status.
+void AppState::run_remote_commands() {
+    if (!control_) return;
+    for (const control::Command& c : control_->take()) {
+        Result r{false, tr("No project is open.")};
+        switch (c.id) {
+        case control::CommandId::RecordStart:
+            if (live_) {
+                live_->recording_form().name = c.arg("name");
+                r = live_->record(c.arg("name").empty());
+            }
+            break;
+        case control::CommandId::RecordStop:
+            if (live_) r = live_->stop_recording();
+            break;
+        case control::CommandId::MonitorOn:
+            if (live_) r = live_->start_radio();
+            break;
+        case control::CommandId::MonitorOff:
+            if (live_) r = live_->stop_radio();
+            break;
+        case control::CommandId::SoundOn:
+        case control::CommandId::SoundOff: {
+            AppSettings s = settings_;
+            s.sound.enabled = c.id == control::CommandId::SoundOn;
+            r = apply_settings(s);
+            break;
+        }
+        default:
+            r = Result{false, "unsupported"};
+            break;
+        }
+        (void)show(Result{r.ok, std::string(tr("Remote command")) + " " + control::command_name(c.id) +
+                                    (r.message.empty() ? std::string() : ": " + r.message)});
+    }
+    const core::BuildInfo& b = core::build_info();
+    nlohmann::json st = {{"application", "yantra"},
+                         {"version", std::string(b.version_string)},
+                         {"source_url", std::string(b.source_url)},
+                         {"sound", settings_.sound.enabled},
+                         {"project", static_cast<bool>(project_)}};
+    const bool running = live_ && live_->radio_running();
+    const bool recording = live_ && live_->recording();
+    const bool playing = replay_ && replay_->is_open();
+    st["state"] = recording ? "recording" : running ? "monitoring" : playing ? "playing" : "stopped";
+    st["monitoring"] = running;
+    st["recording"] = {{"recording", recording}};
+    if (live_) {
+        const RadioState rs = live_->radio_state();
+        st["radio"] = {{"label", rs.label}, {"state", rs.text}, {"cycles", rs.cycles}, {"lost", rs.lost}};
+    }
+    control_->set_status(std::move(st));
+}
+
 plugin::PluginLoader& AppState::plugins() {
     ensure_plugins();
     return *plugins_;
+}
+
+AppControl& AppState::remote_control() {
+    ensure_plugins();
+    return *control_;
 }
 
 PluginUi& AppState::plugin_ui() {

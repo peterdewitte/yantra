@@ -172,6 +172,21 @@ own changes are in its CHANGELOG.md.
   channel numbers are band-qualified (band code x 10000 + carrier number)
   so one number names one frequency.
 
+### Remote API and headless probe
+
+- 2026-11-08: plugin API 1.1: the host services `control` (run an application
+  command) and `data_folder` (a private folder per plugin); feature
+  plugins are started, stopped and fed the measurement records.
+- 2026-11-08: `yantra-probe`, the headless runner (API-01, API-03): the
+  measurement engine without a window, commands on standard input (record,
+  monitor, play, sound, status, rotate, quit), rotating recording files.
+- 2026-11-08: the probe feature plugin (PLG-24): a REST and WebSocket API
+  (API-02, docs/API.md) with owner and LAN tokens, a refused foreign
+  Origin, a filtered live view (sync, system information, neighbour
+  broadcast, levels) and the source link; periodic health and coverage
+  summaries (API-03); Tools > Remote probes in the app. Off until an
+  address is set: without it Yantra opens no network socket.
+
 ### Radio plugins (yantra-radios)
 
 - 2026-11-06: pinned to yantra-radios **v0.2.6** (commit 5394318): the

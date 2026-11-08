@@ -804,6 +804,33 @@ dropped with the project's tools); sharing: `share.h` (`SharingSettings` in `App
   `tests/app/ui/test_ui_report.cpp` (clicking), the UI lint visits every new dialog; screenshots
   `export_*` and `report_*`.
 
+## Remote API and the probe plugin (step 11.1)
+
+The probe feature plugin (`probe.so`, PLG-24) is loaded like any other
+plugin; the app gives it two host services of plugin API 1.1:
+
+- `data_folder`: `<user data>/plugin-data/<plugin id>` (the loader's
+  `data_root`, set in `AppState::ensure_plugins`), where the probe keeps
+  its token file and its summaries.
+- `control`: `AppControl` (app/model/app_control.h), set on the loader
+  before `load_all`. A plugin calls it on its own thread, so it never
+  waits for the UI thread: `status` is answered from the copy that
+  `AppState::tick()` stores each frame (application, version, source
+  link, state, monitoring, recording, sound, radio), and `record.start`,
+  `record.stop`, `monitor.on`, `monitor.off`, `sound.on` and `sound.off`
+  are queued (reply `{"queued":true}`, at most 32) and run by
+  `AppState::run_remote_commands()` in `tick()`, with the outcome on the
+  status line. `play`, `rotate` and `quit` are refused: they belong to the
+  headless runner `yantra-probe` ([PROBE.md](PROBE.md)).
+
+The walk test's pipeline has a `measure::FeatureFeed` observer, so
+feature plugins see the records (`on_record`) for their live view. The
+probe's window, Tools > Remote probes, starts and stops this app's API and
+follows other probes (the central viewer, [API.md](API.md)). The app
+opens no socket without the probe plugin, or with it but without
+`api.listen`. Tests: tests/app/test_app_control.cpp, the UI lint (the
+window), and tests/api (TST-51, on the headless runner).
+
 ## Screenshots and layout check (step 9.11)
 
 The documentation's screenshot set (SCR-01..05, SCR-07) is made by the app itself:

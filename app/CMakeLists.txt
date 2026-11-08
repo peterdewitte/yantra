@@ -57,6 +57,7 @@ add_library(yantra_app_model STATIC
   model/src/app_icon.cpp
   model/src/audible_alerts.cpp
   model/src/audio.cpp
+  model/src/app_control.cpp
   model/src/app_state.cpp
   model/src/cli.cpp
   model/src/credits.cpp
