@@ -15,6 +15,7 @@ const BuildInfo& build_info() noexcept {
         YANTRA_SIMD != 0,
         YANTRA_PLUGIN_API_VERSION_MAJOR,
         YANTRA_PLUGIN_API_VERSION_MINOR,
+        YANTRA_SOURCE_URL,
     };
     return info;
 }

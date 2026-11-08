@@ -25,6 +25,10 @@ option(YANTRA_SIMD "Build the SIMD kernels (OFF: plain C++ fallback only, TST-03
 option(YANTRA_BUILD_APP "Build the desktop application (needs the GUI libraries)" ON)
 option(YANTRA_BUILD_TESTS "Build the test suite and register it with ctest" ON)
 option(YANTRA_WERROR "Treat compiler warnings as errors (CI, TST-02)" OFF)
+# NFR-01/NFR-09: the AGPL source link of About, the remote API status
+# reply and the probe plugin, and the packages' source field.
+set(YANTRA_SOURCE_URL "https://github.com/peterdewitte/yantra" CACHE STRING
+    "Source code link shown in the About dialog and the remote API (NFR-01, NFR-09, UI-15)")
 set(YANTRA_SANITIZER "" CACHE STRING
     "Developer sanitizer build (TST-05): empty, asan-ubsan or tsan")
 set_property(CACHE YANTRA_SANITIZER PROPERTY STRINGS "" asan-ubsan tsan)

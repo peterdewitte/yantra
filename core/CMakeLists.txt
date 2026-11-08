@@ -23,6 +23,7 @@ add_library(yantra_core STATIC
   src/celldb/technology.cpp
   src/celldb/verify.cpp
   src/demo/demo_project.cpp
+  src/control/command.cpp
   src/export/batch.cpp
   src/export/csv.cpp
   src/export/dxf.cpp
@@ -37,6 +38,7 @@ add_library(yantra_core STATIC
   src/building/model_json.cpp
   src/context/building_context.cpp
   src/context/context.cpp
+  src/headless/runner.cpp
   src/measure/catalog.cpp
   src/measure/feature_feed.cpp
   src/measure/measurement_pipeline.cpp

@@ -21,6 +21,7 @@ struct BuildInfo {
     bool simd = false;                // built with YANTRA_SIMD=ON
     unsigned plugin_api_major = 0;    // include/yantra/plugin.h
     unsigned plugin_api_minor = 0;
+    std::string_view source_url;      // YANTRA_SOURCE_URL: the AGPL source link (NFR-01)
 };
 
 // Build information of the linked core library (constant for a build).

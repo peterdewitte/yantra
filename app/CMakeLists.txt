@@ -22,9 +22,6 @@
 find_package(glfw3 3.3 REQUIRED)
 find_package(OpenGL REQUIRED)
 
-set(YANTRA_SOURCE_URL "https://github.com/peterdewitte/yantra" CACHE STRING
-    "Source code link shown in the About dialog (NFR-01, NFR-09, UI-15)")
-
 # UI-12: the language files data/i18n/<lang>.json are built into the
 # model library (i18n.h), as pieces of raw text (a single literal would
 # pass the ISO C++ length limit); editing one reconfigures.
