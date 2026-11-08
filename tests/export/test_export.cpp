@@ -356,6 +356,30 @@ TEST_CASE("EXP-08 floor image: every point in its colour, a legend with counts, 
     CHECK_THROWS_AS(yx::floor_image(*fx.p, t, no_font), yx::ExportError);
 }
 
+TEST_CASE("IND-43 floor image with a map layer: flat cells in their colours over the plan, points left out") {
+    ExportFixture fx("export_image_map");
+    const yx::Table t = yx::floor_table(*fx.p, fx.ground);
+    yx::ImageOptions o;
+    o.legend = false;
+    o.walls = false;
+    o.antennas = false;
+    o.points = false;
+    // Two opaque cells over the whole 400 x 200 plan: red left, blue right.
+    o.map = yx::MapLayer{{0, 0}, {400, 200}, 2, 1, {0xFFFF0000u, 0xFF0000FFu}};
+    const yx::ImageResult res = yx::floor_image(*fx.p, t, o);
+    CHECK(res.points == 0);
+    const int mid_y = res.canvas.height() - 12 - 400;  // the plan is 1600 x 800 px, margin 12
+    CHECK(res.canvas.at(12 + 400, mid_y) == yx::rgb(0xFF0000));
+    CHECK(res.canvas.at(12 + 1200, mid_y) == yx::rgb(0x0000FF));
+    // A fully transparent cell leaves the plan as it is.
+    o.map->argb = {0x00FF0000u, 0xFF0000FFu};
+    const yx::ImageResult clear = yx::floor_image(*fx.p, t, o);
+    CHECK(clear.canvas.at(12 + 400, mid_y) != yx::rgb(0xFF0000));
+    CHECK(clear.canvas.at(12 + 1200, mid_y) == yx::rgb(0x0000FF));
+    o.map->argb = {0xFFFF0000u};
+    CHECK_THROWS_AS(yx::floor_image(*fx.p, t, o), yx::ExportError);
+}
+
 TEST_CASE("PLG-02 EXP-04 an exporter plugin through the public C ABI: offered in batch, gets the rows table") {
     ExportFixture fx("export_plugin");
     const yx::Table t = yx::floor_table(*fx.p, fx.ground);

@@ -100,7 +100,10 @@ walls, every point in its colour, the antennas, a title, an optional
 banner, and a legend with the count per band. `write_image_file` writes
 PNG or JPEG (by extension) with stb_image_write. Text uses the Inter font
 (`data/fonts/`, installed in `share/yantra/fonts/`), passed as a path;
-without a font the text is left out with a warning.
+without a font the text is left out with a warning. For the report's
+interpolated map (IND-43) `ImageOptions::map` lays a grid of ARGB cells
+over the plan rectangle it covers, each cell a flat square in its exact
+colour (alpha blended), and `points = false` leaves the points out.
 
 ## Batch export (EXP-04)
 

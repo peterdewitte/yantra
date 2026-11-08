@@ -13,6 +13,7 @@
 // rendered from that copy.
 #pragma once
 
+#include <cstddef>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -44,6 +45,7 @@ struct FigureOptions {
 struct Figure {
     ImageBlock block;
     bool plan_drawn = false;
+    std::size_t points = 0;  ///< points drawn (the table's rows with a plan position)
     std::vector<std::string> warnings;  ///< of the image, and why a plan is left out
 };
 

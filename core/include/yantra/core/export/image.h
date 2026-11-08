@@ -15,7 +15,9 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -24,6 +26,17 @@
 
 namespace yantra::exports {
 
+/// A colour layer over the plan, under the walls and points (the
+/// interpolated map of a report, IND-43): `cols` x `rows` cells of
+/// 0xAARRGGBB (row 0 at `min`), covering the plan rectangle min..max
+/// (plan units). Each cell is drawn as a flat square (no smoothing), so
+/// the picture shows the scale's colours exactly.
+struct MapLayer {
+    building::Point2 min, max;
+    int cols = 0, rows = 0;
+    std::vector<std::uint32_t> argb;
+};
+
 struct ImageOptions {
     int max_plan_px = 1600;        ///< the plan's longer side in pixels (100..8000)
     double point_radius_px = 0.0;  ///< 0: from the point density (1.5..6 px)
@@ -31,6 +44,8 @@ struct ImageOptions {
     bool walls = true;
     bool antennas = true;
     bool legend = true;
+    bool points = true;  ///< the table's points (a map picture may leave them out)
+    std::optional<MapLayer> map;  ///< drawn over the plan when set
     /// Text font (data/fonts/Inter-Regular.ttf of the installed data);
     /// empty or unreadable: no text, with a warning.
     std::filesystem::path font_file;

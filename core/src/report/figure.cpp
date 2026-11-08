@@ -88,6 +88,7 @@ Figure floor_figure(const project::Project& project, const exports::Table& table
         }
     exports::ImageResult img = exports::floor_image(project, table, io);
     fig.plan_drawn = img.plan_drawn;
+    fig.points = img.points;
     for (auto& w : img.warnings) fig.warnings.push_back(std::move(w));
     fig.block.image = std::move(img.canvas);
     if (sheet != nullptr && fig.plan_drawn) fig.block.credit = sheet_credit(*sheet);

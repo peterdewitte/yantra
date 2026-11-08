@@ -118,6 +118,32 @@ ImageResult floor_image(const project::Project& project, const Table& table, con
     }
     c.stroke_rect(ox - 1, oy - 1, ox + pw + 1, oy + ph + 1, 1, kOutline);
     auto px = [&](building::Point2 p) { return building::Point2{ox + p.x * scale, oy + p.y * scale}; };
+    if (o.map) {
+        const MapLayer& m = *o.map;
+        if (m.cols <= 0 || m.rows <= 0 || m.argb.size() != static_cast<std::size_t>(m.cols) * static_cast<std::size_t>(m.rows))
+            throw ExportError("image: the map layer's cells do not match its size");
+        const auto lo = px(m.min), hi = px(m.max);
+        const double w = hi.x - lo.x, h = hi.y - lo.y;
+        if (w > 0 && h > 0) {
+            // Only the pixels on the plan; each takes the colour of its cell.
+            const int x0 = std::max(static_cast<int>(std::floor(lo.x)), static_cast<int>(ox));
+            const int y0 = std::max(static_cast<int>(std::floor(lo.y)), static_cast<int>(oy));
+            const int x1 = std::min(static_cast<int>(std::ceil(hi.x)), static_cast<int>(ox) + pw);
+            const int y1 = std::min(static_cast<int>(std::ceil(hi.y)), static_cast<int>(oy) + ph);
+            for (int y = y0; y < y1; ++y) {
+                const int row = static_cast<int>(std::floor((y + 0.5 - lo.y) / h * m.rows));
+                if (row < 0 || row >= m.rows) continue;
+                for (int x = x0; x < x1; ++x) {
+                    const int col = static_cast<int>(std::floor((x + 0.5 - lo.x) / w * m.cols));
+                    if (col < 0 || col >= m.cols) continue;
+                    const std::uint32_t v = m.argb[static_cast<std::size_t>(row) * static_cast<std::size_t>(m.cols) +
+                                                   static_cast<std::size_t>(col)];
+                    const auto a = static_cast<std::uint8_t>(v >> 24U);
+                    if (a != 0) c.blend(x, y, rgb(v & 0xffffffU, a));
+                }
+            }
+        }
+    }
     if (o.walls)
         for (const building::Wall& w : floor->walls) {
             std::vector<double> xy;
@@ -138,7 +164,7 @@ ImageResult floor_image(const project::Project& project, const Table& table, con
         radius = placed > 0 ? std::clamp(std::sqrt(area / static_cast<double>(placed)) / 4.0, 1.5 * ui, 6.0 * ui) : 6 * ui;
     }
     for (const Row& r : table.rows) {
-        if (!r.plan) continue;
+        if (!r.plan || !o.points) continue;
         const auto q = px(*r.plan);
         c.fill_circle(q.x, q.y, radius, rgb(r.rgb));
         if (radius >= 3) c.ring(q.x, q.y, radius, std::max(0.75, radius / 6), kOutline);
