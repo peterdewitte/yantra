@@ -116,7 +116,7 @@ void Gui::draw_survey_section() {
 
     ImGui::SeparatorText(tr("Coverage"));
     double th = state_.monitor()->stats().threshold_dbm;
-    ImGui::SetNextItemWidth(110.0F);
+    ImGui::SetNextItemWidth(gui_detail::px(110.0F));
     if (ImGui::InputDouble(tr("dBm###survey.threshold"), &th, 1.0, 5.0, "%.0f") && th >= kMinThresholdDbm && th <= kMaxThresholdDbm)
         (void)state_.show(state_.set_coverage_threshold(th));
     text_tooltip(tr("The serving level that counts as covered in the statistics (UI-11); kept in the settings."));
@@ -169,7 +169,7 @@ void Gui::draw_recording_controls(LiveSurvey& live) {
         ImGui::SetNextItemWidth(-1.0F);
         input_text("###rec.notes", f.notes, 512);
         text_tooltip(tr("Notes for the recording's header (no personal data)."));
-        ImGui::SetNextItemWidth(110.0F);
+        ImGui::SetNextItemWidth(gui_detail::px(110.0F));
         ImGui::InputDouble(tr("min split###rec.split"), &f.split_minutes, 1.0, 5.0, "%.0f");
         text_tooltip(tr("A new file every so many minutes (0 = one file)."));
         ImGui::SameLine();
@@ -191,7 +191,7 @@ void Gui::draw_recording_controls(LiveSurvey& live) {
     text_tooltip(tr("Keep the last minutes while the radio runs, without a recording; save them when something "
                  "happened (REC-09)."));
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(90.0F);
+    ImGui::SetNextItemWidth(gui_detail::px(90.0F));
     ImGui::BeginDisabled(f.ring);
     ImGui::InputDouble(tr("min###rec.ring_minutes"), &f.ring_minutes, 1.0, 5.0, "%.0f");
     ImGui::EndDisabled();
@@ -255,7 +255,7 @@ void Gui::draw_replay_controls() {
     if (ImGui::Button(tr("Again###replay.again"))) (void)state_.show(replay->play_again());
     text_tooltip(tr("Play again from the start."));
     ImGui::SameLine();
-    ImGui::SetNextItemWidth(80.0F);
+    ImGui::SetNextItemWidth(gui_detail::px(80.0F));
     ImGui::InputDouble("x###replay.speed", &replay_speed_, 0.0, 0.0, "%.1f");
     text_tooltip(tr("The speed: 1 = real time, up to 100; 0 = as fast as possible."));
     std::int64_t pos = v.position_ns;
@@ -377,7 +377,9 @@ void Gui::draw_cells_panel(const SurveyFrame& f) {
     }
     ImGui::TextDisabled(tr("%llu samples"), static_cast<unsigned long long>(f.samples));
     ImGui::EndGroup();
-    ImGui::SameLine(std::max(start.x + 260.0F, ImGui::GetCursorPosX() + 20.0F));
+    // Right of the large values, however wide they are at the font size and
+    // scale (UI-13): the serving cell never runs over them.
+    ImGui::SameLine(start.x + std::max(gui_detail::px(260.0F), ImGui::GetItemRectSize().x + gui_detail::px(20.0F)));
 
     // UI-02: the serving cell and its broadcast parameters.
     ImGui::BeginChild("###cells.serving", ImVec2(std::max(200.0F, ImGui::GetContentRegionAvail().x * 0.4F), 0.0F));

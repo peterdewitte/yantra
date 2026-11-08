@@ -365,7 +365,7 @@ void Gui::draw_setting_row(RadioWindows& rw, const SettingRow& r) {
         break;
     }
     case SettingWidget::Combo: {
-        ImGui::SetNextItemWidth(240.0F);
+        ImGui::SetNextItemWidth(gui_detail::px(240.0F));
         const ImGuiID cid = ImGui::GetID(id.c_str());
         const bool open = ImGui::BeginCombo(id.c_str(), r.requested_text.c_str());
         probe_label(cid, id.c_str());
@@ -382,7 +382,7 @@ void Gui::draw_setting_row(RadioWindows& rw, const SettingRow& r) {
         break;
     }
     case SettingWidget::Slider: {
-        ImGui::SetNextItemWidth(200.0F);
+        ImGui::SetNextItemWidth(gui_detail::px(200.0F));
         bool done = false;
         plugin::Value v;
         if (d.type == YR_TYPE_DOUBLE) {
@@ -561,17 +561,17 @@ void Gui::draw_radio_calibration(RadioWindows& rw) {
 
     if (ImGui::CollapsingHeader(tr("Level calibration wizard###cal.wizard"), ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::BeginDisabled(v.wizard);
-        ImGui::SetNextItemWidth(260.0F);
+        ImGui::SetNextItemWidth(gui_detail::px(260.0F));
         input_text(tr("Frequencies (MHz)###cal.freqs"), f.frequencies_mhz);
         text_tooltip(tr("The generator's frequencies, comma separated."));
-        ImGui::SetNextItemWidth(260.0F);
+        ImGui::SetNextItemWidth(gui_detail::px(260.0F));
         input_text(tr("Levels (dBm)###cal.levels"), f.levels_dbm);
         text_tooltip(tr("The generator's levels at the radio's input, comma separated."));
-        ImGui::SetNextItemWidth(120.0F);
+        ImGui::SetNextItemWidth(gui_detail::px(120.0F));
         ImGui::InputInt(tr("Valid (days)###cal.days"), &f.valid_days);
         text_tooltip(tr("How long the calibration stays valid (RF-02)."));
         int readings = static_cast<int>(f.readings);
-        ImGui::SetNextItemWidth(120.0F);
+        ImGui::SetNextItemWidth(gui_detail::px(120.0F));
         if (ImGui::InputInt(tr("Readings per point###cal.readings"), &readings)) f.readings = static_cast<std::size_t>(std::max(1, readings));
         text_tooltip(tr("Records averaged per point."));
         const bool reference = f.method == calibration::kMethodReference;
@@ -607,16 +607,16 @@ void Gui::draw_radio_calibration(RadioWindows& rw) {
     }
 
     if (ImGui::CollapsingHeader(tr("Verify and frequency error###cal.verify_section"))) {
-        ImGui::SetNextItemWidth(140.0F);
+        ImGui::SetNextItemWidth(gui_detail::px(140.0F));
         ImGui::InputDouble(tr("MHz###cal.verify_mhz"), &f.verify_mhz, 0.0, 0.0, "%.4f");
         ImGui::SameLine();
-        ImGui::SetNextItemWidth(100.0F);
+        ImGui::SetNextItemWidth(gui_detail::px(100.0F));
         ImGui::InputDouble(tr("dBm###cal.verify_dbm"), &f.verify_dbm, 0.0, 0.0, "%.1f");
         ImGui::SameLine();
         if (reason_button(tr("Verify###cal.verify"), tr("Measure a known level and compare with the table."), v.verify_reason))
             (void)rw.verify();
         if (v.verify_error_db) ImGui::Text(tr("Table error: %+.2f dB"), *v.verify_error_db);
-        ImGui::SetNextItemWidth(140.0F);
+        ImGui::SetNextItemWidth(gui_detail::px(140.0F));
         ImGui::InputDouble(tr("Known carrier (MHz)###cal.carrier_mhz"), &f.carrier_mhz, 0.0, 0.0, "%.4f");
         ImGui::SameLine();
         if (reason_button(tr("Measure ppm###cal.ppm"),
@@ -644,7 +644,7 @@ void Gui::draw_radio_calibration(RadioWindows& rw) {
     }
 
     if (ImGui::CollapsingHeader(tr("Import and export###cal.files"))) {
-        ImGui::SetNextItemWidth(360.0F);
+        ImGui::SetNextItemWidth(gui_detail::px(360.0F));
         input_text(tr("File###cal.file"), f.file);
         text_tooltip(tr("A calibration table file (JSON)."));
         const std::string why = f.file.empty() ? tr("Enter a file name.") : std::string();

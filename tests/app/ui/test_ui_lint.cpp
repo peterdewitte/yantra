@@ -6,6 +6,8 @@
 // and in the touch layout: each control has a tooltip, each disabled one
 // its reason, nothing overlaps, is cut off or squashed, touch targets are
 // at least 48 px, and every text has its translation (tests/app/ui/ui_lint.h).
+// TST-50's layout check runs the same visit at the other supported window
+// sizes and scales (step 9.11).
 #include <doctest/doctest.h>
 
 #include <imgui.h>
@@ -197,17 +199,28 @@ void visit_all(Shell& s, UiLint& lint, const std::string& tag) {
 #endif
 }
 
-void run_lint(bool touch, const char* tag) {
+struct LintRun {
+    const char* tag;
+    bool touch = false;
+    float width = 1280.0F, height = 800.0F;  // a 10" tablet, a laptop
+    double scale = 1.0;
+    bool all_languages = true;
+};
+
+void run_lint(const LintRun& run) {
     std::string all;
     int frames = 0;
     for (Language l : kLanguages) {
+        if (!run.all_languages && l != Language::En) continue;
         AppSettings settings;
         settings.language = language_key(l);
-        settings.touch = touch;
-        Shell s(lint_paths(scratch(std::string(tag) + "_" + language_key(l))), settings);
-        if (touch) s.ui.set_display_size(1280.0F, 800.0F);  // a 10" tablet
-        UiLint lint{s.ui, touch};
-        visit_all(s, lint, std::string(language_key(l)) + (touch ? " touch" : ""));
+        settings.touch = run.touch;
+        settings.ui_scale = run.scale;
+        Shell s(lint_paths(scratch(std::string(run.tag) + "_" + language_key(l))), settings);
+        s.ui.set_display_size(run.width, run.height);
+        REQUIRE(s.ui.frames(3));
+        UiLint lint{s.ui, run.touch};
+        visit_all(s, lint, std::string(language_key(l)) + " " + run.tag);
         frames += lint.frames_checked;
         for (const std::string& i : lint.issues) all += i + "\n";
     }
@@ -218,6 +231,24 @@ void run_lint(bool touch, const char* tag) {
 
 }  // namespace
 
-TEST_CASE("DOC-20 UI lint: every window in every language, desktop layout") { run_lint(false, "desktop"); }
+TEST_CASE("DOC-20 UI lint: every window in every language, desktop layout") { run_lint({"desktop"}); }
 
-TEST_CASE("DOC-20 UI lint: every window in every language, touch layout (UI-13)") { run_lint(true, "touch"); }
+TEST_CASE("DOC-20 UI lint: every window in every language, touch layout (UI-13)") {
+    run_lint({"touch", true});
+}
+
+// TST-50 layout check: the same windows at the other supported window
+// sizes and display scales (UI-13), in English (the languages' texts
+// are checked at the default size above): nothing overlaps, is cut off,
+// squashed or shortened.
+TEST_CASE("TST-50 layout check: a small window (1024 x 640)") {
+    run_lint({"small", false, 1024.0F, 640.0F, 1.0, false});
+}
+
+TEST_CASE("TST-50 layout check: a full-HD screen at 150 % scale") {
+    run_lint({"scale150", false, 1920.0F, 1080.0F, 1.5, false});
+}
+
+TEST_CASE("TST-50 layout check: a 7-inch tablet (1024 x 600), touch layout") {
+    run_lint({"tablet7", true, 1024.0F, 600.0F, 1.0, false});
+}

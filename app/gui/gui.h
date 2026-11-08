@@ -131,6 +131,8 @@ public:
     }
 
 private:
+    /// The side panel's page ("layers", "edit", "walk", "map", "survey", "post").
+    std::string page_ = "layers";
     void draw_menu_bar();
     void handle_shortcuts();
     void draw_start_screen();

@@ -5,8 +5,8 @@
 // source half): for one drawn frame it reports
 //   - a control without a hover text (DOC-07 b),
 //   - a disabled control without the reason (DOC-07 c),
-//   - controls that overlap, are cut off at their window's edge or are
-//     squashed (TST-50 layout check),
+//   - controls that overlap, are cut off at their window's edge, are
+//     squashed or show only part of their label (TST-50 layout check),
 //   - in the touch layout, controls lower than 48 px (UI-13),
 //   - texts tr() found no translation for in the language (UI-12, DOC-07 f).
 // A control is every item the probe saw with a label (buttons, fields,
@@ -104,6 +104,13 @@ private:
             else if (it->disabled && !reason) add(where, "disabled without a reason: " + name);
             const float wd = it->x1 - it->x0, ht = it->y1 - it->y0;
             if (wd < 6.0F || ht < 6.0F) add(where, "squashed: " + name);
+            // A label wider than its control is cut off or shortened with an
+            // ellipsis (a squashed tab, a button narrower than its text).
+            // (A text field draws its label beside the field, outside the item.)
+            else if (const float tw = label_width(it->label);
+                     (it->status & ImGuiItemStatusFlags_Inputable) == 0 && tw > wd + 0.5F)
+                add(where, "label cut off (" + std::to_string(static_cast<int>(tw)) + " px text in " +
+                               std::to_string(static_cast<int>(wd)) + " px): " + name);
             if (touch && ht < static_cast<float>(app::kTouchTargetPx) - 0.5F)
                 add(where, "lower than 48 px for touch (" + std::to_string(static_cast<int>(ht)) + "): " + name);
             // (A selectable reaches half the item spacing past its row.)
@@ -124,6 +131,13 @@ private:
                     add(where, "overlap: " + std::string(a.key()) + " and " + std::string(b.key()) + " in " +
                                    std::string(window_key(a.window)));
             }
+    }
+
+    /// The width of a label's visible text ("Text##x###id" -> "Text").
+    static float label_width(const std::string& label) {
+        const std::size_t end = label.find("##");
+        const std::string text = label.substr(0, end);
+        return text.empty() ? 0.0F : ImGui::CalcTextSize(text.c_str()).x;
     }
 
 public:

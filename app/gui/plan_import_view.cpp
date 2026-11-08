@@ -283,7 +283,7 @@ void PlanImportView::draw_scale(PlanImportWindow& w) {
     }
     ImGui::BeginDisabled(!have_floor);
     ScaleForm& sf = w.scale_form();
-    ImGui::SetNextItemWidth(110.0F);
+    ImGui::SetNextItemWidth(gui_detail::px(110.0F));
     input_text("metres###pi.distance", sf.distance_m, 32);
     tooltip(tr("The real distance between the two points, or the scale bar's length, in metres (\"2.5\" or \"2,5\")."));
     ImGui::SameLine();
@@ -295,7 +295,7 @@ void PlanImportView::draw_scale(PlanImportWindow& w) {
     tooltip(tr("Set the selected floor's scale from the line drawn on the plan and the distance."));
     const bool ratio_ok = w.drawing_scale_available();
     ImGui::BeginDisabled(!ratio_ok);
-    ImGui::SetNextItemWidth(110.0F);
+    ImGui::SetNextItemWidth(gui_detail::px(110.0F));
     input_text(tr("drawing scale 1:###pi.ratio"), sf.ratio, 32);
     tooltip(ratio_ok ? tr("The scale the plan is drawn at, e.g. 100 for 1:100 (the page's paper size is known).")
                      : tr("Not for this page: it has no paper size (an image without a stored resolution). Use two "

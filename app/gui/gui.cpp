@@ -392,42 +392,72 @@ void Gui::draw_project_screen() {
     ImGui::BeginChild("###layers", ImVec2(panel, avail.y), ImGuiChildFlags_Borders);
     // The side panel's pages: the layers (9.2) and the tools (9.4).
     overlay_.progress = false;
-    // Shrink, never scroll: every page's tab stays in view on a narrow panel.
+    // The pages as a row of buttons that wraps on a narrow panel, so every
+    // page's name stays readable (UI-13; a tab bar shortened them to "L...").
     // A page asked for by a command (the tour's Show me, step 9.10).
-    const std::string want = state_.take_panel_request();
-    auto pick = [&](const char* key) { return want == key ? ImGuiTabItemFlags_SetSelected : ImGuiTabItemFlags_None; };
-    if (ImGui::BeginTabBar("###panel.tabs", ImGuiTabBarFlags_FittingPolicyShrink)) {
-        if (tab_item(tr("Layers###panel.layers"), tr("The layers of the plan: what is shown and in which order."), pick("layers"))) {
-            help_button("13.4");
-            draw_layer_panel(*w, c);
-            ImGui::EndTabItem();
+    struct Page {
+        const char* key;
+        const char* label;
+        const char* tip;
+        bool shown;
+    };
+    const Page pages[] = {
+        {"layers", tr("Layers###panel.layers"), tr("The layers of the plan: what is shown and in which order."), true},
+        {"edit", tr("Edit###panel.edit"), tr("Draw walls and place antennas on the floor."), c != nullptr},
+        {"walk", tr("Walk###panel.walk"), tr("Walk tests: measure the floor while you walk it."), c != nullptr},
+        {"map", tr("Map###panel.map"), tr("The interpolated coverage map of the floor."), c != nullptr},
+        {"survey", tr("Survey###panel.survey"), tr("The live survey: levels, cells, graphs, events and recording."), true},
+        {"post", tr("Post###panel.post"), tr("Post-processing of the measured points: views and acceptance."), c != nullptr},
+    };
+    auto shown = [&](const std::string& key) {
+        for (const Page& pg : pages)
+            if (key == pg.key) return pg.shown;
+        return false;
+    };
+    if (const std::string want = state_.take_panel_request(); shown(want)) page_ = want;
+    if (!shown(page_)) page_ = "layers";
+    {
+        const ImGuiStyle& st = ImGui::GetStyle();
+        const float width = ImGui::GetContentRegionAvail().x;
+        float x = 0.0F;
+        for (const Page& pg : pages) {
+            if (!pg.shown) continue;
+            const std::string_view label(pg.label);
+            const std::string text(label.substr(0, label.find("##")));
+            const float bw = ImGui::CalcTextSize(text.c_str()).x + 2.0F * st.FramePadding.x;
+            if (x > 0.0F && x + st.ItemSpacing.x + bw <= width) {
+                ImGui::SameLine();
+                x += st.ItemSpacing.x;
+            } else {
+                x = 0.0F;
+            }
+            x += bw;
+            const bool current = page_ == pg.key;
+            if (current) ImGui::PushStyleColor(ImGuiCol_Button, st.Colors[ImGuiCol_TabSelected]);
+            if (ImGui::Button(pg.label)) page_ = pg.key;
+            if (current) ImGui::PopStyleColor();
+            text_tooltip(pg.tip);
         }
-        if (c != nullptr && tab_item(tr("Edit###panel.edit"), tr("Draw walls and place antennas on the floor."), pick("edit"))) {
-            help_button("13.3");
-            draw_edit_section();
-            ImGui::EndTabItem();
-        }
-        if (c != nullptr && tab_item(tr("Walk###panel.walk"), tr("Walk tests: measure the floor while you walk it."), pick("walk"))) {
-            help_button("7.1");
-            draw_walk_section(c);
-            ImGui::EndTabItem();
-        }
-        if (c != nullptr && tab_item(tr("Map###panel.map"), tr("The interpolated coverage map of the floor."), pick("map"))) {
-            help_button("13.5");
-            draw_interpolation_section(c);
-            ImGui::EndTabItem();
-        }
-        if (tab_item(tr("Survey###panel.survey"), tr("The live survey: levels, cells, graphs, events and recording."), pick("survey"))) {
-            help_button("5.1");
-            draw_survey_section();
-            ImGui::EndTabItem();
-        }
-        if (c != nullptr && tab_item(tr("Post###panel.post"), tr("Post-processing of the measured points: views and acceptance."), pick("post"))) {
-            help_button("11.1");
-            draw_post_section();
-            ImGui::EndTabItem();
-        }
-        ImGui::EndTabBar();
+        ImGui::Separator();
+    }
+    if (page_ == "layers") {
+        help_button("13.4");
+        draw_layer_panel(*w, c);
+    } else if (page_ == "edit") {
+        help_button("13.3");
+        draw_edit_section();
+    } else if (page_ == "walk") {
+        help_button("7.1");
+        draw_walk_section(c);
+    } else if (page_ == "map") {
+        help_button("13.5");
+        draw_interpolation_section(c);
+    } else if (page_ == "survey") {
+        help_button("5.1");
+        draw_survey_section();
+    } else if (page_ == "post") {
+        help_button("11.1");
+        draw_post_section();
     }
     ImGui::EndChild();
     ImGui::SameLine();
