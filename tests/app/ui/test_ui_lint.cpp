@@ -125,10 +125,11 @@ void visit_all(Shell& s, UiLint& lint, const std::string& tag) {
     REQUIRE(s.ui.run_until([&] { return s.state.screen() == Screen::Project; }, 10));
     settle_check("tour project");
     REQUIRE(s.state.tour().next().ok);
+    // The strip is the same in every dialog (the plan import window with
+    // it is in test_ui_tour.cpp; decoding the large sheet here 8 times made
+    // the sanitizer run too slow).
     REQUIRE(s.state.trigger(Action::AddFloor).ok);
     settle_check("tour strip in add floor");
-    REQUIRE(s.state.tour().show_me().ok);  // the plan import window on the sheet
-    settle_check("tour strip in plan import");
     s.state.tour().leave();
     s.state.cancel_dialog();
     REQUIRE(s.state.close_project().ok);
