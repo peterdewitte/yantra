@@ -121,6 +121,29 @@ own changes are in its CHANGELOG.md.
   described one is refused with both hashes and the download address.
   `yantra-demo` takes `--sheets DIR` (the cache) or `--reference-sheets`.
 
+### Export and reports
+
+- 2026-11-08: exports (docs/EXPORT.md): CSV with selectable columns,
+  separator, UTC or local time and up to N neighbours (EXP-01), DXF per
+  floor in metres (EXP-03), the floor image with points and legend as
+  PNG or JPEG (EXP-08), batch export of a folder of recordings, merged or
+  separate, also through exporter plugins (EXP-04, PLG-02). The rows are
+  the project window's points (IND-30).
+- 2026-11-08: the indoor coverage and acceptance report as PDF (libharu,
+  embedded Inter and JetBrains Mono subsets) and self-contained HTML
+  (EXP-05, docs/REPORT.md): cover, measurement metadata, building
+  summary, one section per floor with every measured point, the stored
+  interpolated map, "% of measured points" next to "% of floor area",
+  acceptance profiles on both bases (EXP-06; stored in the project,
+  schema 7), histogram and CDF, per-cell statistics, serving-cell
+  changes, network verification and neighbour cross-check; the curtat.be
+  logo and reference on the cover and every page, the Yantra favicon,
+  the DEMO label.
+- 2026-11-08: the sample report of the Fraunces demo in `docs/samples/`
+  (PDF and HTML, DEMO-06), made by `ninja sample_report`
+  (`yantra-demo --sample-report`) and compared again by the ctest
+  `sample_report_compare` and CI within a set tolerance.
+
 ### Measurements
 
 - 2026-11-05: a self-interference warning: raised noise next to the

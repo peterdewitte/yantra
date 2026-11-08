@@ -65,5 +65,17 @@ jobs:
         run: cmake --build --preset ci -j "$(nproc)"
       - name: Fast tests
         run: ctest --test-dir build -LE 'slow|timing' --timeout 600 --output-on-failure -j "$(nproc)"
+      - name: Sample report (DEMO-06)
+        # The Fraunces demo's report made again and compared with the
+        # committed docs/samples within the set tolerance; an intended
+        # change commits the new sample (ninja -C build sample_report).
+        run: ctest --test-dir build -R '^sample_report_compare$' --timeout 900 --output-on-failure
+      - name: Keep the regenerated sample report when it differs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sample-report
+          path: build/tests/report/scratch/sample_report/*_report.*
+          if-no-files-found: ignore
       - name: Timing-sensitive tests (retried once)
         run: ctest --test-dir build -L timing -LE slow --timeout 600 --output-on-failure --repeat until-pass:2

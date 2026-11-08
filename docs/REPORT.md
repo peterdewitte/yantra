@@ -187,6 +187,28 @@ area (`survey::evaluate_area` of the stored map; "not assessed" without
 a map), plus the tested area when it is the profile's basis. The basis
 marked * decides the profile's PASS or FAIL.
 
+## Sample report (DEMO-06)
+
+`docs/samples/fraunces_report.pdf` and `fraunces_report.html` are the
+report of the Fraunces demo project (two floors, the simulated walks,
+the stored interpolations, the default acceptance profile, the
+verification of the replayed recordings, the DEMO label, no surveyor),
+composed as the report dialog does with its defaults and dated by a
+fixed `SOURCE_DATE_EPOCH` (2026-11-08 00:00 UTC). Made by
+
+    ninja -C build sample_report     # yantra-demo --sample-report docs/samples ...
+
+The ctest `sample_report_compare` (and the CI step "Sample report")
+makes it again from the built demo project and compares it with the
+committed files (`yantra-demo --sample-report DIR ... --compare
+docs/samples`, `core/report/compare.h`): the HTML text must be equal
+except for numbers within 0.25 or 0.5 %, each picture may have at most
+2 % of its pixels off by more than 24 in a channel, and the PDF must be
+valid with the same page count. On the build machine both files are
+byte-identical (the tool says "identical"). A difference beyond the
+tolerance fails with the lines that differ; an intended change commits
+the new sample.
+
 ## Tests
 
 `tests/report` (one ctest per case): a valid PDF with the cover first

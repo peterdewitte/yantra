@@ -44,6 +44,21 @@ if(YANTRA_RADIOS_KIND STREQUAL "build" OR
     VERBATIM)
   add_custom_target(demo_fraunces ALL DEPENDS ${_outputs})
   add_dependencies(demo_fraunces yantra_radio_plugins)
+  # DEMO-06: the committed sample report of this project (docs/samples),
+  # dated by a fixed SOURCE_DATE_EPOCH so it can be made again byte for
+  # byte. `ninja sample_report` writes it (an intended change commits the
+  # new files); the ctest sample_report_compare and CI make it again and
+  # compare it within report::CompareTolerance.
+  set(YANTRA_SAMPLE_REPORT_EPOCH 1794096000 CACHE INTERNAL "")  # 2026-11-08 00:00 UTC
+  set(YANTRA_SAMPLE_REPORT_ARGS --project ${_out}/fraunces.yantra --description ${_data}/fraunces.json
+      --tetra-plugin $<TARGET_FILE:yantra_tetra> --data ${PROJECT_SOURCE_DIR}/data CACHE INTERNAL "")
+  add_custom_target(sample_report
+    COMMAND ${CMAKE_COMMAND} -E env SOURCE_DATE_EPOCH=${YANTRA_SAMPLE_REPORT_EPOCH}
+            $<TARGET_FILE:yantra-demo> --sample-report ${PROJECT_SOURCE_DIR}/docs/samples
+            --work ${PROJECT_BINARY_DIR}/sample_report_work ${YANTRA_SAMPLE_REPORT_ARGS}
+    DEPENDS demo_fraunces yantra-demo yantra_tetra
+    COMMENT "The sample report of the Fraunces demo in docs/samples (DEMO-06)"
+    VERBATIM)
   install(FILES ${_out}/fraunces.yantra DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra/demo/fraunces)
   install(DIRECTORY ${_out}/recordings DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra/demo/fraunces)
 

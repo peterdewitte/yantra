@@ -12,3 +12,17 @@ list(APPEND YANTRA_PER_CASE_TESTS report)
 yantra_add_test_dir(report LIBS yantra::core yantra::json)
 target_compile_definitions(test_report PRIVATE
   YANTRA_TEST_SCRATCH_DIR="${CMAKE_CURRENT_BINARY_DIR}/scratch")
+
+# DEMO-06: the sample report of the Fraunces demo is made again from the
+# built demo project and compared with the committed one in docs/samples
+# within report::CompareTolerance (tools/yantra-demo --sample-report
+# --compare; CI runs the same). An intended change: `ninja sample_report`
+# and commit docs/samples.
+if(TARGET demo_fraunces)
+  add_test(NAME sample_report_compare
+    COMMAND ${CMAKE_COMMAND} -E env SOURCE_DATE_EPOCH=${YANTRA_SAMPLE_REPORT_EPOCH}
+            $<TARGET_FILE:yantra-demo> --sample-report ${CMAKE_CURRENT_BINARY_DIR}/scratch/sample_report
+            --work ${CMAKE_CURRENT_BINARY_DIR}/scratch/sample_report_work ${YANTRA_SAMPLE_REPORT_ARGS}
+            --compare ${PROJECT_SOURCE_DIR}/docs/samples)
+  set_tests_properties(sample_report_compare PROPERTIES LABELS "slow;demo" TIMEOUT 900)
+endif()

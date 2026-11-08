@@ -52,6 +52,18 @@ precedence = "override"
 SPDX-FileCopyrightText = ["2026 The Yantra contributors", "2026 Curtat BV"]
 SPDX-License-Identifier = "GPL-3.0-or-later AND LicenseRef-Curtat-Trademark"
 
+# The sample report of the Fraunces demo (DEMO-06), made by
+# `ninja sample_report` (tools/yantra-demo): Yantra's output with the
+# public-domain HABS sheets of the Fraunces Tavern, the curtat.be logo
+# (trademark of Curtat BV, BRD-02/04) and embedded subsets of Inter and
+# JetBrains Mono (SIL OFL 1.1, which allows embedding).
+[[annotations]]
+path = ["docs/samples/*.pdf", "docs/samples/*.html"]
+precedence = "override"
+SPDX-FileCopyrightText = ["2026 The Yantra contributors", "2026 Curtat BV",
+                          "Historic American Buildings Survey, Library of Congress"]
+SPDX-License-Identifier = "GPL-3.0-or-later AND LicenseRef-Curtat-Trademark AND OFL-1.1 AND LicenseRef-Public-Domain"
+
 # Inter 4.1 (SIL OFL 1.1): the font of the exported floor images and the
 # reports (EXP-08), shipped as separate files and loaded at run time.
 [[annotations]]

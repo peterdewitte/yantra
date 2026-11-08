@@ -55,6 +55,10 @@ The cell database (CSV import/export, verification, cross-check,
 reselection simulator): [docs/CELL_DATABASE.md](docs/CELL_DATABASE.md).
 The demo project (Fraunces Tavern, two floors, simulated walks and
 interpolation) and the demo scenarios: [docs/DEMO.md](docs/DEMO.md).
+A sample indoor coverage and acceptance report of the demo project, as
+Yantra writes it: [PDF](docs/samples/fraunces_report.pdf) and
+[HTML](docs/samples/fraunces_report.html) (DEMO-06; how reports are made:
+[docs/REPORT.md](docs/REPORT.md)).
 
 Out of scope, by design: short data messages, subscriber addresses, voice
 and decryption. Yantra only handles broadcast and system information,
