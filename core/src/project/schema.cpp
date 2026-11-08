@@ -327,6 +327,17 @@ CREATE TABLE interpolations (
 );
 )sql";
 
+// Version 7 (step 10.3): the project's acceptance profiles (EXP-06), an
+// ordered list with unique names; the definition (criteria, unit, basis
+// and its options) is a JSON object written by survey/acceptance.h.
+const char* const kV7 = R"sql(
+CREATE TABLE acceptance_profiles (
+  position   INTEGER PRIMARY KEY CHECK (position >= 0),
+  name       TEXT NOT NULL UNIQUE CHECK (name <> ''),
+  definition TEXT NOT NULL
+);
+)sql";
+
 }  // namespace
 
 void migrate(sql::Db& db, int from, int to, const std::string& now, const std::string& tool,
@@ -350,6 +361,8 @@ void migrate(sql::Db& db, int from, int to, const std::string& now, const std::s
             db.exec(kV5, what);
         } else if (v == 6) {
             db.exec(kV6, what);
+        } else if (v == 7) {
+            db.exec(kV7, what);
         } else if (v > kSchemaVersion && static_cast<std::size_t>(v - kSchemaVersion) <= extra.size()) {
             db.exec(extra[static_cast<std::size_t>(v - kSchemaVersion - 1)], what);
         } else {

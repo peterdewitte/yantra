@@ -23,7 +23,7 @@ form is the building model of [BUILDING_MODEL.md](../BUILDING_MODEL.md)
 | Item | Value |
 | --- | --- |
 | `PRAGMA application_id` | `0x594E5452` ("YNTR"); other files are refused as "not a Yantra project" |
-| `PRAGMA user_version` | schema version, now **6** |
+| `PRAGMA user_version` | schema version, now **7** |
 | `meta.format` | `yantra-project` |
 
 | Version | Change |
@@ -34,6 +34,7 @@ form is the building model of [BUILDING_MODEL.md](../BUILDING_MODEL.md)
 | 4 | the project's recordings (`recordings`, REC-02/03), its walk tests and manual-point sets (`sessions`, IND-20, GEO-02, GEO-05) and their measured points (`points`), the one point list of the project window and the report (IND-30). Existing projects get no sessions |
 | 5 | the cell database in the project's cells (DB-01): `cells` columns `site_name`, `sector`, `azimuth_deg`, `colour`, `notes`, `origin`, `plugin_version`; the tables `cell_parameters` and `cell_neighbours`; meta keys `celldb_match:<technology>`. Existing cells become manual entries without parameters or neighbours |
 | 6 | the propagation model settings (`propagation`, IND-40/41) and the stored interpolation results with their parameters and input fingerprints (`interpolations`, IND-41..45). Existing projects get the default settings and no results |
+| 7 | the project's acceptance profiles (`acceptance_profiles`, EXP-06), used by the report. Existing projects get none (the report then uses the default profile) |
 
 Rules:
 
@@ -61,7 +62,8 @@ wall classes, walls, cells, antennas), so the whole model of
 recordings, walk tests and measured points ([SURVEY.md](../SURVEY.md)); version 5 the
 cell database ([CELL_DATABASE.md](../CELL_DATABASE.md)); version 6 the
 propagation settings and the interpolation results
-([PROPAGATION.md](../PROPAGATION.md)). Later data come as new versions in
+([PROPAGATION.md](../PROPAGATION.md)); version 7 the acceptance profiles
+([SURVEY.md](../SURVEY.md) "Acceptance profiles"). Later data come as new versions in
 the steps that add them; until then the API has no call that would store
 them, so nothing is ever dropped silently.
 
@@ -97,7 +99,7 @@ them, so nothing is ever dropped silently.
   the building model: heights in metres, plan sizes in plan units,
   attenuations in dB.
 
-## Tables (version 6)
+## Tables (version 7)
 
 ### `meta`
 
@@ -508,6 +510,18 @@ as stale when its inputs change and stays usable until run again
 | `cell_m` | REAL > 0 | grid cell size, metres |
 | `cols`, `rows` | INTEGER > 0 | grid size |
 | `cells` | BLOB, cols x rows x 12 bytes | per cell, row by row: the map value, the fitted model (dBm, -infinity where no source reaches) and the confidence 0..1, each a little-endian IEEE 754 float |
+
+### `acceptance_profiles`
+
+The project's acceptance profiles (version 7, EXP-06; `survey/acceptance.h`,
+[SURVEY.md](../SURVEY.md) "Acceptance profiles"), in the order the report
+lists them. Replaced as a whole when they are changed.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `position` | INTEGER >= 0, primary key | order in the report |
+| `name` | TEXT, not empty, unique | the profile's name |
+| `definition` | TEXT | JSON object `yantra-acceptance-profile` version 1: unit, basis (`points`, `tested_area`, `floor_area`), criteria (`threshold`, `min_percent`), `square_m`, `square_percentile`, `min_confidence` |
 
 ### `sqlite_sequence`
 

@@ -209,6 +209,26 @@ the shared list:
     passed, with a note, so interpolated values never mix with measured
     ones. The result gives the assessed cells and area in m².
 
+### Acceptance profiles (stored)
+
+Code: `core/survey/acceptance.h`. A project stores its acceptance
+profiles (EXP-06) in the table `acceptance_profiles` (project schema 7,
+[formats/PROJECT.md](formats/PROJECT.md)), so a report is reproducible
+and the criteria travel with the project. `set_acceptance_profiles`
+replaces them as a whole (names not empty and unique, every profile valid
+by `validate`: a unit, at least one criterion, finite thresholds,
+percentages 0..100, square 0.1..100 m, square percentile 0..100,
+confidence 0..1) and `acceptance_profiles` reads them back in order. Each
+definition is a JSON object `{"format": "yantra-acceptance-profile",
+"version": 1, ...}`: unknown members are ignored, a newer version or a
+bad value is refused, and a stored definition that cannot be read makes
+the project report it as damaged. A project without profiles gets the
+default profile in the report: "Indoor acceptance", 95 % of the measured
+points >= -95 dBm. The report evaluates every profile on the measured
+points and on the floor area (interpolated), plus the tested area when
+that is its basis; the profile's own basis decides its pass or fail
+([REPORT.md](REPORT.md) "Report content").
+
 ## Post-processing
 
 Code: `core/survey/views.h`, `bins.h`, `viewer.h`. Every view is built

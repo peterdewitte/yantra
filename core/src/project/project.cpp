@@ -24,6 +24,7 @@
 #include <limits>
 #include <map>
 #include <mutex>
+#include <set>
 #include <tuple>
 
 #include <unistd.h>
@@ -2221,6 +2222,43 @@ void Project::set_propagation(const PropagationSettings& v) {
         tx.commit();
     }
     notify({Change::Kind::Propagation, ""});
+}
+
+// ---- acceptance profiles (schema 7) -------------------------------------------
+
+std::vector<StoredAcceptanceProfile> Project::acceptance_profiles() const {
+    const std::lock_guard l(impl_->mutex);
+    impl_->require_open();
+    sql::Stmt s(impl_->db, "SELECT name, definition FROM acceptance_profiles ORDER BY position");
+    std::vector<StoredAcceptanceProfile> out;
+    while (s.step()) out.push_back(StoredAcceptanceProfile{s.text(0), s.text(1)});
+    return out;
+}
+
+void Project::set_acceptance_profiles(const std::vector<StoredAcceptanceProfile>& profiles) {
+    std::set<std::string> names;
+    for (const StoredAcceptanceProfile& p : profiles) {
+        if (p.name.empty()) throw ProjectError(Code::Invalid, "acceptance profile: empty name");
+        if (!names.insert(p.name).second)
+            throw ProjectError(Code::Invalid, "acceptance profile '" + p.name + "' is there twice");
+        if (!is_json_object(p.definition))
+            throw ProjectError(Code::Invalid, "acceptance profile '" + p.name + "': the definition is not a JSON object");
+    }
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        impl_->db.exec("DELETE FROM acceptance_profiles", "acceptance profiles");
+        sql::Stmt s(impl_->db, "INSERT INTO acceptance_profiles (position, name, definition) VALUES (?1, ?2, ?3)");
+        std::int64_t pos = 0;
+        for (const StoredAcceptanceProfile& p : profiles) {
+            s.reset();
+            s.bind(1, pos++).bind(2, p.name).bind(3, p.definition).run();
+        }
+        impl_->touch();
+        tx.commit();
+    }
+    notify({Change::Kind::Acceptance, ""});
 }
 
 std::int64_t Project::store_interpolation(StoredInterpolation r) {

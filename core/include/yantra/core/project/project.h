@@ -73,7 +73,7 @@ inline constexpr std::int32_t kApplicationId = 0x594E5452;
 /// The value of the format mark in the meta table.
 inline constexpr const char* kFormat = "yantra-project";
 /// Schema version written by this build (docs/formats/PROJECT.md).
-inline constexpr int kSchemaVersion = 6;
+inline constexpr int kSchemaVersion = 7;
 
 class ProjectError : public std::runtime_error {
 public:
@@ -174,6 +174,7 @@ struct Change {
         Saved,            ///< save() or save_as(); path() may have changed
         Propagation,      ///< the ray-tracing settings (IND-40)
         Interpolations,   ///< an interpolation result was stored or removed (id: its floor)
+        Acceptance,       ///< the stored acceptance profiles (EXP-06)
     };
     Kind kind = Kind::Info;
     std::string id;  ///< floor or source id
@@ -276,6 +277,15 @@ struct StoredInterpolation {
     /// little-endian float32: 12 bytes per cell.
     std::vector<std::uint8_t> cells;
     bool operator==(const StoredInterpolation&) const = default;
+};
+
+/// A stored acceptance profile (EXP-06; schema 7): the project keeps it as
+/// data, survey/acceptance.h makes and reads the definition. The project's
+/// profiles are an ordered list with unique names.
+struct StoredAcceptanceProfile {
+    std::string name;        ///< not empty, unique in the project
+    std::string definition;  ///< JSON object (survey/acceptance.h)
+    bool operator==(const StoredAcceptanceProfile&) const = default;
 };
 
 struct ProjectOptions {
@@ -501,6 +511,14 @@ public:
     std::optional<StoredInterpolation> interpolation(std::int64_t id) const;
     /// NotFound when there is none. Removing a floor removes its results.
     void remove_interpolation(std::int64_t id);
+
+    // -- acceptance profiles (EXP-06; schema 7) ----------------------------
+    /// The stored profiles in their order (a new project: none).
+    std::vector<StoredAcceptanceProfile> acceptance_profiles() const;
+    /// Replaces every stored profile with `profiles` (in this order) in one
+    /// transaction. Invalid for an empty or repeated name or a definition
+    /// that is not a JSON object. Notifies Acceptance.
+    void set_acceptance_profiles(const std::vector<StoredAcceptanceProfile>& profiles);
 
     // -- source files (IND-03) -------------------------------------------
     /// Copies a file into the project unchanged; its id is
