@@ -80,6 +80,7 @@ add_library(yantra_core STATIC
   src/raytrace/kernels.cpp
   src/raytrace/model.cpp
   src/raytrace/residuals.cpp
+  src/survey/acceptance.cpp
   src/survey/bins.cpp
   src/survey/interpolation.cpp
   src/survey/points.cpp
