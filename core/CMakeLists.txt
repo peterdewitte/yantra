@@ -63,6 +63,11 @@ add_library(yantra_core STATIC
   src/project/schema.cpp
   src/project/sqlite.cpp
   src/radio/radio_host.cpp
+  src/report/document.cpp
+  src/report/figure.cpp
+  src/report/html.cpp
+  src/report/internal.cpp
+  src/report/pdf.cpp
   src/recording/codec.cpp
   src/recording/format.cpp
   src/recording/reader.cpp
@@ -104,6 +109,19 @@ target_include_directories(yantra_core
 target_link_libraries(yantra_core
   PUBLIC yantra::plugin_api yantra::radio_api Threads::Threads ${CMAKE_DL_LIBS}
   PRIVATE yantra::warnings yantra::json SQLite::SQLite3 PkgConfig::ZSTD)
+
+# libharu (spec 16.2, zlib/libpng licence): the PDF reports (EXP-05,
+# core/src/report/pdf.cpp), a system library (libhpdf-dev 2.3.0; MSYS2
+# mingw-w64-ucrt-x86_64-libharu) with zlib and libpng; no pkg-config file.
+# Its UTF-8 encoder and TrueType embedding (2.3.0 or newer) set the text
+# in the shipped Inter and JetBrains Mono fonts.
+find_path(YANTRA_HPDF_INCLUDE_DIR hpdf.h)
+find_library(YANTRA_HPDF_LIBRARY NAMES hpdf libhpdf)
+if(NOT YANTRA_HPDF_INCLUDE_DIR OR NOT YANTRA_HPDF_LIBRARY)
+  message(FATAL_ERROR "libharu (hpdf.h, libhpdf) not found: install libhpdf-dev (PDF reports, EXP-05)")
+endif()
+target_include_directories(yantra_core SYSTEM PRIVATE ${YANTRA_HPDF_INCLUDE_DIR})
+target_link_libraries(yantra_core PRIVATE ${YANTRA_HPDF_LIBRARY})
 
 # Plan images (IND-02): stb_image, vendored in third_party/stb (MIT or
 # public domain), compiled once in its own library without Yantra's

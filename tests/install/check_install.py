@@ -71,7 +71,12 @@ def main() -> int:
     app = ["usr/bin/yantra", "usr/share/applications/yantra.desktop",
            "usr/share/icons/hicolor/16x16/apps/yantra.png", "usr/share/icons/hicolor/512x512/apps/yantra.png",
            "usr/share/yantra/logo/png/yantra_logo_16.png", "usr/share/yantra/logo/png/yantra_logo_256.png",
-           "usr/share/yantra/logo/yantra_logo.svg"]
+           "usr/share/yantra/logo/yantra_logo.svg",
+           # The report engine's files (EXP-05, BRD-02/06; report::find_assets).
+           "usr/share/yantra/fonts/Inter-Regular.ttf", "usr/share/yantra/fonts/Inter-SemiBold.ttf",
+           "usr/share/yantra/fonts/JetBrainsMono-Regular.ttf", "usr/share/yantra/fonts/JetBrainsMono-OFL.txt",
+           "usr/share/yantra/branding/curtat_logo_light_256.png", "usr/share/yantra/branding/curtat_logo_light_64.png",
+           "usr/share/yantra/branding/curtat_logo.svg", "usr/share/yantra/logo/png/yantra_logo_32.png"]
     expected = EXPECTED + (app if a.app else [])
     for f in expected:
         if f not in files:

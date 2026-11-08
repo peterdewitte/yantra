@@ -9,7 +9,9 @@
 // floor, never dropped - and a legend with one entry per colour band,
 // the point count per band and the total. A plan the project does not
 // hold (a described reference such as a MAK sheet, DEMO-12) is never
-// drawn: the image then has a plain background and a warning says so.
+// drawn unless the caller passes the user's cached unaltered copy
+// (ImageOptions::reference_file): else the image has a plain background
+// and a warning says so.
 #pragma once
 
 #include <cstddef>
@@ -32,6 +34,14 @@ struct ImageOptions {
     /// Text font (data/fonts/Inter-Regular.ttf of the installed data);
     /// empty or unreadable: no text, with a warning.
     std::filesystem::path font_file;
+    /// A floor whose plan is a licence-restricted reference (a MAK sheet,
+    /// DEMO-12) is drawn only from this file: the user's cached,
+    /// unaltered copy, checked against the project's SHA-256 when the
+    /// picture is made. Empty: such a plan is never drawn (even when the
+    /// project's path hint points at a copy), with a warning. The floor
+    /// image export leaves it empty; the report figures set it
+    /// (report/figure.h).
+    std::filesystem::path reference_file;
     std::string title;   ///< "" = "<project>, <floor>"
     std::string banner;  ///< e.g. the demo label (DEMO-07); "" none
 };
@@ -39,6 +49,8 @@ struct ImageOptions {
 struct ImageResult {
     Canvas canvas;
     std::size_t points = 0;  ///< drawn (rows with a plan position)
+    bool plan_drawn = false;       ///< the floor's plan is in the picture
+    bool restricted_plan = false;  ///< the floor's plan is a licence-restricted reference
     std::vector<std::string> warnings;
 };
 

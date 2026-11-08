@@ -168,10 +168,11 @@ install(FILES ${PROJECT_SOURCE_DIR}/data/yantra.desktop DESTINATION ${CMAKE_INST
 # DOC-07 e: the user manual for the help window, so help works offline.
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/docs/manual/ DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra/manual
         FILES_MATCHING PATTERN "*.md")
-# UI-15, BRD-03/04: the curtat.be logo PNGs (light and dark) for About, in
-# their own folder (trademark, not GPL), and the credits file About reads.
+# UI-15, BRD-02..04: the curtat.be logo PNGs (light and dark) for About and
+# the PDF reports, its SVG for the HTML reports, in their own folder
+# (trademark, not GPL), and the credits file About reads.
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/data/branding/ DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra/branding
-        FILES_MATCHING PATTERN "curtat_logo_*.png" PATTERN "README.md")
+        FILES_MATCHING PATTERN "curtat_logo_*.png" PATTERN "curtat_logo.svg" PATTERN "README.md")
 install(FILES ${PROJECT_SOURCE_DIR}/THIRD_PARTY.md DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra)
 # EXP-08, EXP-05: the fonts of the exported images and reports (Inter;
 # JetBrains Mono for the reports' numeric tables), with their licences (OFL-1.1).

@@ -17,7 +17,8 @@ Linux only for now; Windows builds are planned (not yet built).
 Needed: CMake 3.20+, Ninja, a C++20 compiler (GCC or Clang), SQLite 3.37+
 with its headers (`libsqlite3-dev`; the project file, IND-01), zstd 1.4+
 with its headers and pkg-config (`libzstd-dev`, `pkg-config`; compressed
-recordings, REC-03), Python 3
+recordings, REC-03), libharu 2.3+ with its headers (`libhpdf-dev`; the
+PDF reports, EXP-05), Python 3
 with PyYAML, binutils, and `reuse` for the licence lint test. The desktop
 app (`YANTRA_BUILD_APP`, ON by default) needs GLFW 3.3+ and OpenGL
 headers (`libglfw3-dev`, `libgl-dev`) and libcurl 7.85+ with its headers

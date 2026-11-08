@@ -9,7 +9,7 @@ How a floor's measured points are exported as CSV, DXF and an image, and
 how the recordings of a folder tree are exported in one batch (EXP-01,
 EXP-03, EXP-04, EXP-08, PLG-02, TST-33). Code: `core/export/` (namespace
 `yantra::exports`). The export and report dialogs of the app use these
-APIs; the reports (EXP-05, EXP-06) are described with the report engine.
+APIs; the reports (EXP-05, EXP-06) are described in [REPORT.md](REPORT.md).
 
 ## Rows: the project window's points (IND-30)
 
@@ -93,7 +93,9 @@ top. `read_dxf` reads the entities back (TST-33).
 
 `floor_image(project, table, ImageOptions)` (image.h) draws the floor plan
 (trimmed as in the project; a plan that cannot be rendered is left out
-with a warning; a MAK reference plan is never drawn into a file), the
+with a warning; a licence-restricted reference plan such as a MAK sheet
+is never drawn here, only by the report from the user's checked cached
+copy, see [REPORT.md](REPORT.md)), the
 walls, every point in its colour, the antennas, a title, an optional
 banner, and a legend with the count per band. `write_image_file` writes
 PNG or JPEG (by extension) with stb_image_write. Text uses the Inter font

@@ -42,7 +42,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build g++ python3 pkg-config libsqlite3-dev libzstd-dev \
+            cmake ninja-build g++ python3 pkg-config libsqlite3-dev libzstd-dev libhpdf-dev \
             libglfw3-dev libgl-dev libcurl4-openssl-dev xvfb mesa-utils libgl1-mesa-dri
           cargo install oxipng --locked
       - name: Configure and build the app

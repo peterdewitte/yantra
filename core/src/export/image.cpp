@@ -91,13 +91,27 @@ ImageResult floor_image(const project::Project& project, const Table& table, con
     c.fill_rect(ox, oy, ox + pw, oy + ph, {248, 248, 248, 255});
     if (o.plan && !floor->source.empty()) {
         try {
-            const auto source = plan::open_project_source(project, floor->source);
+            const auto info = project.source(floor->source);
+            std::shared_ptr<const plan::PlanSource> source;
+            if (info && !info->plan.embedded) {
+                // A licence-restricted reference (DEMO-12): drawn only from
+                // the user's cached copy given for this picture, checked
+                // against the project's SHA-256 now (never from the hint).
+                res.restricted_plan = true;
+                if (o.reference_file.empty())
+                    throw ExportError("it is a licence-restricted reference (no cached copy given)");
+                const std::vector<std::uint8_t> bytes = project.read_source_from(floor->source, o.reference_file);
+                source = plan::open_plan_source(bytes, info->plan.file_name);
+            } else {
+                source = plan::open_project_source(project, floor->source);
+            }
             plan::Raster raster;
             if (floor->trim.shape == plan::Trim::Shape::None)
                 raster = source->render(floor->page, scale, {0, 0, pw, ph});
             else
                 raster = plan::render_floor(*source, floor->page, plan::TrimTransform(floor->trim), scale, {0, 0, pw, ph});
             c.draw_rgba(raster.rgba.data(), raster.width, raster.height, ox, oy, raster.width, raster.height);
+            res.plan_drawn = true;
         } catch (const std::exception& e) {
             res.warnings.push_back(std::string("the plan is not drawn: ") + e.what());
         }
