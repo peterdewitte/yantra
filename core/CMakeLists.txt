@@ -23,6 +23,14 @@ add_library(yantra_core STATIC
   src/celldb/technology.cpp
   src/celldb/verify.cpp
   src/demo/demo_project.cpp
+  src/export/batch.cpp
+  src/export/csv.cpp
+  src/export/dxf.cpp
+  src/export/image.cpp
+  src/export/plugin_export.cpp
+  src/export/raster.cpp
+  src/export/stb_export.c
+  src/export/table.cpp
   src/building/edit.cpp
   src/building/geometry.cpp
   src/building/model.cpp
@@ -109,6 +117,19 @@ if(YANTRA_SANITIZER STREQUAL "asan-ubsan")
   target_compile_options(yantra_stb_image PRIVATE -fno-sanitize=nonnull-attribute)
 endif()
 target_link_libraries(yantra_core PRIVATE yantra_stb_image)
+
+# Export images (EXP-08): stb_image_write and stb_truetype (Dear ImGui's
+# imstb_truetype.h) with static linkage in one C file. Third-party code:
+# no Yantra warning flags.
+set_property(SOURCE src/export/stb_export.c APPEND PROPERTY INCLUDE_DIRECTORIES
+  ${PROJECT_SOURCE_DIR}/third_party/stb ${PROJECT_SOURCE_DIR}/third_party/imgui)
+set_property(SOURCE src/export/stb_export.c APPEND PROPERTY COMPILE_OPTIONS -w)
+if(YANTRA_SANITIZER STREQUAL "asan-ubsan")
+  # stb_image_write: null memcpy with size 0, and its JPEG encoder shifts
+  # ints past their range (third-party, not changed).
+  set_property(SOURCE src/export/stb_export.c APPEND PROPERTY COMPILE_OPTIONS
+    -fno-sanitize=nonnull-attribute,shift)
+endif()
 
 # PDF plans (IND-02): the pinned PDFium release (cmake/YantraPdfium.cmake),
 # or a stub that refuses PDF sources with a clear reason.

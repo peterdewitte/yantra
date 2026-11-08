@@ -94,3 +94,6 @@ yantra_doctest_tests(test_measure_host GROUP test_measure_host LABELS fast TIMEO
   WORKING_DIRECTORY ${PROJECT_BINARY_DIR} FILTERS --test-suite-exclude=long)
 yantra_doctest_tests(test_measure_host GROUP test_measure_host_long LABELS slow TIMEOUT 1200 OPT_IN
   WORKING_DIRECTORY ${PROJECT_BINARY_DIR} FILTERS --test-suite=long)
+# The C test exporter plugin of tests/export, for the batch export (EXP-04).
+add_dependencies(test_measure_host test_rows_exporter)
+target_compile_definitions(test_measure_host PRIVATE ROWS_EXPORTER_PATH="$<TARGET_FILE:test_rows_exporter>")
