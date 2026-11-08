@@ -11,9 +11,13 @@ Yantra measures TETRA and other radio networks inside buildings: you import floo
 
 The start screen offers New indoor project, Open project, the demo project, the recent projects and the guided tour. Every button explains itself when you rest the pointer on it; a greyed button says why it cannot be used yet.
 
+![The start screen with the File menu](../img/start_menu_dark.png) [light theme](../img/start_menu_light.png)
+
 ## 1.2 About Yantra
 
 Help > About (also File > About) shows the version, the build date, the licence (GPL-3.0) with the link to the source code, the third-party and data credits and the loaded plugins with their versions and licences.
+
+![The About dialog](../img/about_dark.png) [light theme](../img/about_light.png)
 
 ## 1.3 The guided tour
 

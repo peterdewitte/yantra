@@ -58,9 +58,14 @@ if(YANTRA_BUILD_TESTS)
     add_test(NAME doc_links
              COMMAND ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/ci/check_doc_links.py
                      ${PROJECT_SOURCE_DIR})
-    set_tests_properties(doc_snippets doc_links PROPERTIES LABELS "fast;lint;docs")
+    # SCR-07: the manual and README use images from docs/img only, all exist,
+    # and every image there is used (the screenshot set, SCR-03).
+    add_test(NAME doc_images
+             COMMAND ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/ci/check_doc_images.py
+                     ${PROJECT_SOURCE_DIR})
+    set_tests_properties(doc_snippets doc_links doc_images PROPERTIES LABELS "fast;lint;docs")
   else()
-    foreach(_t doc_snippets doc_links)
+    foreach(_t doc_snippets doc_links doc_images)
       add_test(NAME ${_t} COMMAND sh -c "echo 'SKIPPED: Python 3 was not found'; exit 77")
       set_tests_properties(${_t} PROPERTIES LABELS "fast;lint;docs" SKIP_RETURN_CODE 77)
     endforeach()

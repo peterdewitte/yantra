@@ -120,6 +120,9 @@ std::string manual_section_text(const ManualSection& section, const std::vector<
                 continue;
             }
             if (h > 0 && h <= level) break;
+            // The manual's screenshots (lines "![...](../img/...)", SCR-07) are
+            // for the HTML/PDF manual; the in-app help shows the text.
+            if (line.rfind("![", 0) == 0) continue;
             text += line + "\n";
         }
         if (level > 0) return text;

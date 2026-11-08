@@ -1,0 +1,63 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The documentation's screenshot set (SCR-03..05): on every release branch
+# tools/screenshots regenerates the whole set and publishes it as an
+# artifact (SCR-04); a pull request that changes a screen (app, its
+# translations, the demo data or the script) regenerates the set and
+# compares it with docs/img (SCR-05: a picture with more than 2 % changed
+# pixels, a new or a missing one fails the job; expected changes are
+# accepted by committing the new pictures, also published as an artifact).
+# The app renders under Xvfb with Mesa software OpenGL (TST-04).
+
+name: screenshots
+
+on:
+  push:
+    branches: ["release/**"]
+  pull_request:
+    paths:
+      - "app/**"
+      - "data/i18n/**"
+      - "data/demo/**"
+      - "tools/screenshots/**"
+      - "docs/img/**"
+  workflow_dispatch:
+
+concurrency:
+  group: screenshots-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install build tools, Xvfb, Mesa, oxipng
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ python3 pkg-config libsqlite3-dev libzstd-dev \
+            libglfw3-dev libgl-dev libcurl4-openssl-dev xvfb mesa-utils libgl1-mesa-dri
+          cargo install oxipng --locked
+      - name: Configure and build the app
+        run: |
+          cmake --preset ci
+          cmake --build --preset ci -j "$(nproc)" --target yantra demo_fraunces
+      - name: Regenerate the set
+        run: python3 tools/screenshots/screenshots.py --build build --out build/screenshots
+      - name: Compare with docs/img (pull requests)
+        if: github.event_name == 'pull_request'
+        run: |
+          python3 tools/screenshots/screenshots.py --build build --out build/screenshots-check \
+            --compare docs/img
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: yantra-screenshots
+          path: build/screenshots/*.png

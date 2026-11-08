@@ -36,6 +36,22 @@ precedence = "override"
 SPDX-FileCopyrightText = "2026 The Yantra contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+# The screenshot set (SCR-03), made by tools/screenshots from the app: part
+# of Yantra's documentation. The plans in them are the public-domain HABS
+# sheets of the Fraunces Tavern (data/demo/fraunces/README.md); the About
+# dialog shows the curtat.be logo (trademark of Curtat BV, BRD-04).
+[[annotations]]
+path = ["docs/img/*.png"]
+precedence = "override"
+SPDX-FileCopyrightText = "2026 The Yantra contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+[[annotations]]
+path = ["docs/img/about_*.png"]
+precedence = "override"
+SPDX-FileCopyrightText = ["2026 The Yantra contributors", "2026 Curtat BV"]
+SPDX-License-Identifier = "GPL-3.0-or-later AND LicenseRef-Curtat-Trademark"
+
 # doctest 2.4.12 (MIT), vendored unchanged; tests only (TST-01).
 [[annotations]]
 path = ["third_party/doctest/doctest/**", "third_party/doctest/LICENSE.txt"]

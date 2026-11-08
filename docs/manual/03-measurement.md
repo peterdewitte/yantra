@@ -10,3 +10,6 @@ Levels are shown in dBm through the calibration of the radio; quality values car
 ## 3.1 Level calibration
 
 The calibration window measures a known signal from a signal generator or a reference radio over the frequencies and levels you choose and stores a table per device (driver, serial number and calibration settings). Verify mode checks a stored table; tables can be imported and exported.
+
+![Calibration window of the simulator](../img/radio_simulator_calibration_dark.png) [light theme](../img/radio_simulator_calibration_light.png)
+![Calibration window of a HackRF](../img/radio_hackrf_calibration_dark.png) [light theme](../img/radio_hackrf_calibration_light.png)

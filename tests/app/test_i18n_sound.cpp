@@ -164,6 +164,10 @@ TEST_CASE("DOC-07 e manual sections: every section has its heading in docs/manua
     CHECK(chapter.find("## 13.2") != std::string::npos);
     const std::string section = manual_section_text(*find_manual_section("13.1"), folders, error);
     CHECK(section.find("## 13.2") == std::string::npos);
+    // The screenshots are for the HTML/PDF manual, not the in-app help (SCR-07).
+    const std::string survey = manual_section_text(*find_manual_section("5.1"), folders, error);
+    CHECK(survey.find("Survey panels") != std::string::npos);
+    CHECK(survey.find("](../img/") == std::string::npos);
     // No manual: the reason.
     CHECK(manual_section_text(*find_manual_section("1"), {fs::path("/nonexistent")}, error).empty());
     CHECK_FALSE(error.empty());

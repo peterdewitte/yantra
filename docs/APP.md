@@ -759,6 +759,46 @@ Help > Tour, the first-start offer on the start screen (`start.tour_offer.yes/no
   `show_me()` put any step on screen; `request_panel(key)` selects a side-panel page. Screenshots use the Fraunces
   Tavern only (never a MAK sheet).
 
+## Screenshots and layout check (step 9.11)
+
+The documentation's screenshot set (SCR-01..05, SCR-07) is made by the app itself:
+
+    yantra --screenshot FILE --shot NAME [--theme dark|light|high-contrast] [--language en|nl|fr|de]
+           [--touch] [--scale PERCENT] [--size WxH] [--input SHEET]
+    yantra --list-shots          # name<TAB>flags<TAB>what; flags demo, touch, radio=..., input
+
+- `app/gui/screenshot.{h,cpp}`: `shot_scenes()` (24 scenes: start menu, survey with graphs, events and
+  scanner, plan import of two floors from one sheet, walk test, interpolation, About, reset, radio list,
+  the four generated windows of the simulator and of the HackRF, survey settings, cell database,
+  verification, reselection, touch layout), `shot_settings()` (theme/touch/layers of a scene) and
+  `ShotRunner`: a list of steps (open the demo, replay to 60 %, start the simulator, click a control
+  by id, wait frames) played before each frame; `ready()` when the capture may happen. A step that
+  waits more than 120 s fails the shot (exit 1). Before the capture the mouse leaves the window (no
+  tooltip); the status bar shows a fixed disk and power state (`AppState::fix_system_status`) so the
+  pictures do not depend on the machine.
+- `tools/screenshots/screenshots.py` renders every scene in the dark and light theme
+  (`<scene>_<theme>.png`, the survey also as `survey_<nl|fr|de>_<theme>.png`) on a private Xvfb with
+  a private HOME/XDG under the fixed `/tmp/yantra-screenshots` (it shows in the project window), the
+  HackRF scenes on the fake SoapySDR device (`hackrf_fake.so` of the build tree), the plan import on the
+  two Fraunces sheets, which the app combines into one (`--input data/demo/fraunces`); then oxipng
+  (Python's standard library only). `--compare DIR` fails on a new, missing or
+  changed picture (more than `--threshold` % pixels, SCR-05). Data: the Fraunces demo and the simulated
+  radios only, never a MAK sheet (DEMO-12). The set is `docs/img/` (54 pictures, about 5.8 MB),
+  referenced by the manual; `.github/workflows/screenshots.yml` regenerates it on release branches
+  (artifact) and compares it on pull requests.
+- Tests: `tests/app/test_screenshots.cpp` plays every scene in the harness; the launch tests
+  `app_shot_*` render three with OpenGL; `app_shot_errors` the CLI refusals; the opt-in
+  `screenshots_compare` runs the script against `docs/img`; `doc_images` (`tools/ci/check_doc_images.py`)
+  checks that every manual image exists and every image in `docs/img` is used. The in-app help leaves
+  the image lines out.
+- Layout check (TST-50): `tests/app/ui/test_ui_lint.cpp` runs the UI lint (`ui_lint.h`: tooltips,
+  disabled reasons, overlap, labels cut off, squashed controls, touch targets) over every window on a
+  1280 x 800 desktop and touch layout in every language, and in English on a 1024 x 640 window, a
+  full-HD screen at 150 % and a 7-inch tablet (1024 x 600, touch). Widths are set with
+  `gui_detail::px()` so they follow the scale.
+- The side panel's pages (`panel.layers/edit/walk/map/survey/post`) are a wrapping row of buttons, not
+  tabs, so their labels stay readable on narrow and touch layouts.
+
 ## Headless UI tests (tests/app/harness)
 
 `yantra::test::UiHarness` (library `yantra_ui_harness`) runs a real

@@ -11,13 +11,20 @@ The Survey page of the project window shows what the radio measures now.
 
 The serving cell panel shows the large values: level, quality, identity, channel and frequency, the cell name from the cell database, the floor and the sample counter. The neighbour panel lists measured and announced neighbours in different colours.
 
+![The survey panels: serving cell, large values and neighbours](../img/survey_dark.png) [light theme](../img/survey_light.png)
+
 ## 5.2 Graphs
 
 The level and C1 graphs show the serving cell and up to 31 neighbours over time, with optional threshold lines. Clicking a graph sets a cursor: all panels then show that moment.
 
+![The level and C1 graphs](../img/survey_graphs_dark.png) [light theme](../img/survey_graphs_light.png)
+
 ## 5.3 Scanner, events and statistics
 
 The scanner lists every carrier the radio sees. The event list shows serving-cell changes, sync losses, device and recording events. The statistics count serving-cell changes, sync losses, time in and out of coverage and the share of samples above the threshold.
+
+![The scanner](../img/survey_scanner_dark.png) [light theme](../img/survey_scanner_light.png)
+![The event list](../img/survey_events_dark.png) [light theme](../img/survey_events_light.png)
 
 ## 5.4 The status bar
 
