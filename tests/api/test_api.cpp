@@ -169,6 +169,21 @@ TEST_CASE("API-02 the router: info without a token, LAN read-only, commands thro
     CHECK(req("GET", "/api/v1/nothing", t.token()).status == 404);
     CHECK(req("DELETE", "/api/v1/cells", t.token()).status == 405);
     CHECK(req("GET", "/api/v1/recordings/..%2Fx.yrec", t.token()).status == 404);
+    // DEMO-10: Yantra's own demo flag counts before the first simulated record.
+    Backend b2 = b;
+    b2.demo = [] { return false; };
+    b2.control = [](const json& in) {
+        return json{{"ok", true}, {"command", in["command"]}, {"result", {{"state", "monitoring"}, {"demo", true}}}};
+    };
+    Router router2(b2, s);
+    Request q;
+    q.method = "GET";
+    q.path = "/api/v1/status";
+    q.client_ip = "127.0.0.1";
+    q.authorization = "Bearer " + t.token();
+    CHECK(json::parse(router2.handle(q).body)["demo"] == true);
+    q.method = "POST";
+    CHECK(json::parse(router2.handle(q).body)["result"]["demo"] == true);
     CHECK_FALSE(recording_file_name("../a.yrec"));
     CHECK_FALSE(recording_file_name("api_tokens.json"));
     CHECK(recording_file_name("a_0000.yrec.zst"));

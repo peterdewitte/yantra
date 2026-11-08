@@ -164,7 +164,11 @@ public:
                 host_->control(host_->host, text.c_str(), buf.data(), static_cast<std::uint32_t>(buf.size()), &len);
             if (st == YANTRA_OK) {
                 json j = json::parse(std::string(buf.data(), len), nullptr, false);
-                return j.is_object() ? j : failure("no valid reply");
+                if (!j.is_object()) return failure("no valid reply");
+                // DEMO-10: Yantra's own demo flag (the simulator radio), also before any record.
+                if (name == "status" && j.contains("result") && j["result"].is_object())
+                    host_demo_ = j["result"].value("demo", false);
+                return j;
             }
             if (st == YANTRA_ERR_BUFFER_TOO_SMALL) {
                 buf.resize(static_cast<std::size_t>(len) + 1);
@@ -252,7 +256,7 @@ public:
             const json r = s.value("result", json::object());
             return fs::path(r.value("recording_folder", std::string()));
         };
-        b.demo = [this] { return live_.simulated(); };
+        b.demo = [this] { return demo(); };
         b.software = std::string("Yantra probe plugin ") + YANTRA_PROBE_PLUGIN_VERSION;
         b.source_url = YANTRA_SOURCE_URL;
         b.licence = kLicence;
@@ -293,6 +297,8 @@ public:
 
     // ---- summaries (API-03) ---------------------------------------------
 
+    bool demo() const { return host_demo_ || live_.simulated(); }
+
     json health_summary() const {
         const json reply = control({{"command", "status"}, {"args", json::object()}});
         json j = {{"type", "health"}, {"utc", utc_now_iso()}, {"ok", reply.value("ok", false)}};
@@ -306,7 +312,7 @@ public:
 
     json coverage_summary(double period_s) {
         return {{"type", "coverage"}, {"utc", utc_now_iso()}, {"period_s", period_s}, {"carriers", live_.coverage(true)},
-                {"demo", live_.simulated()}};
+                {"demo", demo()}};
     }
 
     void write_summary(const char* kind, const json& j) {
@@ -427,6 +433,7 @@ private:
     const yantra_host_api* host_;
     fs::path folder_;
     LiveState live_;
+    mutable std::atomic<bool> host_demo_{false};  // the last status reply's demo flag (DEMO-10)
 
     mutable std::mutex server_m_;
     std::unique_ptr<TokenStore> tokens_;

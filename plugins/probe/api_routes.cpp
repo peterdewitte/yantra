@@ -236,7 +236,9 @@ Response Router::run_command(const std::string& name, const nlohmann::json& args
     const bool ok = reply.value("ok", false);
     if (ok && name == "status" && reply.contains("result") && reply["result"].is_object()) {
         reply["result"]["source_url"] = b_.source_url;  // NFR-01
-        reply["result"]["demo"] = b_.demo && b_.demo();
+        // DEMO-10: demo when Yantra says so (simulator radio) or the records are simulated.
+        const bool host_demo = reply["result"].value("demo", false);
+        reply["result"]["demo"] = host_demo || (b_.demo && b_.demo());
     }
     reply["format"] = kApiFormat;
     reply["version"] = kApiVersion;
@@ -337,6 +339,7 @@ Response Router::route(const Request& req, Access access) {
             const nlohmann::json reply = b_.control({{"command", "status"}, {"args", nlohmann::json::object()}});
             if (reply.value("ok", false)) status = reply.value("result", nlohmann::json(nullptr));
         }
+        if (status.is_object() && status.value("demo", false)) j["demo"] = true;  // before the first record
         j["status"] = status;
         return json_response(200, j);
     }
