@@ -95,6 +95,7 @@ void play(const std::string& name, const std::function<void(UiHarness&, AppState
         Gui gui(state);
         gui.set_wait_for_tiles(true);
         ShotRunner runner(*scene, state, input);
+        runner.set_wait_limit(ShotRunner::kWaitLimit * YANTRA_TEST_TIME_SCALE);
         ui.set_draw([&] { gui.draw(); });
         REQUIRE(ui.frames(1));
         int frames = 0;
@@ -192,9 +193,12 @@ TEST_CASE("SCR-03: the HackRF plugin's generated radio windows on the fake Soapy
     const fs::path control = fs::path(YANTRA_TEST_FAKE_SDR_CONTROL_DIR) / (std::to_string(getpid()) + "_shots");
     fs::remove_all(control);
     fs::create_directories(control);
+    // Unpaced: the device delivers the signal as fast as the receiver takes
+    // it, so the debug window gets records under a sanitizer too (the
+    // script uses the paced device on a normal build).
     const std::string config = R"({"control":")" + control.string() +
                                R"(","devices":[{"serial":"0000000000000000a1b2c3d4e5f60009","scenario":")" +
-                               YANTRA_TEST_FAKE_SDR_SCENARIO + R"(","paced":true}]})";
+                               YANTRA_TEST_FAKE_SDR_SCENARIO + R"(","paced":false}]})";
     REQUIRE(setenv("YANTRA_FAKE_SOAPY", config.c_str(), 1) == 0);
     for (const char* name : {"settings", "debug", "calibration", "info"})
         play(std::string("radio_hackrf_") + name,

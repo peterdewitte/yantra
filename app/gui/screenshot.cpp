@@ -392,7 +392,7 @@ void ShotRunner::before_frame(const std::vector<ProbeItem>& items) {
                 phase_ = 0;
                 continue;
             }
-            if (std::chrono::steady_clock::now() - wait_start_ > kWaitLimit) error_ = "waited too long for " + s.what;
+            if (std::chrono::steady_clock::now() - wait_start_ > wait_limit_) error_ = "waited too long for " + s.what;
             waiting_ = true;
             return;
         }

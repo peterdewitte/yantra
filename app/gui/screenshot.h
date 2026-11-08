@@ -71,6 +71,8 @@ public:
 
     /// A wait gives up after this long (a worker that never answers).
     static constexpr std::chrono::seconds kWaitLimit{120};
+    /// Another limit (tests under a sanitizer scale it).
+    void set_wait_limit(std::chrono::seconds limit) noexcept { wait_limit_ = limit; }
 
 private:
     struct Step {
@@ -97,6 +99,7 @@ private:
     std::size_t step_ = 0;
     int phase_ = 0;  // a click: 0 move, 1 press, 2 release; frames: count
     std::chrono::steady_clock::time_point wait_start_{};
+    std::chrono::seconds wait_limit_ = kWaitLimit;
     bool waiting_ = false;
     std::string error_;
 };
