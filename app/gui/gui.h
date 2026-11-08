@@ -180,6 +180,10 @@ private:
     // Survey panels, recording and replay (survey_view.cpp, step 9.5).
     void draw_survey_section();
     void draw_post_section();  // step 9.8, post_view.cpp
+    void draw_export_dialog();  // step 10.4, report_view.cpp
+    void draw_report_dialog();
+    void draw_profiles_dialog();
+    void draw_sharing_dialog();
     void draw_recording_controls(LiveSurvey& live);
     void draw_replay_controls();
     void draw_survey_panels(float height);

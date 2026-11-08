@@ -143,6 +143,17 @@ own changes are in its CHANGELOG.md.
   (PDF and HTML, DEMO-06), made by `ninja sample_report`
   (`yantra-demo --sample-report`) and compared again by the ctest
   `sample_report_compare` and CI within a set tolerance.
+- 2026-11-08: File > Export and File > Report in the app (manual 10):
+  the CSV columns, separator and time, DXF, the floor picture with or
+  without the map, the batch export with exporter plugins; the report as
+  PDF and/or HTML with the surveyor typed in (never stored), the floors,
+  the thresholds and a choice of acceptance profiles, made in the
+  background; the acceptance profile editor; the guided tour's report
+  step works now.
+- 2026-11-08: sending exports and reports (EXP-07, optional): copied to a
+  shared folder, uploaded with HTTP PUT or e-mailed through your own SMTP
+  server when they are written, and the floor's CSV when a walk test
+  ends. The password is never stored.
 
 ### Measurements
 

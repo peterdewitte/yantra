@@ -117,6 +117,31 @@ inline constexpr double kMinGraphSpanMin = 1.0, kMaxGraphSpanMin = 60.0;
 inline constexpr double kMinRingMinutes = 2.0, kMaxRingMinutes = 60.0;
 inline constexpr double kMaxTooltipDelayS = 5.0;
 
+/// EXP-07: where exports and reports are sent after they are written
+/// (share.h), on request in the export and report dialogs, or by itself
+/// when a walk test finishes. Sending over the internet is optional:
+/// Off sends nothing. The password of an HTTP or SMTP login is typed per
+/// run and never stored.
+struct SharingSettings {
+    enum class Method { Off, Folder, Http, Smtp };
+    Method method = Method::Off;
+    std::filesystem::path folder;  ///< Folder: a shared (mounted network) folder
+    /// Http: each file goes to <url>/<file name> with an HTTP PUT (a WebDAV
+    /// folder or the team's own upload service); http:// or https://.
+    std::string url;
+    /// Smtp: the team's own mail server, smtp://host[:port] (STARTTLS when
+    /// offered) or smtps://host[:port].
+    std::string smtp_server;
+    std::string mail_from;
+    std::string mail_to;  ///< one or more addresses, separated by commas
+    std::string user;     ///< login of the HTTP or SMTP server; "" none
+    /// Send the floor's CSV export by itself when a walk test finishes.
+    bool on_walk_end = false;
+    bool operator==(const SharingSettings&) const = default;
+};
+const char* sharing_method_key(SharingSettings::Method m);  ///< "off", "folder", "http", "smtp"
+std::optional<SharingSettings::Method> parse_sharing_method(std::string_view key);
+
 /// The guided tour's progress (DEMO-11): remembered between runs and
 /// reset with the other settings (UI-16).
 struct TourProgress {
@@ -149,6 +174,7 @@ struct AppSettings {
     SurveySettings survey;
     SoundSettings sound;
     TourProgress tour;
+    SharingSettings sharing;
 
     bool operator==(const AppSettings&) const = default;
 };

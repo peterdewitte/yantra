@@ -116,7 +116,7 @@ void play(const std::string& name, const std::function<void(UiHarness&, AppState
 
 TEST_CASE("SCR-03: the screenshot scenes without a radio reach their capture") {
     if (!available()) return;
-    CHECK(shot_scenes().size() == 24);
+    CHECK(shot_scenes().size() == 26);  // step 10.4: export, report
     play("start_menu", [](UiHarness& ui, AppState&, Gui&) { CHECK(ui.has("file.new_project")); });
     play("about", [](UiHarness&, AppState& s, Gui& g) {
         CHECK(s.dialog() == Dialog::About);
@@ -160,6 +160,15 @@ TEST_CASE("SCR-03: the screenshot scenes without a radio reach their capture") {
     });
     play("interpolation", [](UiHarness&, AppState& s, Gui&) { CHECK(s.screen() == Screen::Project); });
     play("cell_database", [](UiHarness&, AppState& s, Gui&) { CHECK(s.network_windows().cell_db); });
+    play("export", [](UiHarness& ui, AppState& s, Gui&) {
+        CHECK(s.dialog() == Dialog::Export);
+        CHECK(ui.has("ex.col.time", "dlg.export"));
+    });
+    play("report", [](UiHarness& ui, AppState& s, Gui&) {
+        CHECK(s.dialog() == Dialog::Report);
+        CHECK(ui.has("rp.surveyor", "dlg.report"));
+        CHECK(ui.has("rp.profile.0", "dlg.report"));
+    });
     play("verification", [](UiHarness&, AppState& s, Gui&) { CHECK(s.network_windows().verification); });
     // The demo cells carry access parameters: the simulator decides (DB-08).
     play("reselection", [](UiHarness&, AppState& s, Gui&) {

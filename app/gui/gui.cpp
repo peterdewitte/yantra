@@ -29,6 +29,8 @@ const char* dialog_id(Dialog d, const AppState& state) {
         case BrowsePurpose::SaveAs: return tr("Save project as###dlg.browse");
         case BrowsePurpose::NewProjectFile: return tr("New project file###dlg.browse");
         case BrowsePurpose::PlanFile: return tr("Plan file###dlg.browse");
+        case BrowsePurpose::ExportFile: return tr("Export to###dlg.browse");
+        case BrowsePurpose::ReportFile: return tr("Report file###dlg.browse");
         }
         break;
     case Dialog::AddFloor: return tr("Add floor###dlg.add_floor");
@@ -42,6 +44,10 @@ const char* dialog_id(Dialog d, const AppState& state) {
     case Dialog::Settings: return tr("Settings###dlg.settings");
     case Dialog::ResetSettings: return tr("Reset all settings?###dlg.reset_settings");
     case Dialog::TourConsent: return tr("Download a MAK plan sheet?###dlg.tour_consent");
+    case Dialog::Export: return tr("Export###dlg.export");
+    case Dialog::Report: return tr("Report###dlg.report");
+    case Dialog::AcceptanceProfiles: return tr("Acceptance profiles###dlg.profiles");
+    case Dialog::Sharing: return tr("Sharing###dlg.sharing");
     case Dialog::None: break;
     }
     return "###dlg.none";
@@ -983,6 +989,10 @@ const char* dialog_section(Dialog d) {
     case Dialog::Settings: return "15";
     case Dialog::ResetSettings: return "15.4";
     case Dialog::TourConsent: return "1.3";
+    case Dialog::Export: return "10.1";
+    case Dialog::Report: return "10.2";
+    case Dialog::AcceptanceProfiles: return "10.3";
+    case Dialog::Sharing: return "10.4";
     case Dialog::None: break;
     }
     return "1";
@@ -1009,6 +1019,10 @@ void Gui::draw_dialog_body(Dialog d) {
     case Dialog::Settings: draw_settings(); break;
     case Dialog::ResetSettings: draw_reset_settings(); break;
     case Dialog::TourConsent: draw_tour_consent(); break;
+    case Dialog::Export: draw_export_dialog(); break;
+    case Dialog::Report: draw_report_dialog(); break;
+    case Dialog::AcceptanceProfiles: draw_profiles_dialog(); break;
+    case Dialog::Sharing: draw_sharing_dialog(); break;
     case Dialog::None: break;
     }
 }
@@ -1036,11 +1050,14 @@ void Gui::draw_dialogs() {
         ImGui::SetNextWindowSize(ImVec2(vp->WorkSize.x * 0.96F, vp->WorkSize.y * 0.94F), ImGuiCond_Appearing);
     } else {
         // Dialogs fit small windows too (UI-13).
-        const bool wide = d == Dialog::Browse || d == Dialog::Materials || d == Dialog::Settings || d == Dialog::About;
+        const bool wide = d == Dialog::Browse || d == Dialog::Materials || d == Dialog::Settings || d == Dialog::About ||
+                          d == Dialog::Export || d == Dialog::Report;
         const float width = std::min(wide ? 820.0F : 600.0F, vp->WorkSize.x * 0.95F);
         // Dialogs whose content grows (the class form, the walls' own
         // value, the settings tabs) fit their height every frame.
-        const bool grows = d == Dialog::Materials || d == Dialog::AntennaProperties || d == Dialog::Settings;
+        const bool grows = d == Dialog::Materials || d == Dialog::AntennaProperties || d == Dialog::Settings ||
+                           d == Dialog::Export || d == Dialog::Report || d == Dialog::AcceptanceProfiles ||
+                           d == Dialog::Sharing;
         ImGui::SetNextWindowSize(ImVec2(width, 0.0F), grows ? ImGuiCond_Always : ImGuiCond_Appearing);
     }
     ImGui::SetNextWindowPos(vp->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5F, 0.5F));

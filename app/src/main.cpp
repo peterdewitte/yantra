@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "curl_downloader.h"
+#include "curl_sender.h"
 #include "gui.h"
 #include "screenshot.h"
 #include "ui_probe.h"
@@ -251,6 +252,7 @@ int main(int argc, char** argv) {
         if (!screenshot) state.set_audio(app::make_miniaudio_io());
         // DEMO-12: the one-time sheet download of the tour (none in a screenshot).
         if (!screenshot) state.set_downloader(app::make_curl_downloader());
+        if (!screenshot) state.set_sender(app::make_curl_sender());  // EXP-07
         // DEMO-01: demo mode opens the demo project; the simulator is the
         // default radio there (LiveSurvey).
         if (cli.demo) {

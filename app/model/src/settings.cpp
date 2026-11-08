@@ -105,6 +105,23 @@ bool within(double v, double lo, double hi) { return v >= lo && v <= hi; }
 
 }  // namespace
 
+const char* sharing_method_key(SharingSettings::Method m) {
+    switch (m) {
+    case SharingSettings::Method::Off: return "off";
+    case SharingSettings::Method::Folder: return "folder";
+    case SharingSettings::Method::Http: return "http";
+    case SharingSettings::Method::Smtp: return "smtp";
+    }
+    return "off";
+}
+
+std::optional<SharingSettings::Method> parse_sharing_method(std::string_view key) {
+    for (auto m : {SharingSettings::Method::Off, SharingSettings::Method::Folder, SharingSettings::Method::Http,
+                   SharingSettings::Method::Smtp})
+        if (key == sharing_method_key(m)) return m;
+    return std::nullopt;
+}
+
 std::string check_settings(const AppSettings& s) {
     if (!parse_window_system(s.window_system)) return tr("The window system is auto, x11 or wayland.");
     if (!within(s.tooltip_delay_s, 0.0, kMaxTooltipDelayS)) return tr("The tooltip delay is 0 to 5 seconds.");
@@ -167,6 +184,10 @@ std::string settings_to_json(const AppSettings& s) {
     j["survey"]["ring_minutes"] = s.survey.ring_minutes;
     j["tour"] = {{"offered", s.tour.offered}, {"building", s.tour.building}, {"step", s.tour.step},
                  {"done", s.tour.done}, {"finished", s.tour.finished}};
+    j["sharing"] = {{"method", sharing_method_key(s.sharing.method)}, {"folder", s.sharing.folder.string()},
+                    {"url", s.sharing.url}, {"smtp_server", s.sharing.smtp_server},
+                    {"mail_from", s.sharing.mail_from}, {"mail_to", s.sharing.mail_to}, {"user", s.sharing.user},
+                    {"on_walk_end", s.sharing.on_walk_end}};
     return j.dump(1) + "\n";
 }
 
@@ -274,6 +295,23 @@ AppSettings settings_from_json(const std::string& text, std::string& error) {
         if (const auto d = it->find("done"); d != it->end() && d->is_array())
             for (const auto& e : *d)
                 if (e.is_string() && s.tour.done.size() < 64) s.tour.done.push_back(e.get<std::string>());
+    }
+    if (const auto it = j.find("sharing"); it != j.end() && it->is_object()) {
+        auto string_of = [&](const char* key, std::string& out) {
+            if (const auto v = it->find(key); v != it->end() && v->is_string()) out = v->get<std::string>();
+        };
+        std::string method, folder;
+        string_of("method", method);
+        if (const auto m = parse_sharing_method(method)) s.sharing.method = *m;
+        string_of("folder", folder);
+        s.sharing.folder = folder;
+        string_of("url", s.sharing.url);
+        string_of("smtp_server", s.sharing.smtp_server);
+        string_of("mail_from", s.sharing.mail_from);
+        string_of("mail_to", s.sharing.mail_to);
+        string_of("user", s.sharing.user);
+        if (const auto v = it->find("on_walk_end"); v != it->end() && v->is_boolean())
+            s.sharing.on_walk_end = v->get<bool>();
     }
     return s;
 }

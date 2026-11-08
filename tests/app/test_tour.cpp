@@ -352,11 +352,12 @@ TEST_CASE("DEMO-11 DEMO-08 the tour with the Fraunces Tavern: every step by Show
     REQUIRE(t.back().ok);
     CHECK(t.view().step == TourStep::Antennas);
     CHECK(t.view().done);
-    // Skip to the report: not available yet, said so.
+    // Skip to the report (step 10.4): available, not done before a report.
     REQUIRE(t.go_to(TourStep::Report).ok);
-    CHECK_FALSE(t.view().available);
-    CHECK_FALSE(t.view().can_show);
-    CHECK_FALSE(t.view().unavailable.empty());
+    CHECK(t.view().available);
+    CHECK(t.view().can_show);
+    CHECK(t.view().unavailable.empty());
+    CHECK_FALSE(t.view().done);
     REQUIRE(t.next().ok);
     CHECK(t.view().last);
     REQUIRE(t.next().ok);  // Finish

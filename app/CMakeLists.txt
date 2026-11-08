@@ -78,10 +78,12 @@ add_library(yantra_app_model STATIC
   model/src/network_checks.cpp
   model/src/post_processing.cpp
   model/src/project_window.cpp
+  model/src/report_export.cpp
   model/src/radio_windows.cpp
   model/src/replay_session.cpp
   model/src/settings.cpp
   model/src/settings_reset.cpp
+  model/src/share.cpp
   model/src/sheet_fetch.cpp
   model/src/survey_monitor.cpp
   model/src/system_status.cpp
@@ -114,7 +116,8 @@ target_compile_definitions(yantra_imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS 
 
 add_library(yantra_app_gui STATIC gui/gui.cpp gui/gui_tools.cpp gui/plan_canvas.cpp gui/plan_import_view.cpp
   gui/survey_view.cpp gui/radio_view.cpp gui/user_texture.cpp gui/plugin_view.cpp gui/settings_view.cpp
-  gui/network_view.cpp gui/post_view.cpp gui/help_view.cpp gui/tour_view.cpp gui/screenshot.cpp)
+  gui/network_view.cpp gui/post_view.cpp gui/help_view.cpp gui/tour_view.cpp gui/screenshot.cpp
+  gui/report_view.cpp)
 add_library(yantra::app_gui ALIAS yantra_app_gui)
 target_include_directories(yantra_app_gui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/gui)
 target_link_libraries(yantra_app_gui PUBLIC yantra::app_model yantra_imgui PRIVATE yantra::warnings)
@@ -130,9 +133,10 @@ set_source_files_properties(audio/miniaudio_impl.c PROPERTIES COMPILE_OPTIONS "-
 
 # The tour's one-time MAK sheet download (DEMO-12; spec 16.2: libcurl, a
 # system library): the Downloader of sheet_fetch.h. Only the executable and
-# its tests link it; the model sees the interface.
+# its tests link it; the model sees the interface. Step 10.4: the EXP-07
+# sending of exports and reports (HTTP PUT, SMTP), the Sender of share.h.
 find_package(CURL 7.85 REQUIRED)
-add_library(yantra_app_net STATIC net/curl_downloader.cpp)
+add_library(yantra_app_net STATIC net/curl_downloader.cpp net/curl_sender.cpp)
 add_library(yantra::app_net ALIAS yantra_app_net)
 target_include_directories(yantra_app_net PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/net)
 target_link_libraries(yantra_app_net PUBLIC yantra::app_model PRIVATE CURL::libcurl yantra::warnings)

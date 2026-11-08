@@ -72,8 +72,14 @@ const ActionDef kActions[] = {
      nullptr},
     {Action::CloseProject, "file.close_project", tr_mark("Close project"), "Ctrl+W",
      tr_mark("Close the project and return to the start screen. All changes are already stored."), nullptr},
-    {Action::Export, "file.export", tr_mark("Export..."), "", tr_mark("Export measurements, points and the cell database."), "10"},
-    {Action::Report, "file.report", tr_mark("Report..."), "", tr_mark("Make a coverage report of the project."), "10"},
+    {Action::Export, "file.export", tr_mark("Export..."), "",
+     tr_mark("Export the measured points as CSV, a floor as DXF for CAD or as a picture (PNG/JPG), or every recording of "
+             "a folder at once (batch export), and send the files if you want."),
+     nullptr},
+    {Action::Report, "file.report", tr_mark("Report..."), "",
+     tr_mark("Make the indoor coverage and acceptance report of the project as PDF and HTML: one section per floor with "
+             "every measured point, the coverage map and the acceptance profiles."),
+     nullptr},
     {Action::About, "file.about", tr_mark("About Yantra"), "", tr_mark("Version, licence, source code link and credits."), nullptr},
     {Action::Settings, "file.settings", tr_mark("Settings..."), "Ctrl+,",
      tr_mark("Theme, tooltips, window system, survey defaults (coverage threshold, graph span, ring buffer) and the plugin "
@@ -133,6 +139,7 @@ void remove_project_file(const fs::path& target, std::error_code& ec) {
 
 AppState::AppState(AppSettings settings, AppPaths paths) : settings_(std::move(settings)), paths_(std::move(paths)) {
     downloader_ = make_no_downloader(tr("Downloads are not set up in this copy of Yantra."));
+    sender_ = make_no_sender(tr("Sending over the network is not set up in this copy of Yantra; a shared folder works."));
     tour_ = std::make_unique<Tour>(*this);
     monitor_->set_threshold(settings_.survey.threshold_dbm);
     alerts_.set_settings(settings_.sound);
@@ -231,6 +238,16 @@ ActionView AppState::action(Action a) const {
         } else if (a == Action::CloseProject && live_ && live_->exit_guard()) {
             v.enabled = false;
             v.disabled_reason = tr("A recording is running: stop it first (Survey > Recording).");
+        }
+        break;
+    case Action::Export:
+    case Action::Report:
+        if (!open) {
+            v.enabled = false;
+            v.disabled_reason = tr("No project is open: create one (File > New indoor project) or open one first.");
+        } else if (project_->floors().empty()) {
+            v.enabled = false;
+            v.disabled_reason = tr("The project has no floor yet: add one first (File > Add floor).");
         }
         break;
     case Action::Exit:
@@ -440,6 +457,14 @@ Result AppState::trigger(Action a) {
     case Action::CellDatabase: network_windows_.cell_db = true; return Result{};
     case Action::Verification: network_windows_.verification = true; return Result{};
     case Action::Reselection: network_windows_.reselection = true; return Result{};
+    case Action::Export:
+        output_->open_export();
+        dialog_ = Dialog::Export;
+        return Result{};
+    case Action::Report:
+        output_->open_report();
+        dialog_ = Dialog::Report;
+        return Result{};
     default: break;
     }
     return fail(v.label + tr(": not available"));
@@ -457,6 +482,14 @@ void AppState::cancel_dialog() {
         return;
     }
     if (dialog_ == Dialog::RemoveFloor && window_) window_->cancel_remove();
+    if (dialog_ == Dialog::Sharing) {
+        dialog_ = sharing_return_;
+        return;
+    }
+    if (dialog_ == Dialog::AcceptanceProfiles) {
+        dialog_ = Dialog::Report;
+        return;
+    }
     dialog_ = Dialog::None;
     browser_.reset();
 }
@@ -494,6 +527,19 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     });
     replay_ = std::make_unique<ReplaySession>(project_, monitor_);
     replay_->set_audio(audio_);
+    ReportExport::Context oc;
+    oc.demo_label = [this] { return demo_label_; };
+    oc.technologies = [this] { return technologies(); };
+    oc.catalog = [this] { return live_ ? live_->catalog() : std::shared_ptr<measure::TechnologyCatalog>{}; };
+    oc.plugins = [this] { return &plugins(); };
+    oc.metric = [this] { return window_ ? window_->post().metric : survey::Metric{}; };
+    oc.shown_floor = [this] { return window_ ? window_->selected() : std::string(); };
+    oc.data_folders = paths_.data_folders;
+    oc.sheet_cache = paths_.sheet_cache;
+    oc.sharing = [this] { return settings_.sharing; };
+    oc.sender = [this] { return sender_; };
+    output_ = std::make_unique<ReportExport>(project_, std::move(oc));
+    walk_running_ = false;
     demo_label_ = find_demo_label();
     add_recent_project(settings_, project_->path());
     settings_changed_ = true;
@@ -557,6 +603,12 @@ fs::path AppState::browse_start() const {
     case BrowsePurpose::NewProjectFile:
         if (!form_.file.empty()) return form_.file.parent_path();
         break;
+    case BrowsePurpose::ExportFile:
+        if (output_ && !output_->export_form().file.empty()) return output_->export_form().file.parent_path();
+        break;
+    case BrowsePurpose::ReportFile:
+        if (output_ && !output_->report_form().file.empty()) return output_->report_form().file.parent_path();
+        break;
     case BrowsePurpose::OpenProject:
     case BrowsePurpose::PlanFile: break;
     }
@@ -586,6 +638,28 @@ void AppState::browse(BrowsePurpose purpose) {
         browser_.emplace(BrowseMode::Open, tr("Plan file (PDF or image)"), plan_file_filters(), browse_start(), home(),
                          recent);
         break;
+    case BrowsePurpose::ExportFile: {
+        const ExportForm::Kind k = output_ ? output_->export_form().kind : ExportForm::Kind::Csv;
+        std::vector<FileFilter> filters;
+        if (k == ExportForm::Kind::Dxf)
+            filters = {FileFilter{tr("DXF drawings (*.dxf)"), {".dxf"}}};
+        else if (k == ExportForm::Kind::Image)
+            filters = {FileFilter{tr("Pictures (*.png *.jpg)"), {".png", ".jpg", ".jpeg"}}};
+        else
+            filters = {FileFilter{tr("CSV files (*.csv)"), {".csv"}}};
+        filters.push_back(FileFilter{tr("All files"), {}});
+        const fs::path f = !output_                         ? fs::path()
+                           : k == ExportForm::Kind::Batch ? output_->export_form().batch_output
+                                                           : output_->export_form().file;
+        browser_.emplace(BrowseMode::Save, tr("Export to"), filters, browse_start(), home(), recent, f.filename().string());
+        break;
+    }
+    case BrowsePurpose::ReportFile:
+        browser_.emplace(BrowseMode::Save, tr("Report file"),
+                         std::vector<FileFilter>{FileFilter{tr("PDF reports (*.pdf)"), {".pdf"}}, FileFilter{tr("All files"), {}}},
+                         browse_start(), home(), recent,
+                         output_ ? output_->report_form().file.filename().string() : std::string());
+        break;
     }
     dialog_ = Dialog::Browse;
 }
@@ -614,6 +688,17 @@ Result AppState::chosen(const fs::path& file) {
         dialog_ = Dialog::NewProject;
         return Result{};
     case BrowsePurpose::PlanFile: return import_plan_file(file);
+    case BrowsePurpose::ExportFile:
+        if (output_) {
+            ExportForm& f = output_->export_form();
+            (f.kind == ExportForm::Kind::Batch ? f.batch_output : f.file) = file;
+        }
+        dialog_ = Dialog::Export;
+        return Result{};
+    case BrowsePurpose::ReportFile:
+        if (output_) output_->report_form().file = file;
+        dialog_ = Dialog::Report;
+        return Result{};
     }
     return Result{};
 }
@@ -1025,7 +1110,9 @@ celldb::Technologies AppState::technologies() {
 
 void AppState::drop_tools() {
     // The walk first (its cycle thread stores points), then a running
-    // interpolation (cancelled and waited for), then the editor.
+    // interpolation (cancelled and waited for), then the editor. A
+    // running report or export is cancelled and waited for first.
+    output_.reset();
     replay_.reset();
     radios_.reset();
     live_.reset();
@@ -1110,6 +1197,72 @@ void AppState::tick() {
     }
     if (editor_ && window_) editor_->set_floor(window_->selected());
     if (replay_) replay_->tick();
+    if (output_) {
+        if (const auto r = output_->tick()) (void)show(*r);
+        // EXP-07: a walk test that ended sends its floor's export when
+        // the sharing settings ask for it.
+        const WalkView w = live_ ? live_->view() : WalkView{};
+        if (w.running) walk_floor_ = w.floor_id;
+        if (walk_running_ && !w.running && !walk_floor_.empty()) {
+            const Result r = output_->walk_finished(walk_floor_);
+            if (!r.message.empty()) (void)show(r);
+        }
+        walk_running_ = w.running;
+    }
+}
+
+// -- export, report, sharing (EXP-01..08) -------------------------------------------
+
+Result AppState::confirm_export() {
+    if (!output_) return fail(tr("No project is open."));
+    const Result r = output_->run_export();
+    if (!r.ok) return fail(r.message);
+    dialog_ = Dialog::None;
+    return done(r.message);
+}
+
+Result AppState::confirm_report() {
+    if (!output_) return fail(tr("No project is open."));
+    const Result r = output_->run_report();
+    if (!r.ok) return fail(r.message);
+    dialog_ = Dialog::None;
+    return done(r.message);
+}
+
+Result AppState::open_profiles() {
+    if (!output_) return fail(tr("No project is open."));
+    output_->open_profiles();
+    dialog_ = Dialog::AcceptanceProfiles;
+    return Result{};
+}
+
+Result AppState::confirm_profiles() {
+    if (!output_) return fail(tr("No project is open."));
+    const Result r = output_->save_profiles();
+    if (!r.ok) return fail(r.message);
+    dialog_ = Dialog::Report;
+    return done(r.message);
+}
+
+Result AppState::open_sharing() {
+    sharing_return_ = dialog_ == Dialog::Sharing ? sharing_return_ : dialog_;
+    sharing_form_ = settings_.sharing;
+    dialog_ = Dialog::Sharing;
+    return Result{};
+}
+
+Result AppState::confirm_sharing() {
+    if (sharing_form_.method != SharingSettings::Method::Off)
+        if (std::string why = check_sharing(sharing_form_); !why.empty()) return fail(why);
+    if (!(settings_.sharing == sharing_form_)) {
+        settings_.sharing = sharing_form_;
+        settings_form_.sharing = sharing_form_;
+        settings_changed_ = true;
+    }
+    if (output_) output_->set_share_password(sharing_password_);
+    dialog_ = sharing_return_;
+    return done(sharing_form_.method == SharingSettings::Method::Off ? std::string(tr("Sharing is off."))
+                                                                      : std::string(tr("Sharing settings stored.")));
 }
 
 // -- survey panels, replay, status bar (UI-01..04, UI-08, UI-11, REC-06..09) ------------------

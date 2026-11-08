@@ -77,7 +77,10 @@ const StepDef kSteps[] = {
     {TourStep::SwitchFloors, "switch_floors", tr_mark("Switch floors"),
      tr_mark("Each floor has its own tab above the plan: click another floor's tab."), "13.1"},
     {TourStep::Report, "report", tr_mark("Make the report"),
-     tr_mark("File > Report makes the coverage and acceptance report of the project."), "10"},
+     tr_mark("File > Report makes the coverage and acceptance report of the project as PDF and HTML: one section per "
+             "floor with every measured point, the coverage map, the statistics and the acceptance profiles. Type "
+             "your name as the surveyor and press Make report."),
+     "10.2"},
     {TourStep::Finish, "finish", tr_mark("The end of the tour"),
      tr_mark("That was the whole indoor workflow. Show me opens the finished example project: walk tests recorded "
              "on every floor and their coverage maps (simulated data, marked DEMO)."),
@@ -539,7 +542,7 @@ bool Tour::step_done(TourStep s) const {
         ProjectWindow* w = app_.project_window();
         return w != nullptr && !w->selected().empty() && w->selected() != floor_at_entry_;
     }
-    case TourStep::Report: return false;
+    case TourStep::Report: return is_tour_project() && app_.output() != nullptr && app_.output()->report_written();
     case TourStep::Finish: return true;
     }
     return false;
@@ -636,7 +639,7 @@ TourView Tour::view() const {
     case TourStep::MouseSurvey: v.targets = {"walk.stop", "walk.start", "walk.find_radios", "panel.walk"}; break;
     case TourStep::Results: v.targets = {"layer.interpolation", "layer.points", "panel.layers"}; break;
     case TourStep::SwitchFloors: v.targets = {"floors"}; break;
-    case TourStep::Report: v.targets = {"file.report", "menu.file"}; break;
+    case TourStep::Report: v.targets = {"dlg.ok", "file.report", "menu.file"}; break;
     case TourStep::Finish: v.targets = {"tour.show_me"}; break;
     }
 
@@ -647,7 +650,7 @@ TourView Tour::view() const {
         v.can_show = false;
         v.show_reason = std::move(why);
     };
-    const bool needs_project = step_ > TourStep::NewProject && step_ < TourStep::Report;
+    const bool needs_project = step_ > TourStep::NewProject && step_ <= TourStep::Report;
     if (step_ == TourStep::Choose) {
         greyed(tr("Choose one of the example buildings above."));
     } else if (!desc_) {
@@ -658,16 +661,10 @@ TourView Tour::view() const {
         greyed(tr("Open the tour's project first: go back to the step \"Make a new indoor project\"."));
     } else if (step_ == TourStep::SecondSource && second_sheet() == nullptr) {
         greyed(tr("This example building has only one plan sheet."));
-    } else if (step_ == TourStep::Report) {
-        greyed(tr("Not available in this version yet."));
     } else if (step_ == TourStep::MouseSurvey && app_.live() == nullptr) {
         greyed(tr("Open the tour's project first: go back to the step \"Make a new indoor project\"."));
     } else if (step_ == TourStep::Finish) {
         v.show_me = tr("Open the finished example");
-    }
-    if (step_ == TourStep::Report) {
-        v.available = false;
-        v.unavailable = tr("Reports come with a later version of Yantra; File > Report says so too. Go on with Next.");
     }
 
     if (step_ == TourStep::Choose) {
@@ -738,6 +735,13 @@ Result Tour::show_me() {
         const std::string id = tabs[(i + 1) % tabs.size()].id;
         (void)w->select(id);
         return Result{true, trf("Showing {}.", {tabs[(i + 1) % tabs.size()].name})};
+    }
+    case TourStep::Report: {
+        // The same command as File > Report: the dialog with its defaults,
+        // then Make report (the report is written in the background).
+        Result r = app_.trigger(Action::Report);
+        if (!r.ok) return r;
+        return app_.confirm_report();
     }
     case TourStep::Finish: return show_finished();
     default: break;

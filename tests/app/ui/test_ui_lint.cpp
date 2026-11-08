@@ -166,6 +166,33 @@ void visit_all(Shell& s, UiLint& lint, const std::string& tag) {
     floor_dialog([&] { return s.state.edit_materials(); }, "wall classes");
     floor_dialog([&] { return s.state.edit_propagation(); }, "propagation");
     floor_dialog([&] { return s.state.trigger(Action::SaveAs); }, "save as");
+    // Step 10.4: the export (each kind), report, profile and sharing dialogs.
+    REQUIRE(s.state.trigger(Action::Export).ok);
+    for (const ExportForm::Kind k : {ExportForm::Kind::Csv, ExportForm::Kind::Dxf, ExportForm::Kind::Image,
+                                     ExportForm::Kind::Batch}) {
+        s.state.output()->export_form().kind = k;
+        settle_check("export " + std::to_string(static_cast<int>(k)));
+    }
+    s.state.cancel_dialog();
+    REQUIRE(s.ui.frames(2));
+    REQUIRE(s.state.trigger(Action::Report).ok);
+    s.state.output()->report_form().choose_profiles = true;
+    settle_check("report");
+    REQUIRE(s.state.open_profiles().ok);
+    s.state.output()->add_profile();
+    s.state.output()->profile_form().profiles.back().basis = yantra::survey::AcceptanceProfile::Basis::TestedArea;
+    settle_check("acceptance profiles");
+    s.state.cancel_dialog();
+    REQUIRE(s.ui.frames(2));
+    for (const SharingSettings::Method m : {SharingSettings::Method::Folder, SharingSettings::Method::Http,
+                                            SharingSettings::Method::Smtp}) {
+        REQUIRE(s.state.open_sharing().ok);
+        s.state.sharing_form().method = m;
+        settle_check("sharing " + std::to_string(static_cast<int>(m)));
+    }
+    s.state.cancel_dialog();
+    s.state.cancel_dialog();
+    REQUIRE(s.ui.frames(3));
     for (Action a : {Action::CellDatabase, Action::Verification, Action::Reselection}) REQUIRE(s.state.trigger(a).ok);
     settle_check("network windows");
     s.state.network_windows() = NetworkWindows{};

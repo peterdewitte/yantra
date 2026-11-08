@@ -27,7 +27,7 @@ file(MAKE_DIRECTORY ${_scratch})
 
 add_executable(test_app test_app_model.cpp test_file_browser.cpp test_floor_editor.cpp test_interpolation_runner.cpp test_plan_import_window.cpp test_project_window.cpp
                         test_radio_windows.cpp test_settings_plugins.cpp test_survey_monitor.cpp test_network.cpp test_i18n_sound.cpp
-                        test_tour.cpp)
+                        test_tour.cpp test_report_export.cpp)
 # Step 9.10: the tour's sheet download through libcurl (file:// and loopback only).
 target_link_libraries(test_app PRIVATE yantra_test_main yantra_warnings yantra::app_model yantra::app_net yantra::audio yantra::core
                                        yantra_plan_fixtures yantra::json)

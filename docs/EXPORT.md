@@ -11,6 +11,9 @@ EXP-03, EXP-04, EXP-08, PLG-02, TST-33). Code: `core/export/` (namespace
 `yantra::exports`). The export and report dialogs of the app use these
 APIs; the reports (EXP-05, EXP-06) are described in [REPORT.md](REPORT.md).
 
+In the app, File > Export (docs/APP.md "Export, report and sharing", manual 10.1) fills these options
+and can send the files (EXP-07).
+
 ## Rows: the project window's points (IND-30)
 
 `floor_table(project, floor, TableOptions)` (table.h) gives one row per

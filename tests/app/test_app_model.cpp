@@ -305,7 +305,8 @@ TEST_CASE("menus (UI-14): File, Network and Help items, tooltips, disabled reaso
             // Disabled either because it is not wired yet, for want of a
             // project, or (Open demo) without the installed demo.
             const bool needs_project = a.id == "file.save" || a.id == "file.save_as" || a.id == "file.add_floor" ||
-                                       a.id == "file.close_project" || a.id.rfind("network.", 0) == 0;
+                                       a.id == "file.close_project" || a.id == "file.export" || a.id == "file.report" ||
+                                       a.id.rfind("network.", 0) == 0;
             if (!needs_project && a.id != "file.open_demo") CHECK(a.enabled == a.planned_step.empty());
         }
     }
@@ -315,8 +316,11 @@ TEST_CASE("menus (UI-14): File, Network and Help items, tooltips, disabled reaso
     CHECK(st.action(Action::UserManual).planned_step.empty());  // step 9.9: the help window
     CHECK(st.action(Action::UserManual).enabled);
     CHECK(st.action(Action::QuickStarts).planned_step == "12");  // DOC-03, written with the manual
-    CHECK(st.action(Action::Export).planned_step == "10");
-    CHECK(st.action(Action::Report).planned_step == "10");
+    // Step 10.4: File > Export and File > Report, once a project is open.
+    CHECK(st.action(Action::Export).planned_step.empty());
+    CHECK(st.action(Action::Report).planned_step.empty());
+    CHECK_FALSE(st.action(Action::Export).disabled_reason.empty());
+    CHECK_FALSE(st.action(Action::Report).disabled_reason.empty());
     // Available now.
     for (Action a : {Action::NewProject, Action::OpenProject, Action::Exit, Action::About, Action::HelpAbout,
                      Action::Settings, Action::ResetSettings})

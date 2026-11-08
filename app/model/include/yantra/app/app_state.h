@@ -46,6 +46,8 @@
 #include "yantra/app/live_survey.h"
 #include "yantra/app/network_checks.h"
 #include "yantra/app/replay_session.h"
+#include "yantra/app/report_export.h"
+#include "yantra/app/share.h"
 #include "yantra/app/system_status.h"
 #include "yantra/app/plan_import_window.h"
 #include "yantra/app/project_window.h"
@@ -159,6 +161,10 @@ enum class Dialog {
     Settings,           ///< the settings window (general, survey, plugins): settings_form()
     ResetSettings,      ///< Reset all settings (UI-16): reset_form()
     TourConsent,        ///< the tour asks before a MAK sheet is downloaded (DEMO-12): tour().consent()
+    Export,             ///< File > Export (EXP-01, EXP-03, EXP-04, EXP-08): output()->export_form()
+    Report,             ///< File > Report (EXP-05, EXP-06): output()->report_form()
+    AcceptanceProfiles, ///< the acceptance profile editor (EXP-06): output()->profile_form()
+    Sharing,            ///< where exports and reports are sent (EXP-07): sharing_form()
 };
 
 /// What the file browser was opened for.
@@ -167,6 +173,8 @@ enum class BrowsePurpose {
     SaveAs,          ///< File > Save as
     NewProjectFile,  ///< the file of a new project (back to the New project dialog)
     PlanFile,        ///< a plan file (PDF or image) for Add floor (IND-02, IND-10)
+    ExportFile,      ///< the file of an export (back to the Export dialog)
+    ReportFile,      ///< the PDF file of a report (back to the Report dialog)
 };
 
 /// The New indoor project form (IND-01).
@@ -346,6 +354,9 @@ public:
     /// DB-08; nullptr on the start screen).
     NetworkChecks* network_checks() { return checks_.get(); }
     NetworkWindows& network_windows() { return network_windows_; }
+    /// The export, report and acceptance-profile dialogs (EXP-01..08;
+    /// nullptr on the start screen).
+    ReportExport* output() { return output_.get(); }
 
     // -- in-app help (DOC-07 e) and sounds (UI-09/UI-10; step 9.9) ----------
     /// Opens the help window at a manual section ("13.2"; "" the contents);
@@ -449,6 +460,25 @@ public:
     /// Credit, licence and scale note of a floor's licence-restricted plan
     /// (DEMO-12), shown with the plan; nullopt for any other plan.
     std::optional<PlanCreditView> plan_credit(const std::string& floor_id);
+
+    // -- export, report, sharing (EXP-01..08; step 10.4) --------------------
+    /// The network sending of EXP-07 (main(): libcurl); default: none, with
+    /// the reason (a shared folder still works).
+    void set_sender(std::shared_ptr<Sender> s) { sender_ = std::move(s); }
+    /// Runs the open Export / Report dialog's form (the report and a batch
+    /// export continue in the background; the dialog closes).
+    Result confirm_export();
+    Result confirm_report();
+    /// The acceptance profile editor (from the Report dialog); Save stores
+    /// the profiles and goes back to the Report dialog.
+    Result open_profiles();
+    Result confirm_profiles();
+    /// The sharing settings dialog (from the Export or Report dialog): a
+    /// working copy and the login's password for this run (never stored).
+    Result open_sharing();
+    SharingSettings& sharing_form() { return sharing_form_; }
+    std::string& sharing_password() { return sharing_password_; }
+    Result confirm_sharing();
 
     // -- commands -------------------------------------------------------
     /// Runs an action: opens its dialog, runs it, or refuses it with the
@@ -581,6 +611,13 @@ private:
     std::unique_ptr<CellDbEditor> cell_db_;
     std::unique_ptr<NetworkChecks> checks_;
     std::unique_ptr<PostProcessing> post_;
+    std::unique_ptr<ReportExport> output_;  // its worker holds the project
+    std::shared_ptr<Sender> sender_;
+    SharingSettings sharing_form_;
+    std::string sharing_password_;
+    Dialog sharing_return_ = Dialog::None;
+    bool walk_running_ = false;
+    std::string walk_floor_;
     NetworkWindows network_windows_;
     HelpView help_;
     AudibleAlerts alerts_;

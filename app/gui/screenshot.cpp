@@ -57,6 +57,8 @@ std::vector<ShotScene> make_scenes() {
     v.push_back(scene("cell_database", "cell database editor (DB-01, DB-02)"));
     v.push_back(scene("verification", "parameter verification against the cell database, on a replayed walk (DB-04)"));
     v.push_back(scene("reselection", "cell reselection simulator (DB-08)"));
+    v.push_back(scene("export", "File > Export: CSV columns, separator and time; DXF, floor picture, batch (EXP-01..04, EXP-08)"));
+    v.push_back(scene("report", "File > Report: surveyor, floors and acceptance profiles of the report (EXP-05, EXP-06)"));
     {
         ShotScene s = scene("touch", "touch layout on a tablet-sized window: the walk test page (UI-13)");
         s.touch = true;
@@ -355,6 +357,20 @@ void ShotRunner::build() {
     } else if (n == "cell_database") {
         run("the cell database", [this] { return state_.trigger(Action::CellDatabase); });
         frames(5);
+    } else if (n == "export") {
+        run("File > Export", [this] { return state_.trigger(Action::Export); });
+        frames(3);
+    } else if (n == "report") {
+        run("File > Report", [this] {
+            const Result r = state_.trigger(Action::Report);
+            if (r.ok && state_.output()) {
+                ReportForm& f = state_.output()->report_form();
+                f.choose_profiles = true;
+                f.more_thresholds = "-85, -105";
+            }
+            return r;
+        });
+        frames(3);
     }
     // No tooltip in the picture: the mouse leaves the window (an open menu
     // stays open).

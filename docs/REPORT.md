@@ -14,6 +14,10 @@ per floor, every measured point, statistics, acceptance) is the report
 content, built on this engine; the measured points come from the export
 core ([EXPORT.md](EXPORT.md)).
 
+In the app, File > Report (docs/APP.md "Export, report and sharing", manual 10.2) fills
+`CoverageOptions` (surveyor typed in, floors, thresholds, chosen profiles) and runs it in the background;
+the acceptance profile editor stores the profiles (manual 10.3).
+
 ## Document model
 
 `Document` (document.h) is format neutral. Its text is final: the

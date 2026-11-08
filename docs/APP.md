@@ -759,6 +759,51 @@ Help > Tour, the first-start offer on the start screen (`start.tour_offer.yes/no
   `show_me()` put any step on screen; `request_panel(key)` selects a side-panel page. Screenshots use the Fraunces
   Tavern only (never a MAK sheet).
 
+## Export, report and sharing (step 10.4)
+
+File > Export and File > Report (EXP-01, EXP-03..08; manual 10) need a project with a floor. Model:
+`app/model/include/yantra/app/report_export.h` (`ReportExport`, owned by `AppState::output()`, made and
+dropped with the project's tools); sharing: `share.h` (`SharingSettings` in `AppSettings::sharing`,
+`ShareJob`, `Sender`, `check_sharing`, `copy_to_folder`, `share_files`) and `app/net/curl_sender.{h,cpp}`
+(libcurl); views: `app/gui/report_view.cpp`; dialogs `dlg.export`, `dlg.report`, `dlg.profiles`,
+`dlg.sharing` (manual 10.1-10.4).
+
+- Export (`ExportForm`): kind CSV / DXF / floor picture / batch; the shown floor or all floors (CSV: one
+  file; DXF, picture: `<stem>_<floor id>.<ext>`); CSV columns in `exports::all_columns()` order
+  (`ex.col.<column id>`), separator (`, ; tab |`), UTC or local time, neighbours 0..32; the picture's size
+  and the stored map under the points (the newest interpolation of the window's metric, else the newest;
+  never a licence-restricted plan, DEMO-12); batch: the folder tree (default `<project>/recordings`),
+  merged or separate, CSV or an exporter plugin's format (PLG-02). Files default to
+  `<project folder>/exports/`; Browse uses the in-app browser (`BrowsePurpose::ExportFile`). The rows
+  are the project window's metric (IND-30). CSV, DXF and the picture are written at once; the batch
+  runs on the worker.
+- Report (`ReportForm`): title, surveyor (EXP-05 operator field: kept for the run, never stored),
+  threshold, more thresholds (`-85, -105`), histogram bin, the point table, the floors (`rp.floor.<id>`),
+  the profiles (stored ones, else the default; or a choice, `rp.profile.<i>`), PDF and/or HTML (same name,
+  `.html`); default `<project folder>/reports/<stem>_report.pdf`. The worker replays the received cells
+  for the network verification (`report::observed_cells`, with the TETRA catalog of the live survey) and
+  calls `report::write_coverage_report` in the app's language (`tr`); `SOURCE_DATE_EPOCH` fixes the
+  creation time. The tour's report step (`TourStep::Report`) is done after a report of the tour project;
+  Show me runs File > Report with its defaults.
+- Acceptance profile editor (`ProfileForm`, EXP-06): add (a free name), remove, name, basis (points,
+  tested area with square and percentile, floor area with the least confidence), criteria (level and
+  share); `survey::validate` and unique names; Save stores them with `survey::set_acceptance_profiles`
+  and returns to the Report dialog.
+- The worker: one thread at a time (`busy()`; a second job is refused), progress and cancel, the
+  project's own lock (the project is thread-safe); `AppState::tick()` shows the end in the status line
+  once, then starts the sending that was asked for. Closing the project cancels and waits.
+- EXP-07 sharing (optional; `Sharing settings...` in both dialogs, `dlg.sharing`): Off, a shared folder
+  (copied as `<name>.part`, then renamed), HTTP PUT of each file to `<url>/<name>` (basic login, no
+  redirects, `Content-Type` by extension), or one e-mail through the team's own SMTP server
+  (`smtp://` with STARTTLS when offered, `smtps://`; MIME text plus base64 attachments). The password is
+  typed per run and never stored. `on_walk_end`: when a walk test stops, the floor's CSV goes to
+  `<project folder>/exports/` and is sent. `main()` installs the libcurl sender; without it (screenshots,
+  tests) network methods are refused with the reason. Tests use a local folder and fake HTTP/SMTP
+  servers on the loopback interface only (`tests/app/test_report_export.cpp`).
+- Tests: `tests/app/test_report_export.cpp` (model, sharing, libcurl to the fakes),
+  `tests/app/ui/test_ui_report.cpp` (clicking), the UI lint visits every new dialog; screenshots
+  `export_*` and `report_*`.
+
 ## Screenshots and layout check (step 9.11)
 
 The documentation's screenshot set (SCR-01..05, SCR-07) is made by the app itself:
@@ -767,10 +812,10 @@ The documentation's screenshot set (SCR-01..05, SCR-07) is made by the app itsel
            [--touch] [--scale PERCENT] [--size WxH] [--input SHEET]
     yantra --list-shots          # name<TAB>flags<TAB>what; flags demo, touch, radio=..., input
 
-- `app/gui/screenshot.{h,cpp}`: `shot_scenes()` (24 scenes: start menu, survey with graphs, events and
+- `app/gui/screenshot.{h,cpp}`: `shot_scenes()` (26 scenes: start menu, survey with graphs, events and
   scanner, plan import of two floors from one sheet, walk test, interpolation, About, reset, radio list,
   the four generated windows of the simulator and of the HackRF, survey settings, cell database,
-  verification, reselection, touch layout), `shot_settings()` (theme/touch/layers of a scene) and
+  verification, reselection, the Export and Report dialogs, touch layout), `shot_settings()` (theme/touch/layers of a scene) and
   `ShotRunner`: a list of steps (open the demo, replay to 60 %, start the simulator, click a control
   by id, wait frames) played before each frame; `ready()` when the capture may happen. A step that
   waits more than 120 s fails the shot (exit 1). Before the capture the mouse leaves the window (no
@@ -783,7 +828,7 @@ The documentation's screenshot set (SCR-01..05, SCR-07) is made by the app itsel
   two Fraunces sheets, which the app combines into one (`--input data/demo/fraunces`); then oxipng
   (Python's standard library only). `--compare DIR` fails on a new, missing or
   changed picture (more than `--threshold` % pixels, SCR-05). Data: the Fraunces demo and the simulated
-  radios only, never a MAK sheet (DEMO-12). The set is `docs/img/` (54 pictures, about 5.8 MB),
+  radios only, never a MAK sheet (DEMO-12). The set is `docs/img/` (58 pictures, about 6.2 MB),
   referenced by the manual; `.github/workflows/screenshots.yml` regenerates it on release branches
   (artifact) and compares it on pull requests.
 - Tests: `tests/app/test_screenshots.cpp` plays every scene in the harness; the launch tests
