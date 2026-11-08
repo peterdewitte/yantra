@@ -148,7 +148,7 @@ name.
   `timer_stop` drive `on_timer`.
 - `emit_record` adds a RECORDING record of a feature to the measurement.
 - Since 1.1: `control` runs a command of the application's control set
-  (API-01/02; the commands and replies are in the remote API reference),
+  (API-01/02; the commands and replies are in [API.md](API.md#commands)),
   from the plugin's own thread or `on_timer`; `data_folder` gives the
   plugin a folder of its own for files it keeps (created, owner-only).
   Check `YANTRA_HAS_FIELD(host, yantra_host_api, control)` first: a 1.0

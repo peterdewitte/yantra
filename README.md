@@ -53,6 +53,8 @@ The TETRA technology plugin (schemas, channel raster, C1, reselection):
 [docs/plugins/TETRA.md](docs/plugins/TETRA.md).
 The cell database (CSV import/export, verification, cross-check,
 reselection simulator): [docs/CELL_DATABASE.md](docs/CELL_DATABASE.md).
+The headless probe `yantra-probe` and the remote API (probe plugin):
+[docs/PROBE.md](docs/PROBE.md), [docs/API.md](docs/API.md).
 The demo project (Fraunces Tavern, two floors, simulated walks and
 interpolation) and the demo scenarios: [docs/DEMO.md](docs/DEMO.md).
 A sample indoor coverage and acceptance report of the demo project, as

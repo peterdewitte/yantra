@@ -136,6 +136,25 @@ precedence = "override"
 SPDX-FileCopyrightText = "The gl3w and imgl3w authors"
 SPDX-License-Identifier = "Unlicense"
 
+# CivetWeb 1.16 (THIRD_PARTY.md), vendored unchanged from its release.
+[[annotations]]
+path = ["third_party/civetweb/**"]
+precedence = "override"
+SPDX-FileCopyrightText = ["2013-2021 The CivetWeb developers", "2004-2013 Sergey Lyubka", "2013 No Face Press, LLC (Thomas Davis)", "2013 F-Secure Corporation"]
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "third_party/civetweb/src/md5.inl"
+precedence = "override"
+SPDX-FileCopyrightText = "1999, 2000, 2002 Aladdin Enterprises"
+SPDX-License-Identifier = "Zlib"
+
+[[annotations]]
+path = "third_party/civetweb/src/sha1.inl"
+precedence = "override"
+SPDX-FileCopyrightText = "Steve Reid (public domain SHA-1)"
+SPDX-License-Identifier = "LicenseRef-Public-Domain"
+
 # Record files (RAD-65, JSON Lines without a comment syntax), recorded
 # from the radio plugins of yantra-radios or written for the tests, and
 # golden outputs of the plugin test kit (PLG-13).
