@@ -253,7 +253,12 @@ def main():
         check(owner not in f.read(), "the token reached the log")
 
     # ---- status (GET read view, POST command), demo flag (DEMO-10)
-    j, _ = api.json("GET", "/api/v1/status")
+    # The plugin's server starts with the plugins, before the runner opens
+    # the radio: wait until it monitors.
+    def monitoring():
+        j, _ = api.json("GET", "/api/v1/status")
+        return j if j["status"]["monitoring"] else None
+    j = wait_until(60, monitoring, "monitoring")
     check(j["demo"] is True and j["api"]["access"] == "full", "status: %r" % j)
     check(j["source_url"].startswith("https://github.com/peterdewitte/yantra"), "status source link")
     st = j["status"]
