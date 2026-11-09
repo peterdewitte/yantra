@@ -25,6 +25,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <thread>
 #include <variant>
@@ -35,6 +36,8 @@
 #include "yantra/app/live_survey.h"
 #include "yantra/app/plugin_state_file.h"
 #include "yantra/app/radio_windows.h"
+#include "yantra/core/calibration/table.h"
+#include "yantra/core/measure/measurement_pipeline.h"
 #include "yantra/core/project/project.h"
 
 namespace fs = std::filesystem;
@@ -583,6 +586,75 @@ TEST_CASE("PLG-16: the SoapySDR plugin's windows with the fake SoapySDR module (
     LiveSurvey live(r.project, r.paths);
     RadioWindows rw(live);
     generic_windows(rw, live);
+}
+
+TEST_CASE("DEMO-14, HW-01b: a real radio never gets a practice calibration") {
+    Rig r("practice_real", {test_plugin("soapysdr_fake.so")});
+    if (!r.ok || std::string(YANTRA_TEST_FAKE_SDR_SCENARIO).empty()) return;
+    FakeSoapy fake("practice_real");
+    LiveSurvey live(r.project, r.paths);
+    REQUIRE(live.find_radios().ok);
+    REQUIRE(live.radios().size() >= 1);
+    REQUIRE(live.choose_radio(0).ok);
+    REQUIRE_FALSE(live.chosen()->simulated);
+    const std::string floor = r.project->floors().front().id;
+
+    // No mouse survey with it.
+    live.form().kind = WalkKind::MouseSurvey;
+    CHECK(live.start_reason(floor).find("needs the simulator") != std::string::npos);
+    CHECK_FALSE(live.start(floor).ok);
+    CHECK_FALSE(live.practice_calibration());
+
+    // A walk with it: no practice entry and the levels stay uncalibrated
+    // dBFS, even with a simulated entry for its key in the table.
+    struct Levels final : yantra::measure::MeasurementObserver {
+        std::mutex m;
+        std::size_t measured = 0, calibrated = 0;
+        void on_record(const yantra::measure::MappedRecord& rec) override {
+            if (std::isnan(rec.level)) return;
+            const std::lock_guard lock(m);
+            ++measured;
+            if (rec.correction.calibrated) ++calibrated;
+        }
+    };
+    auto levels = std::make_shared<Levels>();
+    live.add_observer(levels);
+    REQUIRE(live.start_radio().ok);
+    const auto key = live.device()->calibration_key();
+    REQUIRE(key);
+    yantra::calibration::Entry practice;
+    practice.key = *key;
+    practice.created_unix = yantra::calibration::now_unix();
+    practice.method = yantra::calibration::kMethodPractice;
+    practice.simulated = true;
+    yantra::calibration::Point low, high;
+    low.frequency_hz = 1e6;
+    low.offset_db = -20.0;
+    high.frequency_hz = 6e9;
+    high.offset_db = -20.0;
+    practice.points = {low, high};
+    yantra::calibration::Table table;
+    table.put(practice);
+    REQUIRE(live.set_calibration_table(table).ok);
+    REQUIRE(live.stop_radio().ok);
+    live.form().kind = WalkKind::Continuous;
+    REQUIRE(live.start(floor).ok);
+    CHECK_FALSE(live.practice_calibration());
+    CHECK(live.view().calibration_note.empty());
+    const auto end = std::chrono::steady_clock::now() + std::chrono::duration<double>(kDeadline);
+    for (;;) {
+        {
+            const std::lock_guard lock(levels->m);
+            if (levels->measured >= 3) break;
+        }
+        REQUIRE(std::chrono::steady_clock::now() < end);
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    REQUIRE(live.stop().ok);
+    CHECK_FALSE(live.practice_calibration());
+    live.remove_observer(levels);
+    const std::lock_guard lock(levels->m);
+    CHECK(levels->calibrated == 0);
 }
 
 TEST_CASE("PLG-16: the HackRF plugin's windows with the fake module; a WARNING setting asks first") {

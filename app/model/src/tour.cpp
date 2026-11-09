@@ -530,11 +530,12 @@ bool Tour::step_done(TourStep s) const {
     }
     case TourStep::MouseSurvey: {
         if (!is_tour_project()) return false;
-        // The survey's points are stored (the interpolation needs dBm
-        // levels: a calibrated radio, see docs/APP.md "Guided tour").
-        for (const building::Floor& f : p->floors())
+        // The survey's points are stored and a click interpolated them.
+        for (const building::Floor& f : p->floors()) {
+            if (p->interpolations(f.id).empty()) continue;
             for (const auto& session : p->sessions(f.id))
                 if (!p->points(session.id).empty()) return true;
+        }
         return false;
     }
     case TourStep::Results: return is_tour_project();

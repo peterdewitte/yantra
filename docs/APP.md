@@ -745,10 +745,10 @@ Help > Tour, the first-start offer on the start screen (`start.tour_offer.yes/no
   (descriptions must use https; the tests map it to file:// or a loopback server), redirects to https only (5).
 - Dialogs block windows behind them, so inside an open dialog the tour shows as a strip at its top
   (`Gui::tour_overlay().strip`).
-- Not done here: the report step is shown as not available (phase 10, File > Report). The simulator's levels
-  are dBFS without a calibration table, so a click in the tour's mouse survey runs the interpolation but on a
-  new project it reports "no measured point with a level in dBm" (the demo project interpolates with its
-  ground-truth walk); see BUILD_LOG Open questions.
+- The mouse survey on a new project: without a calibration of the user's for the simulator's key, `LiveSurvey`
+  applies a simulated practice calibration in memory while the survey runs (`practice_calibration()`,
+  `WalkView::calibration_note`; docs/CALIBRATION.md "Making an entry"), so a click interpolates. The tour's step is done
+  when the survey's points are stored and interpolated.
 - Tests: `tests/app/test_tour.cpp` (steps and settings, first-start offer, Fraunces by Show me with progress,
   Leave, Back, reset; MAK with a synthetic stand-in through file:// and a loopback HTTP server checking the
   request; refused, Esc, no downloader, offline, wrong hash/size/pixel size, a wrong cached file),

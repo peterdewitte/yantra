@@ -1224,6 +1224,8 @@ CalibrationView RadioWindows::calibration_view() const {
         v.key_status = tr("Self-calibrated: the radio delivers dBm itself.");
     } else if (!key) {
         v.key_status = tr("No calibration key yet.");
+    } else if (const auto practice = m.live.practice_calibration(); practice && practice->key == *key) {
+        v.key_status = tr("Simulated practice calibration of the mouse survey (not in the table).");
     } else if (const calibration::Entry* e = table ? table->find(*key) : nullptr) {
         v.key_status = std::string(e->expired(now) ? tr("Calibrated, EXPIRED ") : tr("Calibrated on ")) + date_text(e->created_unix) +
                        (e->expired(now) ? "" : tr(", valid until ") + date_text(e->expires_unix()));

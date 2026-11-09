@@ -164,6 +164,17 @@ Use a plan with method `practice` and `simulated` set. The offset found
 matches the simulator's `true_offset_db` sensor. A practice entry is
 marked simulated and never applies to a real radio.
 
+The mouse survey (DEMO-14) applies a practice calibration by itself when
+the radio is simulated and your table has no entry for its calibration
+key: an entry with method `practice`, `simulated` set and the
+`true_offset_db` sensor's value at every carrier. It exists in memory while
+the survey runs, so the points are in dBm and a click can interpolate. It
+is never written to your table, a calibration you made for that key is used
+instead, and a real radio never gets one (no mouse survey runs on it). The
+recording's `calibration` header names the entry and every input holds the
+correction applied, so replay and the report show the same levels; the Walk
+page, the Calibration window and the report say "simulated (practice)".
+
 ## Antenna correction (HW-09)
 
 `AntennaCorrection` holds `antenna_gain_dbi` (-30..40), `cable_loss_db`

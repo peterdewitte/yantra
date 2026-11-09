@@ -237,6 +237,7 @@ void Gui::draw_walk_section(const FloorContent* c) {
     const WalkView v = live->view();
     ImGui::Text(tr("%zu points stored"), v.points);
     wrapped(v.radio);
+    if (!v.calibration_note.empty()) wrapped(v.calibration_note);
     if (v.kind == WalkKind::PointAndClick || v.kind == WalkKind::Continuous) {
         if (ImGui::Button(tr("Pause###walk.pause"))) (void)state_.show(live->pause());
         text_tooltip(tr("Pause: the open segment is dropped (its end is not known); the next click starts again."));

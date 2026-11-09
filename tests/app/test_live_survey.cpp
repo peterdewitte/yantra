@@ -15,8 +15,8 @@
 #include <cmath>
 #include <filesystem>
 #include <fstream>
-#include <iterator>
 #include <functional>
+#include <iterator>
 #include <memory>
 #include <optional>
 #include <string>
@@ -26,11 +26,13 @@
 #include "yantra/app/interpolation_runner.h"
 #include "yantra/app/live_survey.h"
 #include "yantra/app/replay_session.h"
+#include "yantra/core/calibration/table.h"
 #include "yantra/core/project/project.h"
 
 namespace fs = std::filesystem;
 namespace pj = yantra::project;
 namespace bm = yantra::building;
+namespace cal = yantra::calibration;
 using namespace yantra::app;
 
 namespace {
@@ -190,6 +192,59 @@ TEST_CASE("DEMO-14: the mouse survey stores points where the simulator measured,
     CHECK(id != 0);
     // The points stay after the stop.
     CHECK(r.project->point_count(r.floor) >= before + 6);
+}
+
+TEST_CASE("DEMO-14, HW-01b: a calibration of the user's is not overwritten by the mouse survey's practice calibration") {
+    Rig r("mouse_user_table");
+    if (!r.ok) return;
+    r.paths.calibration_table = r.project->path().parent_path() / "calibration.json";
+    const bm::Floor f = r.data();
+    LiveSurvey live(r.project, r.paths);
+    REQUIRE(live.find_radios().ok);
+    live.form().kind = WalkKind::MouseSurvey;
+
+    // No table: the practice entry, in memory only, gone after the survey.
+    REQUIRE(live.start(r.floor).ok);
+    const auto practice = live.practice_calibration();
+    REQUIRE(practice);
+    CHECK(practice->simulated);
+    CHECK(practice->method == cal::kMethodPractice);
+    CHECK_FALSE(live.view().calibration_note.empty());
+    CHECK((live.calibration_table() == nullptr || live.calibration_table()->empty()));
+    REQUIRE(live.stop().ok);
+    CHECK_FALSE(live.practice_calibration());
+    CHECK_FALSE(fs::exists(r.paths.calibration_table));
+
+    // The user's own entry for that key, with another offset, is the one used.
+    cal::Entry mine = *practice;
+    for (cal::Point& p : mine.points) p.offset_db = -33.0;
+    cal::Table table;
+    table.put(mine);
+    REQUIRE(live.set_calibration_table(table).ok);
+    const std::string saved = [&] {
+        std::ifstream in(r.paths.calibration_table);
+        return std::string((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    }();
+    REQUIRE_FALSE(saved.empty());
+    REQUIRE(live.start(r.floor).ok);
+    CHECK_FALSE(live.practice_calibration());
+    CHECK(live.view().calibration_note.empty());
+    double t = 0.0;
+    const auto clock0 = std::chrono::steady_clock::now();
+    auto step = [&] {
+        t = std::chrono::duration<double>(std::chrono::steady_clock::now() - clock0).count();
+        const double u = std::fmod(0.02 * t, 0.8);
+        live.cursor(at(f, 0.30 + (u < 0.4 ? u : 0.8 - u), 0.5), t);
+    };
+    REQUIRE(wait_for([&] { return live.view().points >= 2; }, kDeadline, step));
+    CHECK_FALSE(live.practice_calibration());
+    REQUIRE(live.stop().ok);
+    const auto kept = live.calibration_table();
+    REQUIRE(kept);
+    REQUIRE(kept->find(mine.key));
+    CHECK(kept->find(mine.key)->points.front().offset_db == -33.0);
+    std::ifstream again(r.paths.calibration_table);
+    CHECK(std::string((std::istreambuf_iterator<char>(again)), std::istreambuf_iterator<char>()) == saved);
 }
 
 TEST_CASE("GEO-02, GEO-05: a point-and-click walk and manual points with the simulator") {

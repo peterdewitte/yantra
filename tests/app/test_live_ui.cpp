@@ -16,14 +16,21 @@
 #include <chrono>
 #include <cmath>
 #include <filesystem>
+#include <fstream>
 #include <functional>
+#include <iterator>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "gui.h"
 #include "ui_harness.h"
 #include "yantra/app/app_state.h"
+#include "yantra/core/calibration/table.h"
 #include "yantra/core/project/project.h"
+#include "yantra/core/raytrace/model.h"
+#include "yantra/core/recording/replay.h"
+#include "yantra/core/report/coverage.h"
 #include "yantra/core/survey/points.h"
 
 namespace fs = std::filesystem;
@@ -279,6 +286,7 @@ TEST_CASE("DEMO-11 DEMO-14 the guided tour's mouse survey: Show me starts the si
     paths.settings_file = d / "config" / "app.json";
     paths.radios.plugin_folders = {YANTRA_TEST_TECH_PLUGIN_DIR};
     paths.radios.radio_folders = {d / "radios"};
+    paths.radios.calibration_table = d / "config" / "calibration.json";
     paths.interpolation_threads = 2;
 
     UiHarness ui;
@@ -291,7 +299,7 @@ TEST_CASE("DEMO-11 DEMO-14 the guided tour's mouse survey: Show me starts the si
     ui.set_display_size(1400.0F, 1000.0F);
     REQUIRE(ui.frames(3));
 
-    // The Fraunces Tavern up to the mouse survey, by Show me.
+    // The Fraunces Tavern up to the mouse survey, by Show me: a new project.
     REQUIRE(state.trigger(Action::Tour).ok);
     Tour& t = state.tour();
     REQUIRE(t.choose("fraunces").ok);
@@ -343,25 +351,111 @@ TEST_CASE("DEMO-11 DEMO-14 the guided tour's mouse survey: Show me starts the si
     REQUIRE(state.live()->view().points >= 5);
     REQUIRE(with_level() >= 3);
     CHECK(t.view().progress.find("points measured") != std::string::npos);
+    // No calibration of the user's: the simulated practice calibration, said in the UI.
+    const auto practice = state.live()->practice_calibration();
+    REQUIRE(practice);
+    CHECK(practice->simulated);
+    CHECK(practice->method == yantra::calibration::kMethodPractice);
+    CHECK(state.live()->view().calibration_note.find("simulated practice calibration") != std::string::npos);
+    CHECK_FALSE(t.view().done);  // the step asks for the interpolation too
     const ImVec2 c = gui.canvas().screen_of({f.plan_width * 0.5, f.plan_height * 0.5});
     ui.click_at(c.x, c.y);
     state.interpolation()->wait();
-    // The click ran the interpolation: with the uncalibrated simulator
-    // (dBFS, no calibration table here) it says why it has no map.
+    // The click produced the interpolation: the levels are in dBm.
     REQUIRE(ui.run_until([&] { return state.status().find("nterpolat") != std::string::npos; }, 30));
-    const bool mapped = state.status().rfind("Interpolated", 0) == 0;
-    CHECK((mapped || state.status().find("dBm") != std::string::npos));
+    REQUIRE_MESSAGE(state.status().rfind("Interpolated", 0) == 0, state.status());
     REQUIRE(ui.run_until([&] { return t.view().done; }, 10));
+    const std::int64_t session = state.live()->view().session;
+    const std::filesystem::path recordings = state.live()->recordings_folder();
     ui.key(ImGuiKey_Escape);
     REQUIRE(ui.frames(2));
     CHECK_FALSE(state.live()->running());
+    CHECK_FALSE(state.live()->practice_calibration());  // only while the survey runs
+    CHECK_FALSE(fs::exists(paths.radios.calibration_table));  // the user's table is not touched
+
+    // The points: at the simulated positions on the cursor's path, flagged
+    // simulated, in dBm, with the simulator's levels (its multi-wall model:
+    // the ray tracer without reflections, TST-36).
+    yantra::survey::PointQuery q;
+    q.floor_id = floor;
+    q.sessions = {session};
+    const yantra::survey::PointList list = yantra::survey::point_list(*state.project(), q);
+    REQUIRE(list.count() >= 5);
+    CHECK(list.unit == "dBm");
+    CHECK_FALSE(list.mixed_units);
+    const bm::Building walked = state.project()->building();
+    std::vector<bm::Point2> where;
+    std::vector<double> levels;
+    for (const yantra::survey::SurveyPoint& p : list.points) {
+        CHECK(p.kind == "simulated");
+        CHECK(p.plan.y == doctest::Approx(f.plan_height * 0.5).epsilon(0.02));
+        CHECK(p.plan.x >= f.plan_width * 0.09);
+        CHECK(p.plan.x <= f.plan_width * 0.91);
+        if (p.value && p.metres) {
+            where.push_back(*p.metres);
+            levels.push_back(*p.value);
+        }
+    }
+    REQUIRE(where.size() >= 3);
+    namespace rt = yantra::raytrace;
+    rt::ModelParams model;
+    model.max_reflections = 0;
+    const rt::PointLevels want = rt::evaluate(walked, rt::trace_points(walked, floor, where, model), model);
+    std::size_t close = 0;
+    for (std::size_t i = 0; i < where.size(); ++i)
+        if (std::abs(levels[i] - want.best_dbm[i]) <= 3.0) ++close;
+    CHECK(close * 10 >= where.size() * 8);
+
+    // The report shows the same points (TST-34) and says the calibration is simulated.
+    yantra::report::CoverageOptions ro;
+    ro.data_folders = paths.data_folders;
+    ro.created_utc_ns = 1793000000LL * 1000000000LL;
+    const fs::path html = d / "report.html";
+    const yantra::report::CoverageReport report = yantra::report::write_coverage_report(*state.project(), ro, d / "report.pdf", html);
+    bool floor_found = false;
+    for (const yantra::report::FloorSection& s : report.floors) {
+        if (s.floor_id != floor) continue;
+        floor_found = true;
+        yantra::survey::PointQuery all;
+        all.floor_id = floor;
+        all.metric = s.points.metric;
+        all.scale = s.points.scale;
+        const yantra::survey::PointList window = yantra::survey::point_list(*state.project(), all);
+        CHECK(s.points == window);
+        CHECK(s.drawn_points == window.count());
+        CHECK(window.count() >= list.count());
+    }
+    CHECK(floor_found);
+    std::ifstream in(html);
+    const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    CHECK(text.find("simulated (practice)") != std::string::npos);
+
+    // The recording says the same, and its replay gives the same dBm cycles.
+    std::vector<fs::path> files;
+    for (const yantra::project::RecordingFile& rf : state.project()->recordings()) files.push_back(recordings / rf.file_name);
+    REQUIRE_FALSE(files.empty());
+    yantra::recording::ReplayOptions replay_options;
+    replay_options.catalog = state.live()->catalog();
+    std::string replay_error;
+    auto replay = yantra::recording::Replay::open(files, replay_options, replay_error);
+    REQUIRE_MESSAGE(replay, replay_error);
+    REQUIRE_FALSE(replay->files().front().header.info.calibration.empty());
+    CHECK(replay->files().front().header.info.calibration.front().simulated);
+    CHECK(replay->files().front().header.info.calibration.front().method == yantra::calibration::kMethodPractice);
+    (void)replay->advance_to(replay->duration_ns());
+    CHECK(replay->mismatches() == 0);
+    const auto last = replay->last_cycle();
+    REQUIRE(last);
+    bool calibrated = false;
+    for (const auto& sample : last->samples) calibrated = calibrated || sample.latest.correction.calibrated;
+    CHECK(calibrated);
 
     // The results, then another floor.
     REQUIRE(t.next().ok);
     REQUIRE(t.show_me().ok);
     REQUIRE(ui.frames(3));
     CHECK(gui.canvas().stats().points > 0);
-    CHECK(gui.canvas().stats().interpolation == mapped);
+    CHECK(gui.canvas().stats().interpolation);
     REQUIRE(t.next().ok);
     CHECK_FALSE(t.view().done);
     REQUIRE(t.show_me().ok);

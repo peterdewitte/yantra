@@ -13,6 +13,8 @@
 #include <ctime>
 #include <exception>
 #include <mutex>
+#include <thread>
+#include <variant>
 
 #include <yantra/radio.h>
 
@@ -39,6 +41,14 @@ namespace {
 
 constexpr std::int64_t kWalkPeriodNs = 1'000'000'000;   // RF-01
 constexpr std::int64_t kMousePeriodNs = 200'000'000;    // DEMO-14: a dense trail
+
+// DEMO-14 practice calibration: the simulator's truth sensor (RAD-61), the
+// span of its entry (the offset is the same at every carrier) and how long
+// the start waits for the sensor's first value.
+constexpr const char* kPracticeSensor = "true_offset_db";
+constexpr double kPracticeLowHz = 1e6;
+constexpr double kPracticeHighHz = 6e9;
+constexpr double kPracticeWaitS = 5.0;
 
 // A walk's name as a recording session name (REC-03).
 std::string session_name_of(const std::string& walk) {
@@ -94,6 +104,11 @@ struct LiveSurvey::Impl {
     std::shared_ptr<plugin::PluginLoader> loader;
     std::shared_ptr<measure::TechnologyCatalog> catalog = std::make_shared<measure::TechnologyCatalog>();
     std::shared_ptr<const calibration::Table> table;
+    // DEMO-14: the simulated practice calibration of a running mouse survey
+    // (in memory; never in the user's table, never for a real radio).
+    bool practice_wanted = false;
+    std::optional<calibration::Entry> practice;
+    std::chrono::steady_clock::time_point practice_read{};
     // Observers of every pipeline (radio windows) and the device generation.
     std::vector<std::shared_ptr<measure::MeasurementObserver>> observers;
     std::uint64_t device_generation = 0;
@@ -184,6 +199,11 @@ struct LiveSurvey::Impl {
                 if (e.id == device_plugin) r.plugin_version = e.version;
             r.label = device_label;
             i.radios.push_back(r);
+            // REC-03, RF-02: the calibration entry in use.
+            const auto key = device->calibration_key();
+            const auto t = effective_table();
+            if (const calibration::Entry* e = key && t ? t->find(*key) : nullptr)
+                i.calibration.push_back({key->id(), e->created_unix, e->valid_days, e->method, e->simulated});
         }
         recording::ProjectLink link;
         link.file = project->path().filename().string();
@@ -301,6 +321,73 @@ struct LiveSurvey::Impl {
             std::string error;
             if (calibration::Table::load_if_present(paths.calibration_table, *t, error) && error.empty()) table = t;
         }
+    }
+
+    // The table the levels are corrected with: the user's, plus the mouse
+    // survey's practice entry.
+    std::shared_ptr<const calibration::Table> effective_table() const {
+        if (!practice) return table;
+        auto t = table ? std::make_shared<calibration::Table>(*table) : std::make_shared<calibration::Table>();
+        t->put(*practice);
+        return t;
+    }
+
+    void apply_corrector() {
+        if (!pipeline) return;
+        std::shared_ptr<const measure::LevelCorrector> c;  // none: identity
+        if (const auto t = effective_table()) c = std::make_shared<calibration::TableCorrector>(t, calibration::AntennaSettings{});
+        pipeline->set_corrector(std::move(c));
+    }
+
+    // DEMO-14: with no calibration of the user's for the simulator's key
+    // (HW-01b), the practice entry from the plugin's documented truth sensor
+    // (RAD-61; docs/CALIBRATION.md "Making an entry"). The offset does not depend
+    // on the carrier, so two points span every band. `wait_s`: the sensor
+    // has a value once the stream runs its first interval, before its first
+    // record. Follows a changed key or offset while the survey runs.
+    void refresh_practice(double wait_s) {
+        if (!practice_wanted || !device) return;
+        const auto now = std::chrono::steady_clock::now();
+        const auto key = device->calibration_key();
+        if (key && table && table->find(*key) != nullptr) {
+            if (practice) {
+                practice.reset();
+                apply_corrector();
+            }
+            return;
+        }
+        if (wait_s <= 0.0 && practice && key && practice->key == *key && now - practice_read < std::chrono::seconds(1)) return;
+        practice_read = now;
+        const auto end = now + std::chrono::duration<double>(wait_s);
+        plugin::Value v;
+        while ((device->read_sensor(kPracticeSensor, v) != YR_OK || !std::holds_alternative<double>(v) || !device->calibration_key()) &&
+               std::chrono::steady_clock::now() < end)
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        const auto k = device->calibration_key();
+        const double* offset = std::get_if<double>(&v);
+        if (!k || offset == nullptr) return;
+        if (practice && practice->key == *k && practice->points.front().offset_db == *offset) return;
+        calibration::Entry e;
+        e.key = *k;
+        e.created_unix = calibration::now_unix();
+        e.method = calibration::kMethodPractice;
+        e.simulated = true;
+        e.radio_plugin_id = device_plugin;
+        for (const double hz : {kPracticeLowHz, kPracticeHighHz}) {
+            calibration::Point p;
+            p.frequency_hz = hz;
+            p.offset_db = *offset;
+            e.points.push_back(p);
+        }
+        practice = std::move(e);
+        apply_corrector();
+    }
+
+    void end_practice() {
+        practice_wanted = false;
+        if (!practice) return;
+        practice.reset();
+        apply_corrector();
     }
 
     // The enabled technology plugins (schema mapping, C1).
@@ -476,6 +563,8 @@ void LiveSurvey::remove_observer(const std::shared_ptr<measure::MeasurementObser
 
 std::shared_ptr<const calibration::Table> LiveSurvey::calibration_table() const { return impl_->table; }
 
+std::optional<calibration::Entry> LiveSurvey::practice_calibration() const { return impl_->practice; }
+
 Result LiveSurvey::set_calibration_table(const calibration::Table& table) {
     Impl& m = *impl_;
     if (!m.paths.calibration_table.empty()) {
@@ -485,9 +574,10 @@ Result LiveSurvey::set_calibration_table(const calibration::Table& table) {
         if (!table.save(m.paths.calibration_table, error))
             return Result{false, tr("The calibration table could not be saved: ") + error};
     }
-    auto t = std::make_shared<const calibration::Table>(table);
-    m.table = t;
-    if (m.pipeline) m.pipeline->set_corrector(std::make_shared<calibration::TableCorrector>(t, calibration::AntennaSettings{}));
+    m.table = std::make_shared<const calibration::Table>(table);
+    m.practice.reset();  // a calibration of the user's wins (refresh_practice)
+    m.apply_corrector();
+    m.refresh_practice(0.0);
     return Result{true, m.paths.calibration_table.empty() ? std::string(tr("Calibration table updated (not saved: no file)."))
                                                           : tr("Calibration table saved to ") + m.paths.calibration_table.string() + "."};
 }
@@ -547,6 +637,7 @@ void LiveSurvey::show_floor(const std::optional<std::string>& floor_id) {
 }
 
 void LiveSurvey::update() {
+    impl_->refresh_practice(0.0);
     if (impl_->building_dirty->exchange(false)) {
         impl_->monitor->set_cell_database(std::make_shared<celldb::CellDatabase>(impl_->project->cell_database()));
         impl_->context.set_building(impl_->project->building());
@@ -627,6 +718,12 @@ Result LiveSurvey::start(const std::string& floor_id) {
             m.radio_by_walk = true;
             if (recording_form_.ring) (void)apply_ring();
         }
+        // DEMO-14: dBm levels without the user's calibration. Only here, only
+        // for a simulated radio (HW-01b); it ends with the survey.
+        if (form_.kind == WalkKind::MouseSurvey && radio.simulated) {
+            m.practice_wanted = true;
+            m.refresh_practice(kPracticeWaitS);
+        }
         show_floor(floor_id);
         update();
         survey::WalkTestOptions o;
@@ -663,6 +760,7 @@ Result LiveSurvey::start(const std::string& floor_id) {
             else note = tr(" No recording file: ") + r.message;
         }
         o.recorder = m.recorder;
+        if (m.practice) o.calibration = m.practice->key.id() + " (" + calibration::kMethodPractice + ", simulated)";
         m.walk = std::make_shared<survey::WalkTest>(o);
         m.pipeline->add_observer(m.walk);
         m.walk->start(m.pipeline->clock().monotonic_ns());
@@ -670,6 +768,7 @@ Result LiveSurvey::start(const std::string& floor_id) {
         m.stop_walk();
         if (m.recording_by_walk) (void)m.end_recording();
         if (m.radio_by_walk) m.close_radio();
+        m.end_practice();
         return Result{false, std::string(tr("The walk test could not start: ")) + e.what()};
     }
     m.radio_label = radio.label;
@@ -736,6 +835,7 @@ Result LiveSurvey::stop() {
     m.stop_walk();
     if (m.recording_by_walk) (void)m.end_recording();
     if (m.radio_by_walk) m.release_radio();
+    m.end_practice();
     m.open_start.reset();
     m.manual_point.reset();
     return Result{true, tr("Walk test stopped: ") + std::to_string(n) + (n == 1 ? " point" : " points") + " stored."};
@@ -756,6 +856,8 @@ WalkView LiveSurvey::view() const {
     v.last_click = m.last_click;
     v.segments = m.segments;
     v.manual_point = m.manual_point;
+    if (m.practice)
+        v.calibration_note = tr("Levels: simulated practice calibration (dBm), for this mouse survey only. Your calibration table is not changed.");
     switch (m.kind) {
     case WalkKind::PointAndClick:
         v.hint = m.open_start ? tr("Walk to the end of the segment and click there.") : tr("Click the start point, then walk.");
