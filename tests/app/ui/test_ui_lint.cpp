@@ -120,6 +120,11 @@ void visit_all(Shell& s, UiLint& lint, const std::string& tag) {
     settle_check("help contents");
     REQUIRE(s.state.open_help("13.2").ok);
     settle_check("help section");
+    // Help > Quick starts (DOC-03): the list and one quick start.
+    REQUIRE(s.state.open_quick_start("").ok);
+    settle_check("quick starts");
+    REQUIRE(s.state.open_quick_start("1").ok);
+    settle_check("quick start");
     s.state.close_help();
 
     // Step 9.10: the guided tour: its window, the download question, its

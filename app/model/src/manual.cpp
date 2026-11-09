@@ -143,4 +143,55 @@ std::string manual_section_text(const ManualSection& section, const std::vector<
     return {};
 }
 
+const std::vector<QuickStart>& quick_starts() {
+    static const std::vector<QuickStart> q = {
+        {"1", tr_mark("First indoor project"), "01-first-indoor-project.md"},
+        {"2", tr_mark("Indoor walk test with acceptance report"), "02-walk-test-acceptance.md"},
+        {"3", tr_mark("Calibrate a radio"), "03-calibrate-a-radio.md"},
+    };
+    return q;
+}
+
+const QuickStart* find_quick_start(std::string_view id) {
+    for (const QuickStart& q : quick_starts())
+        if (id == q.id) return &q;
+    return nullptr;
+}
+
+std::vector<fs::path> quick_start_folders(const std::vector<fs::path>& data_folders) {
+    std::vector<fs::path> out;
+    for (const fs::path& d : data_folders) {
+        out.push_back(d / "quickstart");
+        out.push_back(d.parent_path() / "docs" / "quickstart");
+    }
+    return out;
+}
+
+std::string quick_start_text(const QuickStart& quick_start, const std::vector<fs::path>& folders, std::string& error) {
+    for (const fs::path& f : folders) {
+        std::error_code ec;
+        const fs::path file = f / quick_start.file;
+        if (!fs::is_regular_file(file, ec)) continue;
+        std::ifstream in(file);
+        std::string line, text;
+        bool comment = false;
+        while (std::getline(in, line)) {
+            // The SPDX header is an HTML comment; pictures are for the HTML/PDF docs.
+            if (!comment && line.rfind("<!--", 0) == 0) comment = true;
+            if (comment) {
+                if (line.find("-->") != std::string::npos) comment = false;
+                continue;
+            }
+            if (line.rfind("![", 0) == 0) continue;
+            if (text.empty() && line.empty()) continue;
+            text += line + "\n";
+        }
+        if (!text.empty()) return text;
+        error = trf("The quick start file {} is empty.", {file.string()});
+        return {};
+    }
+    error = trf("The quick start ({}) is not installed.", {quick_start.file});
+    return {};
+}
+
 }  // namespace yantra::app

@@ -172,6 +172,9 @@ install(FILES ${PROJECT_SOURCE_DIR}/data/yantra.desktop DESTINATION ${CMAKE_INST
 # DOC-07 e: the user manual for the help window, so help works offline.
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/docs/manual/ DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra/manual
         FILES_MATCHING PATTERN "*.md")
+# DOC-03: the quick starts for Help > Quick starts (the help window).
+install(DIRECTORY ${PROJECT_SOURCE_DIR}/docs/quickstart/ DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra/quickstart
+        FILES_MATCHING PATTERN "*.md")
 # UI-15, BRD-02..04: the curtat.be logo PNGs (light and dark) for About and
 # the PDF reports, its SVG for the HTML reports, in their own folder
 # (trademark, not GPL), and the credits file About reads.

@@ -143,6 +143,25 @@ TEST_CASE("UI-09 settings: the Sound tab, test sounds through the FakeAudio and 
     CHECK(s.ui.wait_window_closed("win.alerts"));
 }
 
+TEST_CASE("DOC-03 Help > Quick starts: the list, one quick start and back") {
+    Shell s(paths_in(scratch("quick_starts")));
+    REQUIRE(s.ui.click_menu("help", "help.quick_starts"));
+    REQUIRE(s.ui.wait_window("win.help"));
+    CHECK(s.state.help_view().quick_starts);
+    REQUIRE_MESSAGE(s.ui.has("help.quick_start.3", "win.help"), s.ui.dump());
+    REQUIRE(s.ui.click("help.quick_start.1", "win.help"));
+    REQUIRE(s.ui.frames(2));
+    CHECK(s.state.help_view().number == "1");
+    CHECK(s.state.help_view().error.empty());
+    CHECK(s.state.help_view().text.find("# Quick start: first indoor project") == 0);
+    REQUIRE(s.ui.click("help.contents", "win.help"));
+    REQUIRE(s.ui.frames(2));
+    CHECK(s.state.help_view().number.empty());
+    CHECK(s.state.help_view().quick_starts);  // back to the quick starts, not the manual
+    REQUIRE(s.ui.click("help.close", "win.help"));
+    CHECK(s.ui.wait_window_closed("win.help"));
+}
+
 TEST_CASE("DOC-07 e help: Help > User manual, chapters, a window's Help button, F1 and over a modal") {
     Shell s(paths_in(scratch("help")));
     REQUIRE(s.ui.click_menu("help", "help.user_manual"));

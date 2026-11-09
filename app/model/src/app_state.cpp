@@ -95,7 +95,7 @@ const ActionDef kActions[] = {
      tr_mark("A guided tour through an indoor survey with an example building and the simulated radio."), nullptr},
     {Action::UserManual, "help.user_manual", tr_mark("User manual"), "", tr_mark("Open the user manual (works offline)."), nullptr},
     {Action::QuickStarts, "help.quick_starts", tr_mark("Quick starts"), "", tr_mark("Short step-by-step guides for common tasks."),
-     "12"},
+     nullptr},
     {Action::ResetSettings, "help.reset_settings", tr_mark("Reset all settings..."), "",
      tr_mark("Reset layout, theme, language, device and plugin settings to their defaults (projects and recordings are "
      "kept). A backup of the current settings is saved first."),
@@ -165,6 +165,24 @@ Result AppState::open_help(const std::string& section) {
     } else {
         v.title = std::string(m->number) + " " + tr(m->title);
         v.text = manual_section_text(*m, manual_folders(paths_.data_folders), v.error);
+    }
+    help_ = std::move(v);
+    return Result{};
+}
+
+Result AppState::open_quick_start(const std::string& id) {
+    const QuickStart* q = id.empty() ? nullptr : find_quick_start(id);
+    if (!id.empty() && q == nullptr) return fail(trf("There is no quick start {}.", {id}));
+    HelpView v;
+    v.open = true;
+    v.quick_starts = true;
+    v.number = id;
+    for (const QuickStart& c : quick_starts()) v.chapters.emplace_back(c.id, tr(c.title));
+    if (q == nullptr) {
+        v.title = tr("Quick starts");
+    } else {
+        v.title = tr(q->title);
+        v.text = quick_start_text(*q, quick_start_folders(paths_.data_folders), v.error);
     }
     help_ = std::move(v);
     return Result{};
@@ -459,6 +477,7 @@ Result AppState::trigger(Action a) {
         quit_ = true;
         return Result{};
     case Action::UserManual: return open_help("");
+    case Action::QuickStarts: return open_quick_start("");
     case Action::Tour: return tour_->start();
     case Action::CellDatabase: network_windows_.cell_db = true; return Result{};
     case Action::Verification: network_windows_.verification = true; return Result{};

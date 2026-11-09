@@ -42,4 +42,27 @@ std::string manual_section_text(const ManualSection& section, const std::vector<
 /// share/yantra/manual) and, in a source tree, <data>/../docs/manual.
 std::vector<std::filesystem::path> manual_folders(const std::vector<std::filesystem::path>& data_folders);
 
+/// The quick starts (DOC-03) as Help > Quick starts lists them: one
+/// Markdown file each in docs/quickstart, installed with the manual
+/// (share/yantra/quickstart), so they work offline too.
+struct QuickStart {
+    const char* id;     ///< "1", "2", ... in DOC-03 order
+    const char* title;  ///< English title (translated with tr() where shown)
+    const char* file;   ///< file in docs/quickstart, e.g. "01-first-indoor-project.md"
+};
+
+/// Every quick start, in order.
+const std::vector<QuickStart>& quick_starts();
+/// nullptr when there is no such quick start.
+const QuickStart* find_quick_start(std::string_view id);
+/// The quick start's whole text in Markdown (without its licence comment
+/// and pictures), read from the first folder that has the file; `error`
+/// says why there is none.
+std::string quick_start_text(const QuickStart& quick_start, const std::vector<std::filesystem::path>& folders,
+                             std::string& error);
+/// The quick-start folders for a list of data folders: <data>/quickstart
+/// (installed: share/yantra/quickstart) and, in a source tree,
+/// <data>/../docs/quickstart.
+std::vector<std::filesystem::path> quick_start_folders(const std::vector<std::filesystem::path>& data_folders);
+
 }  // namespace yantra::app

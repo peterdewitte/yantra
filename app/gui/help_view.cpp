@@ -91,8 +91,9 @@ void draw_markdown(const std::string& text) {
 void Gui::draw_help_body() {
     const HelpView& v = state_.help_view();
     if (!v.number.empty()) {
-        if (ImGui::Button(tr("Contents###help.contents"))) (void)state_.open_help("");
-        text_tooltip(tr("The list of the manual's chapters."));
+        if (ImGui::Button(tr("Contents###help.contents")))
+            (void)(v.quick_starts ? state_.open_quick_start("") : state_.open_help(""));
+        text_tooltip(v.quick_starts ? tr("The list of the quick starts.") : tr("The list of the manual's chapters."));
         ImGui::SameLine();
     }
     if (ImGui::Button(tr("Close###help.close"))) state_.close_help();
@@ -104,13 +105,15 @@ void Gui::draw_help_body() {
             ImGui::PushFont(nullptr, ImGui::GetStyle().FontSizeBase * 1.5F);
             ImGui::TextUnformatted(v.title.c_str());
             ImGui::PopFont();
+            const bool quick = v.quick_starts;
             for (const auto& [number, title] : v.chapters) {
-                const std::string item = number + "  " + title + "###help.chapter." + number;
+                const std::string item =
+                    number + "  " + title + (quick ? "###help.quick_start." : "###help.chapter.") + number;
                 if (ImGui::Selectable(item.c_str(), false, 0, ImVec2(0.0F, target_h(0.6F)))) {
-                    (void)state_.open_help(number);
+                    (void)(quick ? state_.open_quick_start(number) : state_.open_help(number));
                     break;
                 }
-                text_tooltip(tr("Open this chapter."));
+                text_tooltip(quick ? tr("Open this quick start.") : tr("Open this chapter."));
             }
         } else if (!v.error.empty()) {
             ImGui::TextColored(kErrorColour, "%s", v.error.c_str());

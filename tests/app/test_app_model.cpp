@@ -315,7 +315,8 @@ TEST_CASE("menus (UI-14): File, Network and Help items, tooltips, disabled reaso
     CHECK(st.action(Action::Tour).enabled);
     CHECK(st.action(Action::UserManual).planned_step.empty());  // step 9.9: the help window
     CHECK(st.action(Action::UserManual).enabled);
-    CHECK(st.action(Action::QuickStarts).planned_step == "12");  // DOC-03, written with the manual
+    CHECK(st.action(Action::QuickStarts).planned_step.empty());  // step 12.4: the quick starts (DOC-03)
+    CHECK(st.action(Action::QuickStarts).enabled);
     // Step 10.4: File > Export and File > Report, once a project is open.
     CHECK(st.action(Action::Export).planned_step.empty());
     CHECK(st.action(Action::Report).planned_step.empty());

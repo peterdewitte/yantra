@@ -96,7 +96,8 @@ enum class Action {
 /// The help window (DOC-07 e): a section of the user manual.
 struct HelpView {
     bool open = false;
-    std::string number;  ///< "13.2"; "" the contents
+    std::string number;  ///< "13.2" (quick starts: "2"); "" the contents
+    bool quick_starts = false;  ///< the quick starts (DOC-03) instead of the manual
     std::string title;   ///< translated
     std::string text;    ///< Markdown of the section ("" with error)
     std::string error;
@@ -368,6 +369,9 @@ public:
     /// false with the status line when the manual has no such section.
     Result open_help(const std::string& section);
     void close_help() { help_.open = false; }
+    /// Help > Quick starts (DOC-03): the help window with quick start `id`
+    /// ("1".."3"), or their list for "".
+    Result open_quick_start(const std::string& id);
     const HelpView& help_view() const { return help_; }
     /// The sounds and level alerts of the live survey (popups for the Gui).
     AudibleAlerts& alerts() { return alerts_; }

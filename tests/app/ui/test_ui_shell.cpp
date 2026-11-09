@@ -87,7 +87,7 @@ TEST_CASE("menus (UI-14): every File and Help entry, disabled ones not clickable
     REQUIRE(s.ui.has("help.tour"));
     CHECK_FALSE(s.ui.find("help.tour")->disabled);  // step 9.10
     REQUIRE(s.ui.has("help.quick_starts"));
-    CHECK(s.ui.find("help.quick_starts")->disabled);  // a later step (12)
+    CHECK_FALSE(s.ui.find("help.quick_starts")->disabled);  // step 12.4 (DOC-03)
     REQUIRE(s.ui.has("help.user_manual"));
     CHECK_FALSE(s.ui.find("help.user_manual")->disabled);  // step 9.9
     REQUIRE(s.ui.has("help.reset_settings"));

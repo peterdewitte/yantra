@@ -191,6 +191,49 @@ TEST_CASE("DOC-07 e AppState help: sections, contents and refusals") {
     CHECK_FALSE(st.help_view().open);
 }
 
+TEST_CASE("DOC-03 Help > Quick starts: the quick starts in the help window") {
+    // Every quick start file is there, whole, without its licence comment
+    // and pictures; its title is the file's heading.
+    const std::vector<fs::path> folders = quick_start_folders({fs::path(YANTRA_TEST_SOURCE_DATA_DIR)});
+    REQUIRE(quick_starts().size() == 3);
+    for (const QuickStart& q : quick_starts()) {
+        CAPTURE(q.id);
+        std::string error;
+        const std::string text = quick_start_text(q, folders, error);
+        CHECK(error.empty());
+        CHECK(text.rfind("# Quick start: ", 0) == 0);
+        CHECK(text.find("SPDX") == std::string::npos);
+        CHECK(text.find("\n![") == std::string::npos);
+        CHECK(text.find("1. ") != std::string::npos);  // the steps
+    }
+    CHECK(find_quick_start("4") == nullptr);
+    std::string error;
+    CHECK(quick_start_text(*find_quick_start("1"), {fs::path("/nonexistent")}, error).empty());
+    CHECK(error.find("not installed") != std::string::npos);
+
+    AppPaths paths;
+    paths.data_folders = {fs::path(YANTRA_TEST_SOURCE_DATA_DIR)};
+    AppState st(AppSettings{}, paths);
+    REQUIRE(st.trigger(Action::QuickStarts).ok);
+    CHECK(st.help_view().open);
+    CHECK(st.help_view().quick_starts);
+    CHECK(st.help_view().number.empty());
+    CHECK(st.help_view().title == "Quick starts");
+    REQUIRE(st.help_view().chapters.size() == 3);
+    CHECK(st.help_view().chapters[0].second == "First indoor project");
+    REQUIRE(st.open_quick_start("2").ok);
+    CHECK(st.help_view().title == "Indoor walk test with acceptance report");
+    CHECK(st.help_view().text.find("# Quick start: indoor walk test with acceptance report") == 0);
+    CHECK(st.help_view().error.empty());
+    CHECK_FALSE(st.open_quick_start("9").ok);
+    CHECK(st.help_view().number == "2");  // unchanged
+    // The manual again: no longer the quick starts.
+    REQUIRE(st.open_help("").ok);
+    CHECK_FALSE(st.help_view().quick_starts);
+    st.close_help();
+    CHECK_FALSE(st.help_view().open);
+}
+
 TEST_CASE("UI-09 tones: level pitch and clips") {
     CHECK(level_tone_hz(-120.0) == doctest::Approx(300.0));
     CHECK(level_tone_hz(-40.0) == doctest::Approx(1500.0));
