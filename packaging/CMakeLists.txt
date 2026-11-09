@@ -7,9 +7,11 @@
 # installed on the system). The ctest package_deb builds and checks the
 # package offline from the documentation of docs_build. The Windows zip
 # and NSIS installer are DEFERRED (Windows). Default trees only: sanitizer
-# trees are never packaged, a tree without the app has nothing to ship.
+# trees are never packaged, a tree without the app has nothing to ship, and
+# the package holds every shipped plugin (PLG-26), so a tree built without
+# the probe or pei plugin (PLG-01 check tree, plugins-off) makes none.
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR NOT YANTRA_BUILD_APP OR NOT YANTRA_SANITIZER STREQUAL ""
-   OR YANTRA_RADIOS_KIND STREQUAL "none")
+   OR YANTRA_RADIOS_KIND STREQUAL "none" OR NOT YANTRA_PLUGIN_PROBE OR NOT YANTRA_RADIOS_PEI)
   return()
 endif()
 add_custom_target(deb

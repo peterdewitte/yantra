@@ -236,6 +236,12 @@ void ShotRunner::radio_window(RadioWindow w) {
         // The debug window shows the records of a measuring radio.
         run("start the radio", [this] { return state_.live()->start_radio(); });
         until("records in the debug window", [this] { return !state_.radio_windows()->debug_view().records.empty(); });
+        // The counters are read once a second: wait for a reading that has
+        // seen records, so the picture does not depend on the frame rate.
+        until("counters in the debug window", [this] {
+            const DebugView& d = state_.radio_windows()->debug_view();
+            return d.stats_valid && d.stats.sink.delivered > 0;
+        });
     }
     // The debug window's counters and the sensors are read once a second.
     frames(90);
