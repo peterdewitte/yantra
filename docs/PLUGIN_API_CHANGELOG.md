@@ -17,12 +17,19 @@ plugins for it.
 
 **Compatible.** Plugins built for 1.0 load unchanged.
 
-- `yantra_host_api::control`: runs a command of the application's
+- `YANTRA_PLUGIN_API_VERSION_MINOR` is 1.
+- `yantra_host_api::control(host, request, reply, reply_size,
+  out_length)` (new member at the end of the host table): runs a command of the application's
   control set (API-01/02: record, monitoring, play, sound, status, quit)
   and returns its JSON reply; used by the probe feature plugin (PLG-24).
-  Refused on the main/UI thread and on a measurement thread.
-- `yantra_host_api::data_folder`: the plugin's own folder for its files
-  (per user and plugin id, created owner-only).
+  Refused (`YANTRA_ERR_BUSY`) on the main/UI thread and on a measurement
+  thread; `YANTRA_ERR_BUFFER_TOO_SMALL` with the needed length, and a
+  repeated call returns the same reply without running the command twice;
+  `YANTRA_ERR_UNSUPPORTED` on a host without control. The commands are
+  listed in [API.md](API.md#commands).
+- `yantra_host_api::data_folder(host, buffer, buffer_size, out_length)`
+  (new member at the end of the host table): the plugin's own folder for
+  its files (per user and plugin id, created owner-only); any thread.
 - Behaviour now as documented in 1.0: a feature plugin's `start` runs
   after `init` (a failing start disables it), its `stop` before
   `shutdown`, and `on_record` gets every record of the measurement
@@ -51,7 +58,24 @@ First stable version of the plugin API.
   `emit_record`, window control.
 - Toolkit-neutral immediate-mode UI drawing table and translations.
 - Status codes, constants and frozen layouts shared with the radio API.
+- Clarified before the first release (no layout change): LEVEL fields are
+  the radio's level readings and get the calibration and antenna
+  correction; broadcast values in dBm (radio groups BROADCAST and
+  NEIGHBOURS) are SYSTEM_INFO, and a LEVEL category there is refused by
+  the schema check (HW-09).
 
 Deprecations: none. Migration: plugins built against the unversioned
 placeholder header of earlier development builds (0.1) are not
 supported; rebuild them against 1.0.
+
+## Reference documentation per version
+
+The reference of each API version is generated from the comments of
+`include/yantra/plugin.h` and `plugin.hpp` by Doxygen (build target
+`docs-plugin-api`, output `<build>/docs/plugin-api/html`; the ctest
+`plugin_api_doxygen` fails on any undocumented item). Every release
+publishes that output with its documentation, so the reference of 1.0 and
+1.1 stays available from the releases that shipped them while Yantra
+loads plugins built for them. Within a major version the newest reference
+covers the older minor versions too: members added later are marked with
+their version (for example "API 1.1" in the host table).

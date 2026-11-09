@@ -14,6 +14,78 @@ own changes are in its CHANGELOG.md.
 
 ## [Unreleased]
 
+Nothing yet.
+
+## [0.1.0] - unreleased
+
+The first release of Yantra (version of the CMake project, 0.1.0). The
+release date and tag are set when the release is made; until then this
+section is marked "unreleased".
+
+### What you can do with Yantra 0.1.0
+
+- Survey a building indoors: import floor plans from PDF or image files,
+  trim several floors from one sheet, set the scale and a common reference
+  point, draw walls (or let Yantra propose them from the plan's dark
+  lines) and place antennas and cells.
+- Measure TETRA networks with a HackRF, an RTL-SDR or Airspy through the
+  generic SoapySDR plugin, a network radio (SoapyRemote), a TETRA terminal
+  over its PEI port, or the built-in simulator without any hardware; Yantra
+  shows the serving cell, neighbours, levels, quality, C1 and the broadcast
+  parameters, never subscriber data, voice or messages.
+- Walk a floor while Yantra records (continuous or point by point), cut
+  and replay recordings, add voice notes, and see the measured points,
+  statistics and a binned view on the plan.
+- Calibrate a radio against a known signal (or practise with the simulated
+  radio) so levels are absolute.
+- Keep a cell database per project, check the received broadcast
+  parameters against it and simulate cell reselection.
+- Predict coverage with the ray tracer, fit it to the measured points and
+  fill the gaps between them (interpolation with confidence), and find
+  sources that no planned cell explains.
+- Check acceptance criteria per floor or for the whole building and write
+  a coverage and acceptance report (PDF and a single HTML file), export
+  CSV, DXF and floor pictures, and optionally send the results by folder,
+  HTTP upload or e-mail. Nothing is sent unless you choose a method.
+- Learn with the Fraunces Tavern demo project, the guided tour, the three
+  MAK example buildings (the plans are downloaded only when you agree) and
+  the mouse survey.
+- Run a headless probe (`yantra-probe`) and watch it remotely through the
+  optional probe plugin's REST/WebSocket API; without that plugin, or until
+  you set an address, Yantra opens no network socket.
+- Use the app in English, Dutch, French or German, in a dark or light
+  theme, with a touch layout for tablets; every control has a tooltip and
+  "(?)" help that opens the manual.
+- Extend Yantra with plugins (plugin API 1.1, documented with a tutorial
+  and a test kit).
+
+### Documentation in this release
+
+- The user manual, three quick starts (first indoor project, walk test and
+  acceptance, calibrating a radio), the method note and the legal and
+  scope note. Help > Quick starts opens the quick starts.
+- Every stored file format is documented in docs/formats/ (project file,
+  recordings, configuration profiles, cell database, calibration table,
+  building model and scene export, stored interpolation maps, trims,
+  exports, acceptance profiles), with examples that the tests check.
+- ARCHITECTURE.md, BUILD.md and the remote API reference (docs/API.md).
+
+### Privacy and packaging
+
+- Yantra's programs and plugins no longer contain the folders of the
+  computer they were built on (debug information and source file names
+  are relative); a test checks the installed files.
+- The pictures in the manual show a plugin's file name without the local
+  folder it was loaded from.
+
+### Radio plugins in this release
+
+- yantra-radios **v0.2.7** is the pinned release (radio API 1.0); its
+  history is below under "Radio plugins (yantra-radios)".
+
+The dated entries below list the changes as they were made during the
+development of 0.1.0.
+
 ### Indoor projects
 
 - 2026-11-05: the indoor project file `*.yantra` (an SQLite database,
