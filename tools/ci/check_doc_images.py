@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 The Yantra contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Image check of the user manual and the README (SCR-07, DOC-20).
+"""Image check of the user documentation (SCR-07, DOC-20).
 
 usage: check_doc_images.py SOURCE_DIR
 
-The manual (docs/manual/*.md) and README.md reference images from
+The manual (docs/manual/*.md), README.md, the quick starts
+(docs/quickstart/*.md) and the method and legal notes (docs/METHOD.md,
+docs/LEGAL.md, DOC-03..05) reference images from
 docs/img/ only, as ![text](path) or [text](path) to a .png/.jpg/.gif/
 .webp/.svg file; every referenced image must exist, and every image in
 docs/img/ must be referenced by one of them (the screenshot set of
-tools/screenshots, SCR-03). Exit 1 on a problem.
+tools/screenshots, SCR-03, plus the Yantra logo yantra_logo_*.png, a
+copy of data/logo for the README and the manual, BRD-06). Exit 1 on a
+problem.
 """
 import os
 import re
@@ -28,6 +32,10 @@ def main():
     manual = os.path.join(root, "docs", "manual")
     docs = [os.path.join(root, "README.md")]
     docs += sorted(os.path.join(manual, f) for f in os.listdir(manual) if f.endswith(".md"))
+    quick = os.path.join(root, "docs", "quickstart")
+    if os.path.isdir(quick):
+        docs += sorted(os.path.join(quick, f) for f in os.listdir(quick) if f.endswith(".md"))
+    docs += [p for p in (os.path.join(root, "docs", n) for n in ("METHOD.md", "LEGAL.md")) if os.path.isfile(p)]
     problems, used = [], set()
     for md in docs:
         in_code = False
@@ -51,7 +59,7 @@ def main():
     present = sorted(f for f in os.listdir(img) if f.lower().endswith(IMAGE_EXT)) if os.path.isdir(img) else []
     for f in present:
         if f not in used:
-            problems.append(f"docs/img/{f}: referenced by neither the manual nor the README")
+            problems.append(f"docs/img/{f}: not referenced by the user documentation")
     for p in problems:
         print("doc_images:", p)
     print(f"doc_images: {len(used)} images referenced, {len(present)} in docs/img, {len(problems)} problems")

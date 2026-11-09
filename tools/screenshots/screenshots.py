@@ -196,7 +196,10 @@ def png_pixels(path):
 def compare(new_dir, old_dir, threshold):
     problems = []
     new = {f for f in os.listdir(new_dir) if f.endswith(".png")}
-    old = {f for f in os.listdir(old_dir) if f.endswith(".png")} if os.path.isdir(old_dir) else set()
+    # The Yantra logo copies (yantra_logo_*.png, BRD-06) live in docs/img for
+    # the README and the manual but are not screenshots.
+    old = {f for f in os.listdir(old_dir) if f.endswith(".png") and not f.startswith("yantra_logo")} \
+        if os.path.isdir(old_dir) else set()
     for f in sorted(new - old):
         problems.append(f"{f}: new picture")
     for f in sorted(old - new):
