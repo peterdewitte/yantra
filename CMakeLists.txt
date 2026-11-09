@@ -58,6 +58,16 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 
+# NFR-09 (no personal data): binaries name no folder of the machine they
+# were built on, in debug information or in __FILE__ (a home folder is
+# part of these paths). Source paths become relative to the repository,
+# build paths start with "build". Set before every target; the last
+# matching map wins, and the build tree may lie inside the source tree.
+# The test install_build_paths checks the installed files (tests/install).
+# As yantra-radios tools/deps/deps.cmake.
+add_compile_options(-ffile-prefix-map=${PROJECT_SOURCE_DIR}=.
+                    -ffile-prefix-map=${PROJECT_BINARY_DIR}=build)
+
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(YantraWarnings)
 include(YantraSanitizers)
