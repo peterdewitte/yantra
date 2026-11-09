@@ -2312,7 +2312,9 @@ STOP_FLAG_ASSIGN(stop_flag_t *f, stop_flag_t v)
 {
 	stop_flag_t sf;
 	do {
-		sf = mg_atomic_compare_and_swap(f, *f, v);
+		/* Yantra patch: read the old value atomically too (the plain *f
+		 * read raced with the workers' mg_atomic_add, ThreadSanitizer). */
+		sf = mg_atomic_compare_and_swap(f, mg_atomic_add(f, 0), v);
 	} while (sf != v);
 }
 

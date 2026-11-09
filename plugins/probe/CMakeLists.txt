@@ -13,7 +13,9 @@
 
 add_library(yantra_civetweb STATIC ${PROJECT_SOURCE_DIR}/third_party/civetweb/src/civetweb.c)
 target_include_directories(yantra_civetweb SYSTEM PUBLIC ${PROJECT_SOURCE_DIR}/third_party/civetweb/include)
-target_compile_definitions(yantra_civetweb PRIVATE NO_CGI NO_FILES NO_CACHING NO_SSL USE_WEBSOCKET USE_IPV6)
+# STOP_FLAG_NEEDS_LOCK: CivetWeb's atomic stop flag (the plain volatile int is a data
+# race between mg_stop and the workers, found by TSan in api_client).
+target_compile_definitions(yantra_civetweb PRIVATE NO_CGI NO_FILES NO_CACHING NO_SSL USE_WEBSOCKET USE_IPV6 STOP_FLAG_NEEDS_LOCK)
 target_compile_options(yantra_civetweb PRIVATE -w)
 set_target_properties(yantra_civetweb PROPERTIES POSITION_INDEPENDENT_CODE ON C_VISIBILITY_PRESET hidden)
 target_link_libraries(yantra_civetweb PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
