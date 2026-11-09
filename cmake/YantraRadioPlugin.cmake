@@ -71,6 +71,9 @@ function(yantra_radio_plugin_tests name)
     set(_allow --allow "lib(asan|ubsan|tsan|lsan)\\.so\\.[0-9]+" --allow "libstdc\\+\\+\\.so\\.6"
                --allow "libgcc_s\\.so\\.1")
   endif()
+  if(YANTRA_SANITIZER STREQUAL "asan-ubsan")
+    list(APPEND _allow --allow-build-paths) # gcc's ASan keeps the source paths
+  endif()
   add_test(NAME completeness_${name}
            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/ci/check_completeness.py
                    ${_allow} $<TARGET_FILE:${name}>)

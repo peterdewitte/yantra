@@ -26,6 +26,9 @@ directly or as a folder that is scanned (not recursively):
            the home folder of the user who built it: a released plugin names
            no person or machine (no personal data; -ffile-prefix-map in
            tools/deps/deps.cmake). --forbid TEXT adds a text to look for.
+           --allow-build-paths leaves the folders out: gcc's AddressSanitizer
+           keeps each source file's full path (asan-ubsan trees, never
+           shipped).
   missing  with --require NAME[,NAME...]: every named plugin is there, so
            a plugin that stopped building cannot pass by its absence.
 
@@ -320,6 +323,8 @@ def main() -> int:
                     help="plugins (file names without suffix) that must be among the files")
     ap.add_argument("--forbid", action="append", default=[], metavar="TEXT",
                     help="also a build_paths finding when a file holds this text")
+    ap.add_argument("--allow-build-paths", action="store_true",
+                    help="do not look for this machine's folders (asan-ubsan trees)")
     ap.add_argument("--readelf", default=os.environ.get("READELF", "readelf"))
     ap.add_argument("--objdump", default=os.environ.get("OBJDUMP", "objdump"))
     ap.add_argument("--self-test", action="store_true", help="test the output parsers and exit")
@@ -327,7 +332,7 @@ def main() -> int:
     if a.self_test:
         return self_test()
 
-    tools = {"readelf": a.readelf, "objdump": a.objdump, "forbid": build_folders() + a.forbid}
+    tools = {"readelf": a.readelf, "objdump": a.objdump, "forbid": ([] if a.allow_build_paths else build_folders()) + a.forbid}
     suffix = ".so" if a.platform == "linux" else ".dll"
     files = collect(a.paths, suffix)
     check = check_linux if a.platform == "linux" else check_windows

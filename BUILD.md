@@ -85,7 +85,8 @@ Each artefact embeds the dependency manifest (name, version, licence):
   home folder): `tools/deps/deps.cmake` and `cmake/RustProto.cmake` make
   source paths relative with `-ffile-prefix-map` and `--remap-path-prefix`,
   so a debugger needs `directory <source tree>`. `package_release.sh` looks
-  for the same folders in every file of the package. ctests
+  for the same folders in every file of the package (not in an `asan-ubsan`
+  tree, never shipped: gcc's AddressSanitizer keeps the full paths). ctests
   `completeness_<plugin>` and `completeness_plugins`.
 - `tools/ci/clean_env.py`: the conformance kit on the plugins in an
   environment without SoapySDR or vendor packages (bubblewrap locally,

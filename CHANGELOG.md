@@ -65,6 +65,8 @@ scenario files 1 as in 0.2.0; plugin versions as in 0.2.6.
   naming the source tree or the builder's home folder fails it (ctest
   `completeness_build_paths` proves the finding is raised);
   `package_release.sh` looks for the same folders in every packaged file.
+  The asan-ubsan tree is left out of both: gcc's AddressSanitizer keeps
+  each source file's full path, and that tree is never shipped.
 
 ## [0.2.6] - 2026-11-06
 
