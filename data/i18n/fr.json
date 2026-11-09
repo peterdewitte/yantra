@@ -1982,6 +1982,8 @@
   "tested area (binned)": "surface testée (par carrés)",
   "the floor area is assessed for levels in dBm only": "la surface de l'étage n'est évaluée que pour les niveaux en dBm",
   "the settings file is not a JSON object; defaults used": "le fichier de paramètres n'est pas un objet JSON ; valeurs par défaut utilisées",
+  "the settings file is not a Yantra settings file; defaults used": "le fichier de paramètres n'est pas un fichier de paramètres Yantra ; valeurs par défaut utilisées",
+  "the settings file is from a newer Yantra; defaults used": "le fichier de paramètres vient d'une version plus récente de Yantra ; valeurs par défaut utilisées",
   "the technology's unit": "l'unité de la technologie",
   "unreadable": "illisible",
   "walk test": "test de parcours",

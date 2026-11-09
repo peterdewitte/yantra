@@ -21,8 +21,9 @@ indentation. Code: `app/model/include/yantra/app/settings.h`
 
 The reader is lenient per member: a missing member, one of the wrong type
 or out of range keeps its default and the rest is read; only text that is
-not a JSON object is refused ("defaults used"). It does not check
-`format`.
+not a JSON object is refused ("defaults used"). A `format` naming
+another file kind or a version above 1 is refused the same way; a file
+without `format` is read leniently.
 
 | Member | Type, range | Default |
 | --- | --- | --- |

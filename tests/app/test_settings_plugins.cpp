@@ -118,6 +118,32 @@ TEST_CASE("settings (step 9.7): theme, threshold, graph span and ring buffer rou
     CHECK(loaded.survey.ring_minutes == 30.0);
 }
 
+TEST_CASE("settings file format (NFR-05): another kind or a newer version is refused, version 1 is read") {
+    const char* body = R"("theme": "light", "survey": {"ring": true, "ring_minutes": 30})";
+    auto load = [&](const std::string& format, std::string& error) {
+        error.clear();
+        return settings_from_json("{" + format + body + "}", error);
+    };
+    std::string error;
+    for (const char* ok : {R"("format": "yantra-app-settings/1", )", ""}) {
+        const AppSettings s = load(ok, error);
+        CHECK(error.empty());
+        CHECK(s.theme == Theme::Light);
+        CHECK(s.survey.ring);
+    }
+    for (const char* refused :
+         {R"("format": "yantra-app-settings/2", )", R"("format": "yantra-plugin-state", )",
+          R"("format": "yantra-app-settings/", )", R"("format": "yantra-app-settings/1x", )",
+          R"("format": 1, )", R"("format": "yantra-app-settings/99999999999", )"}) {
+        CAPTURE(refused);
+        const AppSettings s = load(refused, error);
+        CHECK_FALSE(error.empty());
+        CHECK(s == AppSettings{});
+    }
+    load(R"("format": "yantra-app-settings/2", )", error);
+    CHECK(error.find("newer") != std::string::npos);
+}
+
 TEST_CASE("settings window (step 9.7): apply, the coverage threshold follows and is kept") {
     const fs::path dir = scratch("apply");
     AppPaths paths;

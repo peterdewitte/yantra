@@ -1982,6 +1982,8 @@
   "tested area (binned)": "geteste oppervlakte (in vakken)",
   "the floor area is assessed for levels in dBm only": "het vloeroppervlak wordt alleen beoordeeld voor niveaus in dBm",
   "the settings file is not a JSON object; defaults used": "het instellingenbestand is geen JSON-object; standaardwaarden gebruikt",
+  "the settings file is not a Yantra settings file; defaults used": "het instellingenbestand is geen Yantra-instellingenbestand; standaardwaarden gebruikt",
+  "the settings file is from a newer Yantra; defaults used": "het instellingenbestand komt van een nieuwere Yantra; standaardwaarden gebruikt",
   "the technology's unit": "de eenheid van de technologie",
   "unreadable": "onleesbaar",
   "walk test": "looptest",

@@ -59,8 +59,9 @@ yantra-probe --radio yantra.radio.rtlsdr --record --split-minutes 60 --keep 168 
   role, records, synchronised records, minimum, maximum and mean level of
   that interval). They are appended as JSON lines to
   `<data>/plugin-data/yantra.probe/summaries/health.jsonl` and
-  `coverage.jsonl` (a file is renamed to `.1` past 10 MB), logged in one
-  line each, served at `GET /api/v1/summaries` and pushed to live clients.
+  `coverage.jsonl` (past 10 MB a file is renamed to `health.1.jsonl` or
+  `coverage.1.jsonl`, replacing the older one: one older file is kept),
+  logged in one line each, served at `GET /api/v1/summaries` and pushed to live clients.
 - Sending the summaries elsewhere is not built in; the files can be
   collected with any tool, or read over the API.
 

@@ -198,6 +198,22 @@ AppSettings settings_from_json(const std::string& text, std::string& error) {
         error = tr("the settings file is not a JSON object; defaults used");
         return s;
     }
+    // NFR-05 (docs/formats/APP_FILES.md): another file kind or a newer
+    // version is refused; a file without "format" is read leniently.
+    if (const auto it = j.find("format"); it != j.end()) {
+        static constexpr std::string_view kPrefix = "yantra-app-settings/";
+        const std::string f = it->is_string() ? it->get<std::string>() : std::string();
+        if (f.rfind(kPrefix, 0) != 0) {
+            error = tr("the settings file is not a Yantra settings file; defaults used");
+            return s;
+        }
+        const std::string v = f.substr(kPrefix.size());
+        if (v.empty() || v.size() > 6 || v.find_first_not_of("0123456789") != std::string::npos ||
+            std::atoi(v.c_str()) > 1) {
+            error = tr("the settings file is from a newer Yantra; defaults used");
+            return s;
+        }
+    }
     if (const auto it = j.find("recent_projects"); it != j.end() && it->is_array()) {
         for (auto e = it->rbegin(); e != it->rend(); ++e)
             if (e->is_string() && !e->get<std::string>().empty()) add_recent_project(s, e->get<std::string>());
