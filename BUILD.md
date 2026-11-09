@@ -226,6 +226,33 @@ build tree and checks that layout (nothing outside the prefix, no test
 plugin, the licence bundle complete, the installed plugins self-contained
 and loadable). Sanitizer trees are never installed.
 
+## Linux package (NFR-09)
+
+`ninja -C build deb` builds the documentation (`ninja docs`) and then
+`build/package/yantra_<version>-1_<arch>.deb` with Yantra's own script
+`packaging/deb/build_deb.sh` (dpkg-deb with root-owned files, no sudo;
+nothing is installed on the build machine): the install layout above
+below `/usr` (stripped), the built documentation with the manual PDF in
+`/usr/share/doc/yantra/html`, a DEP-5 `copyright` file and the licence
+texts in `/usr/share/doc/yantra`, and maintainer scripts that reload the
+udev rules. The radio plugins are self-contained, so the package needs no
+SoapySDR or vendor package; the other dependencies come from
+dpkg-shlibdeps. Package metadata: maintainer `Curtat BV
+<info@curtat.be>`, homepage https://curtat.be, `Vcs-Browser`/`Vcs-Git`
+and the copyright `Source` from the build setting `YANTRA_SOURCE_URL`
+(default https://github.com/peterdewitte/yantra; the package script
+refuses an empty one). The installed programs find PDFium in
+`/usr/lib/yantra` through their run path `$ORIGIN/../lib/yantra`.
+
+`packaging/deb/check_deb.sh DEB SOURCE_URL` checks a package without
+installing it (control fields, contents, icons 16..512 equal to
+`data/logo/png`, no test plugin, root ownership, md5sums, the unpacked
+app finding its PDFium, no build-machine folder, home folder or git
+identity of the builder, no MAK plan); the ctest `package_deb` builds the
+package from the default tree with the documentation of `docs_build` and
+runs that check (offline). The Windows zip and NSIS installer are
+DEFERRED (Windows).
+
 ## Plugin folders (PLG-09)
 
 Yantra loads plugins from two folders, each with a `radios/` subfolder for

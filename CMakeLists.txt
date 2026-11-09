@@ -68,6 +68,10 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 add_compile_options(-ffile-prefix-map=${PROJECT_SOURCE_DIR}=.
                     -ffile-prefix-map=${PROJECT_BINARY_DIR}=build)
 
+# NFR-09: installed programs find the libraries Yantra ships next to them
+# (PDFium in <prefix>/lib/yantra), wherever the prefix is (.deb, DESTDIR).
+set(CMAKE_INSTALL_RPATH "$ORIGIN/../lib/yantra")
+
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(YantraWarnings)
 include(YantraSanitizers)
@@ -104,6 +108,7 @@ endif()
 add_subdirectory(tools)
 add_subdirectory(plugins)
 add_subdirectory(docs)
+add_subdirectory(packaging)
 
 if(YANTRA_BUILD_TESTS)
   add_subdirectory(tests)
@@ -123,8 +128,8 @@ if(NOT YANTRA_RADIOS_KIND STREQUAL "none")
 endif()
 
 # PDFium (IND-02): the prebuilt library next to Yantra's own libraries
-# with its licence texts (THIRD_PARTY.md). The run path of the installed
-# executable is set by the packaging (phase 12).
+# with its licence texts (THIRD_PARTY.md). The installed programs find it
+# through their run path $ORIGIN/../lib/yantra (CMAKE_INSTALL_RPATH).
 if(YANTRA_PDFIUM_FOUND)
   install(FILES $<TARGET_FILE:yantra_pdfium_lib> DESTINATION lib/yantra)
   install(DIRECTORY ${YANTRA_PDFIUM_LICENSES}/ DESTINATION share/licenses/pdfium)

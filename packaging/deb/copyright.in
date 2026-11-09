@@ -1,0 +1,66 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: Yantra
+Upstream-Contact: Curtat BV <info@curtat.be>
+Source: @SOURCE_URL@
+Comment: Machine-readable form of the repository's REUSE.toml, its file
+ headers (REUSE 3.3) and THIRD_PARTY.md (installed as
+ /usr/share/yantra/THIRD_PARTY.md). The licence texts are in
+ /usr/share/doc/yantra/LICENSES/. The radio plugins in
+ /usr/lib/yantra/plugins/radios come from yantra-radios with their own
+ licence bundle in /usr/share/licenses/yantra-radios (BUNDLE.md: osmo-tetra
+ AGPL-3.0-or-later, SoapySDR BSL-1.0, libusb LGPL-2.1-or-later, ...);
+ /usr/lib/yantra/libpdfium.so is PDFium (BSD-3-Clause) with the licences of
+ its bundled libraries in /usr/share/licenses/pdfium. The complete
+ corresponding source is at the Source address above (NFR-01).
+
+Files: *
+Copyright: 2026 The Yantra contributors
+License: GPL-3.0-or-later
+
+Files: usr/share/yantra/branding/*
+Copyright: 2026 Curtat BV
+License: LicenseRef-Curtat-Trademark
+ The curtat.be logo is a trademark of Curtat BV, not licensed under the
+ GPL; see /usr/share/doc/yantra/LICENSES/LicenseRef-Curtat-Trademark.txt.
+
+Files: usr/share/yantra/fonts/Inter-*
+Copyright: 2016 The Inter Project Authors (https://github.com/rsms/inter)
+License: OFL-1.1
+
+Files: usr/share/yantra/fonts/JetBrainsMono-*
+Copyright: 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono)
+License: OFL-1.1
+
+Files: usr/share/yantra/demo/fraunces/*
+Copyright: Historic American Buildings Survey, Library of Congress (plan sheets)
+           2026 The Yantra contributors (project and recordings)
+License: LicenseRef-Public-Domain AND GPL-3.0-or-later
+
+Files: usr/bin/yantra
+Copyright: 2026 The Yantra contributors
+           2014-2026 Omar Cornut (Dear ImGui)
+           2017 Sean Barrett (stb)
+           2025 David Reid (miniaudio)
+           2013-2025 Niels Lohmann (nlohmann/json)
+License: GPL-3.0-or-later AND MIT AND (MIT OR Unlicense) AND (Unlicense OR MIT-0)
+
+Files: usr/lib/yantra/plugins/probe.so
+Copyright: 2026 The Yantra contributors
+           2013-2021 The CivetWeb developers
+           2004-2013 Sergey Lyubka
+License: GPL-3.0-or-later AND MIT AND Zlib AND LicenseRef-Public-Domain
+
+Files: usr/lib/yantra/plugins/radios/*
+Copyright: 2026 The Yantra contributors and the authors in
+           /usr/share/licenses/yantra-radios/BUNDLE.md
+License: GPL-3.0-or-later AND AGPL-3.0-or-later
+ See /usr/share/licenses/yantra-radios/BUNDLE.md for every bundled library.
+
+Files: usr/lib/yantra/libpdfium.so
+Copyright: The PDFium authors and the authors in /usr/share/licenses/pdfium
+License: BSD-3-Clause
+ See /usr/share/licenses/pdfium/ for PDFium and its bundled libraries.
+
+License: GPL-3.0-or-later
+ On Debian systems the full text is in /usr/share/common-licenses/GPL-3;
+ it is also in /usr/share/doc/yantra/LICENSES/GPL-3.0-or-later.txt.

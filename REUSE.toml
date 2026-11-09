@@ -13,10 +13,11 @@ path = ["LICENSE"]
 SPDX-FileCopyrightText = "2007 Free Software Foundation, Inc."
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
-# Files without kept comment syntax: the CMake presets (JSON) and the git
-# submodule list (`git submodule` rewrites it).
+# Files without kept comment syntax: the CMake presets (JSON), the git
+# submodule list (`git submodule` rewrites it) and the template of the
+# .deb's DEP-5 copyright file.
 [[annotations]]
-path = ["CMakePresets.json", ".gitmodules"]
+path = ["CMakePresets.json", ".gitmodules", "packaging/deb/copyright.in"]
 SPDX-FileCopyrightText = "2026 The Yantra contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 

@@ -67,7 +67,7 @@ if [ -n "$api" ]; then
 fi
 style=$out/.style.html
 { echo "<style>"; cat "$here/docs.css"; echo "</style>"; } >"$style"
-version=$(sed -n 's/^project(Yantra VERSION \([0-9.]*\).*/\1/p' "$root/CMakeLists.txt")
+version=$(sed -n '/^project(Yantra/,/)/s/.*VERSION \([0-9.]*\).*/\1/p' "$root/CMakeLists.txt" | head -1)
 # Reproducible output: no build date in the pages or PDFs.
 export SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-1794096000}
 

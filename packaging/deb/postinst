@@ -1,0 +1,13 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Yantra .deb (NFR-09; copied from yantra-v1 c24e8f5): make the new udev rules for SDR receivers take
+# effect without a reboot. The DVB-T blacklist acts when the RTL-SDR
+# dongle is plugged in again.
+set -e
+if [ "$1" = "configure" ] && command -v udevadm >/dev/null 2>&1; then
+    udevadm control --reload-rules >/dev/null 2>&1 || true
+    udevadm trigger --subsystem-match=usb --action=add >/dev/null 2>&1 || true
+fi
+exit 0

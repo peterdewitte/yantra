@@ -102,7 +102,8 @@ if(YANTRA_BUILD_TESTS)
   add_test(NAME docs_build
            COMMAND bash ${PROJECT_SOURCE_DIR}/tools/docs/build_docs.sh ${CMAKE_CURRENT_BINARY_DIR}/site-check
                    --root ${PROJECT_SOURCE_DIR})
-  set_tests_properties(docs_build PROPERTIES LABELS "docs" SKIP_RETURN_CODE 77 TIMEOUT 600)
+  set_tests_properties(docs_build PROPERTIES LABELS "docs" SKIP_RETURN_CODE 77 TIMEOUT 600
+                       FIXTURES_SETUP yantra_docs_site)
 endif()
 
 # Installed documentation: the method and legal notes next to the manual

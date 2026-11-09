@@ -63,7 +63,8 @@ Yantra's own plugins: the TETRA technology plugin and the probe plugin
 
 ## Install
 
-**Linux**: build from source (packages are planned). The radio plugins
+**Linux**: build from source; `ninja -C build deb` then makes a .deb
+package of the build ([BUILD.md](BUILD.md#linux-package-nfr-09)). The radio plugins
 come from the yantra-radios repository as a git submodule with a relative
 URL (`../yantra-radios`), so yantra-radios is cloned next to yantra:
 
