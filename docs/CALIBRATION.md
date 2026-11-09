@@ -80,7 +80,9 @@ refuses a file of another format, a file without a version, and any
 version other than 1. For a newer version the message says to update
 Yantra. Within version 1, unknown members are ignored so that older
 readers keep working. Saving is atomic (a temporary file, then a rename).
+All file formats: [formats/README.md](formats/README.md).
 
+<!-- example: yantra-calibration -->
 ```json
 {
   "format": "yantra-calibration",

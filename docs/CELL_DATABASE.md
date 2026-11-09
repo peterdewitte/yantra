@@ -74,6 +74,9 @@ text for the recording header's `cell_db` field (REC-03).
 
 ## CSV (DB-02, TST-33)
 
+The field-level format, with the difference log: [formats/CELLS.md](formats/CELLS.md).
+
+<!-- example: yantra-cells -->
 ```
 #yantra-cells,1
 id,label,technology,schema,site_name,sector,azimuth_deg,colour,notes,origin,plugin_version,frequency_hz,channel,mcc,mnc,la,colour_code,srt_db,neighbours.frequency_hz,neighbours.channel,neighbours.la

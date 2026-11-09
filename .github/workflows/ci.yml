@@ -49,7 +49,8 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build g++ python3 python3-yaml binutils pipx libsqlite3-dev libzstd-dev libhpdf-dev pkg-config
+            cmake ninja-build g++ python3 python3-yaml binutils pipx libsqlite3-dev libzstd-dev libhpdf-dev pkg-config \
+            libglfw3-dev libgl-dev libcurl4-openssl-dev cargo rustc doxygen curl
           pipx install reuse
       - name: Submodule commit
         id: radios
@@ -65,6 +66,19 @@ jobs:
         run: cmake --build --preset ci -j "$(nproc)"
       - name: Fast tests
         run: ctest --test-dir build -LE 'slow|timing' --timeout 600 --output-on-failure -j "$(nproc)"
+      - name: Documentation checks and examples (DOC-17, DOC-21, SCR-07)
+        # Links, images, quoted code, the plugin API reference without a
+        # Doxygen warning, the marked examples of the file-format and API
+        # docs read back by their readers (doc_examples) and the API's
+        # shell examples run against yantra-probe --demo (doc_api_examples).
+        run: ctest --test-dir build -L docs --timeout 600 --output-on-failure
+      - name: Plugin API reference (DOC-17)
+        run: cmake --build build --target docs-plugin-api
+      - name: Keep the plugin API reference
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-api-reference
+          path: build/docs/plugin-api/html
       - name: Sample report (DEMO-06)
         # The Fraunces demo's report made again and compared with the
         # committed docs/samples within the set tolerance; an intended

@@ -570,7 +570,7 @@ INSERT INTO cell_identity VALUES ('cell-1', 'colour_code', 1), ('cell-1', 'la', 
 INSERT INTO antennas VALUES (1, 'antenna-1', 'floor-1', 0, 'DAS 1', 'ceiling omni', 'indoor_das',
   120.0, 200.0, 2.8, 2.0, 'omni', 0.0, 65.0, 20.0, 0.0, 10.0, NULL, 0.0, 0.0, 'cell-1', NULL, NULL);
 INSERT INTO recordings VALUES (1, 'walk_0000.yrec.zst', '3f0c9a1b2d4e5f60', 'walk', 0,
-  '5b1d...07c2', 81233, '/home/surveys/walk_0000.yrec.zst', '{"t":"header",...}', '2026-11-05T09:52:30Z');
+  '5b1d...07c2', 81233, '<project folder>/recordings/walk_0000.yrec.zst', '{"t":"header",...}', '2026-11-05T09:52:30Z');
 INSERT INTO sessions VALUES (1, 'floor-1', 'walk', 'Ground floor walk', '2026-11-05T09:45:00Z',
   '2026-11-05T09:52:30Z', 'simulator 0.2.2, simulator:0', '{"key":"simulator|0|"}', '', 'point_and_click',
   '3f0c9a1b2d4e5f60', '{"simulator":"0.2.2","yantra.tetra":"0.1.0"}', NULL);

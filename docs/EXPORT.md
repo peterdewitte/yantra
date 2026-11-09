@@ -10,6 +10,7 @@ how the recordings of a folder tree are exported in one batch (EXP-01,
 EXP-03, EXP-04, EXP-08, PLG-02, TST-33). Code: `core/export/` (namespace
 `yantra::exports`). The export and report dialogs of the app use these
 APIs; the reports (EXP-05, EXP-06) are described in [REPORT.md](REPORT.md).
+The files themselves, with examples: [formats/EXPORT_FILES.md](formats/EXPORT_FILES.md).
 
 In the app, File > Export (docs/APP.md "Export, report and sharing", manual 10.1) fills these options
 and can send the files (EXP-07).

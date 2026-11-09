@@ -33,7 +33,7 @@ The plugin data folder is `$XDG_DATA_HOME/yantra/plugin-data/yantra.probe`
 (`~/.local/share/...`; for `yantra-probe --data DIR`:
 `DIR/plugin-data/yantra.probe`). On start the log says
 
-    yantra.probe: api http port 8470; token file /home/.../api_tokens.json
+    yantra.probe: api http port 8470; token file <data folder>/plugin-data/yantra.probe/api_tokens.json
 
 HTTPS is not built in (no TLS library is bundled): for any address other
 than loopback put the API behind a TLS reverse proxy or an SSH tunnel.
@@ -90,70 +90,250 @@ refused), `429` (blocked address), `503` (no commands available).
 
 All under `/api/v1`:
 
-| Method and path | Token | Reply |
-|---|---|---|
-| `GET /info` | none | `name`, `software`, `api_version`, `licence`, `source_url` |
-| `GET /status` | read | `status` (the health summary, see below), `api` (`version`, `server`, `licence`, `source_url`, `access`), `demo`, `source_url` |
-| `GET /commands` | read | `commands`: `command`, `path`, `args` (`name`, `required`), `help` |
-| `POST /command` | owner | body `{"command":"record.start","args":{"name":"x"}}`: the command reply |
-| `POST /<command path>` | owner | e.g. `POST /record/start` with an optional JSON object of arguments |
-| `GET /cells` | read | `carriers`: `frequency_hz`, `technology`, `schema`, `role`, `synced`, `level_dbm`, `calibrated`, `simulated`, `age_s`, `sysinfo`, `levels`, `quality`, `neighbour_count` |
-| `GET /neighbours` | read | `broadcast`: per broadcasting carrier its list (`entry_count`, `neighbours` with `entry_index` and the list's fields); `measured`: the measured neighbour carriers |
-| `GET /levels` | read | `carriers`: `frequency_hz`, `role`, `level_dbm`, `calibrated`, `levels`, `quality`, `age_s` |
-| `GET /summaries` | read | `health` (now) and `coverage` (the last one, or null) |
-| `GET /recordings` | read | `files`: `name`, `size`, `modified` (UTC), `url` |
-| `GET /recordings/<file>` | read | the file (`.yrec`, `.yrec.zst`) |
-| `POST /auth/rotate` | owner | `token`: the new owner token |
-| `POST /auth/lan` | owner | body `{"enabled":true|false}`; `lan_token` or null |
-| `GET /live` (WebSocket) | read | the live view, below |
+| Method and path | Token | Reply `type` | Content |
+|---|---|---|---|
+| `GET /info` | none | `info` | `name`, `software`, `api_version`, `licence`, `source_url` |
+| `GET /status` | read | `status` | `status` (the health summary, below), `api` (`version`, `server`, `licence`, `source_url`, `access`), `demo`, `source_url` |
+| `GET /commands` | read | `commands` | `commands`: `command`, `path`, `args` (`name`, `required`), `help` |
+| `POST /command` | owner | `command` | body `{"command":"record.start","args":{"name":"x"}}`: the command reply |
+| `POST /<command path>` | owner | `command` | e.g. `POST /record/start` with an optional JSON object of arguments |
+| `GET /cells` | read | `cells` | `carriers`: `frequency_hz`, `technology`, `schema`, `role`, `synced`, `level_dbm`, `calibrated`, `simulated`, `age_s`, `sysinfo`, `levels`, `quality`, `neighbour_count` |
+| `GET /neighbours` | read | `neighbours` | `broadcast`: per broadcasting carrier its list (`entry_count`, `neighbours` with `entry_index` and the list's fields); `measured`: the measured neighbour carriers |
+| `GET /levels` | read | `levels` | `carriers`: `frequency_hz`, `role`, `level_dbm`, `calibrated`, `levels`, `quality`, `age_s` |
+| `GET /summaries` | read | `summaries` | `health` (now) and `coverage` (the last one, or null) |
+| `GET /recordings` | read | `recordings` | `files`: `name`, `size`, `modified` (UTC), `url` |
+| `GET /recordings/<file>` | read | (the file) | the file (`.yrec`, `.yrec.zst`) |
+| `POST /auth/rotate` | owner | `token` | `token`: the new owner token |
+| `POST /auth/lan` | owner | `token` | body `{"enabled":true|false}`; `lan_token` or null |
+| `GET /live` (WebSocket) | read | | the live view, below |
 
 Carriers silent for 30 s drop out of the views. `sysinfo` holds the
 SYSTEM_INFO fields of the newest synchronised record (enumerations by
-their names); `levels` and `quality` map a field name to
-`{"value": ..., "unit": "..."}`; `level_dbm` is the core `level` field,
-in dBm through the calibration (dBFS and `calibrated: false` without
-one).
+their names), null before a carrier is synchronised; `levels` and
+`quality` map a field name to `{"value": ..., "unit": "..."}`;
+`level_dbm` is the core `level` field, in dBm through the calibration
+(dBFS and `calibrated: false` without one). The field names inside
+`sysinfo`, `levels`, `quality` and the neighbour lists are those of the
+technology plugin's schemas (for TETRA: [plugins/TETRA.md](plugins/TETRA.md)).
+`role` is `serving`, `neighbour` or `other`.
+
+The examples below are replies of `yantra-probe --demo` (simulated
+network, so `demo` is true), shortened to one carrier where a list is
+long; a block marked as an example is complete JSON and is checked by the
+documentation tests (DOC-21).
+
+### `GET /info`
+
+Without a token: the name, the version, the licence and the source link
+(NFR-01).
+
+<!-- example: json -->
+```json
+{"format": "yantra-api", "version": 1, "type": "info", "api_version": 1, "name": "yantra",
+ "software": "Yantra probe plugin 0.1.0",
+ "licence": "GPL-3.0-or-later (the TETRA radio plugin includes osmo-tetra under AGPL-3.0-or-later)",
+ "source_url": "https://github.com/peterdewitte/yantra"}
+```
+
+### `GET /status`
+
+| Member | Type | Content |
+|---|---|---|
+| `status` | object | the health summary ([Status](#status)) |
+| `api.version` | integer | API version (1) |
+| `api.server` | string | the serving plugin and its version |
+| `api.licence`, `api.source_url`, `source_url` | string | licence and source link (NFR-01) |
+| `api.access` | string | `full` (owner token) or `read` (LAN token) |
+| `demo` | boolean | simulated data (DEMO-10) |
+
+<!-- example: json -->
+```json
+{"format": "yantra-api", "version": 1, "type": "status", "demo": true,
+ "source_url": "https://github.com/peterdewitte/yantra",
+ "api": {"access": "full", "version": 1, "server": "Yantra probe plugin 0.1.0",
+         "licence": "GPL-3.0-or-later (the TETRA radio plugin includes osmo-tetra under AGPL-3.0-or-later)",
+         "source_url": "https://github.com/peterdewitte/yantra"},
+ "status": {"application": "yantra-probe", "version": "0.1.0", "state": "monitoring",
+            "monitoring": true, "demo": true, "carriers": 12, "synced_carriers": 5, "cycles": 8,
+            "pipeline": {"records": 162, "accepted": 162, "implausible": 0, "late": 0, "cycles": 8},
+            "radio": {"plugin": "simulator", "device": "simulator:0", "label": "Demo (simulated network)",
+                      "simulated": true, "state": "streaming", "records": 162, "dropped": 0, "reopens": 0},
+            "recording": {"recording": false}, "play": {"playing": false}, "sound": false,
+            "plugins": [{"id": "yantra.probe", "status": "enabled", "version": "0.1.0"},
+                        {"id": "yantra.tetra", "status": "enabled", "version": "0.1.0"}],
+            "recording_folder": "/var/lib/probe/recordings", "uptime_s": 8.9,
+            "source_url": "https://github.com/peterdewitte/yantra"}}
+```
+
+### `GET /commands`
+
+The command table (below) as data: `commands` is a list of
+`{"command": string, "path": string, "args": [{"name": string, "required": boolean}], "help": string}`.
+
+<!-- example: json -->
+```json
+{"format": "yantra-api", "version": 1, "type": "commands", "commands": [
+ {"command": "record.start", "path": "/api/v1/record/start", "args": [{"name": "name", "required": false}],
+  "help": "Start recording (name optional: date/time)."},
+ {"command": "play", "path": "/api/v1/play",
+  "args": [{"name": "file", "required": true}, {"name": "speed", "required": false}],
+  "help": "Replay a recording file or folder (speed 1 = real time, 0 = fast)."}]}
+```
+
+### `GET /cells`, `GET /levels`
+
+`carriers` is a list, one object per carrier heard in the last 30 s:
+
+| Member | Type | Content |
+|---|---|---|
+| `frequency_hz` | integer | carrier frequency |
+| `role` | string | `serving`, `neighbour`, `other` |
+| `level_dbm` | number | level (dBm when `calibrated`, else dBFS) |
+| `calibrated` | boolean | a calibration entry applied |
+| `levels`, `quality` | object | field name to `{"value": number, "unit": string}` |
+| `age_s` | number | seconds since the carrier's newest record |
+| `technology`, `schema` | string | `/cells` only: technology plugin and record schema |
+| `synced`, `simulated` | boolean | `/cells` only: decoded (synchronised), from a simulated radio |
+| `sysinfo` | object or null | `/cells` only: broadcast system information |
+| `neighbour_count` | integer | `/cells` only: entries of its broadcast neighbour list |
+
+<!-- example: json -->
+```json
+{"format": "yantra-api", "version": 1, "type": "levels", "demo": true, "carriers": [
+ {"frequency_hz": 390000000, "role": "serving", "level_dbm": -61.2, "calibrated": false, "age_s": 0.24,
+  "levels": {"c1_db": {"value": 28.8, "unit": "dB"}},
+  "quality": {"snr_db": {"value": 35.3, "unit": "dB"}, "ber_pct": {"value": 0.0, "unit": "%"},
+              "freq_error_hz": {"value": -195.1, "unit": "Hz"}}}]}
+```
+
+<!-- example: json -->
+```json
+{"format": "yantra-api", "version": 1, "type": "cells", "demo": true, "carriers": [
+ {"frequency_hz": 389950000, "technology": "tetra", "schema": "tetra_cell", "role": "other",
+  "synced": false, "level_dbm": -64.4, "calibrated": false, "simulated": true, "age_s": 6.5,
+  "sysinfo": null, "levels": {}, "quality": {}, "neighbour_count": 0}]}
+```
+
+### `GET /neighbours`
+
+| Member | Type | Content |
+|---|---|---|
+| `broadcast` | list | per carrier that broadcasts a neighbour list: `frequency_hz`, `technology`, `entry_count`, `neighbours` (objects with `entry_index` and the list's fields) |
+| `measured` | list | the carriers measured as neighbours: `frequency_hz`, `level_dbm`, `synced`, `sysinfo` |
+
+<!-- example: json -->
+```json
+{"format": "yantra-api", "version": 1, "type": "neighbours", "demo": true,
+ "broadcast": [{"frequency_hz": 390000000, "technology": "tetra", "entry_count": 2, "neighbours": [
+   {"entry_index": 0, "cell_number": 2, "main_carrier": 3604, "neighbour_frequency_hz": 390100000,
+    "synchronised": true, "cell_load": 0},
+   {"entry_index": 1, "cell_number": 3, "main_carrier": 3612, "neighbour_frequency_hz": 390300000,
+    "synchronised": true, "cell_load": 0}]}],
+ "measured": [{"frequency_hz": 390100000, "level_dbm": -21.0, "synced": true,
+               "sysinfo": {"mcc": 901, "mnc": 1, "la": 100, "colour_code": 2, "main_carrier": 3604,
+                           "rxlev_access_min_dbm": -115, "ms_txpwr_max_cell_dbm": 35}}]}
+```
+
+### `GET /summaries`
+
+`health`: the health summary now (`type` `health`, `utc`, `ok`,
+`live_carriers`, `status`); `coverage`: the newest coverage summary
+written by the fixed probe ([PROBE.md](PROBE.md)), or null.
+
+<!-- example: json -->
+```json
+{"format": "yantra-api", "version": 1, "type": "summaries", "demo": true, "coverage": null,
+ "health": {"type": "health", "utc": "2026-11-09T17:34:37Z", "ok": true, "live_carriers": 11,
+            "status": {"application": "yantra-probe", "state": "monitoring", "monitoring": true}}}
+```
+
+### `GET /recordings`, `GET /recordings/<file>`
+
+<!-- example: json -->
+```json
+{"format": "yantra-api", "version": 1, "type": "recordings", "files": [
+ {"name": "site1_0000.yrec", "size": 48454, "modified": "2026-11-09T17:34:46Z",
+  "url": "/api/v1/recordings/site1_0000.yrec"}]}
+```
+
+`GET` of a file's `url` returns the file as it is
+([formats/RECORDING.md](formats/RECORDING.md)).
+
+### `POST /auth/rotate`, `POST /auth/lan`
+
+Owner token only. Both reply with `type` `token`: `/auth/rotate` with the
+new owner `token` (the old one stops at once), `/auth/lan` with
+`lan_token` (a new LAN token for `{"enabled":true}`, null for
+`{"enabled":false}`).
+
+<!-- example: json -->
+```json
+{"format": "yantra-api", "version": 1, "type": "token", "lan_token": null}
+```
 
 ### Commands
 
 The commands of API-01, the same as on the runner's standard input
 ([PROBE.md](PROBE.md)) and through the plugin API's `control` service
-([PLUGIN_API.md](PLUGIN_API.md)):
+([PLUGIN_API.md](PLUGIN_API.md)). The table is
+`core/src/control/command.cpp` (`command_table`); the probe serves it as
+`GET /commands`. Each is `POST /api/v1/<path>` with an optional JSON
+object of arguments, or `POST /api/v1/command` with
+`{"command": ..., "args": {...}}`:
 
-| Command | Path | Arguments | Does |
-|---|---|---|---|
-| `record.start` | `/record/start` | `name` (optional; default date and time) | starts recording (monitoring must run) |
-| `record.stop` | `/record/stop` | | stops it; the reply lists the files |
-| `monitor.on` | `/monitor/on` | | opens the configured radio and measures |
-| `monitor.off` | `/monitor/off` | | closes the radio (a recording stops) |
-| `play` | `/play` | `file` (a recording file or folder), `speed` (1 real time, 0 as fast as possible, 0.1 to 100) | replays a recording |
-| `sound.on`, `sound.off` | `/sound/on`, `/sound/off` | | audible alerts on/off |
-| `status` | `/status` (POST) | | the status as a command reply |
-| `rotate` | `/rotate` | | closes the recording file and starts the next |
-| `quit` | `/quit` | | stops recording and the radio and exits (headless runner) |
+| Command | Path | Arguments | Does | `result` members |
+|---|---|---|---|---|
+| `record.start` | `/record/start` | `name` (string, optional; default date and time) | starts recording (monitoring must run) | `recording`, `state`, `name`, `file`, `files`, `durable_inputs`, `dropped`, `ring_deleted` |
+| `record.stop` | `/record/stop` | | stops it | `recording` (false), `files` (list of file names) |
+| `monitor.on` | `/monitor/on` | | opens the configured radio and measures | `monitoring`, `radio` (label), `simulated` |
+| `monitor.off` | `/monitor/off` | | closes the radio (a recording stops) | `monitoring` |
+| `play` | `/play` | `file` (string, required: a recording file name in the recording folder, a path, or a folder), `speed` (number: 1 real time, 0 as fast as possible, 0.1 to 100) | replays a recording | `playing`, `state`, `source`, `position_s`, `duration_s`, `speed` |
+| `sound.on`, `sound.off` | `/sound/on`, `/sound/off` | | audible alerts on/off | `sound`, `output` |
+| `status` | `/status` (POST) | | the status as a command reply | the health summary |
+| `rotate` | `/rotate` | | closes the recording file and starts the next | as `record.start` |
+| `quit` | `/quit` | | stops recording and the radio and exits (headless runner) | `quit` (true) |
 
-Command reply:
+Command reply (HTTP 200):
 
+<!-- example: json -->
 ```json
 {"format": "yantra-api", "version": 1, "type": "command", "ok": true, "command": "record.start",
- "result": {"recording": true, "name": "survey1", "file": "survey1_0000.yrec", "files": 1}}
+ "result": {"recording": true, "state": "recording", "name": "site1", "file": "site1_0000.yrec",
+            "files": 1, "durable_inputs": 0, "dropped": 0, "ring_deleted": 0}}
 ```
 
-or `"ok": false` with `"error"` (HTTP 422). The desktop app runs commands
-on its UI thread: there a command reply says `"queued": true`, and the
-status shows its effect.
+A refused command: `"ok": false` with `"error"` (HTTP 422):
+
+<!-- example: json -->
+```json
+{"format": "yantra-api", "version": 1, "type": "command", "ok": false, "command": "",
+ "error": "command play needs file"}
+```
+
+An unknown command is a bad request (HTTP 400, `type` `error`). The
+desktop app runs commands on its UI thread: there a command reply says
+`"queued": true`, and the status shows its effect; play, rotate and quit
+are refused in the app.
 
 ### Status
 
 The health summary of the runner (the app gives the same fields where it
-has them): `application`, `version`, `source_url` (NFR-01), `state`
-(`stopped`, `monitoring`, `recording`, `playing`), `monitoring`, `demo`,
-`radio` (`plugin`, `device`, `label`, `simulated`, `state`, `records`,
-`dropped`, `reopens`), `recording` (`state`, `name`, `file`, `files`,
-`durable_inputs`, `dropped`, `ring_deleted`), `play` (`state`, `source`,
-`position_s`, `duration_s`, `speed`), `pipeline` counters, `cycles`,
-`carriers`, `synced_carriers`, `sound`, `plugins`, `recording_folder`,
-`uptime_s`, `last_error`.
+has them):
+
+| Member | Type | Content |
+|---|---|---|
+| `application`, `version`, `source_url` | string | the program, its version and the source link (NFR-01) |
+| `state` | string | `stopped`, `monitoring`, `recording`, `playing` |
+| `monitoring`, `demo`, `sound` | boolean | |
+| `radio` | object | `plugin`, `device`, `label`, `simulated`, `state`, `records`, `dropped`, `reopens` |
+| `recording` | object | `recording`; while recording also `state`, `name`, `file`, `files`, `durable_inputs`, `dropped`, `ring_deleted` |
+| `play` | object | `playing`; while playing also `state`, `source`, `position_s`, `duration_s`, `speed` |
+| `pipeline` | object | counters `records`, `accepted`, `implausible`, `late`, `cycles` |
+| `cycles`, `carriers`, `synced_carriers` | integer | measurement cycles, carriers heard, carriers decoded |
+| `plugins` | list | `id`, `version`, `status` |
+| `recording_folder` | string | where recordings go |
+| `uptime_s` | number | seconds since the start |
+| `last_error` | string | the last error, when there was one |
 
 ## WebSocket live view (`GET /api/v1/live`)
 
@@ -184,13 +364,54 @@ At most 8 live clients; messages over 4 KiB are refused.
 
 ## Examples
 
+Start a probe on a free port and read its owner token:
+
 ```sh
 yantra-probe --demo --api 127.0.0.1:8470 &
 T=$(python3 -c 'import json,os; print(json.load(open(os.path.expanduser("~/.local/share/yantra/plugin-data/yantra.probe/api_tokens.json")))["token"])')
-curl -s http://127.0.0.1:8470/api/v1/info
-curl -s -H "Authorization: Bearer $T" http://127.0.0.1:8470/api/v1/levels
-curl -s -H "Authorization: Bearer $T" -X POST -d '{"name":"site1"}' http://127.0.0.1:8470/api/v1/record/start
-curl -s -H "Authorization: Bearer $T" -X POST http://127.0.0.1:8470/api/v1/quit
+YANTRA_API=http://127.0.0.1:8470/api/v1
+TOKEN=$T
+```
+
+The blocks marked as API examples below run in the documentation tests
+(DOC-21) against `yantra-probe --demo --api 127.0.0.1:0` with the
+environment variables `YANTRA_API` (the base URL, ending in `/api/v1`)
+and `TOKEN` (the owner token), in document order, each with `sh -e`;
+`curl -f` makes a refused request fail the example.
+
+<!-- example: api-shell -->
+```sh
+curl -sf "$YANTRA_API/info"
+curl -sf -H "Authorization: Bearer $TOKEN" "$YANTRA_API/status"
+curl -sf -H "Authorization: Bearer $TOKEN" "$YANTRA_API/levels"
+curl -sf -H "Authorization: Bearer $TOKEN" "$YANTRA_API/neighbours"
+```
+
+Record for a moment under a name, start the next file, stop, and list
+the files:
+
+<!-- example: api-shell -->
+```sh
+curl -sf -H "Authorization: Bearer $TOKEN" -X POST -d '{"name":"site1"}' "$YANTRA_API/record/start"
+curl -sf -H "Authorization: Bearer $TOKEN" -X POST "$YANTRA_API/rotate"
+curl -sf -H "Authorization: Bearer $TOKEN" -X POST "$YANTRA_API/record/stop"
+curl -sf -H "Authorization: Bearer $TOKEN" "$YANTRA_API/recordings"
+```
+
+The same command through `/command`, and a LAN token made and withdrawn:
+
+<!-- example: api-shell -->
+```sh
+curl -sf -H "Authorization: Bearer $TOKEN" -X POST -d '{"command":"status"}' "$YANTRA_API/command"
+curl -sf -H "Authorization: Bearer $TOKEN" -X POST -d '{"enabled":true}' "$YANTRA_API/auth/lan"
+curl -sf -H "Authorization: Bearer $TOKEN" -X POST -d '{"enabled":false}' "$YANTRA_API/auth/lan"
+```
+
+Stop the probe:
+
+<!-- example: api-shell -->
+```sh
+curl -sf -H "Authorization: Bearer $TOKEN" -X POST "$YANTRA_API/quit"
 ```
 
 The test `tests/api/api_client_test.py` (TST-51) is a complete client in

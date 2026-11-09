@@ -208,6 +208,9 @@ of a bundled example plan carries its stable example id (DEMO-05, RAD-18).
 
 ## JSON form (`yantra-building`, version 1)
 
+All file formats: [formats/README.md](formats/README.md).
+
+<!-- example: yantra-building -->
 ```json
 {
   "format": "yantra-building",
