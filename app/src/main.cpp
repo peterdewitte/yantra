@@ -285,6 +285,7 @@ int main(int argc, char** argv) {
         app::UiProbe probe(ImGui::GetCurrentContext());
         // A screenshot shows the plan with its tiles, not while they render.
         gui.set_wait_for_tiles(screenshot);
+        gui.set_screenshot_mode(screenshot);
         // SCR-01..03: a scene of the screenshot set, played before the capture.
         std::unique_ptr<app::ShotRunner> runner;
         if (shot != nullptr) {

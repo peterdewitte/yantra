@@ -658,6 +658,12 @@ void Gui::draw_radio_calibration(RadioWindows& rw) {
 
 // -- device info -----------------------------------------------------------------------------------------------
 
+std::string Gui::shown_plugin_file(const std::filesystem::path& path, bool screenshot_mode) {
+    // A screenshot names the file only: the folder is the machine's (it can
+    // hold a home folder), and the documentation must not show it.
+    return screenshot_mode ? "<plugins>/" + path.filename().string() : path.string();
+}
+
 void Gui::draw_radio_info(RadioWindows& rw) {
     const InfoView v = rw.info_view();
     if (!draw_header(v.header)) return;
@@ -690,7 +696,7 @@ void Gui::draw_radio_info(RadioWindows& rw) {
         row_text(tr("Licence"), v.plugin.licence);
         row_text(tr("Source"), v.plugin.source_url);
         row_text(tr("Capabilities"), radio::capabilities_text(v.plugin.capabilities));
-        row_text(tr("File"), v.plugin.path.string());
+        row_text(tr("File"), shown_plugin_file(v.plugin.path, screenshot_mode_));
     }
     if (v.device) {
         ImGui::SeparatorText(tr("Device"));

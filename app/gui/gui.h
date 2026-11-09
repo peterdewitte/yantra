@@ -14,6 +14,7 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
 #include <map>
 #include <memory>
 #include <string>
@@ -56,6 +57,13 @@ public:
 
     /// Screenshots and tests: draw the plan only once its tiles are there.
     void set_wait_for_tiles(bool on);
+    /// Screenshots (SCR-02, NFR-09): show no folder of this machine; the
+    /// radio info window's plugin file reads "<plugins>/<file name>".
+    void set_screenshot_mode(bool on) { screenshot_mode_ = on; }
+    bool screenshot_mode() const { return screenshot_mode_; }
+    /// The radio info window's "File" row: the plugin's path, or in
+    /// screenshot mode "<plugins>/<file name>".
+    static std::string shown_plugin_file(const std::filesystem::path& path, bool screenshot_mode);
     /// The project window's plan view (tests: what it drew).
     const PlanCanvas& canvas() const { return *canvas_; }
     /// The plan import window's view (tests: what it drew).
@@ -232,6 +240,7 @@ private:
     // Survey panels (step 9.5).
     SurveyOverlay survey_;
     bool panels_ = false;          // the panels under the plan
+    bool screenshot_mode_ = false;  // set_screenshot_mode
     bool panels_auto_ = true;      // shown by themselves when a radio or replay starts
     bool was_active_ = false;
     std::string marker_label_;

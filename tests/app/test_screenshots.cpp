@@ -94,6 +94,7 @@ void play(const std::string& name, const std::function<void(UiHarness&, AppState
         Gui::apply_style(Gui::style_of(settings));
         Gui gui(state);
         gui.set_wait_for_tiles(true);
+        gui.set_screenshot_mode(true);
         ShotRunner runner(*scene, state, input);
         runner.set_wait_limit(ShotRunner::kWaitLimit * YANTRA_TEST_TIME_SCALE);
         ui.set_draw([&] { gui.draw(); });
@@ -216,9 +217,13 @@ TEST_CASE("SCR-03: the HackRF plugin's generated radio windows on the fake Soapy
     REQUIRE(setenv("YANTRA_FAKE_SOAPY", config.c_str(), 1) == 0);
     for (const char* name : {"settings", "debug", "calibration", "info"})
         play(std::string("radio_hackrf_") + name,
-             [](UiHarness&, AppState& s, Gui&) {
+             [](UiHarness&, AppState& s, Gui& g) {
                  const InfoView v = s.radio_windows()->info_view();
                  CHECK(v.plugin.id.find("hackrf") != std::string::npos);
+                 // No folder of this machine in the pictures (NFR-09).
+                 CHECK(g.screenshot_mode());
+                 CHECK(Gui::shown_plugin_file(v.plugin.path, true) == "<plugins>/hackrf_fake.so");
+                 CHECK(Gui::shown_plugin_file(v.plugin.path, false) == v.plugin.path.string());
              },
              fake);
     unsetenv("YANTRA_FAKE_SOAPY");
