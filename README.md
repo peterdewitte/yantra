@@ -3,105 +3,118 @@ SPDX-FileCopyrightText: 2026 The Yantra contributors
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
-<p align="center">
-  <img src="data/logo/png/yantra_logo_128.png" alt="Yantra logo" width="128" height="128">
-</p>
+![Yantra logo](docs/img/yantra_logo_128.png)
 
 # Yantra
 
 An open-source tool for measuring and reporting TETRA coverage inside
-buildings, floor by floor, built on a software-defined radio (SDR).
-
-<p>
-  <a href="https://curtat.be">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="data/branding/curtat_logo_dark_64.png">
-      <img src="data/branding/curtat_logo_light_64.png" alt="curtat.be" width="64" height="64">
-    </picture>
-  </a>
-</p>
+buildings, floor by floor, with a software-defined radio (SDR).
 
 Yantra is made by [curtat.be](https://curtat.be) as a reference on building
 new programs with Claude, Anthropic's AI assistant.
 
-> **Status:** early development. This repository was started on
-> 2026-11-04; nothing is usable yet. The sections below describe the goal
-> and are filled in as features land.
-
 ## What Yantra is
 
-Yantra is an indoor tool: walking a building floor by floor with an SDR,
-measuring the TETRA downlink on imported floor plans and producing
-coverage and acceptance reports, for example for DAS and indoor-coverage
-projects. It reads the broadcast and system information of the cells it
-hears and reports levels and signal quality. There are no outdoor drive
-tests, no GPS and no geographic maps.
+Yantra is an indoor tool, for example for DAS and indoor-coverage
+projects:
 
-Radios are plugins from the separate yantra-radios project, included as a
-git submodule in `third_party/yantra-radios`: each radio plugin processes
-its own IQ samples and gives Yantra measurement records only. Feature
-plugins (for example the remote probe API and terminal mode) use Yantra's
-public plugin API (`include/yantra/plugin.h`). How to write and test a
-plugin: [docs/PLUGINS.md](docs/PLUGINS.md).
-The building model (floors, scale, walls, antennas, cells) and its
-scene export for the simulator: [docs/BUILDING_MODEL.md](docs/BUILDING_MODEL.md).
-How measurement records become calibrated, flagged samples once per
-second: [docs/MEASUREMENT_PIPELINE.md](docs/MEASUREMENT_PIPELINE.md).
-The calibration table and antenna correction:
-[docs/CALIBRATION.md](docs/CALIBRATION.md).
-The TETRA technology plugin (schemas, channel raster, C1, reselection):
-[docs/plugins/TETRA.md](docs/plugins/TETRA.md).
-The cell database (CSV import/export, verification, cross-check,
-reselection simulator): [docs/CELL_DATABASE.md](docs/CELL_DATABASE.md).
-The headless probe `yantra-probe` and the remote API (probe plugin):
-[docs/PROBE.md](docs/PROBE.md), [docs/API.md](docs/API.md).
-The demo project (Fraunces Tavern, two floors, simulated walks and
-interpolation) and the demo scenarios: [docs/DEMO.md](docs/DEMO.md).
-A sample indoor coverage and acceptance report of the demo project, as
-Yantra writes it: [PDF](docs/samples/fraunces_report.pdf) and
-[HTML](docs/samples/fraunces_report.html) (DEMO-06; how reports are made:
-[docs/REPORT.md](docs/REPORT.md)).
+- import floor plans (PDF or image), cut several floors out of one sheet,
+  scale them and line them up;
+- draw walls (or accept walls Yantra proposes from the plan) and antennas;
+- walk the floors with a radio and click your position on the plan (or
+  practise with the mouse and the simulated radio);
+- watch the cells live: levels, C1, quality, the decoded broadcast
+  information and the neighbour lists;
+- check the network against its cell database;
+- get a coverage map fitted to your measurements by a ray tracer, with a
+  confidence mask where nobody measured;
+- write a coverage and acceptance report (PDF and HTML) per floor and for
+  the building, against acceptance profiles on the measured points, the
+  tested area or the floor area.
 
-Out of scope, by design: short data messages, subscriber addresses, voice
-and decryption. Yantra only handles broadcast and system information,
-levels and quality.
+Yantra reads only broadcast and system information, levels and quality.
+Short data messages, subscriber addresses, voice and decryption are out of
+scope by design, and there are no outdoor drive tests, GPS or maps. See
+the [legal and scope note](docs/LEGAL.md).
+
+A sample report of the demo project, as Yantra writes it:
+[PDF](docs/samples/fraunces_report.pdf) and
+[HTML](docs/samples/fraunces_report.html).
 
 ## Supported radios
 
-Planned through yantra-radios: HackRF (own plugin), any SoapySDR radio
-through the generic SoapySDR plugin (RTL-SDR, Airspy, network radios), a
-TETRA terminal over its PEI, and a simulator that needs no hardware. The
-tested hardware is listed in yantra-radios' `DEVICES.md`.
+Radios are plugins from the separate yantra-radios project, included as a
+git submodule in `third_party/yantra-radios`. The shipped radio plugins:
+
+- **Simulator**: a simulated TETRA network and devices, no hardware
+  needed; it drives the demo and the tour.
+- **HackRF**: HackRF One.
+- **SoapySDR**: any SoapySDR radio, for example RTL-SDR and Airspy, and
+  network radios through SoapyRemote.
+- **TETRA terminal (PEI)**: a terminal's own measurements over its serial
+  port (terminal mode).
+
+Hardware status: none of these radios has been measured with Yantra on
+real hardware yet; they are tested with simulated and fake devices. The
+hardware tested so far is listed in yantra-radios' `DEVICES.md`.
+
+Yantra's own plugins: the TETRA technology plugin and the probe plugin
+(the remote API of the headless probe).
 
 ## Install
 
-Linux: build from source. The radio plugins come from the yantra-radios
-repository as a git submodule (`third_party/yantra-radios`, pinned to a
-tagged release). Its submodule URL is relative (`../yantra-radios`), so
-yantra-radios is cloned next to yantra:
+**Linux**: build from source (packages are planned). The radio plugins
+come from the yantra-radios repository as a git submodule with a relative
+URL (`../yantra-radios`), so yantra-radios is cloned next to yantra:
 
     git clone <yantra-radios repository> yantra-radios
-    git clone <yantra repository> yantra
+    git clone https://github.com/peterdewitte/yantra.git yantra
     cd yantra
     git submodule update --init --recursive
     cmake --preset default
     ninja -C build
     ctest --test-dir build -j"$(nproc)"
 
-[BUILD.md](BUILD.md) has the build options, the radio plugin build (or a
-prebuilt yantra-radios package) and the plugin folders.
+[BUILD.md](BUILD.md) has the dependencies, the build options, the radio
+plugin build (or a prebuilt yantra-radios package), the USB permissions
+for the radios and the plugin folders.
 
-Packages (.deb, later AppImage) are planned. Windows packages are planned
-but not yet built.
+**Windows**: not yet available.
 
-## Quick start
+## First steps
 
-Follows once the application runs.
+1. Start `build/yantra`. The start screen offers the tour, the demo
+   project, a new indoor project and your recent projects.
+2. Take the tour (Help > Tour, or `yantra --tour`): it goes through a
+   whole indoor survey of an example building with the simulated radio,
+   from the plan to the report, without hardware.
+3. Then follow the quick starts:
+   [first indoor project](docs/quickstart/01-first-indoor-project.md),
+   [indoor walk test with acceptance report](docs/quickstart/02-walk-test-acceptance.md)
+   and [calibrate a radio](docs/quickstart/03-calibrate-a-radio.md).
 
-## Screenshots
+`yantra --demo` opens the demo project (the Fraunces Tavern, two floors,
+simulated walks) directly.
 
-Follow once the main screens exist; they are generated automatically from
-demo data.
+![The start screen](docs/img/start_menu_dark.png)
+
+## Documentation
+
+- [User manual](docs/manual/README.md): every window and function; also
+  in the app (F1 and the Help buttons).
+- [Quick starts](docs/quickstart/README.md): one page each.
+- [Measurement method note](docs/METHOD.md): what is measured and how,
+  calibration and its uncertainty, the ray-tracing model and its limits.
+- [Legal and scope note](docs/LEGAL.md): receive-only, what is decoded,
+  privacy and licences.
+- For developers: [plugins](docs/PLUGINS.md),
+  [the building model](docs/BUILDING_MODEL.md),
+  [the measurement pipeline](docs/MEASUREMENT_PIPELINE.md),
+  [calibration](docs/CALIBRATION.md),
+  [the cell database](docs/CELL_DATABASE.md),
+  [propagation](docs/PROPAGATION.md), [reports](docs/REPORT.md),
+  [the headless probe](docs/PROBE.md) and its [API](docs/API.md),
+  [the demo](docs/DEMO.md).
 
 ## Contributing
 
@@ -110,14 +123,16 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 ## Licence and credits
 
 Yantra is free software under the GNU General Public License, version 3 or
-later (`GPL-3.0-or-later`, see [LICENSE](LICENSE)). Every file carries an
-SPDX header or a `REUSE.toml` entry; the project is checked with
+later (`GPL-3.0-or-later`, see [LICENSE](LICENSE)). The radio plugins
+contain AGPL-3.0 parts (osmo-tetra); the complete corresponding source is
+available at the source link below. Every file carries an SPDX header or a
+`REUSE.toml` entry; the project is checked with
 [reuse](https://reuse.software). Third-party libraries, tools, fonts and
 data are listed with their licences in [THIRD_PARTY.md](THIRD_PARTY.md).
 
 The Yantra logo in `data/logo/` is part of Yantra (GPL-3.0-or-later). The
-curtat.be logo in `data/branding/` is a trademark of Curtat BV and is not
-covered by the GPL; forks must remove or replace it.
+curtat.be name and the logo in `data/branding/` are a trademark of Curtat
+BV and are not covered by the GPL; forks must remove or replace the logo.
 
 Source: https://github.com/peterdewitte/yantra
 (clone: https://github.com/peterdewitte/yantra.git). Homepage:
