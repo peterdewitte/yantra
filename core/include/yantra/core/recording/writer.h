@@ -23,7 +23,11 @@
 // Thread-safe: inputs arrive on the radios' delivery threads, cycles on
 // the ticking thread, control calls from the application. Data calls take
 // a short lock and never wait for the disk, except when a file is split
-// (the old file is closed and the new one started with a keyframe).
+// (the old file is closed and the new one started with a keyframe). The
+// lines waiting for the flush thread are a bounded queue (OA-03,
+// RecorderConfig::max_pending_bytes): when the disk cannot keep up, new
+// lines are dropped and counted (RecorderStatus::dropped,
+// dropped_lines) instead of growing without bound.
 // Adapted from yantra-v2 68ea20a: core/include/yantra/core/recording/writer.h
 // and core/src/recording/writer.cpp (FileWriter, session state machine),
 // for the measurement pipeline's inputs instead of plugin records.
@@ -45,6 +49,10 @@
 
 namespace yantra::recording {
 
+// The default bound of a file's unflushed lines (OA-03): 64 MiB, minutes
+// of the busiest radio set at a flush every 0.25 s.
+inline constexpr std::size_t kDefaultMaxPendingBytes = std::size_t{64} << 20;
+
 // One recording file being written. Thread-safe.
 class FileWriter {
 public:
@@ -57,8 +65,22 @@ public:
     FileWriter& operator=(const FileWriter&) = delete;
 
     // Adds an encoded line (without '\n'); `input` > 0: it holds that
-    // input number (counted as a message, REC-02).
-    void add_line(std::string line, std::uint64_t input = 0);
+    // input number (counted as a message, REC-02). A `droppable` line is
+    // dropped and counted (false) when the unflushed lines already hold
+    // max_pending() bytes (OA-03 bounded queue); other lines (header,
+    // schema declarations of an accepted input, floor, marker, voice,
+    // state) always go in. false when the file is closed.
+    bool add_line(std::string line, std::uint64_t input = 0, bool droppable = false);
+    // True when a droppable line would be dropped now.
+    bool full() const;
+    // Counts a line the caller dropped because full() was true.
+    void count_dropped();
+    // The bound of the unflushed lines (bytes; default
+    // kDefaultMaxPendingBytes).
+    void set_max_pending(std::size_t bytes);
+    std::size_t max_pending() const;
+    // Lines dropped because the queue was full.
+    std::uint64_t dropped_lines() const;
     // Writes the collected lines (one block / one zstd frame) and fdatasyncs.
     bool flush(std::string& error);
     // Adds the `end` line, flushes and closes. Idempotent.
@@ -76,6 +98,8 @@ private:
     Compression compression_;
     mutable std::mutex buffer_mutex_;  // pending lines, counters
     std::string pending_;
+    std::size_t max_pending_ = 0;  // set in the constructor
+    std::uint64_t dropped_lines_ = 0;
     std::uint64_t pending_max_input_ = 0;
     std::uint64_t messages_ = 0;
     std::uint64_t durable_inputs_ = 0;
@@ -115,6 +139,9 @@ struct RecorderConfig {
     std::uint32_t ring_files = 0;
     // Written into every header: the file is cut from another (REC-08, cut.h).
     std::optional<CutInfo> cut;
+    // OA-03: bound of the lines waiting for the flush thread, per file
+    // (bytes, >= 4096); beyond it lines are dropped and counted.
+    std::size_t max_pending_bytes = kDefaultMaxPendingBytes;
 
     // "" when valid, else what is wrong.
     std::string validate() const;
@@ -128,7 +155,8 @@ struct RecorderStatus {
     std::filesystem::path file;       // file being written, "" if none
     std::uint64_t messages_in_file = 0;
     std::uint64_t durable_inputs = 0; // the last input number known to be on disk
-    std::uint64_t dropped = 0;        // inputs that could not be stored (paused, write error)
+    std::uint64_t dropped = 0;        // inputs that could not be stored (paused, write error, queue full)
+    std::uint64_t dropped_lines = 0;  // OA-03: lines of any kind dropped because the write queue was full
     std::uint32_t next_marker = 1;
     std::vector<std::filesystem::path> files;  // files of this session so far (ring: those kept)
     std::uint64_t ring_deleted = 0;   // REC-09: files the ring has deleted in this session
@@ -219,6 +247,7 @@ private:
     RecorderState state_ = RecorderState::Monitoring;
     std::unique_ptr<Session> session_;
     std::uint64_t dropped_ = 0;
+    std::uint64_t dropped_lines_ = 0;  // of the files closed in this session
     std::string error_;
     std::string floor_id_, floor_name_;
     std::vector<std::filesystem::path> files_;

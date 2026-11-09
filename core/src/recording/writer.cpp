@@ -45,7 +45,8 @@ struct FileWriter::Io {
 };
 
 FileWriter::FileWriter(fs::path path, Compression compression)
-    : path_(std::move(path)), compression_(compression), io_(std::make_unique<Io>()) {}
+    : path_(std::move(path)), compression_(compression), max_pending_(kDefaultMaxPendingBytes),
+      io_(std::make_unique<Io>()) {}
 
 FileWriter::~FileWriter() = default;
 
@@ -69,15 +70,45 @@ std::unique_ptr<FileWriter> FileWriter::create(const fs::path& path, const Heade
     return w;
 }
 
-void FileWriter::add_line(std::string line, std::uint64_t input) {
+bool FileWriter::add_line(std::string line, std::uint64_t input, bool droppable) {
     const std::lock_guard lock(buffer_mutex_);
-    if (closed_) return;
+    if (closed_) return false;
+    if (droppable && pending_.size() >= max_pending_) {
+        ++dropped_lines_;
+        return false;
+    }
     pending_ += line;
     pending_ += '\n';
     if (input > 0) {
         ++messages_;
         if (input > pending_max_input_) pending_max_input_ = input;
     }
+    return true;
+}
+
+bool FileWriter::full() const {
+    const std::lock_guard lock(buffer_mutex_);
+    return pending_.size() >= max_pending_;
+}
+
+void FileWriter::count_dropped() {
+    const std::lock_guard lock(buffer_mutex_);
+    ++dropped_lines_;
+}
+
+void FileWriter::set_max_pending(std::size_t bytes) {
+    const std::lock_guard lock(buffer_mutex_);
+    max_pending_ = bytes;
+}
+
+std::size_t FileWriter::max_pending() const {
+    const std::lock_guard lock(buffer_mutex_);
+    return max_pending_;
+}
+
+std::uint64_t FileWriter::dropped_lines() const {
+    const std::lock_guard lock(buffer_mutex_);
+    return dropped_lines_;
 }
 
 std::uint64_t FileWriter::messages() const {
@@ -154,6 +185,7 @@ std::string RecorderConfig::validate() const {
     if (!(flush_interval_s > 0.0 && flush_interval_s <= 0.5))
         return "flush interval must be in (0, 0.5] s (REC-10: at most 1 s lost)";
     if (!(keyframe_s >= 1.0 && keyframe_s <= 600.0)) return "keyframe interval must be 1..600 s";
+    if (max_pending_bytes < 4096) return "the write queue bound must be at least 4096 bytes (OA-03)";
     if (!session_id.empty() &&
         (session_id.size() != 16 || session_id.find_first_not_of("0123456789abcdef") != std::string::npos))
         return "a session id has 16 lower-case hex digits";
@@ -304,6 +336,7 @@ bool Recorder::open_file(Session& s, std::string& error) {
     const fs::path path = config_.folder / file_name(s.name, s.index, config_.compression);
     std::unique_ptr<FileWriter> w = FileWriter::create(path, h, error);
     if (!w) return false;
+    w->set_max_pending(config_.max_pending_bytes);
     s.file = std::move(w);
     s.declared = {};
     s.continued = false;
@@ -338,6 +371,7 @@ void Recorder::close_file(Session& s, const std::string& reason) {
     if (!s.file) return;
     std::string error;
     if (!s.file->close({now_mono(), reason, 0, s.last_input}, error)) error_ = error;
+    dropped_lines_ += s.file->dropped_lines();
     s.file.reset();
 }
 
@@ -407,6 +441,7 @@ bool Recorder::open_session(const std::string& name, bool continued, std::string
     state_ = RecorderState::Recording;
     error_.clear();
     dropped_ = 0;
+    dropped_lines_ = 0;
     return true;
 }
 
@@ -467,6 +502,8 @@ RecorderStatus Recorder::status() const {
     RecorderStatus st;
     st.state = state_;
     st.dropped = dropped_;
+    st.dropped_lines = dropped_lines_;
+    if (session_ && session_->file) st.dropped_lines += session_->file->dropped_lines();
     st.error = error_;
     st.files = files_;
     st.ring_deleted = ring_deleted_;
@@ -502,7 +539,7 @@ void Recorder::add_position(PositionLine position) {
     if (position.time_ns == 0) position.time_ns = now_mono();
     const std::lock_guard lock(mutex_);
     if (state_ == RecorderState::Recording && session_ && session_->file)
-        session_->file->add_line(codec::position_line(position));
+        session_->file->add_line(codec::position_line(position), 0, true);
 }
 
 void Recorder::add_walk(WalkLine walk) {
@@ -552,6 +589,13 @@ void Recorder::on_input(const measure::PipelineInput& input) {
         return;
     }
     Session& s = *session_;
+    if (s.file->full()) {
+        // OA-03: the write queue is full (the disk does not keep up):
+        // drop the input before its schema lines are declared.
+        s.file->count_dropped();
+        ++dropped_;
+        return;
+    }
     std::vector<std::string> lines;
     const std::string line = codec::input_line(s.declared, input, lines);
     add_lines(*s.file, lines);
@@ -564,7 +608,7 @@ void Recorder::on_cycle(const measure::MeasurementCycle& cycle) {
     const std::lock_guard lock(mutex_);
     if (state_ != RecorderState::Recording || !session_ || !session_->file) return;
     Session& s = *session_;
-    s.file->add_line(codec::cycle_line(cycle));
+    s.file->add_line(codec::cycle_line(cycle), 0, true);
     const auto split_ns = static_cast<std::int64_t>(std::llround(config_.split_minutes * 60e9));
     if (split_ns > 0 && cycle.built_ns - s.file_mono0 >= split_ns) {
         rotate(s, "split_time");

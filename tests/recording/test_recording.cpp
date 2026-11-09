@@ -1059,3 +1059,39 @@ TEST_CASE("recording: cut start to cursor and cursor to end give files that repl
     empty.name = "../x";
     CHECK_FALSE(rec::cut_recording(empty).ok);
 }
+
+TEST_CASE("recording: a full write queue drops and counts inputs, keeps the file readable, and takes inputs again after a flush (OA-03)") {
+    const fs::path dir = scratch("bounded");
+    auto cfg = config(dir);
+    cfg.max_pending_bytes = 8192;
+    Live live(cfg);
+    std::string error;
+    REQUIRE_MESSAGE(live.recorder->start("walk", error), error);
+    live.walk(30);  // no flush thread: the queue fills
+    const rec::RecorderStatus full = live.recorder->status();
+    CHECK(full.dropped > 0);
+    CHECK(full.dropped_lines >= full.dropped);
+    REQUIRE(live.recorder->flush(error));
+    const std::uint64_t before = live.recorder->status().durable_inputs;
+    live.walk(1);  // after the flush the queue takes inputs again
+    REQUIRE(live.recorder->flush(error));
+    CHECK(live.recorder->status().durable_inputs > before);
+    CHECK(live.recorder->status().dropped == full.dropped);
+    live.recorder->stop();
+
+    const auto parsed = rec::read_file(dir / rec::file_name("walk", 0, rec::Compression::None));
+    REQUIRE_MESSAGE(parsed.ok(), (parsed.errors.empty() ? "" : parsed.errors.front()));
+    const rec::File& f = *parsed.value;
+    CHECK(f.damaged_lines == 0);
+    CHECK(f.warnings.empty());
+    CHECK_FALSE(f.inputs.empty());
+    REQUIRE(f.end.has_value());
+    // Every stored input replays (its schema lines were never dropped).
+    auto replay = rec::Replay::from_files({f}, {}, error);
+    REQUIRE_MESSAGE(replay, error);
+    CHECK_FALSE(replay_all(*replay).empty());
+
+    rec::RecorderConfig bad = config(dir);
+    bad.max_pending_bytes = 100;
+    CHECK_FALSE(bad.validate().empty());
+}

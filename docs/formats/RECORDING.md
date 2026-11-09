@@ -28,6 +28,7 @@ does not hold them; it lists them (name, size, SHA-256, header) in its
 | Split | by time (1..60 min of cycle time) and/or by message count (`rec` + `event` lines per file) (REC-02) |
 | Compression | none, or zstd: one complete zstd frame (level 3, content checksum) per flush |
 | Durability | flushed and `fdatasync`ed every 0.25 s (at most 0.5 s): a crash loses at most that (REC-10) |
+| Write queue | the lines waiting for the flush thread are bounded (64 MiB per file by default, OA-03): when the disk cannot keep up, new `rec`/`event`, `cycle` and `pos` lines are dropped and counted (the recorder's status: dropped inputs and lines), never a `source`/`cal` declaration of a stored line, a header, `state`, `floor`, marker or voice line |
 | Line limit | 16 MiB; longer lines are skipped as damaged |
 
 Every file replays on its own: it begins with a header, then a `state`
