@@ -57,7 +57,8 @@ const std::vector<QuickStart>& quick_starts();
 const QuickStart* find_quick_start(std::string_view id);
 /// The quick start's whole text in Markdown (without its licence comment
 /// and pictures), read from the first folder that has the file; `error`
-/// says why there is none.
+/// says why there is none. With a UI language other than English the
+/// translation in <folder>/<language key> is read when it exists (DOC-06).
 std::string quick_start_text(const QuickStart& quick_start, const std::vector<std::filesystem::path>& folders,
                              std::string& error);
 /// The quick-start folders for a list of data folders: <data>/quickstart

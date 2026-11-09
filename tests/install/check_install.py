@@ -82,7 +82,11 @@ def main() -> int:
            "usr/share/yantra/branding/curtat_logo.svg", "usr/share/yantra/logo/png/yantra_logo_32.png",
            # Help > Manual and Help > Quick starts work offline (DOC-07 e, DOC-03).
            "usr/share/yantra/manual/13-indoor-projects.md",
-           "usr/share/yantra/quickstart/01-first-indoor-project.md"]
+           "usr/share/yantra/quickstart/01-first-indoor-project.md",
+           "usr/share/yantra/quickstart/nl/01-first-indoor-project.md",
+           "usr/share/yantra/quickstart/fr/01-first-indoor-project.md",
+           "usr/share/yantra/quickstart/de/01-first-indoor-project.md",
+           "usr/share/yantra/METHOD.md", "usr/share/yantra/LEGAL.md"]
     expected = EXPECTED + [f"{PLUGIN_DIR}/{p}" for p in shipped] + (app if a.app else [])
     for f in expected:
         if f not in files:

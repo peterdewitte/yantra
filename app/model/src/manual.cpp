@@ -168,9 +168,14 @@ std::vector<fs::path> quick_start_folders(const std::vector<fs::path>& data_fold
 }
 
 std::string quick_start_text(const QuickStart& quick_start, const std::vector<fs::path>& folders, std::string& error) {
+    // DOC-06: the translation in <folder>/<language> when there is one,
+    // else the English source.
+    const Language lang = language();
     for (const fs::path& f : folders) {
         std::error_code ec;
-        const fs::path file = f / quick_start.file;
+        fs::path file = f / quick_start.file;
+        if (lang != Language::En && fs::is_regular_file(f / language_key(lang) / quick_start.file, ec))
+            file = f / language_key(lang) / quick_start.file;
         if (!fs::is_regular_file(file, ec)) continue;
         std::ifstream in(file);
         std::string line, text;

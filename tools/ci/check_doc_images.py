@@ -6,7 +6,8 @@
 usage: check_doc_images.py SOURCE_DIR
 
 The manual (docs/manual/*.md), README.md, the quick starts
-(docs/quickstart/*.md) and the method and legal notes (docs/METHOD.md,
+(docs/quickstart/*.md and their translations in
+docs/quickstart/<language>/) and the method and legal notes (docs/METHOD.md,
 docs/LEGAL.md, DOC-03..05) reference images from
 docs/img/ only, as ![text](path) or [text](path) to a .png/.jpg/.gif/
 .webp/.svg file; every referenced image must exist, and every image in
@@ -34,7 +35,7 @@ def main():
     docs += sorted(os.path.join(manual, f) for f in os.listdir(manual) if f.endswith(".md"))
     quick = os.path.join(root, "docs", "quickstart")
     if os.path.isdir(quick):
-        docs += sorted(os.path.join(quick, f) for f in os.listdir(quick) if f.endswith(".md"))
+        docs += sorted(os.path.join(d, f) for d, _, names in os.walk(quick) for f in names if f.endswith(".md"))
     docs += [p for p in (os.path.join(root, "docs", n) for n in ("METHOD.md", "LEGAL.md")) if os.path.isfile(p)]
     problems, used = [], set()
     for md in docs:

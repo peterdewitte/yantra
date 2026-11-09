@@ -207,6 +207,38 @@ TEST_CASE("DOC-03 Help > Quick starts: the quick starts in the help window") {
         CHECK(text.find("1. ") != std::string::npos);  // the steps
     }
     CHECK(find_quick_start("4") == nullptr);
+
+    // DOC-06: in Dutch, French and German the translated quick starts
+    // (docs/quickstart/<language>/), same steps as the English source.
+    {
+        LanguageGuard guard;
+        const std::pair<Language, const char*> titles[] = {
+            {Language::Nl, "# Snel starten: "}, {Language::Fr, "# Démarrage rapide : "},
+            {Language::De, "# Schnellstart: "}};
+        for (const auto& [lang, heading] : titles) {
+            set_language(lang);
+            for (const QuickStart& q : quick_starts()) {
+                CAPTURE(q.id);
+                CAPTURE(heading);
+                std::string error;
+                const std::string text = quick_start_text(q, folders, error);
+                CHECK(error.empty());
+                CHECK(text.rfind(heading, 0) == 0);
+                CHECK(text.find("SPDX") == std::string::npos);
+                set_language(Language::En);
+                const std::string english = quick_start_text(q, folders, error);
+                set_language(lang);
+                auto steps = [](const std::string& t) {
+                    int n = 0;
+                    for (std::size_t i = 0; (i = t.find("\n\n", i)) != std::string::npos; i += 2)
+                        if (i + 3 < t.size() && t[i + 2] >= '1' && t[i + 2] <= '9' && t[i + 3] == '.') ++n;
+                    return n;
+                };
+                CHECK(steps(text) == steps(english));
+                CHECK(steps(text) >= 7);
+            }
+        }
+    }
     std::string error;
     CHECK(quick_start_text(*find_quick_start("1"), {fs::path("/nonexistent")}, error).empty());
     CHECK(error.find("not installed") != std::string::npos);
