@@ -131,6 +131,35 @@ table is edited with `Project::set_wall_class` (add or change a class),
 (the defaults back to their default values, the project's own classes
 kept).
 
+### Walls proposed from the plan
+
+`plan::propose_walls` (`core/plan/wall_detect.h`, IND-11 S) looks at the
+floor's raster, rendered through its trim, so turns and deskew are respected
+and what lies outside the outline is ignored. The raster is bounded (at most
+6 Mpx, at most 50 pixels per metre, at most the plan's own detail).
+`detect_dark_lines` is deterministic and has no library beyond the plan
+sources:
+
+1. dark pixels: luminance below 110, alpha at least one half;
+2. connected groups (8-neighbours) smaller than half the minimum length are
+   removed: noise and text;
+3. a Hough transform (0.5 degrees, 1 pixel) gives the strongest lines first;
+   the dark run along each, with small breaks bridged, becomes a segment on
+   the centre of its drawn width, and its pixels stop voting. A width above
+   the maximum is a filled area, not a wall;
+4. collinear segments merge across small gaps (a door stays open), and two
+   parallel faces of one wall become their centre line;
+5. segments below the minimum length (default 1.5 m) are dropped.
+
+Tests hold a found wall within 3 pixels of the drawn one at each end and
+within 1 degree. It is an image operation on the drawing, with no radio data:
+a dimension line or a stair can be proposed, which is why a person decides.
+
+`WallProposals` (app model) runs it as a job and keeps the result in memory;
+proposals along a wall that is already there are not offered. Accepting calls
+`Project::add_walls` through `FloorEditor` as one undo step, with the class
+for new walls.
+
 ## Antennas and cells (IND-12)
 
 An antenna has an id (unique in the building), name, model text, type

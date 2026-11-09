@@ -13,15 +13,19 @@
 #include <imgui.h>
 
 #include <filesystem>
+#include <fstream>
 #include <functional>
 #include <string>
 
 #include "gui.h"
+#include "plan_fixtures.h"
 #include "ui_harness.h"
 #include "ui_lint.h"
 #include "yantra/app/app_state.h"
 #include "yantra/app/i18n.h"
 #include "yantra/app/settings.h"
+#include "yantra/core/plan/trim.h"
+#include "yantra/core/project/project.h"
 
 namespace fs = std::filesystem;
 using namespace yantra::app;
@@ -140,6 +144,49 @@ void visit_all(Shell& s, UiLint& lint, const std::string& tag) {
     s.state.cancel_dialog();
     REQUIRE(s.state.close_project().ok);
     REQUIRE(s.ui.frames(2));
+
+    // IND-11: the wall editor with proposed walls (a small plan: the demo's
+    // sheet is too slow to look at in every language and layout).
+    {
+        namespace fx = yantra::plan::fixtures;
+        namespace fs = std::filesystem;
+        const fs::path dir = fs::path(YANTRA_TEST_SCRATCH_DIR) / "lint_proposals" / tag;
+        fs::remove_all(dir);
+        fs::create_directories(dir);
+        yantra::plan::Raster r(500, 300, 255);
+        for (int x = 40; x < 460; ++x)
+            for (int y : {60, 61, 62, 200, 201, 202}) {
+                std::uint8_t* px = r.pixel(x, y);
+                px[0] = px[1] = px[2] = 0;
+            }
+        const fx::Bytes bytes = fx::png(r);
+        std::ofstream(dir / "plan.png", std::ios::binary)
+            .write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+        {
+            auto p = yantra::project::Project::create(dir / "w.yantra", yantra::project::ProjectInfo{"Walls", "", "", ""});
+            yantra::building::Floor f;
+            f.name = "Ground floor";
+            f.plan_width = 500;
+            f.plan_height = 300;
+            f.source = p->add_source(dir / "plan.png").id;
+            f.trim = yantra::plan::whole_page_trim({500, 300});
+            f.scale.method = yantra::building::Scale::Method::Factor;
+            f.scale.metres_per_unit = 0.02;
+            (void)p->add_floor(f);
+            p->close();
+        }
+        REQUIRE(s.state.open_project(dir / "w.yantra").ok);
+        REQUIRE(s.ui.frames(3));
+        REQUIRE_MESSAGE(s.ui.click("panel.edit"), s.ui.dump());
+        settle_check("edit before proposing");
+        REQUIRE(s.state.wall_proposals()->start().ok);
+        settle_check("edit while proposing");
+        s.state.wall_proposals()->wait();
+        settle_check("edit with proposed walls");
+        REQUIRE(s.state.wall_proposals()->view().proposals.size() == 2);
+        REQUIRE(s.state.close_project().ok);
+        REQUIRE(s.ui.frames(2));
+    }
 
 #ifdef YANTRA_TEST_DEMO_DATA_DIR
     REQUIRE(s.state.open_demo().ok);

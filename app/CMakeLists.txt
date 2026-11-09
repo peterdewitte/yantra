@@ -77,6 +77,7 @@ add_library(yantra_app_model STATIC
   model/src/network_checks.cpp
   model/src/post_processing.cpp
   model/src/project_window.cpp
+  model/src/wall_proposals.cpp
   model/src/report_export.cpp
   model/src/radio_windows.cpp
   model/src/replay_session.cpp

@@ -21,6 +21,8 @@ The plan import window opens a PDF or image, chooses the page, trims and rotates
 
 The Edit page draws walls with their wall class and places antennas with their cell and power. Wall classes give the loss per wall at each frequency.
 
+Propose walls looks for long straight dark lines on a floor's plan and shows them dashed and numbered. It needs a plan picture and a scale. The search runs in the background and can be cancelled. Shortest wall sets the shortest line it proposes. Accept a proposal and it becomes an ordinary wall of the class chosen under New walls, which you can edit and undo like any other. Reject it and it is forgotten. Nothing is stored in the project until you accept it, and changing floor forgets the list. Dimension lines and furniture can be proposed too, so check each one against the plan.
+
 ## 13.4 Layers
 
 The Layers page shows or hides the plan, the interpolation, the binned squares, the walls, the antennas and the points, and sets their drawing order.

@@ -14,13 +14,16 @@
 
 #include <cmath>
 #include <filesystem>
+#include <fstream>
 #include <string>
 #include <vector>
 
 #include "gui.h"
+#include "plan_fixtures.h"
 #include "ui_harness.h"
 #include "yantra/app/app_state.h"
 #include "yantra/core/building/edit.h"
+#include "yantra/core/plan/trim.h"
 #include "yantra/core/project/project.h"
 
 namespace fs = std::filesystem;
@@ -108,6 +111,44 @@ void make_floor(const fs::path& file, bool points, bool antenna = true) {
     p->close();
 }
 
+// A plan picture (800 x 400) with three long dark lines and a small mark, a
+// floor of it at 0.02 m per unit; no scale or no picture when asked (IND-11).
+void make_plan_floor(const fs::path& file, bool scale, bool picture = true) {
+    namespace fx = yantra::plan::fixtures;
+    yantra::plan::Raster r(800, 400, 255);
+    const auto ink = [&](int x0, int y0, int x1, int y1) {
+        for (int y = y0; y < y1; ++y)
+            for (int x = x0; x < x1; ++x) {
+                std::uint8_t* px = r.pixel(x, y);
+                px[0] = px[1] = px[2] = 0;
+            }
+    };
+    ink(50, 50, 750, 54);    // the longest: 14 m
+    ink(100, 100, 104, 350); // 5 m
+    ink(300, 300, 700, 304); // 8 m
+    ink(600, 100, 610, 110); // a mark
+    const fs::path png = file.parent_path() / "walls.png";
+    {
+        const fx::Bytes bytes = fx::png(r);
+        std::ofstream(png, std::ios::binary).write(reinterpret_cast<const char*>(bytes.data()), static_cast<std::streamsize>(bytes.size()));
+    }
+    auto p = pj::Project::create(file, pj::ProjectInfo{"Walls", "", "", ""});
+    bm::Floor f;
+    f.name = "Ground floor";
+    f.plan_width = 800;
+    f.plan_height = 400;
+    if (picture) {
+        f.source = p->add_source(png).id;
+        f.trim = yantra::plan::whole_page_trim({800, 400});
+    }
+    if (scale) {
+        f.scale.method = bm::Scale::Method::Factor;
+        f.scale.metres_per_unit = 0.02;
+    }
+    (void)p->add_floor(f);
+    p->close();
+}
+
 }  // namespace
 
 TEST_CASE("edit: draw a wall by clicking, Enter ends it; undo / redo by key and button; select and delete (IND-11)") {
@@ -168,6 +209,175 @@ TEST_CASE("edit: draw a wall by clicking, Enter ends it; undo / redo by key and 
     CHECK(s.state.floor_editor()->tool() == EditTool::Pan);
     CHECK(s.state.floor_editor()->selection().kind == Selection::Kind::None);
 }
+
+TEST_CASE("edit: walls proposed from the plan: accept one, reject another, nothing stored before (IND-11)") {
+    const fs::path dir = scratch("proposals");
+    make_plan_floor(dir / "o.yantra", true);
+    Shell s({});
+    REQUIRE(s.state.open_project(dir / "o.yantra").ok);
+    REQUIRE(s.ui.frames(3));
+    REQUIRE(s.ui.click("panel.edit"));
+    REQUIRE(s.ui.frames(2));
+    WallProposals& wp = *s.state.wall_proposals();
+    FloorEditor& ed = *s.state.floor_editor();
+    const auto run = [&] {
+        REQUIRE_MESSAGE(s.ui.click("edit.propose"), s.ui.dump());
+        wp.wait();
+        REQUIRE(s.ui.frames(2));
+    };
+    CHECK_FALSE(s.ui.find("edit.propose")->disabled);
+    run();
+    std::vector<WallProposal> list = wp.view().proposals;
+    REQUIRE(list.size() == 3);
+    CHECK(list[0].length_m == doctest::Approx(14.0).epsilon(0.02));  // longest first, in metres
+    CHECK(s.gui.tool_overlay().proposals == 3);
+    // Not in the project, and no undo step: only a list.
+    CHECK(s.floor().walls.empty());
+    CHECK_FALSE(ed.can_undo());
+
+    // The wall class is the one chosen for new walls.
+    REQUIRE(ed.set_draw_class("brick").ok);
+    REQUIRE_MESSAGE(s.ui.click("edit.proposal.accept." + std::to_string(list[0].id)), s.ui.dump());
+    REQUIRE(s.ui.frames(2));
+    REQUIRE(s.floor().walls.size() == 1);
+    const bm::Wall accepted = s.floor().walls.front();
+    CHECK(accepted.wall_class == "brick");
+    REQUIRE(accepted.points.size() == 2);
+    CHECK(accepted.points[0].x == doctest::Approx(50.0).epsilon(0.05));
+    CHECK(accepted.points[0].y == doctest::Approx(52.0).epsilon(0.05));
+    CHECK(accepted.points[1].x == doctest::Approx(750.0).epsilon(0.01));
+    // An ordinary wall: selected, its form open.
+    CHECK(ed.selection().kind == Selection::Kind::Wall);
+    CHECK(s.ui.has("edit.delete"));
+
+    REQUIRE(s.ui.click("edit.proposal.reject." + std::to_string(list[1].id)));
+    REQUIRE(s.ui.frames(2));
+    CHECK(s.floor().walls.size() == 1);
+    REQUIRE(wp.view().proposals.size() == 1);
+    CHECK(wp.view().proposals.front().id == list[2].id);
+    CHECK(s.gui.tool_overlay().proposals == 1);
+
+    // Accepting is one undo step of the editor.
+    REQUIRE(s.ui.click("edit.undo"));
+    REQUIRE(s.ui.frames(2));
+    CHECK(s.floor().walls.empty());
+    REQUIRE(s.ui.click("edit.redo"));
+    REQUIRE(s.ui.frames(2));
+    CHECK(s.floor().walls.size() == 1);
+
+    // Another run does not offer the wall that is there; a rejected one comes back.
+    run();
+    list = wp.view().proposals;
+    CHECK(list.size() == 2);
+    REQUIRE(s.ui.click("edit.proposal.accept_all"));
+    REQUIRE(s.ui.frames(2));
+    CHECK(s.floor().walls.size() == 3);
+    CHECK(wp.view().proposals.empty());
+    run();
+    CHECK(wp.view().proposals.empty());
+    CHECK_FALSE(wp.view().note.empty());
+
+    // The shortest length is the user's.
+    REQUIRE(ed.undo().ok);  // the two walls of accept all again
+    wp.set_min_length_m(6.0);
+    run();
+    CHECK(wp.view().proposals.size() == 1);  // 8 m stays, 5 m does not
+
+    // Proposals are never in the project file.
+    REQUIRE(s.state.close_project().ok);
+    REQUIRE(s.ui.frames(2));
+    auto p = pj::Project::open(dir / "o.yantra");
+    CHECK(p->walls(p->building().floors.front().id).size() == 1);
+}
+
+TEST_CASE("edit: proposing walls: the disabled reasons, Cancel, a floor change forgets the list (IND-11, DOC-07 c)") {
+    const fs::path dir = scratch("proposals2");
+    SUBCASE("no scale") {
+        make_plan_floor(dir / "o.yantra", false);
+        Shell s({});
+        REQUIRE(s.state.open_project(dir / "o.yantra").ok);
+        REQUIRE(s.ui.frames(3));
+        REQUIRE(s.ui.click("panel.edit"));
+        REQUIRE(s.ui.frames(2));
+        CHECK(s.ui.find("edit.propose")->disabled);
+        CHECK(s.state.wall_proposals()->start_reason().find("scale") != std::string::npos);
+        CHECK_FALSE(s.state.wall_proposals()->start().ok);
+    }
+    SUBCASE("no picture") {
+        make_plan_floor(dir / "o.yantra", true, false);
+        Shell s({});
+        REQUIRE(s.state.open_project(dir / "o.yantra").ok);
+        REQUIRE(s.ui.frames(3));
+        REQUIRE(s.ui.click("panel.edit"));
+        REQUIRE(s.ui.frames(2));
+        CHECK(s.ui.find("edit.propose")->disabled);
+        CHECK(s.state.wall_proposals()->start_reason().find("plan picture") != std::string::npos);
+    }
+    SUBCASE("cancel and floor change") {
+        make_plan_floor(dir / "o.yantra", true);
+        Shell s({});
+        REQUIRE(s.state.open_project(dir / "o.yantra").ok);
+        REQUIRE(s.ui.frames(3));
+        REQUIRE(s.ui.click("panel.edit"));
+        REQUIRE(s.ui.frames(2));
+        WallProposals& wp = *s.state.wall_proposals();
+        REQUIRE(wp.start().ok);
+        CHECK_FALSE(wp.start().ok);  // one at a time
+        wp.cancel();
+        wp.wait();
+        REQUIRE(s.ui.frames(2));
+        CHECK_FALSE(wp.view().running);
+        // Either stopped in time (nothing proposed) or it had just finished.
+        const WallProposalsView v = wp.view();
+        CHECK((v.proposals.empty() || v.proposals.size() == 3));
+        CHECK_FALSE(v.note.empty());
+
+        REQUIRE(wp.start().ok);
+        wp.wait();
+        REQUIRE(s.ui.frames(2));
+        REQUIRE(wp.view().proposals.size() == 3);
+        bm::Floor g;
+        g.name = "First floor";
+        g.level = 1;
+        const std::string other = s.state.project()->add_floor(g);
+        s.state.project_window()->select(other);
+        REQUIRE(s.ui.frames(3));
+        CHECK(wp.view().proposals.empty());
+    }
+}
+
+#ifdef YANTRA_TEST_DEMO_DATA_DIR
+TEST_CASE("edit: the Fraunces Tavern's sheet gives proposals on the floor; the project does not change (IND-11)") {
+    const fs::path dir = scratch("proposals_demo");
+    AppPaths paths;
+    paths.data_folders = {YANTRA_TEST_DEMO_DATA_DIR};
+    paths.user_data = dir / "user";
+    Shell s(paths);
+    REQUIRE(s.state.open_demo().ok);
+    REQUIRE(s.ui.run_until([&] { return s.state.screen() == Screen::Project; }, 10));
+    REQUIRE(s.ui.frames(2));
+    const std::size_t walls = s.floor().walls.size();
+    WallProposals& wp = *s.state.wall_proposals();
+    REQUIRE(wp.start().ok);
+    wp.wait();
+    REQUIRE(s.ui.frames(2));
+    const WallProposalsView v = wp.view();
+    MESSAGE("Fraunces: " << v.proposals.size() << " proposals, " << walls << " walls");
+    CHECK(v.proposals.size() >= 10);
+    CHECK(v.proposals.size() <= 400);
+    const bm::Floor f = s.floor();
+    for (const WallProposal& p : v.proposals) {
+        CHECK(p.length_m >= 1.5);
+        for (const bm::Point2 q : {p.a, p.b}) {
+            CHECK(q.x >= -1.0);
+            CHECK(q.y >= -1.0);
+            CHECK(q.x <= f.plan_width + 1.0);
+            CHECK(q.y <= f.plan_height + 1.0);
+        }
+    }
+    CHECK(s.floor().walls.size() == walls);
+}
+#endif
 
 TEST_CASE("edit: place an antenna, its properties dialog with a new cell; the wall-class table (IND-11, IND-12)") {
     const fs::path dir = scratch("antenna");

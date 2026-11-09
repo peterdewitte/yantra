@@ -238,6 +238,9 @@ public:
     /// in plan units at plan::default_base_scale, `budget_bytes` cache).
     PlanTiles plan_tiles(const std::string& floor_id, std::size_t budget_bytes,
                          plan::TileRenderer::ReadyFn ready = {}) const;
+    /// Opens the floor's plan source, as plan_tiles() (PlanError or
+    /// ProjectError when it cannot be read).
+    std::shared_ptr<const plan::PlanSource> plan_source(const std::string& floor_id) const;
     /// Where a referenced licence-restricted sheet is looked for when the
     /// path the project keeps is not there (DEMO-12, DEMO-13: an example
     /// project made without the file, or a moved cache): the file of the

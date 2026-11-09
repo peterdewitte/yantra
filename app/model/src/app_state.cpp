@@ -191,6 +191,7 @@ AppState::~AppState() {
     tour_.reset();
     drop_tools();
     drop_network();
+    proposals_.reset();
     window_.reset();
     try {
         if (project_) project_->close();
@@ -503,6 +504,7 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     import_window_.reset();
     drop_tools();
     drop_network();
+    proposals_.reset();
     window_.reset();
     if (project_) {
         try {
@@ -514,7 +516,9 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     project_ = std::move(p);
     window_ = std::make_unique<ProjectWindow>(*project_);
     window_->set_sheet_folder(paths_.sheet_cache);  // DEMO-13: a referenced MAK sheet in the cache
+    proposals_.reset();
     editor_ = std::make_unique<FloorEditor>(*project_);
+    proposals_ = std::make_unique<WallProposals>(*project_, *window_, *editor_);
     runner_ = std::make_unique<InterpolationRunner>(project_, InterpolationRunner::Options{paths_.interpolation_threads});
     live_ = std::make_unique<LiveSurvey>(project_, paths_.radios, plugin_services());
     // Feature plugins (the probe's live view, PLG-24) see the walk test's records.
@@ -891,6 +895,7 @@ Result AppState::close_project() {
     import_window_.reset();
     drop_tools();
     drop_network();
+    proposals_.reset();
     window_.reset();
     demo_label_.clear();
     try {
@@ -1144,6 +1149,7 @@ void AppState::drop_tools() {
     live_.reset();
     monitor_->clear();
     runner_.reset();
+    proposals_.reset();
     editor_.reset();
 }
 
@@ -1223,6 +1229,7 @@ void AppState::tick() {
         alerts_.reset();
     }
     if (editor_ && window_) editor_->set_floor(window_->selected());
+    if (proposals_) proposals_->tick();
     if (replay_) replay_->tick();
     if (output_) {
         if (const auto r = output_->tick()) (void)show(*r);

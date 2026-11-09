@@ -25,6 +25,7 @@
 #include <cstddef>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "yantra/app/result.h"
@@ -145,6 +146,9 @@ public:
     void hover(std::optional<Point2> p);
     /// Enter: ends the wall being drawn (>= 2 corners).
     Result finish_wall();
+    /// Walls proposed from the plan and accepted (IND-11): ordinary straight
+    /// walls of the class for new walls, one undo step; a single one is selected.
+    Result add_proposed_walls(const std::vector<std::pair<Point2, Point2>>& segments);
     /// Esc: drops the wall being drawn, else the selection.
     void cancel();
     /// Backspace: removes the last corner of the wall being drawn.

@@ -8,6 +8,7 @@
 // FloorEditor, LiveSurvey and InterpolationRunner (app/model).
 #include <imgui.h>
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <string>
@@ -72,6 +73,56 @@ ImVec2 plan_badge(ImDrawList* dl, ImVec2 pos, const char* text, ImU32 bg) {
 
 // -- editing (IND-11, IND-12) ----------------------------------------------------------------
 
+// Walls proposed from the plan image (IND-11): a run in the background, the
+// list to accept or reject; on the plan they are dashed (draw_plan_overlay).
+void Gui::draw_wall_proposals(bool walking) {
+    WallProposals* wp = state_.wall_proposals();
+    if (wp == nullptr) return;
+    const WallProposalsView v = wp->view();
+    if (v.running) {
+        ImGui::ProgressBar(static_cast<float>(v.progress), ImVec2(-1.0F, 0.0F), tr("Looking for walls"));
+        if (ImGui::Button(tr("Cancel###edit.propose_cancel"))) wp->cancel();
+        text_tooltip(tr("Stop looking for walls; nothing is proposed."));
+        return;
+    }
+    const std::string why = walking ? std::string(tr("Editing is off while a walk test runs.")) : wp->start_reason();
+    if (tool_button(tr("Propose walls###edit.propose"), why.empty(),
+                    tr("Look for long dark lines on the plan and show them as proposed walls. Nothing goes into the "
+                       "project until you accept it."),
+                    why))
+        (void)state_.show(wp->start());
+    ImGui::SameLine();
+    help_marker(tr("Yantra looks for long straight dark lines on this floor's plan. Each one is shown dashed with its "
+                   "number. Accept the right ones: they become ordinary walls of the class chosen under New walls, and "
+                   "you can edit them like any other. Reject the rest. Dimension lines and furniture can be proposed "
+                   "too, so check each one against the plan."));
+    double shortest = wp->min_length_m();
+    ImGui::SetNextItemWidth(ImGui::GetFontSize() * 7.0F);
+    if (ImGui::InputDouble(tr("Shortest wall (m)###edit.propose_min"), &shortest, 0.5, 1.0, "%.1f")) wp->set_min_length_m(shortest);
+    text_tooltip(tr("Shorter lines are not proposed (0.2 to 100 m). The next run uses it."));
+    wrapped(v.note);
+    if (v.proposals.empty()) return;
+    ImGui::BeginDisabled(walking);
+    if (ImGui::Button(tr("Accept all###edit.proposal.accept_all"))) (void)state_.show(wp->accept_all());
+    text_tooltip(tr("All proposed walls become walls of the class chosen under New walls (one undo step)."));
+    ImGui::SameLine();
+    if (ImGui::Button(tr("Reject all###edit.proposal.reject_all"))) wp->reject_all();
+    text_tooltip(tr("Forget all proposed walls; the project does not change."));
+    for (const WallProposal& p : v.proposals) {
+        const std::string id = std::to_string(p.id);
+        char length[32];
+        std::snprintf(length, sizeof length, "%.1f m", p.length_m);
+        ImGui::TextUnformatted((id + ": " + length).c_str());
+        ImGui::SameLine();
+        if (ImGui::Button((std::string(tr("Accept")) + "###edit.proposal.accept." + id).c_str())) (void)state_.show(wp->accept(p.id));
+        text_tooltip(tr("This proposed wall becomes a wall of the class chosen under New walls."));
+        ImGui::SameLine();
+        if (ImGui::Button((std::string(tr("Reject")) + "###edit.proposal.reject." + id).c_str())) wp->reject(p.id);
+        text_tooltip(tr("Forget this proposed wall; the project does not change."));
+    }
+    ImGui::EndDisabled();
+}
+
 void Gui::draw_edit_section() {
     FloorEditor* ed = state_.floor_editor();
     if (ed == nullptr) return;
@@ -107,6 +158,7 @@ void Gui::draw_edit_section() {
     ImGui::SameLine();
     if (ImGui::Button(tr("Classes...###edit.materials"))) (void)state_.edit_materials();
     text_tooltip(tr("The wall-class table: attenuation per material and frequency band; add or change classes."));
+    draw_wall_proposals(walking);
 
     if (tool_button(tr("Undo###edit.undo"), ed->can_undo(), ed->can_undo() ? ed->undo_label() + " [Ctrl+Z]" : tr("Undo the last edit [Ctrl+Z]"),
                     tr("Nothing to undo.")))
@@ -301,6 +353,24 @@ void Gui::draw_plan_overlay(ImDrawList* dl) {
     overlay_.draft_corners = 0;
     const PlanCanvas& cv = *canvas_;
     const ImU32 edit_col = IM_COL32(255, 200, 0, 255);
+    // Proposed walls (IND-11): dashed and numbered, unlike any accepted wall.
+    if (const WallProposals* wp = state_.wall_proposals()) {
+        const ImU32 proposed = IM_COL32(230, 40, 200, 255);
+        for (const WallProposal& p : wp->view().proposals) {
+            const ImVec2 a = cv.screen_of(p.a), b = cv.screen_of(p.b);
+            const float len = std::hypot(b.x - a.x, b.y - a.y);
+            constexpr float kDash = 10.0F;
+            const int dashes = std::max(1, static_cast<int>(len / (2.0F * kDash)));
+            for (int i = 0; i <= dashes; ++i) {
+                const float t0 = static_cast<float>(i) / static_cast<float>(dashes);
+                const float t1 = std::min(1.0F, t0 + kDash / std::max(len, 1.0F));
+                dl->AddLine(ImVec2(a.x + (b.x - a.x) * t0, a.y + (b.y - a.y) * t0),
+                            ImVec2(a.x + (b.x - a.x) * t1, a.y + (b.y - a.y) * t1), proposed, 3.0F);
+            }
+            (void)plan_badge(dl, ImVec2((a.x + b.x) / 2.0F, (a.y + b.y) / 2.0F), std::to_string(p.id).c_str(), proposed);
+            ++overlay_.proposals;
+        }
+    }
     if (FloorEditor* ed = state_.floor_editor()) {
         // The wall being drawn, with the rubber band to the mouse.
         const auto& d = ed->draft();

@@ -187,6 +187,13 @@ The side panel of the project window has pages `panel.layers` (above),
 is a `shared_ptr` now) and drops before it; `AppState::tick()` runs each
 frame.
 
+`WallProposals` (`wall_proposals()`, IND-11 S) proposes walls from the plan
+image for the wall editor: `start_reason`, `start`, `cancel`, `view`,
+`accept`, `accept_all`, `reject`, `reject_all`, `set_min_length_m`. Controls
+`edit.propose`, `edit.propose_cancel`, `edit.propose_min`,
+`edit.proposal.accept|reject.<n>`, `edit.proposal.accept_all|reject_all`.
+Proposals stay in memory until accepted (docs/BUILDING_MODEL.md).
+
 `FloorEditor` (`floor_editor()`, IND-11, IND-12) edits the selected floor
 through the project and core `building/edit`:
 

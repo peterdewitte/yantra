@@ -437,6 +437,21 @@ Result FloorEditor::finish_wall() {
     return r;
 }
 
+Result FloorEditor::add_proposed_walls(const std::vector<std::pair<Point2, Point2>>& segments) {
+    std::vector<building::Wall> walls;
+    walls.reserve(segments.size());
+    for (const auto& [a, b] : segments) {
+        building::Wall w;
+        w.wall_class = draw_class_;
+        w.points = {a, b};
+        walls.push_back(std::move(w));
+    }
+    std::vector<std::string> ids;
+    const Result r = edit(tr("accept proposed walls"), [&] { ids = project_.add_walls(floor_, std::move(walls)); });
+    if (r.ok && ids.size() == 1) select({Selection::Kind::Wall, ids.front(), std::nullopt});
+    return r;
+}
+
 void FloorEditor::cancel() {
     if (!draft_.empty()) {
         draft_.clear();

@@ -43,6 +43,7 @@
 #include "yantra/app/credits.h"
 #include "yantra/app/file_browser.h"
 #include "yantra/app/floor_editor.h"
+#include "yantra/app/wall_proposals.h"
 #include "yantra/app/interpolation_runner.h"
 #include "yantra/app/live_survey.h"
 #include "yantra/app/network_checks.h"
@@ -345,6 +346,7 @@ public:
     ProjectWindow* project_window() { return window_.get(); }
     /// The wall and antenna editing of the project window (IND-11, IND-12).
     FloorEditor* floor_editor() { return editor_.get(); }
+    WallProposals* wall_proposals() { return proposals_.get(); }
     /// The interpolation commands (IND-41..45) and the settings dialog.
     InterpolationRunner* interpolation() { return runner_.get(); }
     /// The walk-test view's model (IND-20, GEO-02, GEO-05, DEMO-14).
@@ -634,6 +636,7 @@ private:
     HelpView help_;
     AudibleAlerts alerts_;
     std::unique_ptr<FloorEditor> editor_;
+    std::unique_ptr<WallProposals> proposals_;  // needs window_ and editor_
     std::unique_ptr<InterpolationRunner> runner_;
     std::unique_ptr<LiveSurvey> live_;
     std::unique_ptr<RadioWindows> radios_;  // uses live_: dropped first

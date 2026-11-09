@@ -67,6 +67,7 @@ public:
         std::string hint;               ///< the walk-test hint on the plan (DEMO-14)
         bool move_slower = false;       ///< the DEMO-14 warning
         bool progress = false;          ///< an interpolation progress bar in the panel
+        std::size_t proposals = 0;      ///< proposed walls drawn on the plan (IND-11)
     };
     const ToolOverlay& tool_overlay() const { return overlay_; }
     /// What the survey panels and the status bar drew in the last frame (tests).
@@ -170,6 +171,7 @@ private:
     void restart_ui();
     // Editing, walk test and interpolation (gui_tools.cpp, step 9.4).
     void draw_edit_section();
+    void draw_wall_proposals(bool walking);
     void draw_walk_section(const FloorContent* c);
     void draw_interpolation_section(const FloorContent* c);
     void draw_plan_overlay(ImDrawList* dl);
