@@ -107,7 +107,9 @@ simulated walks) directly.
   calibration and its uncertainty, the ray-tracing model and its limits.
 - [Legal and scope note](docs/LEGAL.md): receive-only, what is decoded,
   privacy and licences.
-- For developers: [plugins](docs/PLUGINS.md),
+- For developers: [architecture](ARCHITECTURE.md),
+  [building](BUILD.md), [contributing](CONTRIBUTING.md),
+  [plugins](docs/PLUGINS.md),
   [the building model](docs/BUILDING_MODEL.md),
   [the measurement pipeline](docs/MEASUREMENT_PIPELINE.md),
   [calibration](docs/CALIBRATION.md),

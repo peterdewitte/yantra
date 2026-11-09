@@ -42,27 +42,47 @@ simulator radio plugin or recorded measurement files) (TST-60).
 
 ## Building and testing
 
-The yantra-radios submodule is needed for every build
+[BUILD.md](BUILD.md) has the dependencies, every build tree and the
+options; [ARCHITECTURE.md](ARCHITECTURE.md) the layers and threads. The
+yantra-radios submodule is needed for every build
 (`git submodule update --init --recursive`; its URL is relative,
-`../yantra-radios`, so yantra-radios is cloned next to yantra). The build
-uses only its radio API header so far (`yantra::radio_api`,
-`cmake/YantraRadios.cmake`); moving the pin is its own commit and needs
-Yantra's full test suite and the radio test kit to pass first (PLG-26). Builds and tests may use all
+`../yantra-radios`, so yantra-radios is cloned next to yantra). Yantra
+compiles only its radio API header (`yantra::radio_api`) and builds its
+radio plugins as a separate build (`cmake/YantraRadiosBuild.cmake`).
+Moving the pin is its own commit and needs Yantra's full test suite and
+the radio test kit to pass first (PLG-26). Builds and tests may use all
 cores:
 
     cmake --preset default            # or: cmake -S . -B build -G Ninja
     ninja -C build
     ctest --test-dir build -j"$(nproc)"
 
-Presets: `default` (build/), `scalar` (build-scalar/: `YANTRA_SIMD=OFF`,
-`YANTRA_BUILD_APP=OFF`, the plain C++ fallback must give the same results,
-TST-03), `ci` and `ci-scalar` (warnings are errors), `asan-ubsan` and
-`tsan` (TST-05).
+Before a commit: `ninja -C build` without warnings, the full `ctest`
+passing and `reuse lint` clean. A change to the measurement code, the ray
+tracer or build flags also runs the scalar tree (`cmake --preset scalar`,
+TST-03) and the sanitizer trees (`asan-ubsan`, `tsan`, TST-05) with
+`ctest --preset <tree>`; a change of the plugin set runs the plugins-off
+tree (PLG-01).
+
+### Adding a test
 
 - Every test runs under ctest (TST-01). Tests live in `tests/<module>/`;
   every `*.cpp` and `*.c` of a folder is linked into one doctest binary
-  `test_<module>`, picked up by a glob. A folder with its own
-  `CMakeLists.txt` is added as a subdirectory instead.
+  `test_<module>` with `tests/test_main.cpp`, picked up by a glob
+  (`yantra_add_test_dir` in `tests/CMakeLists.txt`; per-case ctests and
+  labels in `cmake/YantraTests.cmake`). A folder with its own
+  `CMakeLists.txt` is added as a subdirectory instead; test plugins and
+  other fixtures go in a subfolder so the glob does not pick them up.
+- Test data lives in `tests/fixtures/` or next to the test; golden files
+  are compared with `tests/golden.hpp`. Tests write only into their
+  scratch folder in the build tree and never use the real home folder
+  (set `YANTRA_USER_PLUGIN_DIR`, `XDG_*` as the existing tests do).
+- A new parser of untrusted input gets a fuzz target in `tests/fuzz`
+  (TST-12, BUILD.md).
+- A new window or dialog gets a UI lint visit
+  (`tests/app/ui/test_ui_lint.cpp`), NL/FR/DE texts
+  (`tools/ci/lint_ui.py`) and, when the manual shows it, a screenshot
+  scene (`app/gui/screenshot.cpp`, SCR-03).
 - Labels: `fast` (default), `slow`, `timing`, and `opt_in`. A `LABELS`
   file in a test folder (one label per line) replaces the default.
   Real-time checks carry `timing`; the sanitizer test presets leave them
@@ -84,6 +104,37 @@ TST-03), `ci` and `ci-scalar` (warnings are errors), `asan-ubsan` and
   under parallel load (`ctest -j"$(nproc)"`).
 - `tools/ci/lint.sh` checks shell, Python and YAML syntax (TST-02); it
   also runs as the ctest `repo_lint`, and `reuse lint` as `reuse_lint`.
+  The documentation checks (label `docs`) check relative links, the
+  images of the manual and README (SCR-07), code quoted in
+  docs/PLUGINS.md and the Doxygen reference of the plugin API.
+
+### CI
+
+GitHub Actions (`.github/workflows/`, BUILD.md "CI") runs the lint and a
+Linux build with warnings as errors and the fast tests on every push and
+pull request, and all trees with all tests nightly. The Windows workflow
+is written but not run (DEFERRED (Windows)).
+
+### Documentation
+
+- A change that users see updates the manual (`docs/manual/`), the
+  in-app help texts (DOC-07) and `CHANGELOG.md` (DOC-16).
+- A change of the plugin API updates `docs/PLUGIN_API_CHANGELOG.md`
+  (DOC-18) and the Doxygen comments of `include/yantra/plugin.h`.
+- A change of a stored file format updates its page in `docs/formats/`
+  (NFR-05) and its version number.
+- A complete example in the format or API docs gets the line
+  `<!-- example: <kind> -->` right before its code block (DOC-21): the
+  ctest `doc_examples` reads it back with the format's reader (the kinds
+  are listed in `tests/doc_examples/test_doc_examples.cpp`; an unknown
+  kind fails), and `doc_api_examples` runs the `api-shell` blocks of
+  `docs/API.md` against `yantra-probe --demo`. Shortened examples carry
+  no mark.
+- A change of the report or the demo regenerates `docs/samples/` with
+  `ninja -C build sample_report` in the same commit; a changed screen
+  regenerates its screenshots with `tools/screenshots/screenshots.py`.
+- Commit a document together with the files it links to, so every
+  commit passes the doc checks.
 
 ## Licensing
 
