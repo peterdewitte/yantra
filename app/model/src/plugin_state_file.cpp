@@ -49,6 +49,7 @@ std::int64_t i64(const json& j, const char* member) {
 
 plugin::Value value_of(const json& j) {
     const std::string t = str(j, "type");
+    if (t == "none") return plugin::Value{};  // written without "value" (value_json)
     const json& v = j.at("value");
     if (t == "bool") return v.get<bool>();
     if (t == "int") return v.get<std::int64_t>();

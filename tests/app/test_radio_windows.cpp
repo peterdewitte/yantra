@@ -198,6 +198,7 @@ TEST_CASE("RAD-47, NFR-05: the device settings file keeps every value type and s
         s.set_device_setting("radio.sim", "sim:0", "label", Value{std::string("lab")});
         s.set_device_setting("radio.sim", "sim:0", "scenario", Value{EnumValue{2}});
         s.set_device_setting("radio.sim", "sim:0", "gain_db", Value{14.0});  // replaces
+        s.set_device_setting("radio.sim", "sim:0", "unset", Value{});  // "none": stored without a value
         CHECK(s.save_error().empty());
         CHECK(fs::exists(file));
     }
@@ -208,7 +209,8 @@ TEST_CASE("RAD-47, NFR-05: the device settings file keeps every value type and s
     CHECK(s.setting("radio.sim", "folder") == "x");
     const auto v = s.device_settings("radio.sim", "sim:0");
     std::map<std::string, Value> m(v.begin(), v.end());
-    CHECK(v.size() == 6);
+    CHECK(v.size() == 7);
+    CHECK(std::holds_alternative<std::monostate>(m["unset"]));
     CHECK(std::get<double>(m["gain_db"]) == 14.0);
     CHECK(std::get<bool>(m["clipping"]));
     CHECK(std::get<std::uint64_t>(m["seed"]) == 7u);
