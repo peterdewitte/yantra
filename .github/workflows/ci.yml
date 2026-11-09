@@ -93,3 +93,31 @@ jobs:
           if-no-files-found: ignore
       - name: Timing-sensitive tests (retried once)
         run: ctest --test-dir build -L timing -LE slow --timeout 600 --output-on-failure --repeat until-pass:2
+
+  docs:
+    # DOC-20: the documentation built from Markdown to HTML and PDF
+    # (pandoc, WeasyPrint), every relative link and picture checked
+    # offline (external links are listed, never fetched), with the plugin
+    # API reference (DOC-17); the site is kept as an artifact.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install the documentation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ python3 pkg-config libsqlite3-dev libzstd-dev libhpdf-dev \
+            libglfw3-dev libgl-dev libcurl4-openssl-dev cargo rustc doxygen curl pandoc weasyprint
+      - name: Configure
+        run: cmake --preset ci
+      - name: Build the documentation and check links and pictures
+        run: cmake --build build --target docs
+      - name: Keep the documentation
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation
+          path: |
+            build/docs/site
+            !build/docs/site/build.log

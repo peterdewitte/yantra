@@ -71,3 +71,46 @@ if(YANTRA_BUILD_TESTS)
     endforeach()
   endif()
 endif()
+
+# DOC-20, DOC-02, DOC-03, DOC-06, DOC-17: `ninja docs` builds the user
+# manual (one page, HTML and PDF), the quick starts (EN, NL, FR, DE), the
+# method and legal notes and every other Markdown page to HTML with pandoc,
+# the PDFs with WeasyPrint (spec 16.2 build tools), adds the plugin API
+# reference (Doxygen, docs-plugin-api) and checks every link and picture
+# offline (tools/docs/build_docs.sh) into <build>/docs/site. The install
+# rules ship that site when it was built (packaging/deb/build_deb.sh
+# builds it first). Without pandoc or WeasyPrint the target fails; the
+# ctest docs_build then reports Skipped (no pandoc) or builds HTML only.
+set(YANTRA_DOCS_SITE ${CMAKE_CURRENT_BINARY_DIR}/site CACHE INTERNAL "Built documentation (ninja docs)")
+set(_docs_api)
+set(_docs_depends)
+if(TARGET docs-plugin-api)
+  set(_docs_api --plugin-api ${CMAKE_CURRENT_BINARY_DIR}/plugin-api/html)
+  set(_docs_depends docs-plugin-api)
+endif()
+add_custom_target(docs
+  COMMAND bash ${PROJECT_SOURCE_DIR}/tools/docs/build_docs.sh ${YANTRA_DOCS_SITE} --root ${PROJECT_SOURCE_DIR}
+          --require-pdf ${_docs_api}
+  COMMENT "Documentation (HTML and PDF) in ${YANTRA_DOCS_SITE}"
+  VERBATIM)
+if(_docs_depends)
+  add_dependencies(docs ${_docs_depends})
+endif()
+if(YANTRA_BUILD_TESTS)
+  # The same build into its own folder (never racing with the target),
+  # PDFs included when WeasyPrint is there; offline.
+  add_test(NAME docs_build
+           COMMAND bash ${PROJECT_SOURCE_DIR}/tools/docs/build_docs.sh ${CMAKE_CURRENT_BINARY_DIR}/site-check
+                   --root ${PROJECT_SOURCE_DIR})
+  set_tests_properties(docs_build PROPERTIES LABELS "docs" SKIP_RETURN_CODE 77 TIMEOUT 600)
+endif()
+
+# Installed documentation: the method and legal notes next to the manual
+# and quick starts (share/yantra, the manual links ../METHOD.md and
+# ../LEGAL.md), the changelog, and the built site with the manual PDF
+# (DOC-02) in share/doc/yantra/html when `ninja docs` ran.
+install(FILES ${PROJECT_SOURCE_DIR}/docs/METHOD.md ${PROJECT_SOURCE_DIR}/docs/LEGAL.md
+        DESTINATION share/yantra)
+install(FILES ${PROJECT_SOURCE_DIR}/CHANGELOG.md DESTINATION share/doc/yantra)
+install(DIRECTORY ${YANTRA_DOCS_SITE}/ DESTINATION share/doc/yantra/html OPTIONAL
+        PATTERN "build.log" EXCLUDE PATTERN "external-links.txt" EXCLUDE)

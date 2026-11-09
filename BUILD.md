@@ -23,7 +23,8 @@ package names (other distributions differ):
 | desktop app (`YANTRA_BUILD_APP`, ON) | `libglfw3-dev` (GLFW 3.3+), `libgl-dev` (OpenGL 3), `libcurl4-openssl-dev` (libcurl 7.85+: MAK sheet download DEMO-12, sharing EXP-07) |
 | radio plugins (yantra-radios) | `cargo` and `rustc` (its protocol crate); its bundled libraries (SoapySDR, osmo-tetra, libusb, ...) are built from source, no package needed |
 | tests | `python3-yaml` (YAML lint), `reuse` (`pipx install reuse`), `xvfb` and `libgl1-mesa-dri` (app launch and UI tests on software OpenGL; skipped without Xvfb) |
-| docs and screenshots | `doxygen` (plugin API reference), `curl` (API examples, DOC-21), `oxipng` (`cargo install oxipng`, screenshot size) |
+| docs and screenshots | `doxygen` (plugin API reference), `pandoc` and `weasyprint` (`ninja docs`: HTML and PDF, DOC-20), `curl` (API examples, DOC-21), `oxipng` (`cargo install oxipng`, screenshot size), `ffmpeg` (program only: the animated captures, SCR-06) |
+| packaging | `dpkg-deb` (package `dpkg`, the .deb, NFR-09) |
 
 Vendored in `third_party/` (no package): Dear ImGui, stb, nlohmann/json,
 CivetWeb, miniaudio, doctest and the yantra-radios submodule
@@ -173,6 +174,15 @@ binaries instead.
 - `ninja -C build docs-plugin-api`: the plugin API reference (Doxygen,
   DOC-17) in `build/docs/plugin-api/html`; the ctest `plugin_api_doxygen`
   fails on any Doxygen warning.
+- `ninja -C build docs` (DOC-20): every Markdown page to HTML with
+  pandoc, the user manual on one page (`docs/manual/manual.html` and
+  `.pdf`), the quick starts in every language and the method and legal
+  notes also to PDF with WeasyPrint (`pandoc`, `weasyprint`), the plugin
+  API reference in `docs/plugin-api`, all in `build/docs/site`; then
+  every relative link, anchor and picture is checked offline
+  (`tools/docs/build_docs.sh`; web links are listed in
+  `external-links.txt`, never fetched). The ctest `docs_build` does the
+  same into its own folder (skipped without pandoc).
 - `ninja -C build sample_report`: regenerates `docs/samples/` (the
   Fraunces demo report, DEMO-06); `sample_report_compare` checks it.
 - `python3 tools/screenshots/screenshots.py --build build`: renders the
@@ -201,7 +211,10 @@ the plugin headers and template, the plugins in `lib/yantra/plugins`
 (radio plugins in `lib/yantra/plugins/radios`), PDFium in `lib/yantra`,
 the desktop entry (`share/applications/yantra.desktop`), the logo as its
 icon (`share/icons/hicolor/<size>/apps/yantra.png`, `share/yantra/logo`,
-BRD-06), the fonts, branding, manual and demo projects in `share/yantra`,
+BRD-06), the fonts, branding, manual, quick starts, method and legal
+notes and demo projects in `share/yantra`, the changelog and, when
+`ninja docs` ran first, the built documentation with the manual PDF
+(DOC-02) in `share/doc/yantra/html`,
 the licence bundles in `share/licenses`, and yantra-radios' udev rules
 and RTL-SDR blacklist in `lib/udev/rules.d` and `lib/modprobe.d`. The
 ctest `install_destdir` (tests/install) installs into a DESTDIR in the
@@ -235,7 +248,8 @@ installs the kit, the plugin headers and the out-of-tree plugin template
 
 `.github/workflows/`: `ci.yml` (every push: lint and `reuse lint`, Linux
 x86-64 build with warnings as errors, fast tests, sample report, timing
-tests retried once), `nightly.yml` (default, scalar, plugins-off, asan,
+tests retried once; the docs job builds `ninja docs` and keeps the site
+as an artifact, DOC-20), `nightly.yml` (default, scalar, plugins-off, asan,
 tsan and arm64 trees with all tests including slow and opt-in),
 `screenshots.yml` (the screenshot set as an artifact, SCR-04) and
 `windows.yml` (MSYS2 UCRT64, written but not run: DEFERRED (Windows)).
