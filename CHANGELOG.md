@@ -189,6 +189,10 @@ own changes are in its CHANGELOG.md.
 
 ### Radio plugins (yantra-radios)
 
+- 2026-11-09: pinned to yantra-radios **v0.2.7** (commit 26c05ff): the
+  plugins and tools name no folder of the machine that built them, and
+  the installed plugins are checked for it. The plugins behave as in
+  v0.2.6. Radio API 1.0 unchanged.
 - 2026-11-06: pinned to yantra-radios **v0.2.6** (commit 5394318): the
   simulator change of 0.2.5 is taken back (plugin 0.2.4): a slowly
   simulated record has the time its position was taken again, so its
