@@ -20,3 +20,5 @@ The terminal's windows are the generated radio windows of chapter 2, filled from
 - Device info and self-test: manufacturer, model, firmware and serial number (TEI), registration and location area, and a self-test that checks the port, the AT replies, the radio info, the level, the registration and both cell commands, with what to do when an item fails.
 
 The serving and neighbour cell commands differ between terminal makers. The default profile speaks a documented example format; for other terminals enter their commands under Advanced settings (see the terminal's PEI manual).
+
+The terminal plugin is tested against a simulated terminal; it has not been checked with a real terminal yet (DEVICES.md of the yantra-radios project). A terminal measures with its own receiver and reports its own idea of the levels: compare it once with a calibrated SDR at the same spot before you mix their results in one report. The manual has no pictures of the terminal windows yet; they look like the radio windows of chapter 2.

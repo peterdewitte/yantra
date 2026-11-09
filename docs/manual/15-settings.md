@@ -9,7 +9,11 @@ File > Settings (Ctrl+,) holds the settings; they are kept in your user folder.
 
 ## 15.1 General settings
 
-The language (English, Dutch, French, German), the theme (dark, light, high contrast), the touch layout with controls of at least 48 pixels for tablets, the UI scale, the tooltips and their delay, and the window system.
+The language (English, Dutch, French, German), the theme (dark, light, high contrast), the touch layout with controls of at least 48 pixels for tablets, the UI scale (75 to 250 %), the tooltips and their delay, and the window system (Automatic, X11 or Wayland; it applies at the next start, and the command line option `--window-system` overrides it). Apply or OK applies the changes, Cancel drops them.
+
+### Configuration profiles
+
+A configuration profile carries your way of working from one PC to another, or keeps several set-ups on one PC. Save profile... writes the applied settings (theme, layers, language, touch layout, survey thresholds, sounds and level alerts, sharing), the plugin and radio device settings and the calibration table into one file (`*.yprofile`). Load profile... uses a profile: the whole file is checked first, and a damaged one changes nothing; then the open project closes, the settings, the plugin and device settings and the calibration table are replaced, and the plugins load again. Your recent projects and the tour's progress stay as they are on this PC. Cell databases are not part of a profile: they belong to their projects. The file format is in `docs/formats/PROFILE.md`.
 
 ![The touch layout on a 10-inch tablet](../img/touch_dark.png) [light theme](../img/touch_light.png)
 ![The survey view in Dutch](../img/survey_nl_dark.png) [light theme](../img/survey_nl_light.png)

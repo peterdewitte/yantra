@@ -3,13 +3,21 @@ SPDX-FileCopyrightText: 2026 The Yantra contributors
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
+![Yantra](../img/yantra_logo_128.png)
+
 # Yantra user manual
 
-The user manual (DOC-02). It is installed with the app and opened from the help
-button of every window and from Help > User manual, so it works offline
-(DOC-07 e). Each chapter is one file; each section is a `## <number> <title>`
-heading, the number the in-app help names ("See manual 13.2"). The list of
-sections is `app/model/src/manual.cpp`; `tools/lint_ui` checks that both agree.
+Yantra measures TETRA coverage inside buildings, floor by floor: import the floor plans, draw walls and antennas, walk the floors with a radio, and get coverage maps and an acceptance report. Yantra is made by curtat.be (https://curtat.be) as a reference on building new programs with Claude, Anthropic's AI assistant.
+
+This manual describes Yantra as it is today. It is installed with the app and opened from the Help button of every window, with F1 and from Help > User manual, so it works offline. Each section has a number, the number the in-app help names ("See manual 13.2").
+
+Start here:
+
+- [Quick starts](../quickstart/README.md): one page each, "first indoor project", "indoor walk test with acceptance report" and "calibrate a radio".
+- [Measurement method note](../METHOD.md): what is measured and how, so reports can be defended to a network operator.
+- [Legal and scope note](../LEGAL.md): receive-only, what is and is not decoded, privacy and licences.
+
+Chapters (chapters 2 to 12 follow sections 2 to 12 of Yantra's specification, chapter 13 its section 21, indoor projects):
 
 - [1 Getting started](01-getting-started.md)
 - [2 Radios](02-radios.md)
@@ -28,3 +36,7 @@ sections is `app/model/src/manual.cpp`; `tools/lint_ui` checks that both agree.
 - [15 Settings and reset](15-settings.md)
 - [16 Keyboard shortcuts](16-keyboard-shortcuts.md)
 - [17 FAQ and troubleshooting](17-troubleshooting.md)
+
+The pictures are made by the app itself from the demo project (the public-domain plans of the Fraunces Tavern) and the simulated radio, so they show no real network.
+
+For maintainers: each chapter is one file; each section is a `## <number> <title>` heading, and unnumbered `###` headings divide a section further. The list of numbered sections is in `app/model/src/manual.cpp` (with its Dutch, French and German titles); `tools/ci/lint_ui.py` checks that both agree and that every "manual N.M" in the app exists.

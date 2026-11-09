@@ -22,7 +22,19 @@ Files go into the *exports* folder next to the project unless you choose another
 
 ## 10.2 The coverage and acceptance report
 
-File > Report makes the indoor coverage and acceptance report as PDF, HTML or both. Each floor has its own section: the plan with every measured point, the coverage map when one is stored, the statistics, the level histogram, the coverage at the threshold and the further thresholds you type, and the result of each acceptance profile. Type your name as the *Surveyor*: it is printed on the report and never stored. *Table of every point* adds the list of all points of each floor. The report is written in the background into the *reports* folder next to the project. ![The Report dialog](../img/report_dark.png) [light theme](../img/report_light.png)
+File > Report makes the indoor coverage and acceptance report as PDF, HTML or both. Each floor has its own section: the plan with every measured point, the coverage map when one is stored, the statistics, the level histogram, the coverage at the threshold and the further thresholds you type, and the result of each acceptance profile. Type your name as the *Surveyor*: it is printed on the report and never stored. *Table of every point* adds the list of all points of each floor. The report is written in the background into the *reports* folder next to the project.
+
+![The Report dialog](../img/report_dark.png) [light theme](../img/report_light.png)
+
+What the report holds, in order:
+
+- The cover: project, site, network operator, the surveyor, the measurement dates, floors, points and equipment, and the curtat.be reference with its logo (also in the footer of every page).
+- The measurement metadata: the radios with driver, serial number and plugin, their calibration status (valid, expired, uncalibrated, or "simulated (practice)" for a mouse survey with the practice calibration, 7.1), the cell database, the plugins and the walk tests per floor. Uncalibrated (dBFS) levels are noted.
+- The building summary: every floor's points together and the acceptance profiles over the building with PASS or FAIL.
+- One section per floor, as listed above. The share of measured points and the share of the floor area (interpolated) are always given side by side, never mixed.
+- The network verification: the cells received in the walks against the cell database, and the neighbour cross-check (chapter 8).
+
+A demo project's report carries the DEMO label. A licence-restricted plan (the MAK sheets of the tour, 1.3) is drawn only from your own cached copy, with its credit and licence under the picture; without the cached copy the report leaves the plan out.
 
 A [sample report](../samples/fraunces_report.pdf) of the demo project shows the result.
 

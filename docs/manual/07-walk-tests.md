@@ -5,16 +5,31 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # 7 Walk tests
 
-A walk test ties the measurements to positions on the floor plan.
+A walk test ties the measurements to positions on the floor plan. It belongs to one floor of the project; a floor can have many walk tests, and every walk test keeps its points, its radio, its calibration and a recording (6.1). The floor needs a scale (13.2) for distances, binning and interpolation; points can be placed on a floor without a scale, but they cannot be interpolated.
 
 ## 7.1 Walking a floor
 
-Start a walk on the Walk page, click your position on the plan at every turn and walk at a steady pace; Yantra places the measurements along the line between the clicks.
+On the Walk page of the side panel choose the radio (Search again finds the radios), the kind of walk and its name, then Start. While a walk runs the left mouse button belongs to the walk: the editing tools are off, and middle or right drag still pans the plan. Every measurement cycle (one per second) becomes at most one point. Stop ends the walk test.
+
+The kinds:
+
+- Point and click: click your start point, walk at a steady pace and click where you are at the end of a straight stretch. Yantra spreads the cycles of the stretch evenly along the line between the two clicks. The next click starts a new stretch; cycles before the first click and between an end and the next start get no position.
+- Continuous: every click ends the open stretch and starts the next one, so you click at every turn without a gap.
+- Manual points: click a spot (a room) and stand there: the cycles of the next few seconds (Seconds per point, 5 by default) become one averaged point at the click. Levels are averaged as power.
+- Mouse survey (simulator only, below).
+
+Pause drops the open stretch and its waiting cycles; the next click starts again. Delete last removes the last stretch's points. A walk test belongs to the floor it started on: stop it, choose the next floor's tab and start a new walk test there.
+
+The points are drawn as they come, coloured by the serving level with the legend of the plan; rest the pointer on a point to see its values.
 
 ![A walk test on the first floor, with the legend](../img/walk_test_dark.png) [light theme](../img/walk_test_light.png)
 
-With the simulator as the radio, the Mouse survey kind lets the mouse stand in for you: move it slowly over the plan and each point is stored where the simulator measured; a click on the plan runs the interpolation; Esc stops. When your calibration table has no entry for the simulator, the survey uses a simulated practice calibration, so its levels are in dBm. The Walk page and the report say so; it is not added to your table, and a real radio never gets one.
+### Mouse survey
+
+With the simulator as the radio, the Mouse survey kind lets the mouse stand in for you: move it slowly over the plan and the simulator measures where the mouse is, with the walls and antennas of the floor. A point is stored at most every Point spacing (0.25 m by default); above the Speed warning (2 m/s on the plan's scale) the page asks you to move slower. The cycles run five times a second. A click on the plan runs the interpolation of the floor (13.5); Esc or Stop ends the survey.
+
+When your calibration table has no entry for the simulator, the survey uses a simulated practice calibration, so its levels are in dBm and can be interpolated: the simulator's own calibration offset, held only while the survey runs. The Walk page says "Levels: simulated practice calibration (dBm), for this mouse survey only", and the calibration window and the report show it as "simulated (practice)". It applies only to the simulator: it is never written to your calibration table, your own calibration for the simulator is used instead when you made one (3.1), and a real radio never gets one.
 
 ## 7.2 Manual points
 
-A manual point measures for a few seconds at one spot you click on the plan.
+A manual point measures for a few seconds at one spot you click on the plan: choose Manual points as the kind, set Seconds per point, Start, then click each spot and stand still until the point appears. Use it for rooms you cannot walk through, or for a fixed grid of test points as an acceptance test may ask. Each point averages the cycles of its seconds: levels, C1 and quality in dB as power, other values arithmetically.
