@@ -85,6 +85,9 @@ ReplaySession::~ReplaySession() { close(); }
 
 void ReplaySession::set_catalog(std::shared_ptr<measure::TechnologyCatalog> catalog) { catalog_ = std::move(catalog); }
 void ReplaySession::set_audio(std::shared_ptr<AudioIo> audio) { audio_ = std::move(audio); }
+void ReplaySession::add_observer(std::shared_ptr<measure::MeasurementObserver> observer) {
+    if (observer) observers_.push_back(std::move(observer));
+}
 
 fs::path ReplaySession::folder() const { return project_->path().parent_path() / "recordings"; }
 
@@ -119,6 +122,7 @@ Result ReplaySession::open_files(const std::vector<fs::path>& files, const std::
     listener_->monitor = monitor_;
     listener_->replay = replay_.get();
     replay_->add_observer(monitor_);
+    for (const auto& extra : observers_) replay_->add_observer(extra);
     replay_->add_listener(listener_);
     player_ = std::make_unique<rec::ReplayPlayer>(replay_);
     player_->seek(0);

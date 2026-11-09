@@ -70,6 +70,11 @@ public:
 
     void set_catalog(std::shared_ptr<measure::TechnologyCatalog> catalog);
     void set_audio(std::shared_ptr<AudioIo> audio);
+    /// Another observer of the played replay (not of the pass that fills
+    /// the graphs): e.g. measure::FeatureFeed, so feature plugins see the
+    /// replayed records as they see a walk test's (PLG-02, PLG-24). Kept
+    /// for every recording opened later.
+    void add_observer(std::shared_ptr<measure::MeasurementObserver> observer);
 
     /// The recordings of the project's folder.
     std::vector<RecordingChoice> recordings() const;
@@ -103,6 +108,7 @@ private:
     std::shared_ptr<SurveyMonitor> monitor_;
     std::shared_ptr<measure::TechnologyCatalog> catalog_;
     std::shared_ptr<AudioIo> audio_;
+    std::vector<std::shared_ptr<measure::MeasurementObserver>> observers_;
     std::shared_ptr<recording::Replay> replay_;
     std::unique_ptr<recording::ReplayPlayer> player_;
     std::shared_ptr<Listener> listener_;

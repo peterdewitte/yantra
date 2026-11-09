@@ -823,13 +823,17 @@ plugin; the app gives it two host services of plugin API 1.1:
   status line. `play`, `rotate` and `quit` are refused: they belong to the
   headless runner `yantra-probe` ([PROBE.md](PROBE.md)).
 
-The walk test's pipeline has a `measure::FeatureFeed` observer, so
-feature plugins see the records (`on_record`) for their live view. The
+The walk test's pipeline and the replay's player (ReplaySession::
+add_observer; not the pass that fills the graphs) each have a
+`measure::FeatureFeed` observer, so feature plugins see the live and the
+replayed records (`on_record`) for their live view, as with the headless
+runner's `play` (step 11.2). The
 probe's window, Tools > Remote probes, starts and stops this app's API and
 follows other probes (the central viewer, [API.md](API.md)). The app
 opens no socket without the probe plugin, or with it but without
-`api.listen`. Tests: tests/app/test_app_control.cpp, the UI lint (the
-window), and tests/api (TST-51, on the headless runner).
+`api.listen`. Tests: tests/app/test_app_control.cpp (the replay case feeds the C test
+plugin's feature), the UI lint (the window), and tests/api (TST-51, on
+the headless runner).
 
 ## Screenshots and layout check (step 9.11)
 

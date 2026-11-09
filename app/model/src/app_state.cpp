@@ -530,6 +530,9 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     });
     replay_ = std::make_unique<ReplaySession>(project_, monitor_);
     replay_->set_audio(audio_);
+    // Feature plugins see the replayed records too, as with the headless
+    // runner's play (API-02).
+    replay_->add_observer(std::make_shared<measure::FeatureFeed>(plugins_));
     ReportExport::Context oc;
     oc.demo_label = [this] { return demo_label_; };
     oc.technologies = [this] { return technologies(); };

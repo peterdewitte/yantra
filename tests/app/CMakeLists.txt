@@ -39,6 +39,12 @@ target_compile_definitions(test_app PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scratch}
 # the example beacon plugin; step 9.8: the cell database, network checks
 # and reselection with the TETRA plugin.
 add_dependencies(test_app yantra_example_beacon yantra_tetra yantra_probe)
+# Step 11.2: the C test plugin's feature (tests/plugin_loader) sees the
+# app's replay (FeatureFeed, PLG-02).
+# The target is defined later (tests/plugin_loader); the generator
+# expression and the dependency resolve at generation time.
+add_dependencies(test_app ctest_ok)
+target_compile_definitions(test_app PRIVATE YANTRA_TEST_FEATURE_PLUGIN="$<TARGET_FILE:ctest_ok>")
 if(TARGET demo_fraunces)
   add_dependencies(test_app demo_fraunces)
   target_compile_definitions(test_app PRIVATE YANTRA_TEST_DEMO_PROJECT="${YANTRA_DEMO_FRAUNCES_DIR}/fraunces.yantra")
