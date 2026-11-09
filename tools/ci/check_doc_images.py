@@ -10,7 +10,7 @@ The manual (docs/manual/*.md), README.md, the quick starts
 docs/quickstart/<language>/) and the method and legal notes (docs/METHOD.md,
 docs/LEGAL.md, DOC-03..05) reference images from
 docs/img/ only, as ![text](path) or [text](path) to a .png/.jpg/.gif/
-.webp/.svg file; every referenced image must exist, and every image in
+.webp/.svg file or a .webm capture (SCR-06); every referenced image must exist, and every image in
 docs/img/ must be referenced by one of them (the screenshot set of
 tools/screenshots, SCR-03, plus the Yantra logo yantra_logo_*.png, a
 copy of data/logo for the README and the manual, BRD-06). Exit 1 on a
@@ -20,8 +20,8 @@ import os
 import re
 import sys
 
-REF = re.compile(r"\]\(([^)\s]+\.(?:png|jpe?g|gif|webp|svg))\)", re.IGNORECASE)
-IMAGE_EXT = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg")
+REF = re.compile(r"\]\(([^)\s]+\.(?:png|jpe?g|gif|webp|svg|webm))\)", re.IGNORECASE)
+IMAGE_EXT = (".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".webm")
 
 
 def main():

@@ -114,3 +114,19 @@ install(FILES ${PROJECT_SOURCE_DIR}/docs/METHOD.md ${PROJECT_SOURCE_DIR}/docs/LE
 install(FILES ${PROJECT_SOURCE_DIR}/CHANGELOG.md DESTINATION share/doc/yantra)
 install(DIRECTORY ${YANTRA_DOCS_SITE}/ DESTINATION share/doc/yantra/html OPTIONAL
         PATTERN "build.log" EXCLUDE PATTERN "external-links.txt" EXCLUDE)
+
+# SCR-06: `ninja captures` makes the animated capture of the indoor
+# workflow (docs/img/indoor_workflow.gif and .webm, under 10 s) from the
+# app's screenshot-mode frames with ffmpeg (tools/screenshots/captures.py;
+# Xvfb, ffmpeg). An intended change commits the new files.
+if(TARGET yantra)
+  find_package(Python3 COMPONENTS Interpreter QUIET)
+  add_custom_target(captures
+    COMMAND ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/screenshots/captures.py --build ${PROJECT_BINARY_DIR}
+    DEPENDS yantra
+    COMMENT "Animated capture of the indoor workflow (SCR-06) in docs/img"
+    VERBATIM)
+  if(TARGET demo_fraunces)
+    add_dependencies(captures demo_fraunces)
+  endif()
+endif()

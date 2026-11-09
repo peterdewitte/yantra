@@ -189,6 +189,10 @@ binaries instead.
   screenshot set (SCR-01..04) into `docs/img` on a private Xvfb display
   and shrinks it with oxipng; `--only NAME` for some scenes, `--compare
   DIR` for the visual comparison (SCR-05).
+- `ninja -C build captures`: the animated capture of the indoor workflow
+  (SCR-06), `docs/img/indoor_workflow.gif` (about 550 kB) and `.webm`
+  (about 230 kB), 8 s each, from the app's screenshot-mode frames joined
+  by ffmpeg (`tools/screenshots/captures.py`).
 
 ## Build paths in binaries (NFR-09)
 

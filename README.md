@@ -98,6 +98,12 @@ simulated walks) directly.
 
 ![The start screen](docs/img/start_menu_dark.png)
 
+The indoor workflow in eight seconds, from the start screen through the
+plan import, the walk test and the coverage map to the report (also as
+[WebM](docs/img/indoor_workflow.webm)):
+
+![The indoor workflow: plan import, walk test, coverage map, report](docs/img/indoor_workflow.gif)
+
 ## Documentation
 
 - [User manual](docs/manual/README.md): every window and function; also
