@@ -89,7 +89,7 @@ position the host's context callbacks give) and uses the same engine.
 | Thread | Owner | What it does | Joined |
 |---|---|---|---|
 | Host threads | the host | call the plugin's functions; `push_record`, `stream_event` and `devices_changed` arrive on plugin threads | |
-| Stream thread | one per streaming device (every plugin) | reads samples (or the terminal), runs the engine, pushes records and events | in `stop_stream` and `close` |
+| Stream thread | one per streaming device (every plugin) | reads samples (or the terminal), runs the engine on a read in pieces of 16384 samples and stops between two pieces (RAD-15), pushes records and events | in `stop_stream` and `close` |
 | Engine workers | `MeasurementEngine` (setting `threads`, default 2: the stream thread plus one worker) | per-carrier channelizing and decoding of one block; `process()` waits for them, so results do not depend on the thread count | when the engine is destroyed |
 | Hot-plug watcher | SoapySDR plugins, PEI plugin | scans for devices (0.5 s), sends `devices_changed`, marks an open device LOST and reopens it when it is back; events are delivered under the plugin and device locks | at plugin shutdown |
 | Host notifier | yantra-radio-host | delivers context events to SCENE plugins, as Yantra does | at host shutdown |

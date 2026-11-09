@@ -119,6 +119,8 @@ install(FILES README.md CHANGELOG.md ARCHITECTURE.md BUILD.md CONTRIBUTING.md CO
               DEVICES.md REAL_WORLD_CHECKLIST.md ${_docs}
         DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/yantra-radios)
 install(DIRECTORY docs/plugins DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/yantra-radios)
+# Where the README's images look for them.
+install(DIRECTORY docs/img DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/yantra-radios/docs)
 
 # Release folder <build>/release/v<version> (RAD-98, RAD-134, RAD-137):
 # the plugin package with the licence bundle, the corresponding source,

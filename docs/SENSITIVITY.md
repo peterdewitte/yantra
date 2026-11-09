@@ -47,7 +47,7 @@ receiver side and the phase noise model in `src/receive.*`).
   the carrier, as the carrier search does (its spectrum peak; the
   demodulator takes the rest).
 - **Channel models**: the generator's propagation conditions of EN 300
-  392-2 (`gen/channel.hpp`, tested in `tests/gen_sim`): static, TU50 (0 and
+  392-2 (`gen/include/yantra/gen/channel.hpp`, tested in `tests/gen_sim`): static, TU50 (0 and
   5 us at -22.3 dB, 50 km/h) and HT200 (0 and 15 us at -8.6 dB, 200 km/h),
   independently Rayleigh-fading taps.
 - **Each run** starts two frames before frame 18 of a random multiframe;

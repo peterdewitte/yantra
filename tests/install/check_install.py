@@ -44,6 +44,7 @@ EXPECTED = [
     "usr/share/doc/yantra-radios/DEVICES.md",
     "usr/share/doc/yantra-radios/REAL_WORLD_CHECKLIST.md",
     "usr/share/doc/yantra-radios/plugins/hackrf.md",
+    "usr/share/doc/yantra-radios/docs/img/radio_list_light.png",
     "usr/share/doc/yantra-radios/README.md",
     "usr/share/doc/yantra-radios/RADIO_PLUGINS.md",
     "usr/share/doc/yantra-radios/YANTRA_HACKRF.md",

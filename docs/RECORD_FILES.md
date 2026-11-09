@@ -41,7 +41,7 @@ conversions from the C structs, library `yantra::radios_common`). Example:
 |---|---|---|
 | `format` | string | `"yantra-radio-records"` |
 | `version` | uint | `1` |
-| `producer` | string | Program and version, e.g. `"yantra-radio-host 0.1.0"` |
+| `producer` | string | Program and version, e.g. `"yantra-radio-host 0.2.1"` |
 | `created_utc_ns` | int | When the file was started, ns since 1970-01-01 UTC; 0 if unknown |
 | `plugin.id`, `name`, `version`, `technology_id`, `licence` | string | From the plugin's descriptor (RAD-12) |
 | `plugin.api_version` | string | Radio API version of the plugin, `"1.0"` (RAD-11) |

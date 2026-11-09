@@ -11,6 +11,13 @@ path = ["LICENSE"]
 SPDX-FileCopyrightText = "2007 Free Software Foundation, Inc."
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+# Screenshots copied from Yantra's docs/img (made by its screenshot mode,
+# with the public-domain HABS sheets of the Fraunces Tavern).
+[[annotations]]
+path = ["docs/img/*.png"]
+SPDX-FileCopyrightText = "2026 The Yantra contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
 # Files without comment syntax: the git submodule list (the submodules
 # keep their own licences, THIRD_PARTY.md; reuse lint skips them) and the
 # CMake presets (JSON).

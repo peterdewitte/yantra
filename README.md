@@ -57,11 +57,21 @@ and how: [DEVICES.md](DEVICES.md) (none on real hardware yet).
 
 ## Status
 
-Release 0.2.6 (2026-11-06, tag v0.2.6; [CHANGELOG.md](CHANGELOG.md)): the simulator stamps a slowly simulated record with the time its position was taken again (0.2.5 taken back).
+Release 0.2.7 (2026-11-09, tag v0.2.7; [CHANGELOG.md](CHANGELOG.md)): the release files name no folder of the machine that built them; the documentation is checked against this release.
 Linux x86-64 is built and tested; Linux arm64 is in the nightly CI; the
-Windows build (MSYS2 UCRT64, `.dll`) is written and not yet run. The
-screenshots of the radio windows Yantra generates from the plugins'
-settings follow with the Yantra build that pins this release.
+Windows build (MSYS2 UCRT64, `.dll`) is written and not yet run.
+
+## In Yantra
+
+A plugin describes its settings, presets and sensors as data, and Yantra
+makes the windows from them (RAD-40, docs/RADIO_PLUGINS.md). From Yantra's
+demo project, with the simulator and a test build of the HackRF plugin:
+
+![Yantra's radio list: what each plugin found, and the simulator's device](docs/img/radio_list_light.png)
+
+![Radio settings generated from the HackRF plugin](docs/img/radio_hackrf_settings_light.png)
+
+![Radio settings generated from the simulator plugin](docs/img/radio_simulator_settings_light.png)
 
 ## Quick start
 
