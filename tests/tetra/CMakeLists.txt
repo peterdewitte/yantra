@@ -14,4 +14,8 @@ target_compile_definitions(test_tetra PRIVATE
   TETRA_PLUGIN_PATH="$<TARGET_FILE:yantra_tetra>"
   TETRA_TESTDATA="${PROJECT_SOURCE_DIR}/plugins/tetra/testdata"
   RADIO_PLUGIN_DIR="${YANTRA_RADIO_PLUGIN_DIR}")
+# The terminal plugin is shipped unless YANTRA_RADIOS_PEI=OFF (PLG-01 check).
+if("pei" IN_LIST _yr_shipped)
+  target_compile_definitions(test_tetra PRIVATE TETRA_TEST_PEI=1)
+endif()
 yantra_doctest_tests(test_tetra GROUP test_tetra LABELS fast)

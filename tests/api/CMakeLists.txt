@@ -5,6 +5,10 @@
 # api_client_test.py, Python standard library) against yantra-probe in
 # demo mode with the probe plugin bound to loopback; and the probe
 # plugin's parts (auth, routing, live view) as unit tests.
+# Nothing to test without the probe plugin (YANTRA_PLUGIN_PROBE=OFF).
+if(NOT TARGET yantra_probe)
+  return()
+endif()
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 add_test(NAME api_client

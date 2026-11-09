@@ -10,6 +10,10 @@
 # the public plugin API only and exports only its entry point.
 # Copied from yantra-v1 c24e8f5: core/engine/CMakeLists.txt (the CivetWeb
 # library), adapted for PLG-24.
+# YANTRA_PLUGIN_PROBE=OFF leaves the plugin out (the PLG-01 check, step 11.2).
+if(NOT YANTRA_PLUGIN_PROBE)
+  return()
+endif()
 
 add_library(yantra_civetweb STATIC ${PROJECT_SOURCE_DIR}/third_party/civetweb/src/civetweb.c)
 target_include_directories(yantra_civetweb SYSTEM PUBLIC ${PROJECT_SOURCE_DIR}/third_party/civetweb/include)

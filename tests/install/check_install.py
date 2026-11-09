@@ -20,7 +20,7 @@ import shutil
 import subprocess
 import sys
 
-SHIPPED = ["hackrf.so", "pei.so", "simulator.so", "soapysdr.so"]
+SHIPPED = ["hackrf.so", "pei.so", "simulator.so", "soapysdr.so"]  # default of --shipped
 TEST_ONLY = ["beacon.so", "soapysdr_fake.so", "hackrf_fake.so"]
 PLUGIN_DIR = "usr/lib/yantra/plugins/radios"
 LICENCES = "usr/share/licenses/yantra-radios"
@@ -36,7 +36,7 @@ EXPECTED = [
     f"{LICENCES}/hackrf/COPYRIGHT.txt",
     # The TETRA technology plugin in the application's plugin folder (PLG-09, PLG-11).
     "usr/lib/yantra/plugins/tetra.so",
-] + [f"{PLUGIN_DIR}/{p}" for p in SHIPPED]
+]
 
 
 def walk(root: str) -> list:
@@ -54,7 +54,10 @@ def main() -> int:
     ap.add_argument("--radios-source", required=True, help="yantra-radios source (completeness check)")
     ap.add_argument("--plugins", required=True, help="the build tree's shipped radio plugin folder")
     ap.add_argument("--app", type=int, default=1, help="1: the application is built")
+    ap.add_argument("--shipped", default=",".join(p[:-3] for p in SHIPPED),
+                    help="comma-separated radio plugins the build ships (YANTRA_RADIOS_PEI=OFF: without pei)")
     a = ap.parse_args()
+    shipped = sorted(f"{p}.so" for p in a.shipped.split(",") if p)
     root = os.path.abspath(a.destdir)
     shutil.rmtree(root, ignore_errors=True)
     env = dict(os.environ, DESTDIR=root)
@@ -77,15 +80,15 @@ def main() -> int:
            "usr/share/yantra/fonts/JetBrainsMono-Regular.ttf", "usr/share/yantra/fonts/JetBrainsMono-OFL.txt",
            "usr/share/yantra/branding/curtat_logo_light_256.png", "usr/share/yantra/branding/curtat_logo_light_64.png",
            "usr/share/yantra/branding/curtat_logo.svg", "usr/share/yantra/logo/png/yantra_logo_32.png"]
-    expected = EXPECTED + (app if a.app else [])
+    expected = EXPECTED + [f"{PLUGIN_DIR}/{p}" for p in shipped] + (app if a.app else [])
     for f in expected:
         if f not in files:
             problems.append(f"missing: {f}")
     plugins = os.path.join(root, PLUGIN_DIR)
     installed = sorted(os.listdir(plugins)) if os.path.isdir(plugins) else []
-    if installed != sorted(SHIPPED):
-        problems.append(f"{PLUGIN_DIR} holds {installed}, expected {sorted(SHIPPED)}")
-    for p in SHIPPED:
+    if installed != shipped:
+        problems.append(f"{PLUGIN_DIR} holds {installed}, expected {shipped}")
+    for p in shipped:
         built, inst = os.path.join(a.plugins, p), os.path.join(plugins, p)
         if os.path.exists(inst) and not filecmp.cmp(built, inst, shallow=False):
             problems.append(f"{PLUGIN_DIR}/{p} differs from the built plugin")
@@ -108,7 +111,7 @@ def main() -> int:
     # They load from the installed folder (test host of the same release).
     host = os.path.join(a.radios_stage, "bin", "yantra-radio-host")
     if os.path.exists(host):
-        for p in SHIPPED:
+        for p in shipped:
             r = subprocess.run([host, "info", "--plugin", os.path.join(plugins, p)], capture_output=True, text=True)
             if r.returncode != 0:
                 problems.append(f"installed {p} does not load: {r.stderr.strip()[:200]}")

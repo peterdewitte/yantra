@@ -27,6 +27,8 @@ jobs:
         include:
           - { os: ubuntu-24.04,     name: x86-64, preset: ci,         skip_labels: "" }
           - { os: ubuntu-24.04,     name: scalar, preset: ci-scalar,  skip_labels: "" }
+          # PLG-01: everything without the probe and the TETRA terminal plugin.
+          - { os: ubuntu-24.04,     name: plugins-off, preset: ci-plugins-off, skip_labels: "" }
           - { os: ubuntu-24.04,     name: asan,   preset: asan-ubsan, skip_labels: timing }
           - { os: ubuntu-24.04,     name: tsan,   preset: tsan,       skip_labels: timing }
           - { os: ubuntu-24.04-arm, name: arm64,  preset: ci,         skip_labels: "" }

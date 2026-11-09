@@ -575,9 +575,9 @@ TEST_CASE("radio host: shipped radio plugins load from the radio plugin folder (
     yr::RadioHostConfig c = s.config();
     c.folders = {dir};
     yr::RadioHost host(std::move(c));
-    CHECK(host.load_all() == 4);
+    CHECK(host.load_all() == SHIPPED_RADIO_PLUGINS);
     const auto list = host.list();
-    REQUIRE(list.size() == 4);
+    REQUIRE(list.size() == SHIPPED_RADIO_PLUGINS);
     for (const auto& e : list) {
         INFO(e.path.string() << ": " << e.message);
         CHECK(e.status == yr::RadioPluginStatus::Enabled);

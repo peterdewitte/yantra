@@ -32,6 +32,21 @@
                           "YANTRA_WERROR": "ON" }
     },
     {
+      "name": "plugins-off",
+      "displayName": "PLG-01 check: without the probe and the TETRA terminal plugin",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-plugins-off",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "YANTRA_PLUGIN_PROBE": "OFF", "YANTRA_RADIOS_PEI": "OFF" }
+    },
+    {
+      "name": "ci-plugins-off",
+      "displayName": "CI PLG-01 check: without the probe and the TETRA terminal plugin, warnings are errors",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-plugins-off",
+      "cacheVariables": { "CMAKE_BUILD_TYPE": "RelWithDebInfo", "YANTRA_PLUGIN_PROBE": "OFF", "YANTRA_RADIOS_PEI": "OFF",
+                          "YANTRA_WERROR": "ON" }
+    },
+    {
       "name": "asan-ubsan",
       "displayName": "AddressSanitizer + UBSan developer build (TST-05)",
       "generator": "Ninja",
@@ -51,12 +66,15 @@
     { "name": "scalar", "configurePreset": "scalar" },
     { "name": "ci", "configurePreset": "ci" },
     { "name": "ci-scalar", "configurePreset": "ci-scalar" },
+    { "name": "plugins-off", "configurePreset": "plugins-off" },
+    { "name": "ci-plugins-off", "configurePreset": "ci-plugins-off" },
     { "name": "asan-ubsan", "configurePreset": "asan-ubsan" },
     { "name": "tsan", "configurePreset": "tsan" }
   ],
   "testPresets": [
     { "name": "default", "configurePreset": "default", "output": { "outputOnFailure": true } },
     { "name": "scalar", "configurePreset": "scalar", "output": { "outputOnFailure": true } },
+    { "name": "plugins-off", "configurePreset": "plugins-off", "output": { "outputOnFailure": true } },
     {
       "name": "fast",
       "displayName": "Fast tests only (every change, TST-02)",

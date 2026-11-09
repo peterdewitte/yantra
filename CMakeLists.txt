@@ -25,6 +25,11 @@ option(YANTRA_SIMD "Build the SIMD kernels (OFF: plain C++ fallback only, TST-03
 option(YANTRA_BUILD_APP "Build the desktop application (needs the GUI libraries)" ON)
 option(YANTRA_BUILD_TESTS "Build the test suite and register it with ctest" ON)
 option(YANTRA_WERROR "Treat compiler warnings as errors (CI, TST-02)" OFF)
+# PLG-01 check (step 11.2): the optional plugins can be left out of a
+# build; every test of the core, the indoor work and the app then still
+# passes (preset plugins-off, ctest plugins_off_check).
+option(YANTRA_PLUGIN_PROBE "Build the probe feature plugin (remote API, PLG-24); OFF: no network listener" ON)
+option(YANTRA_RADIOS_PEI "Ship the TETRA terminal radio plugin pei (RAD-80, TRM-01)" ON)
 # NFR-01/NFR-09: the AGPL source link of About, the remote API status
 # reply and the probe plugin, and the packages' source field.
 set(YANTRA_SOURCE_URL "https://github.com/peterdewitte/yantra" CACHE STRING
@@ -116,4 +121,5 @@ message(STATUS "Yantra ${PROJECT_VERSION}: SIMD=${YANTRA_SIMD} "
                "APP=${YANTRA_BUILD_APP} TESTS=${YANTRA_BUILD_TESTS} "
                "SANITIZER='${YANTRA_SANITIZER}' "
                "RADIO_API=${YANTRA_RADIO_API_VERSION_MAJOR}.${YANTRA_RADIO_API_VERSION_MINOR} "
-               "RADIOS=${YANTRA_RADIOS_KIND} PDFIUM=${YANTRA_PDFIUM_FOUND}")
+               "RADIOS=${YANTRA_RADIOS_KIND} PDFIUM=${YANTRA_PDFIUM_FOUND} "
+               "PROBE=${YANTRA_PLUGIN_PROBE} PEI=${YANTRA_RADIOS_PEI}")

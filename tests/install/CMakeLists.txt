@@ -18,10 +18,11 @@ if(YANTRA_BUILD_APP)
 else()
   set(_app 0)
 endif()
+string(REPLACE ";" "," _shipped "${_yr_shipped}")
 add_test(NAME install_destdir
          COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/check_install.py
                  --build ${PROJECT_BINARY_DIR} --destdir ${CMAKE_CURRENT_BINARY_DIR}/root
                  --radios-stage ${YANTRA_RADIOS_STAGE} --radios-source ${YANTRA_RADIOS_DIR}
-                 --plugins ${YANTRA_RADIO_PLUGIN_DIR} --app ${_app})
+                 --plugins ${YANTRA_RADIO_PLUGIN_DIR} --app ${_app} --shipped ${_shipped})
 # Installs what the build made: it runs after the build, on its own.
 set_tests_properties(install_destdir PROPERTIES LABELS fast RUN_SERIAL TRUE TIMEOUT 300)

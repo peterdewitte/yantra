@@ -112,3 +112,14 @@ installs the kit, the plugin headers and the out-of-tree plugin template
 | scalar | `cmake -S . -B build-scalar -G Ninja -DYANTRA_SIMD=OFF -DYANTRA_BUILD_APP=OFF` |
 | ASan + UBSan | `cmake --preset asan-ubsan` (`build-asan`) |
 | TSan | `cmake --preset tsan` (`build-tsan`); run `ctest -LE timing` |
+| without the optional plugins (PLG-01 check) | `cmake --preset plugins-off` (`build-plugins-off`) |
+
+The optional plugins can be left out: `-DYANTRA_PLUGIN_PROBE=OFF` builds
+no probe feature plugin (no remote API, no network listener, PLG-24) and
+`-DYANTRA_RADIOS_PEI=OFF` ships no TETRA terminal radio plugin (RAD-80).
+The `plugins-off` tree sets both, and its full `ctest` is the PLG-01
+check: the core, indoor and app suites pass without these plugins (their
+own tests are not registered there), and the ctest `plugins_off_check`
+makes sure neither plugin is in the tree's plugin folders. Pass
+`-DYANTRA_RADIOS_CACHE_DIR=<the default tree>/radios-cache` to reuse the
+radio plugins' bundled libraries.

@@ -52,8 +52,10 @@ AppPaths lint_paths(const fs::path& dir) {
     fs::create_directories(folder);
     fs::copy_file(fs::path(YANTRA_TEST_TECH_PLUGIN_DIR) / "tetra.so", folder / "tetra.so",
                   fs::copy_options::overwrite_existing);
+#ifdef YANTRA_TEST_HAVE_PROBE
     fs::copy_file(fs::path(YANTRA_TEST_TECH_PLUGIN_DIR) / "probe.so", folder / "probe.so",
                   fs::copy_options::overwrite_existing);
+#endif
     fs::copy_file(fs::path(YANTRA_TEST_EXAMPLE_PLUGIN_DIR) / "example_beacon.so", folder / "example_beacon.so",
                   fs::copy_options::overwrite_existing);
     p.radios.plugin_folders = {folder};

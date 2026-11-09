@@ -9,11 +9,16 @@
 #include <doctest/doctest.h>
 
 #include <filesystem>
+#include <fstream>
+#include <set>
+#include <sstream>
+#include <string>
 
 #include <nlohmann/json.hpp>
 
 #include "yantra/app/app_control.h"
 #include "yantra/app/app_state.h"
+#include "yantra/app/plugin_state_file.h"
 #include "yantra/core/plugin/loader.h"
 
 namespace fs = std::filesystem;
@@ -23,6 +28,43 @@ using namespace yantra::app;
 namespace {
 
 json ask(AppControl& c, const json& request) { return json::parse(c.control("yantra.probe", request.dump())); }
+
+/// Network listeners of this process (Linux /proc): its TCP sockets in
+/// state LISTEN and its bound UDP sockets, IPv4 and IPv6.
+std::size_t listeners() {
+    std::set<std::string> mine;  // socket inodes of our file descriptors
+    std::error_code ec;
+    for (fs::directory_iterator it("/proc/self/fd", ec), end; !ec && it != end; it.increment(ec)) {
+        std::error_code lec;
+        const std::string target = fs::read_symlink(it->path(), lec).string();
+        if (!lec && target.rfind("socket:[", 0) == 0) mine.insert(target.substr(8, target.size() - 9));
+    }
+    std::size_t n = 0;
+    for (const char* table : {"/proc/self/net/tcp", "/proc/self/net/tcp6", "/proc/self/net/udp", "/proc/self/net/udp6"}) {
+        const bool tcp = std::string(table).find("tcp") != std::string::npos;
+        std::ifstream in(table);
+        std::string line;
+        std::getline(in, line);  // header
+        while (std::getline(in, line)) {
+            std::istringstream f(line);
+            std::string sl, local, remote, state, queues, timer, retr, uid, timeout, inode;
+            f >> sl >> local >> remote >> state >> queues >> timer >> retr >> uid >> timeout >> inode;
+            if (mine.count(inode) != 0 && (!tcp || state == "0A")) ++n;
+        }
+    }
+    return n;
+}
+
+/// The build's technology and feature plugins in a folder of the test's
+/// own; without the probe plugin unless `with_probe`.
+fs::path plugin_copy(const fs::path& dir, bool with_probe) {
+    const fs::path folder = dir / "plugins";
+    fs::create_directories(folder);
+    for (const auto& e : fs::directory_iterator(YANTRA_TEST_TECH_PLUGIN_DIR))
+        if (e.is_regular_file() && e.path().extension() == ".so" && (with_probe || e.path().filename() != "probe.so"))
+            fs::copy_file(e.path(), folder / e.path().filename());
+    return folder;
+}
 
 }  // namespace
 
@@ -50,6 +92,7 @@ TEST_CASE("API-01 the app control: status from the copy, commands queued, runner
     CHECK(ask(c, {{"command", "sound.on"}})["ok"] == false);
 }
 
+#ifdef YANTRA_TEST_HAVE_PROBE
 TEST_CASE("PLG-24 the probe plugin in the app: data folder, sound commands run on tick, status with the source link") {
     const fs::path dir = fs::path(YANTRA_TEST_SCRATCH_DIR) / "app_control";
     fs::remove_all(dir);
@@ -82,6 +125,7 @@ TEST_CASE("PLG-24 the probe plugin in the app: data folder, sound commands run o
     s.tick();  // no project: refused on the status line, nothing records
     CHECK(ask(c, {{"command", "status"}})["result"]["recording"]["recording"] == false);
 }
+#endif
 
 #if defined(YANTRA_TEST_DEMO_PROJECT) && defined(YANTRA_TEST_FEATURE_PLUGIN)
 namespace {
@@ -125,5 +169,47 @@ TEST_CASE("PLG-02, API-02 the app's replay feeds the feature plugins, as the wal
     // Closing joins the player's thread: the count is read after its last record.
     REQUIRE(s.close_replay().ok);
     CHECK(counter->records_seen > 0);
+}
+#endif
+
+#ifdef YANTRA_TEST_DEMO_PROJECT
+TEST_CASE("PLG-01, PLG-24 without the probe plugin the app opens no network listener") {
+    const std::size_t before = listeners();
+    const auto run = [&](const std::string& name, bool with_probe, const std::string& listen) {
+        const fs::path dir = fs::path(YANTRA_TEST_SCRATCH_DIR) / ("no_listener_" + name);
+        fs::remove_all(dir);
+        AppPaths p;
+        p.settings_file = dir / "config" / "app.json";
+        p.data_folders = {fs::path(YANTRA_TEST_DEMO_PROJECT).parent_path().parent_path().parent_path()};
+        p.user_data = dir / "data";
+        p.radios.plugin_folders = {plugin_copy(dir, with_probe)};
+        p.radios.plugin_state = dir / "config" / "plugin_state.json";
+        if (!listen.empty()) PluginStateFile(p.radios.plugin_state).set_setting("yantra.probe", "api.listen", listen);
+        AppState s(AppSettings{}, p);
+        CHECK((s.plugins().info("yantra.probe") != nullptr) == with_probe);
+        REQUIRE(s.plugins().info("yantra.tetra") != nullptr);
+        // The indoor work: the demo project and its replayed walk.
+        const Result opened = s.trigger(Action::OpenDemo);
+        REQUIRE_MESSAGE(opened.ok, opened.message);
+        const auto recordings = s.replay()->recordings();
+        REQUIRE_FALSE(recordings.empty());
+        const Result r = s.open_replay(recordings.front());
+        REQUIRE_MESSAGE(r.ok, r.message);
+        REQUIRE(s.replay()->play(0.0).ok);
+        REQUIRE(s.replay()->wait([](auto st, auto) { return st != yantra::recording::ReplayPlayer::State::Playing; },
+                                 120000 * YANTRA_TEST_TIME_SCALE));
+        s.tick();
+        const std::size_t open = listeners() - before;
+        REQUIRE(s.close_replay().ok);
+        return open;
+    };
+    CHECK(run("plain", false, "") == 0);
+#ifdef YANTRA_TEST_HAVE_PROBE
+    // With the probe plugin: still none until api.listen is given; then
+    // its server is seen (the check sees listeners at all).
+    CHECK(run("probe_off", true, "") == 0);
+    CHECK(run("probe_on", true, "127.0.0.1:0") >= 1);
+#endif
+    CHECK(listeners() == before);
 }
 #endif

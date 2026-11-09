@@ -38,7 +38,13 @@ target_compile_definitions(test_app PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scratch}
 # Step 9.7: the plugin manager and the plugins' UI (PLG-06, PLG-09) with
 # the example beacon plugin; step 9.8: the cell database, network checks
 # and reselection with the TETRA plugin.
-add_dependencies(test_app yantra_example_beacon yantra_tetra yantra_probe)
+add_dependencies(test_app yantra_example_beacon yantra_tetra)
+# The probe plugin's cases need it (YANTRA_PLUGIN_PROBE=OFF: the PLG-01
+# check runs without them).
+if(TARGET yantra_probe)
+  add_dependencies(test_app yantra_probe)
+  target_compile_definitions(test_app PRIVATE YANTRA_TEST_HAVE_PROBE=1)
+endif()
 # Step 11.2: the C test plugin's feature (tests/plugin_loader) sees the
 # app's replay (FeatureFeed, PLG-02).
 # The target is defined later (tests/plugin_loader); the generator
@@ -66,7 +72,11 @@ target_compile_definitions(test_app_ui PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scrat
                                                YANTRA_TEST_SOURCE_DATA_DIR="${PROJECT_SOURCE_DIR}/data"
                                                YANTRA_TEST_EXAMPLE_PLUGIN_DIR="${PROJECT_BINARY_DIR}/lib/yantra/examples"
                                                YANTRA_TEST_TECH_PLUGIN_DIR="${PROJECT_BINARY_DIR}/lib/yantra/plugins")
-add_dependencies(test_app_ui yantra_example_beacon yantra_tetra yantra_probe)
+add_dependencies(test_app_ui yantra_example_beacon yantra_tetra)
+if(TARGET yantra_probe)
+  add_dependencies(test_app_ui yantra_probe)
+  target_compile_definitions(test_app_ui PRIVATE YANTRA_TEST_HAVE_PROBE=1)
+endif()
 if(TARGET demo_fraunces)
   add_dependencies(test_app_ui demo_fraunces)
   target_compile_definitions(test_app_ui PRIVATE YANTRA_TEST_DEMO_DATA_DIR="${PROJECT_BINARY_DIR}")

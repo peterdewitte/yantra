@@ -488,6 +488,9 @@ TEST_CASE("tetra schemas: every shipped radio plugin's schemas match the technol
     std::size_t checked = 0;
     for (const char* name : {"simulator.so", "hackrf.so", "soapysdr.so", "pei.so"}) {
         CAPTURE(name);
+#ifndef TETRA_TEST_PEI
+        if (std::string(name) == "pei.so") continue;  // not shipped in this build (YANTRA_RADIOS_PEI=OFF)
+#endif
         const fs::path path = fs::path(RADIO_PLUGIN_DIR) / name;
         REQUIRE(fs::exists(path));
         std::string error;
@@ -509,7 +512,11 @@ TEST_CASE("tetra schemas: every shipped radio plugin's schemas match the technol
             ++checked;
         }
     }
+#ifdef TETRA_TEST_PEI
     CHECK(checked == 8);
+#else
+    CHECK(checked == 7);  // without the terminal's tetra_terminal_cell
+#endif
     // The cell schema identifies a cell by network, location area and main carrier (DB-01).
     const yp::Schema& cell = tetra().info->technology->schemas[tetra().info->technology->cell_schema];
     CHECK(cell.id == "tetra_cell");

@@ -22,6 +22,8 @@
 #                            no beacon plugin then.
 #   YANTRA_BUILD_RADIOS      ON: build or copy the radio plugins; OFF: no
 #                            radio plugins (the radio plugin tests skip).
+#   YANTRA_RADIOS_PEI        (top level) OFF: pei.so is not shipped and its
+#                            tests are not registered (PLG-01 check).
 #   YANTRA_RADIOS_FAKE_SDR   ON: also build soapysdr_fake from the
 #                            submodule (tests only; not with a prebuilt
 #                            package, whose test then skips).
@@ -58,6 +60,9 @@ option(YANTRA_RADIOS_FAKE_SDR
 set(YANTRA_RADIO_PLUGIN_DIR ${PROJECT_BINARY_DIR}/lib/yantra/plugins/radios)
 set(YANTRA_RADIO_TEST_PLUGIN_DIR ${PROJECT_BINARY_DIR}/tests/radio-plugins)
 set(_yr_shipped hackrf simulator soapysdr pei)
+if(NOT YANTRA_RADIOS_PEI)
+  list(REMOVE_ITEM _yr_shipped pei)
+endif()
 
 if(NOT YANTRA_BUILD_RADIOS)
   set(YANTRA_RADIOS_KIND none)
@@ -234,7 +239,9 @@ if(YANTRA_RADIOS_FAKE_SDR)
 endif()
 # Test only: the simulated TETRA terminal behind a pseudo-terminal for the
 # PEI plugin (the radio windows' tests, step 9.6); built by the radios build.
-set(YANTRA_RADIOS_PEI_SIM ${YANTRA_RADIOS_BINARY_DIR}/bin/yantra-pei-sim)
-set(YANTRA_RADIOS_PEI_SCENARIO ${YANTRA_RADIOS_DIR}/tests/fixtures/pei/terminal_cells.json)
+if(YANTRA_RADIOS_PEI)
+  set(YANTRA_RADIOS_PEI_SIM ${YANTRA_RADIOS_BINARY_DIR}/bin/yantra-pei-sim)
+  set(YANTRA_RADIOS_PEI_SCENARIO ${YANTRA_RADIOS_DIR}/tests/fixtures/pei/terminal_cells.json)
+endif()
 add_custom_target(yantra_radio_plugins ALL DEPENDS yantra_radios ${_yr_fake_target})
 message(STATUS "Radio plugins: built from ${YANTRA_RADIOS_DIR} (${_yr_commit})")
