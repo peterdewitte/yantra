@@ -108,6 +108,8 @@ std::vector<Example> examples(std::vector<std::string>& problems) {
     return out;
 }
 
+#ifdef YANTRA_DOC_EXAMPLES_APP
+// Scratch files for the readers that read files (app formats only).
 fs::path scratch(const std::string& name) {
     const fs::path d = fs::temp_directory_path() / ("yantra_doc_examples_" + std::to_string(getpid())) / name;
     fs::remove_all(d);
@@ -119,6 +121,7 @@ void write(const fs::path& p, const std::string& text) {
     std::ofstream out(p, std::ios::binary);
     out << text;
 }
+#endif
 
 using Reader = std::function<std::string(const std::string&)>;  // "" = read fine, else why not
 
