@@ -5,12 +5,16 @@
 // Copied from yantra-v2 68ea20a: app/model/src/app_state.cpp, adapted.
 #include "yantra/app/app_state.h"
 
+#include "yantra/app/config_profile.h"
+
 #include "yantra/app/i18n.h"
 #include "yantra/app/manual.h"
 
 #include <algorithm>
 #include <cctype>
 #include <ctime>
+#include <fstream>
+#include <iterator>
 #include <stdexcept>
 #include <system_error>
 
@@ -616,7 +620,9 @@ fs::path AppState::browse_start() const {
         if (output_ && !output_->report_form().file.empty()) return output_->report_form().file.parent_path();
         break;
     case BrowsePurpose::OpenProject:
-    case BrowsePurpose::PlanFile: break;
+    case BrowsePurpose::PlanFile:
+    case BrowsePurpose::ProfileSave:
+    case BrowsePurpose::ProfileLoad: break;
     }
     if (!settings_.recent_folders.empty()) return settings_.recent_folders.front();
     if (!settings_.recent_projects.empty()) return settings_.recent_projects.front().parent_path();
@@ -660,6 +666,15 @@ void AppState::browse(BrowsePurpose purpose) {
         browser_.emplace(BrowseMode::Save, tr("Export to"), filters, browse_start(), home(), recent, f.filename().string());
         break;
     }
+    case BrowsePurpose::ProfileSave:
+    case BrowsePurpose::ProfileLoad:
+        browser_.emplace(purpose == BrowsePurpose::ProfileSave ? BrowseMode::Save : BrowseMode::Open,
+                         purpose == BrowsePurpose::ProfileSave ? tr("Save profile") : tr("Load profile"),
+                         std::vector<FileFilter>{FileFilter{tr("Yantra profiles (*.yprofile)"), {".yprofile"}},
+                                                 FileFilter{tr("All files"), {}}},
+                         browse_start(), home(), recent,
+                         purpose == BrowsePurpose::ProfileSave ? std::string("yantra.yprofile") : std::string());
+        break;
     case BrowsePurpose::ReportFile:
         browser_.emplace(BrowseMode::Save, tr("Report file"),
                          std::vector<FileFilter>{FileFilter{tr("PDF reports (*.pdf)"), {".pdf"}}, FileFilter{tr("All files"), {}}},
@@ -701,6 +716,11 @@ Result AppState::chosen(const fs::path& file) {
         }
         dialog_ = Dialog::Export;
         return Result{};
+    case BrowsePurpose::ProfileSave: {
+        dialog_ = Dialog::Settings;
+        return save_profile(file);
+    }
+    case BrowsePurpose::ProfileLoad: return load_profile(file);
     case BrowsePurpose::ReportFile:
         if (output_) output_->report_form().file = file;
         dialog_ = Dialog::Report;
@@ -1566,6 +1586,53 @@ Result AppState::set_plugin_enabled(bool radio, const std::string& id, bool enab
     if (!r.ok) return fail(r.message);
     return done(it->name + (enabled ? " enabled." : " disabled.") +
                 (live_ ? tr(" Find the radios again (Radio > Radios).") : ""));
+}
+
+Result AppState::save_profile(const fs::path& file) {
+    if (file.empty()) return fail(tr("Choose a profile file."));
+    std::string text, error;
+    if (!profile_to_json(settings_, SettingsFiles{{}, paths_.radios.plugin_state, paths_.radios.calibration_table}, text,
+                         error))
+        return fail(error);
+    std::ofstream out(file, std::ios::binary | std::ios::trunc);
+    out << text;
+    out.flush();
+    if (!out) return fail(tr("cannot write ") + file.string());
+    return done(tr("Profile saved: ") + file.filename().string());
+}
+
+Result AppState::load_profile(const fs::path& file) {
+    if (live_ && live_->exit_guard()) return fail(tr("A recording is running: stop it first (Survey > Recording)."));
+    std::ifstream in(file, std::ios::binary);
+    if (!in) return fail(tr("cannot read ") + file.string());
+    const std::string text{std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
+    AppSettings loaded;
+    std::string error;
+    // Checked as a whole first (SettingsFiles{} writes nothing), so a
+    // damaged profile changes nothing and keeps the project open.
+    if (!apply_profile(text, settings_, SettingsFiles{}, loaded, error)) return fail(error);
+    // As for a reset (UI-16): the project closes and the plugins go (they
+    // keep the plugin state), to load again with the profile's state.
+    if (project_) {
+        if (const Result r = close_project(); !r.ok) return fail(r.message);
+    }
+    plugin_ui_.reset();
+    plugins_.reset();
+    plugin_state_.reset();
+    const bool ok = apply_profile(text, settings_, SettingsFiles{paths_.settings_file, paths_.radios.plugin_state,
+                                                                  paths_.radios.calibration_table},
+                                  loaded, error);
+    if (!ok) return fail(error);
+    settings_ = loaded;
+    settings_form_ = settings_;
+    settings_changed_ = false;
+    alerts_.set_settings(settings_.sound);
+    alerts_.dismiss_popups();
+    apply_language();
+    monitor_->set_threshold(settings_.survey.threshold_dbm);
+    ++ui_generation_;
+    dialog_ = Dialog::None;
+    return done(tr("Profile loaded: ") + file.filename().string());
 }
 
 ResetSummary AppState::reset_summary() const { return app::reset_summary(reset_form_.also_calibration); }

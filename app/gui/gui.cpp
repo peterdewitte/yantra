@@ -31,6 +31,8 @@ const char* dialog_id(Dialog d, const AppState& state) {
         case BrowsePurpose::PlanFile: return tr("Plan file###dlg.browse");
         case BrowsePurpose::ExportFile: return tr("Export to###dlg.browse");
         case BrowsePurpose::ReportFile: return tr("Report file###dlg.browse");
+        case BrowsePurpose::ProfileSave: return tr("Save profile###dlg.browse");
+        case BrowsePurpose::ProfileLoad: return tr("Load profile###dlg.browse");
         }
         break;
     case Dialog::AddFloor: return tr("Add floor###dlg.add_floor");

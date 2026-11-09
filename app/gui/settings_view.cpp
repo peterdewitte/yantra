@@ -79,6 +79,17 @@ void Gui::draw_settings_general(AppSettings& f) {
         f.window_system = systems[ws];
     text_tooltip(tr("Which window system Yantra uses on Linux (NFR-10). Applies at the next start."));
     help_marker(tr("Automatic picks Wayland when the desktop runs it, else X11. The command line option --window-system overrides it."));
+
+    // NFR-06: the applied settings, the plugin and device settings and the
+    // calibration table to one file and back.
+    ImGui::SeparatorText(tr("Profiles"));
+    if (ImGui::Button(tr("Save profile...###settings.profile.save"), ImVec2(0.0F, target_h())))
+        state_.browse(BrowsePurpose::ProfileSave);
+    text_tooltip(tr("Save the applied settings, the plugin and radio device settings and the calibration table to a file."));
+    ImGui::SameLine();
+    if (ImGui::Button(tr("Load profile...###settings.profile.load"), ImVec2(0.0F, target_h())))
+        state_.browse(BrowsePurpose::ProfileLoad);
+    text_tooltip(tr("Use the settings of a profile file. The open project closes and the plugins load again."));
 }
 
 void Gui::draw_settings_survey(AppSettings& f) {

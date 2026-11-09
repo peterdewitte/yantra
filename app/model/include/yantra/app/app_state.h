@@ -176,6 +176,8 @@ enum class BrowsePurpose {
     PlanFile,        ///< a plan file (PDF or image) for Add floor (IND-02, IND-10)
     ExportFile,      ///< the file of an export (back to the Export dialog)
     ReportFile,      ///< the PDF file of a report (back to the Report dialog)
+    ProfileSave,     ///< Settings > Save profile (NFR-06, back to Settings)
+    ProfileLoad,     ///< Settings > Load profile (NFR-06)
 };
 
 /// The New indoor project form (IND-01).
@@ -433,6 +435,11 @@ public:
     /// table when ticked), closes the project and restarts the UI with
     /// defaults (ui_generation() changes). Refused while a recording runs.
     Result confirm_reset_settings();
+    /// NFR-06: saves the settings, plugin state and calibration table as a
+    /// profile file (config_profile.h) / loads one: the plugins load again
+    /// with its state and the UI restarts (as after a reset, UI-16).
+    Result save_profile(const std::filesystem::path& file);
+    Result load_profile(const std::filesystem::path& file);
     /// Changes when the UI restarts after a reset: the Gui drops its own state.
     std::uint64_t ui_generation() const { return ui_generation_; }
 

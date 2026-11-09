@@ -18,11 +18,13 @@
 #include "yantra/app/app_icon.h"
 #include "yantra/app/app_state.h"
 #include "yantra/app/cli.h"
+#include "yantra/app/config_profile.h"
 #include "yantra/app/credits.h"
 #include "yantra/app/plugin_ui.h"
 #include "yantra/app/settings.h"
 #include "yantra/app/settings_reset.h"
 #include "yantra/app/survey_monitor.h"
+#include "yantra/core/calibration/table.h"
 #include "yantra/core/plugin/loader.h"
 #include "yantra/core/project/project.h"
 
@@ -393,4 +395,64 @@ TEST_CASE("plugin UI (PLG-06): the beacon's Tools entry opens its window; disabl
     CHECK(st.set_plugin_enabled(false, kBeacon, false).ok);
     CHECK(st.plugin_ui().open_windows().empty());
     CHECK_FALSE(st.plugin_ui().select(kBeacon, "beacon_channels_open").ok);
+}
+
+TEST_CASE("Configuration profiles (NFR-06): settings, plugin state and calibration to a file and back") {
+    const fs::path dir = scratch("profile");
+    AppPaths paths = beacon_paths(dir);
+    paths.radios.calibration_table = dir / "config" / "calibration.json";
+    AppSettings mine;
+    mine.theme = Theme::HighContrast;
+    mine.survey.threshold_dbm = -88.0;
+    mine.layers.set_visible(mine.layers.order.front(), false);
+    mine.recent_projects = {dir / "a.yantra"};
+    {
+        AppState st(mine, paths);
+        REQUIRE(st.set_plugin_enabled(false, kBeacon, false).ok);  // plugin_state.json
+        yantra::calibration::Table table;
+        write(paths.radios.calibration_table, table.to_json());
+        const Result r = st.save_profile(dir / "site.yprofile");
+        REQUIRE_MESSAGE(r.ok, r.message);
+    }
+    const std::string profile = read(dir / "site.yprofile");
+    CHECK(profile.find("yantra-profile/1") != std::string::npos);
+    CHECK(profile.find("a.yantra") == std::string::npos);  // the recent lists stay on the PC
+    // Another PC: defaults, its own recent list, no plugin state, no calibration.
+    const fs::path other = scratch("profile_other");
+    AppPaths paths2 = beacon_paths(other);
+    paths2.radios.calibration_table = other / "config" / "calibration.json";
+    AppSettings theirs;
+    theirs.recent_projects = {other / "b.yantra"};
+    AppState st(theirs, paths2);
+    REQUIRE(row(st.plugin_manager(), kBeacon)->enabled);
+    const std::uint64_t generation = st.ui_generation();
+    // A damaged profile changes nothing.
+    write(other / "bad.yprofile",
+          "{\"format\":\"yantra-profile/1\",\"settings\":{},\"calibration\":{\"format\":\"other\"}}");
+    CHECK_FALSE(st.load_profile(other / "bad.yprofile").ok);
+    write(other / "junk.yprofile", "not json");
+    CHECK_FALSE(st.load_profile(other / "junk.yprofile").ok);
+    CHECK(st.settings() == theirs);
+    CHECK_FALSE(fs::exists(paths2.radios.plugin_state));
+    CHECK(st.ui_generation() == generation);
+    // The good one applies all three parts and keeps this PC's recent list.
+    const Result r = st.load_profile(dir / "site.yprofile");
+    REQUIRE_MESSAGE(r.ok, r.message);
+    CHECK(st.ui_generation() == generation + 1);
+    CHECK(st.settings().theme == Theme::HighContrast);
+    CHECK(st.settings().survey.threshold_dbm == doctest::Approx(-88.0));
+    CHECK(st.settings().layers == mine.layers);
+    CHECK(st.settings().recent_projects == theirs.recent_projects);
+    CHECK(read(paths2.radios.calibration_table) == read(paths.radios.calibration_table));
+    std::string load_error;
+    CHECK(load_settings(paths2.settings_file, load_error).theme == Theme::HighContrast);
+    CHECK(load_error.empty());
+    REQUIRE(row(st.plugin_manager(), kBeacon));
+    CHECK_FALSE(row(st.plugin_manager(), kBeacon)->enabled);  // the profile's plugin state
+    // The browser purposes return to Settings / apply the file.
+    CHECK(st.trigger(Action::Settings).ok);
+    st.browse(BrowsePurpose::ProfileSave);
+    CHECK(st.dialog() == Dialog::Browse);
+    st.browser_cancel();
+    CHECK(st.dialog() == Dialog::Settings);
 }

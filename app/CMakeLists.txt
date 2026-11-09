@@ -73,6 +73,7 @@ add_library(yantra_app_model STATIC
   model/src/plugin_state_file.cpp
   model/src/plugin_ui.cpp
   model/src/cell_db_editor.cpp
+  model/src/config_profile.cpp
   model/src/network_checks.cpp
   model/src/post_processing.cpp
   model/src/project_window.cpp
