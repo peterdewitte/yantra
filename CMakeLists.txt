@@ -37,6 +37,9 @@ set(YANTRA_SOURCE_URL "https://github.com/peterdewitte/yantra" CACHE STRING
 set(YANTRA_SANITIZER "" CACHE STRING
     "Developer sanitizer build (TST-05): empty, asan-ubsan or tsan")
 set_property(CACHE YANTRA_SANITIZER PROPERTY STRINGS "" asan-ubsan tsan)
+# TST-12: the fuzz targets (tests/fuzz) as libFuzzer binaries (clang only);
+# OFF: they replay their corpus with seeded mutations under ctest.
+option(YANTRA_FUZZ "Build the fuzz targets for libFuzzer (clang, TST-12)" OFF)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

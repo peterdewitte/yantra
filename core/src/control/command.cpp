@@ -222,7 +222,12 @@ std::string Command::to_text() const
     std::string s = command_name(id);
     for (const auto& [k, v] : args) {
         s += ' ' + k + '=';
-        const bool quote = v.empty() || v.find_first_of(" \t\"\\") != std::string::npos;
+        // Quoted when the tokenizer would split or unescape it: any space
+        // character it splits on (std::isspace: also \v, \f, \r, \n),
+        // a quote or a backslash (found by the fuzz target command).
+        const bool quote = v.empty() || std::any_of(v.begin(), v.end(), [](char ch) {
+                               return std::isspace(static_cast<unsigned char>(ch)) || ch == '"' || ch == '\\';
+                           });
         if (!quote) {
             s += v;
             continue;

@@ -40,6 +40,18 @@ TEST_CASE("API-01 commands parse from text lines") {
     CHECK_FALSE(e.empty());
     CHECK_FALSE(parse_command("gps on", &e));  // indoor only: no GPS (spec 1.2)
     CHECK_FALSE(parse_command("record start name=x bogus=1", &e));
+    // Values with any space character the tokenizer splits on (\v, \f,
+    // \r as well as blanks), quotes or backslashes are quoted by
+    // to_text, so they come back unchanged (found by fuzz_command).
+    for (const std::string& v : {std::string("a\vb"), std::string("a\fb"), std::string("a\rb"), std::string("a b"),
+                                std::string("q\"x"), std::string("back\\slash"), std::string("nul\0in", 6)}) {
+        Command w;
+        w.id = CommandId::RecordStart;
+        w.args["name"] = v;
+        const auto back = parse_command(w.to_text(), &e);
+        REQUIRE_MESSAGE(back, e);
+        CHECK(back->args == w.args);
+    }
 }
 
 TEST_CASE("API-01 commands parse from JSON and reply in one form") {

@@ -170,6 +170,13 @@ path = ["tests/fixtures/building/*.json"]
 SPDX-FileCopyrightText = "2026 The Yantra contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
+# Crash regressions of the fuzz targets (TST-12): inputs that once broke a
+# parser, replayed by the fuzz ctests.
+[[annotations]]
+path = ["tests/fuzz/regressions/**"]
+SPDX-FileCopyrightText = "2026 The Yantra contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
 # Fraunces Tavern floor plans of the demo project (DEMO-05, DEMO-06,
 # DEMO-08): HABS NY-6321 sheets 3 and 4 as served by the Library of
 # Congress, public domain (US federal government work), kept unchanged.

@@ -123,3 +123,22 @@ own tests are not registered there), and the ctest `plugins_off_check`
 makes sure neither plugin is in the tree's plugin folders. Pass
 `-DYANTRA_RADIOS_CACHE_DIR=<the default tree>/radios-cache` to reuse the
 radio plugins' bundled libraries.
+
+## Fuzz targets (TST-12)
+
+`tests/fuzz` has one fuzz target per parser of untrusted input: project
+files, recordings, record files through the record sink into the
+measurement pipeline, cell database CSV, calibration tables, buildings
+with their scene export, plan sources (images and PDF), the export CSV
+and DXF readers, command lines (API-01/02) and acceptance profiles. In
+every tree, ctest (label `fuzz`) writes a seed corpus with
+`yantra-fuzz-seeds` (Yantra's own writers and the repository's test data)
+and replays it with seeded mutations; the sanitizer trees run the same
+tests. A longer run by hand, e.g. 50000 mutations with another seed:
+
+    build/fuzz/fuzz_command --mutations 50000 --seed 7 build/fuzz-corpus/command
+
+`YANTRA_FUZZ_SAVE=<file>` keeps the input that is running, so after a
+crash it holds the input; put it in `tests/fuzz/regressions/<target>/`
+with the fix. With `-DYANTRA_FUZZ=ON` (clang) the targets are libFuzzer
+binaries instead.
