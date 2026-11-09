@@ -8,6 +8,7 @@
 #pragma once
 
 #include "yantra/core/raytrace/model.h"
+#include "yantra/core/platform/thread_name.h"
 
 #include <algorithm>
 #include <atomic>
@@ -36,6 +37,7 @@ bool run_parallel(const RunControl& run, std::size_t count, Job&& job) {
     std::mutex error_mutex;
     auto cancelled = [&] { return stop.load() || (run.cancel && run.cancel->load()); };
     auto worker = [&] {
+        platform::set_thread_name("yt-raytrace");
         try {
             for (;;) {
                 if (cancelled()) return;

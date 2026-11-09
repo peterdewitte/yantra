@@ -3,6 +3,7 @@
 //
 // The tour's sheet download and its check (DEMO-12), see sheet_fetch.h.
 #include "yantra/app/sheet_fetch.h"
+#include "yantra/core/platform/thread_name.h"
 
 #include <algorithm>
 #include <fstream>
@@ -79,7 +80,10 @@ SheetStatus cached_sheet(const demo::DemoSheet& sheet, const fs::path& cache) {
 
 SheetFetch::SheetFetch(std::shared_ptr<Downloader> downloader, demo::DemoSheet sheet, fs::path cache)
     : downloader_(std::move(downloader)), sheet_(std::move(sheet)), cache_(std::move(cache)) {
-    worker_ = std::thread([this] { run(); });
+    worker_ = std::thread([this] {
+        platform::set_thread_name("yt-sheet-fetch");
+        run();
+    });
 }
 
 SheetFetch::~SheetFetch() {

@@ -49,6 +49,7 @@ add_library(yantra_core STATIC
   src/measure/technology_map.cpp
   src/platform/dynlib.cpp
   src/platform/file_posix.cpp
+  src/platform/thread_name.cpp
   src/plan/image_meta.cpp
   src/plan/import.cpp
   src/plan/source.cpp

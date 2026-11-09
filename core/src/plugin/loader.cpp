@@ -7,6 +7,7 @@
 // (no radio kind, no IQ channels, timers, emit_record, window requests).
 
 #include "yantra/core/plugin/loader.h"
+#include "yantra/core/platform/thread_name.h"
 
 #include <algorithm>
 #include <cstring>
@@ -255,7 +256,10 @@ struct PluginLoader::Impl {
         } else {
             timers.push_back({&rt, id, period, due});
         }
-        if (!timer_thread.joinable()) timer_thread = std::thread([this] { timer_main(); });
+        if (!timer_thread.joinable()) timer_thread = std::thread([this] {
+                platform::set_thread_name("yt-plugin-timer");
+                timer_main();
+            });
         timer_cv.notify_all();
         return YANTRA_OK;
     }

@@ -33,6 +33,7 @@
 
 #include <yantra/core/build_info.h>
 #include <yantra/core/control/command.h>
+#include <yantra/core/platform/thread_name.h>
 #include <yantra/core/headless/runner.h>
 #include <yantra/core/plugin/folders.h>
 #include <yantra/core/plugin/state_store.h>
@@ -233,7 +234,10 @@ int main(int argc, char** argv) {
     std::fprintf(stderr, "yantra-probe: ready (%s)\n", cfg.demo ? "demo" : "radio");
     std::atomic<bool> stop_input{false};
     std::thread input;
-    if (read_stdin) input = std::thread([&] { read_commands(runner, stop_input); });
+    if (read_stdin) input = std::thread([&] {
+        yantra::platform::set_thread_name("yt-stdin");
+        read_commands(runner, stop_input);
+    });
     while (!g_stop && !runner.quit_requested()) {
         runner.poll();
         std::this_thread::sleep_for(std::chrono::milliseconds(50));

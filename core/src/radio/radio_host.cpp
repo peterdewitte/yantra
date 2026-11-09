@@ -9,6 +9,7 @@
 // call limits, snapshots from a ContextProvider.
 
 #include "yantra/core/radio/radio_host.h"
+#include "yantra/core/platform/thread_name.h"
 
 #include <algorithm>
 #include <atomic>
@@ -295,7 +296,10 @@ struct Sink {
             active = true;
             events_open = true;
         }
-        delivery = std::thread([this] { deliver_main(); });
+        delivery = std::thread([this] {
+            platform::set_thread_name("yt-radio-deliv");
+            deliver_main();
+        });
     }
 
     // After stop_stream/close returned: no more records or events; the
@@ -549,7 +553,10 @@ struct RadioHost::Impl : std::enable_shared_from_this<RadioHost::Impl> {
             const std::lock_guard lock(task_mutex);
             if (task_stop) return;
             tasks.push_back(std::move(task));
-            if (!task_thread.joinable()) task_thread = std::thread([this] { task_main(); });
+            if (!task_thread.joinable()) task_thread = std::thread([this] {
+                platform::set_thread_name("yt-radio-task");
+                task_main();
+            });
         }
         task_cv.notify_all();
     }
@@ -1105,7 +1112,10 @@ struct RadioHost::Impl : std::enable_shared_from_this<RadioHost::Impl> {
             rt.n_queue.clear();
         }
         PluginRt* p = &rt;
-        rt.notifier = std::thread([this, p] { notifier_main(*p); });
+        rt.notifier = std::thread([this, p] {
+            platform::set_thread_name("yt-radio-notify");
+            notifier_main(*p);
+        });
         rt.subscription = config.context->subscribe([p](std::uint32_t bits) {
             static const std::pair<std::uint32_t, std::uint32_t> map[] = {
                 {context::kPlanChanged, YR_CONTEXT_PLAN_CHANGED},

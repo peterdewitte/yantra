@@ -5,6 +5,7 @@
 // Copied from yantra-v2 68ea20a: core/src/util/job.cpp.
 
 #include "yantra/core/util/job.h"
+#include "yantra/core/platform/thread_name.h"
 
 #include <algorithm>
 #include <cmath>
@@ -37,6 +38,7 @@ std::unique_ptr<Job> Job::start(Work work, Listener listener) {
     job->listener_ = std::move(listener);
     Job* j = job.get();
     j->worker_ = std::thread([j, work = std::move(work)] {
+        platform::set_thread_name("yt-job");
         JobContext ctx(*j);
         JobState end = JobState::Done;
         std::string error;

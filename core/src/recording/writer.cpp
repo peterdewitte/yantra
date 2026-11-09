@@ -8,6 +8,7 @@
 // keyframes.
 
 #include "yantra/core/recording/writer.h"
+#include "yantra/core/platform/thread_name.h"
 
 #include <chrono>
 #include <cmath>
@@ -221,7 +222,10 @@ Recorder::Recorder(const std::shared_ptr<measure::MeasurementPipeline>& pipeline
     // recording's time axis; shared, so it outlives a destroyed pipeline.
     clock_ = pipeline->clock_ptr();
     pipeline_config_ = pipeline->config();
-    if (config_.flush_thread) flusher_ = std::thread([this] { flush_loop(); });
+    if (config_.flush_thread) flusher_ = std::thread([this] {
+            platform::set_thread_name("yt-rec-flush");
+            flush_loop();
+        });
 }
 
 Recorder::~Recorder() {

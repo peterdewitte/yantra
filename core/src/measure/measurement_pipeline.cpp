@@ -8,6 +8,7 @@
 // (no IQ blocks, no positions, technology-schema records).
 
 #include "yantra/core/measure/measurement_pipeline.h"
+#include "yantra/core/platform/thread_name.h"
 
 #include <cmath>
 #include <stdexcept>
@@ -612,6 +613,7 @@ std::string MeasurementPipeline::restore(const PipelineState& state,
 
 CycleRunner::CycleRunner(MeasurementPipeline& pipeline) : pipeline_(pipeline) {
     thread_ = std::thread([this] {
+        platform::set_thread_name("yt-pipeline");
         std::unique_lock lock(mutex_);
         while (!stop_) {
             const std::int64_t wait = pipeline_.next_cycle_ns() - pipeline_.clock().monotonic_ns();

@@ -7,6 +7,10 @@
 
 #include <civetweb.h>
 
+#if defined(__linux__)
+#include <pthread.h>
+#endif
+
 #include <algorithm>
 #include <cctype>
 #include <cstring>
@@ -216,7 +220,13 @@ bool Server::start(const ServerConfig& cfg, std::string* error)
     mg_set_websocket_handler(ctx_, std::string(std::string(kApiPrefix) + "/live$").c_str(), ws_connect_cb, ws_ready_cb,
                              ws_data_cb, ws_close_cb, this);
     stop_ = false;
-    live_thread_ = std::thread([this] { live_loop(); });
+    live_thread_ = std::thread([this] {
+#if defined(__linux__)
+        // OA-03: every thread is named (the plugin does not link the core).
+        (void)pthread_setname_np(pthread_self(), "yt-probe-live");
+#endif
+        live_loop();
+    });
     log(YANTRA_LOG_INFO, std::string("remote API on ") + (tls_ ? "https://" : "http://") + listen.substr(0, listen.rfind(':')) +
                         ":" + std::to_string(port_));
     return true;

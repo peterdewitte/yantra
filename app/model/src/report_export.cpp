@@ -3,6 +3,7 @@
 //
 // The export, report and acceptance-profile dialogs, see report_export.h.
 #include "yantra/app/report_export.h"
+#include "yantra/core/platform/thread_name.h"
 
 #include <algorithm>
 #include <chrono>
@@ -505,6 +506,7 @@ Result ReportExport::start(std::string what, std::function<std::vector<fs::path>
     job_ = job;
     pending_share_ = std::move(share_subject);
     worker_ = std::thread([job, work = std::move(work)] {
+        platform::set_thread_name("yt-export");
         std::vector<fs::path> files;
         std::string error;
         try {

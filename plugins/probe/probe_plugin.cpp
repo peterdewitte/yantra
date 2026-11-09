@@ -58,6 +58,10 @@
 #define YANTRA_SOURCE_URL ""
 #endif
 
+#if defined(__linux__)
+#include <pthread.h>
+#endif
+
 namespace fs = std::filesystem;
 using nlohmann::json;
 
@@ -204,7 +208,12 @@ public:
             if (!start_server(listen, error)) log(YANTRA_LOG_ERROR, "remote API not started: " + error);
         }
         stop_ = false;
-        worker_ = std::thread([this] { work(); });
+        worker_ = std::thread([this] {
+#if defined(__linux__)
+            (void)pthread_setname_np(pthread_self(), "yt-probe-work");  // OA-03
+#endif
+            work();
+        });
         return YANTRA_OK;
     }
 

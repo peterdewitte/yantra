@@ -7,6 +7,7 @@
 // measurement pipeline with the recorded inputs.
 
 #include "yantra/core/recording/replay.h"
+#include "yantra/core/platform/thread_name.h"
 
 #include <algorithm>
 #include <cmath>
@@ -472,7 +473,10 @@ ReplayPlayer::ReplayPlayer(std::shared_ptr<Replay> replay, std::shared_ptr<const
                  : std::shared_ptr<const platform::Clock>(std::shared_ptr<const platform::Clock>{},
                                                           &platform::SystemClock::instance())) {
     position_ = replay_->position_ns();
-    thread_ = std::thread([this] { loop(); });
+    thread_ = std::thread([this] {
+        platform::set_thread_name("yt-replay");
+        loop();
+    });
 }
 
 ReplayPlayer::~ReplayPlayer() {

@@ -18,12 +18,17 @@
 #include <mutex>
 #include <thread>
 
+#include "yantra/core/platform/thread_name.h"
+
 namespace yantra::radio::detail {
 
 class ControlThread {
 public:
     ControlThread() : s_(std::make_shared<State>()) {
-        thread_ = std::thread([s = s_] { main(*s); });
+        thread_ = std::thread([s = s_] {
+            platform::set_thread_name("yt-radio-ctl");
+            main(*s);
+        });
     }
     ~ControlThread() {
         bool stuck = false;

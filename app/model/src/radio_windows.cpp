@@ -3,6 +3,7 @@
 //
 // The radio windows' model, see radio_windows.h.
 #include "yantra/app/radio_windows.h"
+#include "yantra/core/platform/thread_name.h"
 #include "yantra/app/i18n.h"
 
 #include <algorithm>
@@ -473,7 +474,10 @@ struct RadioWindows::Impl {
 
     explicit Impl(LiveSurvey& l) : live(l) {
         live.add_observer(tap);
-        worker = std::thread([this] { work(); });
+        worker = std::thread([this] {
+            platform::set_thread_name("yt-radio-window");
+            work();
+        });
     }
 
     ~Impl() {

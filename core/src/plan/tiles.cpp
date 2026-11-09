@@ -4,6 +4,7 @@
 // Copied from yantra-v2 68ea20a: core/src/plan/tiles.cpp.
 
 #include "yantra/core/plan/tiles.h"
+#include "yantra/core/platform/thread_name.h"
 
 #include <algorithm>
 #include <cmath>
@@ -87,7 +88,10 @@ std::vector<TileKey> TileLayout::tiles_for(int page, int lod, double x0, double 
 TileRenderer::TileRenderer(TileLayout layout, RenderFn render, std::size_t budget_bytes, ReadyFn ready)
     : layout_(std::move(layout)), render_(std::move(render)), ready_(std::move(ready)) {
     stats_.budget_bytes = budget_bytes;
-    worker_ = std::thread([this] { run(); });
+    worker_ = std::thread([this] {
+        platform::set_thread_name("yt-plan-tiles");
+        run();
+    });
 }
 
 TileRenderer::~TileRenderer() {
