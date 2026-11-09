@@ -659,7 +659,7 @@ const yantra_feature_api feature = {
 
 const yantra_ui_window_def window = {
     sizeof(yantra_ui_window_def), YANTRA_UI_WINDOW, 0, 0, "remote_probes", "Remote probes",
-    "This Yantra's remote API and the state of other probes (API-02).", nullptr, 640, 420,
+    "This Yantra's remote API and the state of other probes (API-02).", "12.3", 640, 420,
 };
 const yantra_ui_window_def* const windows[] = {&window};
 const yantra_ui_menu_item menu = {

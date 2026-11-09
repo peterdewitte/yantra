@@ -9,7 +9,7 @@ Technologies, radios and extra features are plugins.
 
 ## 14.1 The plugin manager
 
-File > Settings > Plugins lists every plugin with its version, licence and state. A plugin switched off stays installed and keeps its settings.
+File > Settings > Plugins lists every plugin with its version, licence and state. A plugin switched off stays installed and keeps its settings. With the probe plugin (chapter 12) or the TETRA terminal plugin (chapter 9) switched off or not installed, every other part of Yantra works as before, and without the probe plugin Yantra has no network listener.
 
 ## 14.2 Plugin windows
 

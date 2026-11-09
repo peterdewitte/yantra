@@ -40,6 +40,9 @@ struct ShotScene {
     /// The scene needs --input (plan_import: a sheet with several floors,
     /// or the folder of the two Fraunces sheets, combined into one).
     bool needs_input = false;
+    /// The feature plugin whose window the scene shows ("" none), e.g.
+    /// "yantra.probe": the scene fails without it.
+    std::string plugin;
 };
 
 /// Every scene, in the order of the set.

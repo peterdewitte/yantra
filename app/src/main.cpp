@@ -124,6 +124,7 @@ int main(int argc, char** argv) {
             if (s.touch) flags += ",touch";
             if (!s.radio.empty()) flags += ",radio=" + s.radio;
             if (s.needs_input) flags += ",input";
+            if (!s.plugin.empty()) flags += ",plugin=" + s.plugin;
             std::printf("%s\t%s\t%s\n", s.name.c_str(), flags.c_str(), s.what.c_str());
         }
         return 0;

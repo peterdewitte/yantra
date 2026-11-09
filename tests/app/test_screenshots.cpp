@@ -116,7 +116,7 @@ void play(const std::string& name, const std::function<void(UiHarness&, AppState
 
 TEST_CASE("SCR-03: the screenshot scenes without a radio reach their capture") {
     if (!available()) return;
-    CHECK(shot_scenes().size() == 26);  // step 10.4: export, report
+    CHECK(shot_scenes().size() == 27);  // step 11.2: remote_probes
     play("start_menu", [](UiHarness& ui, AppState&, Gui&) { CHECK(ui.has("file.new_project")); });
     play("about", [](UiHarness&, AppState& s, Gui& g) {
         CHECK(s.dialog() == Dialog::About);
@@ -170,6 +170,11 @@ TEST_CASE("SCR-03: the screenshot scenes without a radio reach their capture") {
         CHECK(ui.has("rp.profile.0", "dlg.report"));
     });
     play("verification", [](UiHarness&, AppState& s, Gui&) { CHECK(s.network_windows().verification); });
+    // The probe plugin's window (absent in a build without it, PLG-01 check).
+    if (fs::exists(fs::path(YANTRA_TEST_TECH_PLUGIN_DIR) / "probe.so"))
+        play("remote_probes", [](UiHarness&, AppState& s, Gui&) {
+            CHECK(s.plugin_ui().is_open("yantra.probe", "remote_probes"));
+        });
     // The demo cells carry access parameters: the simulator decides (DB-08).
     play("reselection", [](UiHarness&, AppState& s, Gui&) {
         CHECK(s.network_windows().reselection);

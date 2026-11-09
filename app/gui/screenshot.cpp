@@ -60,6 +60,12 @@ std::vector<ShotScene> make_scenes() {
     v.push_back(scene("export", "File > Export: CSV columns, separator and time; DXF, floor picture, batch (EXP-01..04, EXP-08)"));
     v.push_back(scene("report", "File > Report: surveyor, floors and acceptance profiles of the report (EXP-05, EXP-06)"));
     {
+        ShotScene s = scene("remote_probes", "Tools > Remote probes: this Yantra's remote API and the probes it follows (API-02, PLG-24)",
+                            false);
+        s.plugin = "yantra.probe";
+        v.push_back(s);
+    }
+    {
         ShotScene s = scene("touch", "touch layout on a tablet-sized window: the walk test page (UI-13)");
         s.touch = true;
         v.push_back(s);
@@ -360,6 +366,13 @@ void ShotRunner::build() {
     } else if (n == "export") {
         run("File > Export", [this] { return state_.trigger(Action::Export); });
         frames(3);
+    } else if (n == "remote_probes") {
+        run("Tools > Remote probes", [this] {
+            if (state_.plugins().info(scene_.plugin) == nullptr)
+                return Result{false, "the plugin " + scene_.plugin + " is not loaded"};
+            return state_.plugin_ui().select(scene_.plugin, "remote_probes_open");
+        });
+        frames(5);
     } else if (n == "report") {
         run("File > Report", [this] {
             const Result r = state_.trigger(Action::Report);

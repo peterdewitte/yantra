@@ -843,10 +843,11 @@ The documentation's screenshot set (SCR-01..05, SCR-07) is made by the app itsel
            [--touch] [--scale PERCENT] [--size WxH] [--input SHEET]
     yantra --list-shots          # name<TAB>flags<TAB>what; flags demo, touch, radio=..., input
 
-- `app/gui/screenshot.{h,cpp}`: `shot_scenes()` (26 scenes: start menu, survey with graphs, events and
+- `app/gui/screenshot.{h,cpp}`: `shot_scenes()` (27 scenes: start menu, survey with graphs, events and
   scanner, plan import of two floors from one sheet, walk test, interpolation, About, reset, radio list,
   the four generated windows of the simulator and of the HackRF, survey settings, cell database,
-  verification, reselection, the Export and Report dialogs, touch layout), `shot_settings()` (theme/touch/layers of a scene) and
+  verification, reselection, the Export and Report dialogs, Tools > Remote probes (step 11.2;
+  `ShotScene::plugin` names the feature plugin it needs, flag `plugin=` of `--list-shots`), touch layout), `shot_settings()` (theme/touch/layers of a scene) and
   `ShotRunner`: a list of steps (open the demo, replay to 60 %, start the simulator, click a control
   by id, wait frames) played before each frame; `ready()` when the capture may happen. A step that
   waits more than 120 s fails the shot (exit 1). Before the capture the mouse leaves the window (no
