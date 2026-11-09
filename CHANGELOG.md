@@ -16,11 +16,16 @@ own changes are in its CHANGELOG.md.
 
 Nothing yet.
 
-## [0.1.0] - unreleased
+## [0.1.0] - 2026-11-09
 
-The first release of Yantra (version of the CMake project, 0.1.0). The
-release date and tag are set when the release is made; until then this
-section is marked "unreleased".
+The first release of Yantra (version of the CMake project, 0.1.0; git tag
+v0.1.0).
+
+Nothing is sent over the network unless you choose a sharing method
+(folder, HTTP upload or your own mail server, EXP-07). The only other
+network use is the download of a MAK example plan, and only when you
+agree to it; the probe plugin's remote API listens only when you set an
+address.
 
 ### What you can do with Yantra 0.1.0
 
@@ -69,6 +74,15 @@ section is marked "unreleased".
   building model and scene export, stored interpolation maps, trims,
   exports, acceptance profiles), with examples that the tests check.
 - ARCHITECTURE.md, BUILD.md and the remote API reference (docs/API.md).
+- The manual as one HTML page and a PDF, the quick starts and the notes as
+  HTML and PDF, and the plugin API reference, built from the Markdown with
+  `ninja docs` (every link and picture checked); the .deb ships them in
+  /usr/share/doc/yantra/html.
+- The quick starts in Dutch, French and German; Help > Quick starts shows
+  the one of the app's language. These translations are not yet checked
+  by a native speaker; the English text decides.
+- A short animated capture of the indoor workflow (GIF and WebM) in the
+  README and the manual.
 
 ### Privacy and packaging
 
@@ -77,6 +91,13 @@ section is marked "unreleased".
   are relative); a test checks the installed files.
 - The pictures in the manual show a plugin's file name without the local
   folder it was loaded from.
+- A Debian package (.deb) built by Yantra's own script (`ninja deb`): the
+  app, the probe, the plugins with the self-contained radio plugins and
+  their udev rules, the desktop entry and icons, the demo project and the
+  documentation. Maintainer Curtat BV, homepage https://curtat.be, source
+  https://github.com/peterdewitte/yantra. Windows packages come later.
+- A settings file of another kind or of a newer Yantra is no longer read
+  as settings: the defaults are used and the reason is shown.
 
 ### Radio plugins in this release
 
