@@ -22,6 +22,10 @@ directly or as a folder that is scanned (not recursively):
   execstack  (Linux) the GNU_STACK segment is not executable.
   unique   (Linux) no STB_GNU_UNIQUE symbols: they cannot be hidden, bind
            across plugins and keep a plugin from unloading.
+  build_paths  (Linux) the file holds neither this source tree's folder nor
+           the home folder of the user who built it: a released plugin names
+           no person or machine (no personal data; -ffile-prefix-map in
+           tools/deps/deps.cmake). --forbid TEXT adds a text to look for.
   missing  with --require NAME[,NAME...]: every named plugin is there, so
            a plugin that stopped building cannot pass by its absence.
 
@@ -167,8 +171,27 @@ def _run(cmd: list[str]) -> str:
         sys.exit(2)
 
 
+def build_folders() -> list[str]:
+    """The folders of this machine a released plugin must not name: this
+    source tree, and the home folder when it is a person's (at least two
+    levels deep: not "/" or "/tmp", which other texts may hold)."""
+    out = [os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))]
+    home = os.path.normpath(os.environ.get("HOME") or "/")
+    if len([c for c in home.split("/") if c]) >= 2:
+        out.append(home)
+    return out
+
+
+def texts_in(data: bytes, texts: list[str]) -> list[str]:
+    """The texts that occur in a file's bytes."""
+    return [t for t in texts if t.encode() in data]
+
+
 def check_linux(path: str, extra: list[str], tools: dict) -> list[tuple[str, str]]:
     findings = []
+    with open(path, "rb") as f:
+        for t in texts_in(f.read(), tools["forbid"]):
+            findings.append(("build_paths", f"the file holds {t}: a folder of the machine it was built on"))
     needed, rpath = parse_readelf_dynamic(_run([tools["readelf"], "-d", "-W", path]))
     for n in needed:
         if not _matches(n, LINUX_ALLOWED, extra, False):
@@ -279,6 +302,7 @@ The Export Tables (interpreted .edata section contents)
     assert parse_readelf_stack(seg) == "RW"
     assert parse_readelf_stack(seg.replace(" RW  0x10", " RWE 0x10")) == "RWE"
     assert parse_readelf_stack("  LOAD 0x0 0x0 0x0 0x5 0x5 R 0x1000\n") is None
+    assert texts_in(b"x/home/a/b.c\0", ["/home/a", "/home/c"]) == ["/home/a"]
     print("check_completeness: self-test OK")
     return 0
 
@@ -294,6 +318,8 @@ def main() -> int:
                     help="negative test: pass only if the findings are exactly these kinds")
     ap.add_argument("--require", default="", metavar="NAMES",
                     help="plugins (file names without suffix) that must be among the files")
+    ap.add_argument("--forbid", action="append", default=[], metavar="TEXT",
+                    help="also a build_paths finding when a file holds this text")
     ap.add_argument("--readelf", default=os.environ.get("READELF", "readelf"))
     ap.add_argument("--objdump", default=os.environ.get("OBJDUMP", "objdump"))
     ap.add_argument("--self-test", action="store_true", help="test the output parsers and exit")
@@ -301,7 +327,7 @@ def main() -> int:
     if a.self_test:
         return self_test()
 
-    tools = {"readelf": a.readelf, "objdump": a.objdump}
+    tools = {"readelf": a.readelf, "objdump": a.objdump, "forbid": build_folders() + a.forbid}
     suffix = ".so" if a.platform == "linux" else ".dll"
     files = collect(a.paths, suffix)
     check = check_linux if a.platform == "linux" else check_windows

@@ -27,6 +27,17 @@
 get_filename_component(YANTRA_DEPS_ROOT ${CMAKE_CURRENT_LIST_DIR}/../.. ABSOLUTE)
 set(YANTRA_DEPS_DIR ${YANTRA_DEPS_ROOT}/tools/deps)
 
+# Artefacts name no folder of the machine they were built on, in debug
+# information or in __FILE__ (no personal data; a home folder is part of
+# these paths). Source paths become relative to the repository. This file
+# comes before every target of both projects that include it. The last
+# matching map wins: the build tree may lie inside the source tree.
+add_compile_options(-ffile-prefix-map=${YANTRA_DEPS_ROOT}=.
+                    -ffile-prefix-map=${CMAKE_BINARY_DIR}=build)
+if(YANTRA_DEPS_PREFIX)
+  add_compile_options(-ffile-prefix-map=${YANTRA_DEPS_PREFIX}=deps)
+endif()
+
 # The manifest as a CMake list of "name|version|licence" (RAD-136): the
 # bundled libraries, shown by the plugins' build info.
 function(yantra_deps_manifest out)

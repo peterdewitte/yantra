@@ -9,6 +9,7 @@
 #                          (libstdc++/libgcc_s NEEDED, many exports)
 #   completeness_plugins   every plugin in the plugin folder, and every
 #                          plugin this configuration builds is there
+#   completeness_build_paths  a file that holds a forbidden text is caught
 #   completeness_surprises thread-local data in the initial-exec model is
 #                          caught; the version script hides a GNU unique
 #                          symbol
@@ -58,7 +59,10 @@ if(YANTRA_SANITIZER STREQUAL "")
   add_test(NAME completeness_surprises
            COMMAND Python3::Interpreter ${_check} --expect static_tls
                    $<TARGET_FILE:completeness_surprises>)
-  set(_neg completeness_negative completeness_surprises)
+  add_test(NAME completeness_build_paths
+           COMMAND Python3::Interpreter ${_check} --expect build_paths --forbid yantra_radio_entry
+                   $<TARGET_FILE:completeness_good>)
+  set(_neg completeness_negative completeness_surprises completeness_build_paths)
 endif()
 set_tests_properties(completeness_selftest completeness_fixture completeness_plugins ${_neg}
   PROPERTIES LABELS "fast;completeness" TIMEOUT 120)

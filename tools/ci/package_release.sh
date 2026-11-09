@@ -49,6 +49,15 @@ done
 [ -f "$pkg/share/licenses/yantra-radios/BUNDLE.md" ] \
     || { echo "package_release: no licence bundle" >&2; exit 1; }
 [ -f "$build/deps/deps-manifest.tsv" ] && cp "$build/deps/deps-manifest.tsv" "$pkg/share/licenses/yantra-radios/"
+# No file of the package names a folder of this machine (no personal data;
+# tools/deps/deps.cmake, check_completeness.py build_paths).
+forbid=(-e "$root" -e "$build")
+case ${HOME:-} in /*/*) forbid+=(-e "${HOME%/}") ;; esac
+if paths=$(grep -rlaF "${forbid[@]}" "$pkg"); then
+    echo "package_release: these files name a folder of this machine:" >&2
+    echo "$paths" >&2
+    exit 1
+fi
 tar -C "$stage" -czf "$out/$name.tar.gz" "$name"
 echo "package_release: $out/$name.tar.gz"
 

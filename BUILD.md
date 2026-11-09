@@ -80,7 +80,12 @@ Each artefact embeds the dependency manifest (name, version, licence):
 - `tools/ci/check_completeness.py <dir or .so>`: the NEEDED entries hold
   only the allowed system libraries (glibc parts, libudev), no RPATH, no
   text relocations or executable stack, and only `yantra_radio_entry` is
-  exported (version script `cmake/radio_plugin.map`). ctests
+  exported (version script `cmake/radio_plugin.map`). The file also names
+  no folder of the machine that built it (this source tree, the builder's
+  home folder): `tools/deps/deps.cmake` and `cmake/RustProto.cmake` make
+  source paths relative with `-ffile-prefix-map` and `--remap-path-prefix`,
+  so a debugger needs `directory <source tree>`. `package_release.sh` looks
+  for the same folders in every file of the package. ctests
   `completeness_<plugin>` and `completeness_plugins`.
 - `tools/ci/clean_env.py`: the conformance kit on the plugins in an
   environment without SoapySDR or vendor packages (bubblewrap locally,

@@ -4,8 +4,8 @@
 # yantra::proto - the Rust protocol crate (receiver/rust, RAD-101, RAD-03)
 # as a static library with a C ABI (receiver/rust/include/yantra/proto.h).
 # cargo builds it (release profile, offline, --locked, absolute paths, all
-# cores) into <build>/cargo, the folder the rust_cargo_test ctest and the
-# lint's FFI check share. The library goes statically into the TETRA
+# cores) into <build>/cargo-lib; the rust_cargo_test ctest and the lint's
+# FFI check share <build>/cargo. The library goes statically into the TETRA
 # decoder and so into every plugin that links it (RAD-132); the Rust
 # standard library comes with it. Sets YANTRA_PROTO_FOUND.
 # Copied from yantra 68ea20a: plugins/tetra/proto/CMakeLists.txt, adapted
@@ -24,7 +24,10 @@ find_package(Threads REQUIRED)
 
 set(YANTRA_PROTO_DIR ${PROJECT_SOURCE_DIR}/receiver/rust)
 set(YANTRA_CARGO_TARGET_DIR ${PROJECT_BINARY_DIR}/cargo)
-set(_proto_lib ${YANTRA_CARGO_TARGET_DIR}/release/${CMAKE_STATIC_LIBRARY_PREFIX}yantra_proto${CMAKE_STATIC_LIBRARY_SUFFIX})
+# The library has a target folder of its own: its RUSTFLAGS differ from the
+# tests', and sharing one folder would rebuild and replace it in turn.
+set(_proto_target_dir ${PROJECT_BINARY_DIR}/cargo-lib)
+set(_proto_lib ${_proto_target_dir}/release/${CMAKE_STATIC_LIBRARY_PREFIX}yantra_proto${CMAKE_STATIC_LIBRARY_SUFFIX})
 set(_proto_stamp ${PROJECT_BINARY_DIR}/yantra_proto.stamp)
 file(GLOB_RECURSE _proto_sources CONFIGURE_DEPENDS ${YANTRA_PROTO_DIR}/src/*.rs)
 
@@ -34,13 +37,17 @@ if(_cores LESS 1)
   set(_cores 1)
 endif()
 
+# Artefacts name no folder of the machine they were built on (as
+# tools/deps/deps.cmake does for C and C++).
+string(STRIP "--remap-path-prefix=${PROJECT_SOURCE_DIR}=. ${YANTRA_FUZZ_RUSTFLAGS}" _proto_rustflags)
+
 # The stamp keeps ninja from running cargo again when nothing changed.
 add_custom_command(
   OUTPUT ${_proto_stamp}
   BYPRODUCTS ${_proto_lib}
-  COMMAND ${CMAKE_COMMAND} -E env CARGO_BUILD_JOBS=${_cores} "RUSTFLAGS=${YANTRA_FUZZ_RUSTFLAGS}"
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_BUILD_JOBS=${_cores} "RUSTFLAGS=${_proto_rustflags}"
           ${YANTRA_CARGO_EXECUTABLE} build --release --offline --locked --quiet
-          --manifest-path ${YANTRA_PROTO_DIR}/Cargo.toml --target-dir ${YANTRA_CARGO_TARGET_DIR} --lib
+          --manifest-path ${YANTRA_PROTO_DIR}/Cargo.toml --target-dir ${_proto_target_dir} --lib
   COMMAND ${CMAKE_COMMAND} -E touch ${_proto_stamp}
   DEPENDS ${_proto_sources} ${YANTRA_PROTO_DIR}/Cargo.toml ${YANTRA_PROTO_DIR}/Cargo.lock
   WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
