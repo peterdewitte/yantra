@@ -30,6 +30,42 @@ marked:
 Record file (RAD-65) and scene JSON (RAD-36) versions are listed here as
 well; they change independently of the radio API version.
 
+## [0.2.7] - 2026-11-09
+
+A patch release (tag v0.2.7, RAD-98) from the release check of Yantra's
+phase 12: the release files name no folder of the machine that built
+them, and the documentation is current again. No API, format or
+behaviour change: radio API 1.0, record files 1, scene JSON 1.1 and
+scenario files 1 as in 0.2.0; plugin versions as in 0.2.6.
+
+### Radio API
+
+- **Radio API 1.0**: no change.
+
+### Fixed
+
+- Plugins and tools (RAD-133, RAD-137): the files of the release held
+  the builder's home folder, in debug information, in libosmocore's
+  `__FILE__` and in the Rust crate. Source paths are now relative
+  (`-ffile-prefix-map`, `--remap-path-prefix`). The Rust library has its
+  own cargo target folder, `<build>/cargo-lib`.
+
+### Documentation
+
+- README: screenshots of the radio windows Yantra generates (RAD-135).
+- DEVICES.md: the test rows measured again on these plugins, with their
+  versions; the hardware rows stay open (RAD-95).
+- ARCHITECTURE.md: a read reaches the engine in pieces (0.2.2).
+  SCENARIO_FORMAT.md: a host's scene cell replaces a scenario cell on its
+  carrier (0.2.3). A file path and an example version corrected.
+
+### Tests
+
+- New: the completeness check has the finding `build_paths`, so a plugin
+  naming the source tree or the builder's home folder fails it (ctest
+  `completeness_build_paths` proves the finding is raised);
+  `package_release.sh` looks for the same folders in every packaged file.
+
 ## [0.2.6] - 2026-11-06
 
 A patch release (tag v0.2.6, RAD-98) that takes back the simulator
