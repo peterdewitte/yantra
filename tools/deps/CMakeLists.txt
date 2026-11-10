@@ -19,6 +19,10 @@ install(DIRECTORY ${YANTRA_DEPS_ROOT}/third_party/libosmocore/include/osmocom DE
 set(_tp ${YANTRA_DEPS_ROOT}/third_party)
 install(FILES ${_tp}/libusb/libusb/libusb.h DESTINATION include/libusb-1.0)
 install(DIRECTORY ${_tp}/soapysdr/include/SoapySDR DESTINATION include)
+if(WIN32)
+  # The static library's Config.h (sdr.cmake) replaces upstream's.
+  install(FILES ${YANTRA_SOAPY_WIN_CONFIG} DESTINATION include/SoapySDR)
+endif()
 install(FILES ${_tp}/hackrf/host/libhackrf/src/hackrf.h DESTINATION include)
 file(GLOB _rtl_headers ${_tp}/rtl-sdr/include/*.h)
 install(FILES ${_rtl_headers} DESTINATION include)

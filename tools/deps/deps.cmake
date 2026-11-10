@@ -22,7 +22,8 @@
 #     PLG-26 / RAD-138);
 #   - by tools/deps/CMakeLists.txt, the standalone project build_deps.sh
 #     configures, builds and installs into its prefix.
-# Both run the same on Linux and in MSYS2 UCRT64 (Windows DEFERRED).
+# Both run the same on Linux, for Windows with the cross SDK's toolchain
+# file and in MSYS2 UCRT64.
 
 get_filename_component(YANTRA_DEPS_ROOT ${CMAKE_CURRENT_LIST_DIR}/../.. ABSOLUTE)
 set(YANTRA_DEPS_DIR ${YANTRA_DEPS_ROOT}/tools/deps)

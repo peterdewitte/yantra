@@ -6,7 +6,7 @@
  * (autotools) is not on the tool lists, so tools/deps/sdr.cmake compiles
  * its sources directly. These are the configure results for glibc on
  * Linux (usbfs backend, netlink hot-plug: no libudev) and for MinGW-w64
- * (MSYS2 UCRT64, WinUSB backend; Windows DEFERRED). The library is
+ * (cross SDK clang or MSYS2 UCRT64 gcc, WinUSB backend). The library is
  * static: DEFAULT_VISIBILITY is empty, so every symbol follows the hidden
  * visibility preset and stays inside the plugin (RAD-133).
  */

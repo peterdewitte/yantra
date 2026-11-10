@@ -5,7 +5,7 @@
  * Hand-written config.h for talloc 2.4.3 (RAD-136): talloc's own build
  * (waf) is not on the tool lists, so tools/deps/deps.cmake compiles
  * talloc.c directly. These are the results its configure step gives on
- * glibc and on MinGW-w64 (MSYS2 UCRT64) for the features talloc.c and
+ * glibc and on MinGW-w64 (MSYS2 UCRT64, the cross SDK's clang) for the features talloc.c and
  * lib/replace/replace.h use; nothing from lib/replace's C sources is
  * needed with them.
  */
@@ -44,6 +44,20 @@
 
 #ifndef _WIN32
 #define HAVE_DLFCN_H 1
+#else
+/* MinGW-w64 (clang of the cross SDK and MSYS2 UCRT64 gcc): what talloc's
+ * configure finds there. replace.h declares POSIX replacements with these
+ * types; talloc.c calls none of those functions, so only the types are
+ * needed, never the rep_* code of lib/replace. */
+#define HAVE_STRERROR 1
+#define HAVE_ERRNO_DECL 1
+#define HAVE_PTRDIFF_T 1
+#define HAVE_WINDOWS_H 1
+#include <sys/types.h>
+typedef int uid_t;
+typedef int gid_t;
+typedef long long loff_t;
+#define RTLD_DEFAULT ((void *)0)
 #endif
 
 #endif

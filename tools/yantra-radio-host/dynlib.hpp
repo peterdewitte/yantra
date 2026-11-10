@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Small platform interface for loading a radio plugin's shared library
-// (dlopen on Linux; LoadLibraryW on Windows, written but DEFERRED).
+// (dlopen on Linux; LoadLibraryExW on Windows).
 // Copied from yantra 68ea20a: core/include/yantra/core/platform/dynlib.h,
 // reduced to what the radio test host needs.
 #pragma once

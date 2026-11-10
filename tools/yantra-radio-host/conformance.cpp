@@ -23,6 +23,14 @@
 #include <sstream>
 #include <thread>
 
+#ifdef _WIN32
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
+#  include <windows.h>
+#  include <tlhelp32.h>
+#endif
+
 namespace yantra::radio_host {
 
 namespace {
@@ -88,10 +96,23 @@ bool single_line(const std::string& s)
     return s.find('\n') == std::string::npos && s.find('\r') == std::string::npos;
 }
 
-// Threads of this process (Linux), -1 where unknown.
+// Threads of this process (Linux, Windows), -1 where unknown.
 int thread_count()
 {
-#ifdef __linux__
+#if defined(_WIN32)
+    const HANDLE snap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, 0);
+    if (snap == INVALID_HANDLE_VALUE)
+        return -1;
+    const DWORD self = GetCurrentProcessId();
+    int n = 0;
+    THREADENTRY32 t{};
+    t.dwSize = sizeof t;
+    for (BOOL ok = Thread32First(snap, &t); ok; ok = Thread32Next(snap, &t))
+        if (t.th32OwnerProcessID == self)
+            ++n;
+    CloseHandle(snap);
+    return n;
+#elif defined(__linux__)
     std::error_code ec;
     int n = 0;
     for (auto it = std::filesystem::directory_iterator("/proc/self/task", ec);

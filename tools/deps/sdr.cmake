@@ -35,8 +35,8 @@
 # (libiio needs libxml2, not in RAD-04: owner question); S: SoapyLMS7/
 # LimeSuite, SoapyUHD/UHD (UHD needs Boost). SoapySDRPlay3 never
 # (proprietary API).
-# Linux and MSYS2 UCRT64 (Windows DEFERRED: libusb's WinUSB backend files
-# are vendored and listed below, untested).
+# Linux and Windows (cross SDK clang or MSYS2 UCRT64 gcc; libusb's WinUSB
+# backend).
 
 set(_tp ${YANTRA_DEPS_ROOT}/third_party)
 set(YANTRA_SOAPY_MODULES
@@ -72,13 +72,13 @@ if(YANTRA_DEPS_PREFIX)
   set_target_properties(yantra_rtlsdr PROPERTIES INTERFACE_COMPILE_DEFINITIONS rtlsdr_STATIC)
   set_target_properties(yantra_soapy_remote_common PROPERTIES
     INTERFACE_INCLUDE_DIRECTORIES "${YANTRA_DEPS_PREFIX}/include;${YANTRA_DEPS_PREFIX}/include/SoapyRemote"
-    INTERFACE_LINK_LIBRARIES "$<$<PLATFORM_ID:Windows>:ws2_32>")
+    INTERFACE_LINK_LIBRARIES "$<$<PLATFORM_ID:Windows>:ws2_32;iphlpapi>")
   set_target_properties(yantra_soapy_remote PROPERTIES INTERFACE_LINK_LIBRARIES yantra_soapy_remote_common)
   set_target_properties(yantra_soapy_remote_server PROPERTIES INTERFACE_LINK_LIBRARIES
     "yantra_soapy_remote_common;Threads::Threads")
 else()
   # libusb: core, POSIX events/threads, Linux usbfs + netlink hot-plug;
-  # MinGW: the Windows backend (DEFERRED).
+  # Windows: the WinUSB/UsbDk backend.
   set(_usb ${_tp}/libusb/libusb)
   set(_usb_src ${_usb}/core.c ${_usb}/descriptor.c ${_usb}/hotplug.c ${_usb}/io.c
                ${_usb}/strerror.c ${_usb}/sync.c)
@@ -108,8 +108,25 @@ else()
   target_include_directories(yantra_soapysdr SYSTEM PUBLIC $<BUILD_INTERFACE:${_soapy}/include>)
   target_include_directories(yantra_soapysdr PRIVATE ${_soapy}/lib)
   # Config.h always declares a DLL; "exports" gives the same attribute on
-  # every platform, the plugins' version script / .def file keeps it inside.
+  # every platform, the plugins' version script keeps it inside on Linux.
   target_compile_definitions(yantra_soapysdr PUBLIC SOAPY_SDR_DLL_EXPORTS)
+  if(WIN32)
+    # On Windows that attribute is dllexport, and every dllexport'ed
+    # SoapySDR function (also from the headers' inline code in the modules
+    # and the plugins) would be exported next to the .def file's entry
+    # point (RAD-133). There SoapySDR is compiled against a copy of
+    # Config.h without "#define SOAPY_SDR_DLL", upstream's own static
+    # library case (SOAPY_SDR_API empty), placed before the vendored
+    # headers (they include <SoapySDR/Config.h> with angle brackets).
+    file(READ ${_soapy}/include/SoapySDR/Config.h _text)
+    string(REPLACE "#define SOAPY_SDR_DLL //always building a DLL"
+           "// yantra-radios: a static library on Windows (tools/deps/sdr.cmake)" _text "${_text}")
+    set(YANTRA_SOAPY_WIN_CONFIG ${CMAKE_BINARY_DIR}/yantra_deps/soapysdr/include/SoapySDR/Config.h)
+    file(WRITE ${YANTRA_SOAPY_WIN_CONFIG}.new "${_text}")
+    configure_file(${YANTRA_SOAPY_WIN_CONFIG}.new ${YANTRA_SOAPY_WIN_CONFIG} COPYONLY)
+    target_include_directories(yantra_soapysdr SYSTEM BEFORE PUBLIC
+      $<BUILD_INTERFACE:${CMAKE_BINARY_DIR}/yantra_deps/soapysdr/include>)
+  endif()
   target_link_libraries(yantra_soapysdr PUBLIC Threads::Threads)
 
   # Vendor libraries.
@@ -165,14 +182,43 @@ else()
     string(REGEX REPLACE "[/.]" "_" _var "${_var}")
     check_include_files(${_h} ${_var})
   endforeach()
+  if(WIN32)
+    # MinGW-w64 has <unistd.h>, but SoapySocketDefs.hpp would then map
+    # closesocket to close(): Windows sockets are not file descriptors.
+    set(HAS_UNISTD_H OFF)
+  endif()
   check_cxx_source_compiles("#include <cstring>
 int main(void){return strerror_r(0, NULL, 0);}" YANTRA_SOAPY_REMOTE_STRERROR_R_XSI)
-  configure_file(${_m}/common/SoapySocketDefs.in.hpp ${_gen}/SoapySocketDefs.hpp)
+  # SoapyRemote 0.5.3 writes its Windows code for MSVC only (_MSC_VER:
+  # WSAStartup, ioctlsocket, WSAGetLastError, FormatMessage, gethostid);
+  # with MinGW-w64 the same code applies, so on Windows these files are
+  # compiled from copies in the build tree with _MSC_VER read as _WIN32
+  # (the only change; THIRD_PARTY.md "Local patches"). Linux compiles the
+  # vendored files as they are.
+  set(_c ${_m}/common)
+  set(_rpc_socket ${_c}/SoapyRPCSocket.cpp)
+  set(_discover ${_m}/client/DiscoverServers.cpp)
+  set(_defs_in ${_c}/SoapySocketDefs.in.hpp)
+  set(_info_in ${_c}/SoapyInfoUtils.in.cpp)
+  if(WIN32)
+    foreach(_f ${_rpc_socket} ${_discover} ${_defs_in} ${_info_in})
+      get_filename_component(_name ${_f} NAME)
+      file(READ ${_f} _text)
+      string(REPLACE "_MSC_VER" "_WIN32" _text "${_text}")
+      file(WRITE ${_gen}/win32/${_name}.new "${_text}")
+      configure_file(${_gen}/win32/${_name}.new ${_gen}/win32/${_name} COPYONLY)
+      set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_f})
+    endforeach()
+    set(_rpc_socket ${_gen}/win32/SoapyRPCSocket.cpp)
+    set(_discover ${_gen}/win32/DiscoverServers.cpp)
+    set(_defs_in ${_gen}/win32/SoapySocketDefs.in.hpp)
+    set(_info_in ${_gen}/win32/SoapyInfoUtils.in.cpp)
+  endif()
+  configure_file(${_defs_in} ${_gen}/SoapySocketDefs.hpp)
   set(SOAPY_REMOTE_VERSION 0.5.3)
   set(SoapySDR_VERSION 0.8.1)
-  configure_file(${_m}/common/SoapyInfoUtils.in.cpp ${_gen}/SoapyInfoUtils.cpp @ONLY)
-  set(_c ${_m}/common)
-  add_library(yantra_soapy_remote_common STATIC ${_c}/SoapyURLUtils.cpp ${_c}/SoapyRPCSocket.cpp
+  configure_file(${_info_in} ${_gen}/SoapyInfoUtils.cpp @ONLY)
+  add_library(yantra_soapy_remote_common STATIC ${_c}/SoapyURLUtils.cpp ${_rpc_socket}
     ${_c}/SoapyRPCPacker.cpp ${_c}/SoapyRPCUnpacker.cpp ${_c}/SoapyStreamEndpoint.cpp
     ${_c}/SoapyHTTPUtils.cpp ${_c}/SoapySSDPEndpoint.cpp ${_c}/SoapyIfAddrs.cpp
     ${_c}/SoapyMDNSEndpointNone.cpp ${_gen}/SoapyInfoUtils.cpp
@@ -183,9 +229,9 @@ int main(void){return strerror_r(0, NULL, 0);}" YANTRA_SOAPY_REMOTE_STRERROR_R_X
     target_compile_definitions(yantra_soapy_remote_common PRIVATE STRERROR_R_XSI)
   endif()
   target_link_libraries(yantra_soapy_remote_common PRIVATE $<COMPILE_ONLY:yantra_soapysdr>
-    PUBLIC Threads::Threads $<$<PLATFORM_ID:Windows>:ws2_32>)
+    PUBLIC Threads::Threads $<$<PLATFORM_ID:Windows>:ws2_32> $<$<PLATFORM_ID:Windows>:iphlpapi>)
   add_library(yantra_soapy_remote STATIC ${_m}/client/Registration.cpp ${_m}/client/Settings.cpp
-    ${_m}/client/Streaming.cpp ${_m}/client/ClientStreamData.cpp ${_m}/client/DiscoverServers.cpp
+    ${_m}/client/Streaming.cpp ${_m}/client/ClientStreamData.cpp ${_discover}
     # In place of client/LogAcceptor.cpp: the same file with an atomic stop
     # flag (upstream's sig_atomic_t flag is a data race; see the file).
     ${YANTRA_DEPS_DIR}/soapyremote/LogAcceptor.cpp)
@@ -200,6 +246,24 @@ int main(void){return strerror_r(0, NULL, 0);}" YANTRA_SOAPY_REMOTE_STRERROR_R_X
     PRIVATE $<COMPILE_ONLY:yantra_soapysdr>)
   unset(_c)
   unset(_gen)
+  unset(_rpc_socket)
+  unset(_discover)
+  unset(_defs_in)
+  unset(_info_in)
+
+  # Upstream code marks its API dllexport on Windows whatever is defined
+  # (hackrf.h, airspy.h: ADD_EXPORTS is always set; SoapyRemoteConfig.hpp:
+  # SOAPY_REMOTE_API in a static build): the export directives (.drectve)
+  # are removed from these archives after they are built, so a plugin
+  # exports only its .def file's entry point (RAD-133).
+  if(WIN32)
+    foreach(_t ${_sdr_c_libs} ${_sdr_cxx_libs})
+      add_custom_command(TARGET ${_t} POST_BUILD
+        COMMAND ${CMAKE_OBJCOPY} --remove-section=.drectve $<TARGET_FILE:${_t}>
+        COMMENT "Removing the dllexport directives of ${_t}"
+        VERBATIM)
+    endforeach()
+  endif()
 
   foreach(_t ${_sdr_c_libs})
     target_compile_options(${_t} PRIVATE -w)

@@ -36,7 +36,16 @@ set(YANTRA_CARGO_TARGET_DIR ${PROJECT_BINARY_DIR}/cargo)
 # The library has a target folder of its own: its RUSTFLAGS differ from the
 # tests', and sharing one folder would rebuild and replace it in turn.
 set(_proto_target_dir ${PROJECT_BINARY_DIR}/cargo-lib)
-set(_proto_lib ${_proto_target_dir}/release/${CMAKE_STATIC_LIBRARY_PREFIX}yantra_proto${CMAKE_STATIC_LIBRARY_SUFFIX})
+# A cross build (the Windows toolchain file sets YANTRA_RUST_TARGET
+# x86_64-pc-windows-gnu, RAD-131) builds the library for that target;
+# cargo puts it under <target-dir>/<target>/release.
+set(_proto_target_args "")
+set(_proto_release_dir ${_proto_target_dir}/release)
+if(YANTRA_RUST_TARGET)
+  set(_proto_target_args --target ${YANTRA_RUST_TARGET})
+  set(_proto_release_dir ${_proto_target_dir}/${YANTRA_RUST_TARGET}/release)
+endif()
+set(_proto_lib ${_proto_release_dir}/${CMAKE_STATIC_LIBRARY_PREFIX}yantra_proto${CMAKE_STATIC_LIBRARY_SUFFIX})
 set(_proto_stamp ${PROJECT_BINARY_DIR}/yantra_proto.stamp)
 file(GLOB_RECURSE _proto_sources CONFIGURE_DEPENDS ${YANTRA_PROTO_DIR}/src/*.rs)
 
@@ -56,7 +65,7 @@ add_custom_command(
   BYPRODUCTS ${_proto_lib}
   COMMAND ${CMAKE_COMMAND} -E env CARGO_BUILD_JOBS=${_cores} "RUSTFLAGS=${_proto_rustflags}" ${YANTRA_CARGO_ENV}
           ${YANTRA_CARGO_EXECUTABLE} build --release --offline --locked --quiet
-          --manifest-path ${YANTRA_PROTO_DIR}/Cargo.toml --target-dir ${_proto_target_dir} --lib
+          --manifest-path ${YANTRA_PROTO_DIR}/Cargo.toml --target-dir ${_proto_target_dir} --lib ${_proto_target_args}
   COMMAND ${CMAKE_COMMAND} -E touch ${_proto_stamp}
   DEPENDS ${_proto_sources} ${YANTRA_PROTO_DIR}/Cargo.toml ${YANTRA_PROTO_DIR}/Cargo.lock
   WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
@@ -66,8 +75,8 @@ add_custom_target(yantra_proto_cargo DEPENDS ${_proto_stamp})
 
 set(_proto_link Threads::Threads ${CMAKE_DL_LIBS})
 if(WIN32)
-  # What the Rust standard library needs on x86_64-pc-windows-gnu
-  # (DEFERRED (Windows): not built yet).
+  # What the Rust standard library needs on x86_64-pc-windows-gnu (rustc
+  # --print native-static-libs).
   list(APPEND _proto_link ws2_32 userenv bcrypt ntdll)
 else()
   list(APPEND _proto_link m)

@@ -24,8 +24,8 @@ manifest compiled into the artefacts (`yantra::receiver::bundled_libraries()`).
 | `soapyremote/LogAcceptor.cpp` | replaces SoapyRemote 0.5.3 `client/LogAcceptor.cpp` (BSL-1.0, one marked change): the log acceptor thread's stop flag is a `std::atomic<bool>` instead of `sig_atomic_t` (data race under ThreadSanitizer) |
 | `libosmocore/backtrace.c` | replaces libosmocore's `src/core/backtrace.c`, which needs the logging framework the subset leaves out |
 
-Two ways to use it, the same on Linux and in MSYS2 UCRT64 (Windows
-DEFERRED):
+Two ways to use it, the same on Linux, for Windows with the cross SDK
+(`CMAKE_TOOLCHAIN_FILE`, BUILD.md) and in MSYS2 UCRT64:
 
 - plain build: the top level includes `deps.cmake`, so the libraries are
   built in the build tree (also instrumented in the sanitizer trees);

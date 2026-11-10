@@ -30,6 +30,10 @@
 #ifdef _WIN32
 #include <fcntl.h>
 #include <io.h>
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
 #endif
 
 #ifndef YANTRA_GEN_VERSION
@@ -228,7 +232,12 @@ std::string exe_dir(const std::string& exe_path)
 {
     std::error_code ec;
     fs::path p = exe_path;
-#ifdef __linux__
+#if defined(_WIN32)
+    std::wstring buf(32768, L'\0');
+    const DWORD n = GetModuleFileNameW(nullptr, buf.data(), static_cast<DWORD>(buf.size()));
+    if (n > 0 && n < buf.size())
+        p = fs::path(buf.substr(0, n));
+#elif defined(__linux__)
     fs::path self = fs::read_symlink("/proc/self/exe", ec);
     if (!ec)
         p = self;
@@ -525,8 +534,13 @@ std::vector<std::string> scenario_dirs(const Options& o, const std::string& exe_
     if (const char* env = std::getenv("YANTRA_SCENARIO_DIR"); env && *env)
         dirs.emplace_back(env);
     const std::string d = exe_dir(exe_path);
-    if (!d.empty())
-        dirs.push_back((fs::path(d) / ".." / "share" / "yantra-radios" / "scenarios").lexically_normal().string());
+    if (!d.empty()) {
+        // The prefix without lexically_normal(): libstdc++ shortens the
+        // leading \\ of a UNC path to one \ (Windows, \\server\share\...).
+        const fs::path bin = d;
+        const fs::path prefix = bin.is_absolute() ? bin.parent_path() : bin / "..";
+        dirs.push_back((prefix / "share" / "yantra-radios" / "scenarios").string());
+    }
     if (*YANTRA_GEN_INSTALL_SCENARIO_DIR)
         dirs.emplace_back(YANTRA_GEN_INSTALL_SCENARIO_DIR);
     // Existing folders only; load_scenario() and --list use the first one

@@ -8,7 +8,7 @@
 # prefix, hidden visibility, only yantra_radio_entry exported (version
 # script on Linux, .def file on Windows), every bundled static library's
 # symbols hidden (--exclude-libs,ALL), the GCC runtime linked statically
-# (static libstdc++/libgcc; on Windows also winpthreads, DEFERRED) and no
+# (static libstdc++/libgcc; on Windows -static, also winpthreads) and no
 # undefined symbols. Output goes to ${YANTRA_RADIO_PLUGIN_DIR} unless
 # OUTPUT_DIR is given.
 #
@@ -21,6 +21,12 @@
 
 set(YANTRA_RADIO_PLUGIN_MAP ${CMAKE_CURRENT_LIST_DIR}/radio_plugin.map)
 set(YANTRA_RADIO_PLUGIN_DEF ${CMAKE_CURRENT_LIST_DIR}/radio_plugin.def)
+# Arguments of tools/ci/check_completeness.py for this platform: on
+# Windows the PE checks with the toolchain's (llvm-)objdump.
+set(YANTRA_COMPLETENESS_PLATFORM "")
+if(WIN32)
+  set(YANTRA_COMPLETENESS_PLATFORM --platform windows --objdump ${CMAKE_OBJDUMP})
+endif()
 
 function(yantra_add_radio_plugin name)
   cmake_parse_arguments(ARG "NO_TESTS" "OUTPUT_DIR" "SOURCES;LIBS" ${ARGN})
@@ -43,12 +49,18 @@ function(yantra_add_radio_plugin name)
     LIBRARY_OUTPUT_DIRECTORY ${ARG_OUTPUT_DIR}
     RUNTIME_OUTPUT_DIRECTORY ${ARG_OUTPUT_DIR})
   if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    # libstdc++ only where the linker is the C++ one (a C plugin has no
-    # libstdc++ to link, and clang warns about the unused flag).
-    target_link_options(${name} PRIVATE $<$<LINK_LANGUAGE:CXX>:-static-libstdc++> -static-libgcc)
     if(WIN32)
-      target_link_options(${name} PRIVATE -Wl,-Bstatic -lwinpthread -Wl,-Bdynamic)
+      # -static: libstdc++, libgcc and winpthreads of the MSYS2 UCRT64 GCC
+      # runtime go into the .dll, which then imports only Windows system
+      # DLLs and the UCRT (RAD-132). The cross SDK's toolchain file sets it
+      # for every link (YANTRA_WIN_STATIC_RUNTIME), MSYS2's gcc does not.
+      # No -Wl,-Bdynamic after it: the driver adds libstdc++ last, and a
+      # trailing -Bdynamic would import libstdc++-6.dll again.
+      target_link_options(${name} PRIVATE -static)
     else()
+      # libstdc++ only where the linker is the C++ one (a C plugin has no
+      # libstdc++ to link, and clang warns about the unused flag).
+      target_link_options(${name} PRIVATE $<$<LINK_LANGUAGE:CXX>:-static-libstdc++> -static-libgcc)
       target_link_options(${name} PRIVATE
         -Wl,--version-script=${YANTRA_RADIO_PLUGIN_MAP}
         -Wl,--exclude-libs,ALL)
@@ -78,7 +90,7 @@ function(yantra_radio_plugin_tests name)
   endif()
   add_test(NAME completeness_${name}
            COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/ci/check_completeness.py
-                   ${_allow} $<TARGET_FILE:${name}>)
+                   ${YANTRA_COMPLETENESS_PLATFORM} ${_allow} $<TARGET_FILE:${name}>)
   set_tests_properties(completeness_${name} PROPERTIES LABELS fast)
   file(MAKE_DIRECTORY ${CMAKE_BINARY_DIR}/conformance)
   add_test(NAME conformance_${name}

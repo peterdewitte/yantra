@@ -26,7 +26,28 @@ namespace {
 using ssize_type = int;
 constexpr int kSendFlags = 0;
 void close_socket(intptr_t fd) { ::closesocket(static_cast<SOCKET>(fd)); }
+// Winsock must be started once per module before getaddrinfo or socket;
+// a function-local static starts it on first use, stops it at unload.
+bool sockets_ready()
+{
+    struct Winsock {
+        bool ok = false;
+        Winsock()
+        {
+            WSADATA wsa;
+            ok = ::WSAStartup(MAKEWORD(2, 2), &wsa) == 0;
+        }
+        ~Winsock()
+        {
+            if (ok)
+                ::WSACleanup();
+        }
+    };
+    static const Winsock w;
+    return w.ok;
+}
 #else
+bool sockets_ready() { return true; }
 using ssize_type = ssize_t;
 constexpr int kSendFlags = MSG_DONTWAIT | MSG_NOSIGNAL;
 void close_socket(intptr_t fd) { ::close(static_cast<int>(fd)); }
@@ -67,7 +88,7 @@ std::optional<Address> numeric_address(const std::string& host, uint16_t port)
     hints.ai_flags = AI_NUMERICHOST | AI_NUMERICSERV;
     addrinfo* res = nullptr;
     const std::string service = std::to_string(port);
-    if (host.empty() || getaddrinfo(host.c_str(), service.c_str(), &hints, &res) != 0 || res == nullptr)
+    if (host.empty() || !sockets_ready() || getaddrinfo(host.c_str(), service.c_str(), &hints, &res) != 0 || res == nullptr)
         return std::nullopt;
     Address a;
     if (res->ai_addrlen <= sizeof a.addr) {

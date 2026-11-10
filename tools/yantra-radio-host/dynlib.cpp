@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Copied from yantra 68ea20a: core/src/platform/dynlib_posix.cpp, with the
-// Windows branch added (not built yet: Windows is DEFERRED) and RTLD_NODELETE.
+// Windows branch added (RAD-131) and RTLD_NODELETE.
 #include "dynlib.hpp"
 
 #if defined(_WIN32)
@@ -18,7 +18,18 @@ namespace yantra::radio_host {
 std::unique_ptr<DynamicLibrary> DynamicLibrary::open(const std::filesystem::path& path,
                                                      std::string& error)
 {
-    HMODULE h = LoadLibraryW(path.c_str());
+    // LoadLibrary takes backslashes only; std::filesystem::absolute
+    // (GetFullPathNameW) also resolves a rooted path such as /home/... on
+    // the current drive or share (a WSL build tree through \\wsl.localhost).
+    // The plugin's own dependencies come from the system folders and its
+    // own folder only, never from the working directory or PATH (RAD-132).
+    std::error_code ec;
+    std::filesystem::path full = std::filesystem::absolute(path, ec);
+    if (ec)
+        full = path;
+    full.make_preferred();
+    HMODULE h = LoadLibraryExW(full.c_str(), nullptr,
+                               LOAD_LIBRARY_SEARCH_DEFAULT_DIRS | LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR);
     if (h == nullptr) {
         error = "LoadLibrary failed with error " + std::to_string(GetLastError());
         return nullptr;

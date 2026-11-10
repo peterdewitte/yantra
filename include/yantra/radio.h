@@ -116,9 +116,13 @@
 /** @} */
 
 /** Marks the entry point as exported from the plugin's shared library
- *  (use it on the definition of yantra_radio_entry). */
+ *  (use it on the definition of yantra_radio_entry). On Windows it is
+ *  empty: the plugin's module-definition file (.def, `EXPORTS
+ *  yantra_radio_entry`; cmake/radio_plugin.def) exports the entry point
+ *  (RAD-133), and a dllexport on the definition would only redeclare the
+ *  declaration below (clang -Wdll-attribute-on-redeclaration). */
 #if defined(_WIN32)
-#  define YR_EXPORT __declspec(dllexport)
+#  define YR_EXPORT
 #else
 #  define YR_EXPORT __attribute__((visibility("default")))
 #endif
