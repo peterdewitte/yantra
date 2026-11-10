@@ -332,7 +332,7 @@ TEST_CASE("Modulator refuses rates below the signal bandwidth and reads beyond i
     CHECK_THROWS_AS(m.read(out.data(), 5), std::logic_error);
     CHECK_THROWS_AS(Pi4DqpskModulator(72000.0, -1e-6), std::invalid_argument);
     CHECK_THROWS_AS(Pi4DqpskModulator(72000.0, std::nan("")), std::invalid_argument);
-    CHECK_THROWS_AS(Pi4DqpskModulator(std::numeric_limits<double>::infinity()), std::invalid_argument);
+    CHECK_THROWS_AS(static_cast<void>(Pi4DqpskModulator(std::numeric_limits<double>::infinity())), std::invalid_argument);
     CHECK_THROWS_AS(m.push_bits(Bits(3, 0)), std::invalid_argument);
 }
 

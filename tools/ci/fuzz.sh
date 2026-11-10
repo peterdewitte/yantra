@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Bounded libFuzzer run of every fuzz target (RAD-96): configures and
-# builds the "fuzz" preset (clang, ASan + UBSan, libFuzzer; build-fuzz/),
+# builds the "fuzz" preset (clang of the cross SDK, tools/sdk/yantra_sdk.py
+# make; ASan + UBSan, libFuzzer; build-fuzz/),
 # writes the seed corpus from the generator, adds the committed crash
 # regressions, then runs each target for a fixed time, several at once.
 # New corpus inputs stay in build-fuzz/fuzz-corpus/<target>/, findings go

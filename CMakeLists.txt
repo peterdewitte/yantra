@@ -3,8 +3,9 @@
 #
 # yantra-radios top-level build (RAD-01..03, Yantra OA-01/02): the radio
 # API header, the receiver and generator libraries, the radio plugins, the
-# tools and the test suite. C++20, CMake >= 3.20, Ninja; gcc or clang on
-# Linux, gcc in MSYS2 UCRT64 on Windows (RAD-131).
+# tools and the test suite. C++20, CMake >= 3.20, Ninja; on Linux clang of
+# the cross SDK by default (presets, tools/sdk, RAD-139) or the system gcc
+# (presets gcc, gcc-scalar, ci-gcc); gcc in MSYS2 UCRT64 on Windows (RAD-131).
 cmake_minimum_required(VERSION 3.20)
 project(YantraRadios VERSION 0.2.7 LANGUAGES C CXX)
 

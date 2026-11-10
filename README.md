@@ -88,10 +88,13 @@ file (docs/RECORD_FILES.md). With a HackRF One plugged in:
 
 ## Build (Linux)
 
-Needs CMake >= 3.20, Ninja, gcc or clang with C++20 and Python 3.
+Needs CMake >= 3.20, Ninja, Python 3 and cargo; the default compiler is
+clang of the cross SDK (one command, nothing installed in the system), the
+system gcc builds a second tree (BUILD.md).
 
     git submodule update --init
-    cmake -S . -B build -G Ninja
+    tools/sdk/yantra_sdk.py make
+    cmake --preset default
     ninja -C build
     ctest --test-dir build -j"$(nproc)"
 

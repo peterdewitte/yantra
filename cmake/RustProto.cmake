@@ -21,10 +21,11 @@ if(NOT YANTRA_CARGO_EXECUTABLE)
   return()
 endif()
 find_package(Threads REQUIRED)
-# The cross SDK's toolchain files (tools/sdk, RAD-139) set YANTRA_RUSTC:
-# cargo then builds with the SDK's rustc for every target and test, so the
-# library, the tests and the lint share one compiler (and the folder
-# <build>/cargo stays valid). Without it cargo takes the rustc on PATH.
+# The cross SDK's toolchain files (tools/sdk, RAD-139) set YANTRA_RUSTC
+# and YANTRA_CARGO_EXECUTABLE: the SDK's cargo then builds with the SDK's
+# rustc for every target and test, so the library, the tests and the lint
+# share one compiler (and the folder <build>/cargo stays valid). Without
+# them cargo and rustc come from PATH.
 set(YANTRA_CARGO_ENV "")
 if(YANTRA_RUSTC)
   set(YANTRA_CARGO_ENV "RUSTC=${YANTRA_RUSTC}")

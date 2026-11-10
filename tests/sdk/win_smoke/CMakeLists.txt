@@ -5,23 +5,22 @@
 # own configured by tests/sdk/win_smoke.sh with
 # tools/sdk/toolchain-x86_64-w64-mingw32-clang.cmake: smoke.cpp, the
 # version resource smoke.rc and the Rust static library in rust/, built by
-# cargo with the SDK's rustc for x86_64-pc-windows-gnu.
+# the SDK's cargo and rustc for x86_64-pc-windows-gnu.
 cmake_minimum_required(VERSION 3.20)
 project(YantraSdkSmoke LANGUAGES C CXX RC)
 
-if(NOT WIN32 OR NOT YANTRA_RUSTC OR NOT YANTRA_RUST_TARGET)
+if(NOT WIN32 OR NOT YANTRA_RUSTC OR NOT YANTRA_CARGO_EXECUTABLE OR NOT YANTRA_RUST_TARGET)
   message(FATAL_ERROR "configure with tools/sdk/toolchain-x86_64-w64-mingw32-clang.cmake")
 endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
-find_program(CARGO cargo REQUIRED)
 
 set(_crate ${CMAKE_CURRENT_SOURCE_DIR}/rust)
 set(_lib ${CMAKE_BINARY_DIR}/cargo/${YANTRA_RUST_TARGET}/release/libyantra_sdk_smoke.a)
 add_custom_command(OUTPUT ${_lib}
   COMMAND ${CMAKE_COMMAND} -E env RUSTC=${YANTRA_RUSTC}
-          ${CARGO} build --release --offline --locked --quiet --target ${YANTRA_RUST_TARGET}
+          ${YANTRA_CARGO_EXECUTABLE} build --release --offline --locked --quiet --target ${YANTRA_RUST_TARGET}
           --manifest-path ${_crate}/Cargo.toml --target-dir ${CMAKE_BINARY_DIR}/cargo
   DEPENDS ${_crate}/src/lib.rs ${_crate}/Cargo.toml ${_crate}/Cargo.lock
   COMMENT "cargo: the smoke test's Rust library for ${YANTRA_RUST_TARGET}"

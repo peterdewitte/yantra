@@ -19,6 +19,7 @@
 # Usage: tools/ci/lint.sh [source-dir]   (default: the repository root)
 # Environment: YANTRA_LINT_REQUIRE_TOOLS=1 makes a missing tool (Python
 # yaml, cargo-deny, cargo, a C compiler) an error (CI);
+# YANTRA_LINT_CARGO picks cargo (default: the one on PATH);
 # YANTRA_LINT_CARGO_TARGET_DIR reuses a cargo build folder (default: a
 # temporary one); CC picks the C compiler.
 # Copied from yantra 68ea20a: ci/lint.sh, adapted for RAD-134.
@@ -79,7 +80,7 @@ if [ -f "$crate/Cargo.toml" ]; then
     python3 "$root/tools/ci/check_ffi_widths.py" "$root" || fail=1
 
     cc_bin=${CC:-cc}
-    cargo_bin=$(command -v cargo || true)
+    cargo_bin=${YANTRA_LINT_CARGO:-$(command -v cargo || true)}
     [ -z "$cargo_bin" ] && [ -x "$HOME/.cargo/bin/cargo" ] && cargo_bin=$HOME/.cargo/bin/cargo
     if command -v "$cc_bin" >/dev/null 2>&1 && [ -n "$cargo_bin" ]; then
         target_dir=${YANTRA_LINT_CARGO_TARGET_DIR:-$tmp/cargo}

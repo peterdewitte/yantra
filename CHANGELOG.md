@@ -47,6 +47,25 @@ well; they change independently of the radio API version.
   `sdk_windows_smoke` (a C++20 + Rust program cross-compiled, its DLL
   imports checked, run on Windows through WSL interop).
 
+### Changed
+
+- clang of the cross SDK is the default compiler (RAD-03, RAD-139): the
+  presets `default`, `scalar`, `ci`, `ci-scalar`, `asan-ubsan`, `tsan` and
+  `fuzz` use `tools/sdk/toolchain-x86_64-linux-gnu-clang.cmake` (with the
+  SDK's lld, Rust and llvm-symbolizer). The system gcc keeps a second tree:
+  presets `gcc`, `gcc-scalar` (`build-gcc`, `build-gcc-scalar`) and
+  `ci-gcc`. CI builds and tests both on Linux (`linux-x86-64` with the SDK
+  cached per lock-file version, `linux-x86-64-gcc`); `ci-full.yml` runs
+  the sanitizer, scalar and fuzz trees with clang; the workflow YAML is
+  checked with PyYAML. `tools/ci/run_linux.sh` takes
+  `YANTRA_CI_COMPILER=clang|gcc`; `tools/deps/build_deps.sh` rebuilds when
+  the compiler changes. No behaviour change.
+
+### Fixed
+
+- Builds without warnings under clang: a C plugin no longer gets
+  `-static-libstdc++`; a test expression clang read as a declaration.
+
 ## [0.2.7] - 2026-11-09
 
 A patch release (tag v0.2.7, RAD-98) from the release check of Yantra's

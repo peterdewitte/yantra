@@ -11,8 +11,8 @@
 # Yantra uses the same files through its yantra-radios submodule and
 # points YANTRA_SDK_DIR at one shared SDK.
 # Sets YANTRA_SDK_DIR, YANTRA_SDK_LLVM (the bin folder of clang and the
-# llvm-* tools) and YANTRA_RUSTC (the SDK's rustc, used by
-# cmake/RustProto.cmake for every target).
+# llvm-* tools), YANTRA_RUSTC and YANTRA_CARGO_EXECUTABLE (the SDK's rustc
+# and cargo, used by cmake/RustProto.cmake for every target and test).
 
 if(NOT YANTRA_SDK_DIR)
   if(DEFINED ENV{YANTRA_SDK_DIR} AND NOT "$ENV{YANTRA_SDK_DIR}" STREQUAL "")
@@ -47,3 +47,4 @@ endfunction()
 
 set(YANTRA_SDK_LLVM "${YANTRA_SDK_DIR}/llvm/bin")
 set(YANTRA_RUSTC "${YANTRA_SDK_DIR}/rust/bin/rustc" CACHE FILEPATH "rustc of the cross SDK (RAD-139)" FORCE)
+set(YANTRA_CARGO_EXECUTABLE "${YANTRA_SDK_DIR}/rust/bin/cargo" CACHE FILEPATH "cargo of the cross SDK (RAD-139)" FORCE)

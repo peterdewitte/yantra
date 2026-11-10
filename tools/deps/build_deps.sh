@@ -11,8 +11,13 @@
 # project with -DYANTRA_DEPS_PREFIX=<prefix> to use the result; without
 # it the main project builds the same libraries in its own build tree.
 # Runs the same on Linux and in MSYS2 UCRT64 (cmake, ninja, a C compiler).
-# The result is reused when this folder and the vendored sources have not
-# changed (stamp file), so CI can cache <prefix> per script version.
+# The result is reused when this folder, the vendored sources and the
+# compiler have not changed (stamp file), so CI can cache <prefix> per
+# script and compiler version.
+# The compiler is CMake's choice: CC/CXX, or a toolchain file in the
+# environment variable CMAKE_TOOLCHAIN_FILE (CMake >= 3.21), e.g. the cross
+# SDK's clang (tools/sdk/toolchain-x86_64-linux-gnu-clang.cmake, RAD-139),
+# so the libraries are built with the same compiler as the plugins.
 # Usage: tools/deps/build_deps.sh <prefix>
 set -euo pipefail
 prefix=${1:?usage: build_deps.sh <prefix>}
@@ -26,6 +31,13 @@ stamp=$(cd "$root" && find tools/deps third_party/talloc third_party/libosmocore
     third_party/soapyrtlsdr third_party/airspy third_party/soapyairspy third_party/soapyremote \
     -type f -print0 \
     | LC_ALL=C sort -z | xargs -0 sha256sum | sha256sum | cut -d' ' -f1)
+# ... and the compiler: CC/CXX, the toolchain file and, for the cross
+# SDK's, its lock files.
+compiler="${CC:-} ${CXX:-} ${CMAKE_TOOLCHAIN_FILE:-}"
+if [ -n "${CMAKE_TOOLCHAIN_FILE:-}" ]; then
+    compiler="$compiler $(cat "$CMAKE_TOOLCHAIN_FILE" "$(dirname "$CMAKE_TOOLCHAIN_FILE")"/*.lock 2>/dev/null | sha256sum | cut -d' ' -f1)"
+fi
+stamp=$(printf '%s %s' "$stamp" "$compiler" | sha256sum | cut -d' ' -f1)
 if [ -f "$prefix/deps.stamp" ] && [ "$(cat "$prefix/deps.stamp")" = "$stamp" ]; then
     echo "build_deps: $prefix is up to date"
     exit 0

@@ -11,23 +11,32 @@ release (RAD-01..05, RAD-131..138). Tests and their labels:
 
 ## Linux (x86-64; arm64 is optional)
 
-Needs CMake >= 3.20, Ninja, gcc (>= 13) or clang with C++20, Python 3,
-cargo/rustc (the protocol crate, RAD-101) and binutils (readelf, for the
-completeness check). Optional: Doxygen (the radio API reference), reuse
+Needs CMake >= 3.20, Ninja, Python 3, cargo/rustc (the protocol crate,
+RAD-101) and binutils (readelf, for the completeness check). The compiler
+of the default trees is clang of the cross SDK (below; `tools/sdk/yantra_sdk.py
+make` once, nothing installed in the system); the system gcc (>= 13) builds
+the second tree `build-gcc` (presets `gcc`, `gcc-scalar`, `ci-gcc`). Optional: Doxygen (the radio API reference), reuse
 (licence lint), bubblewrap (the clean-environment kit run). No SoapySDR,
 vendor library or libusb package is needed: they are built from
 `third_party/`.
 
     git submodule update --init
-    cmake -S . -B build -G Ninja
+    tools/sdk/yantra_sdk.py make
+    cmake --preset default            # clang of the SDK, tree build/
     ninja -C build
     ctest --test-dir build -j"$(nproc)"
+    cmake --preset gcc && ninja -C build-gcc && ctest --test-dir build-gcc -j"$(nproc)"
 
-`tools/ci/run_linux.sh [build-dir]` runs the same steps as the CI job
-(static dependency build, warnings as errors, fast tests, completeness,
-lint).
+A plain `cmake -S . -B <tree>` without a preset or toolchain file takes the
+system's compiler. `tools/ci/run_linux.sh [build-dir]` runs the same steps
+as the CI job (static dependency build, warnings as errors, fast tests,
+completeness, lint); `YANTRA_CI_COMPILER=gcc` for the gcc job.
 
 ### Presets (CMakePresets.json)
+
+All presets except the gcc ones use the SDK's clang
+(`CMAKE_TOOLCHAIN_FILE=tools/sdk/toolchain-x86_64-linux-gnu-clang.cmake`,
+with the SDK's lld, Rust and llvm-symbolizer).
 
 | Preset | Tree | What |
 |---|---|---|
@@ -37,6 +46,13 @@ lint).
 | `asan-ubsan` | `build-asan` | AddressSanitizer + UBSan, hang guards x5; tests `-LE timing` |
 | `tsan` | `build-tsan` | ThreadSanitizer, hang guards x10; tests `-LE timing` |
 | `fuzz` | `build-fuzz` | clang + libFuzzer targets (RAD-96, [docs/FUZZING.md](docs/FUZZING.md)) |
+| `gcc` | `build-gcc` | the system gcc/g++, RelWithDebInfo, SIMD kernels |
+| `gcc-scalar` | `build-gcc-scalar` | the system gcc, `-DYANTRA_SIMD=OFF` |
+| `ci-gcc` | `build-gcc` | the system gcc, warnings are errors (CI job `linux-x86-64-gcc`) |
+
+Both compilers build with zero warnings; a warning of either is fixed in
+the code, never silenced globally (third-party sources keep their own
+flags).
 
 ### Options
 
@@ -86,7 +102,7 @@ Each artefact embeds the dependency manifest (name, version, licence):
   source paths relative with `-ffile-prefix-map` and `--remap-path-prefix`,
   so a debugger needs `directory <source tree>`. `package_release.sh` looks
   for the same folders in every file of the package (not in an `asan-ubsan`
-  tree, never shipped: gcc's AddressSanitizer keeps the full paths). ctests
+  tree, never shipped: AddressSanitizer keeps the full paths). ctests
   `completeness_<plugin>` and `completeness_plugins`.
 - `tools/ci/clean_env.py`: the conformance kit on the plugins in an
   environment without SoapySDR or vendor packages (bubblewrap locally,
@@ -115,7 +131,7 @@ unpacked):
 |---|---|---|
 | `llvm/` | one LLVM release: clang, clang++, lld, llvm-ar/ranlib, llvm-rc, llvm-objdump, llvm-strip, llvm-symbolizer and more, compiler-rt (sanitizers, libFuzzer) | `tools/sdk/llvm.lock` |
 | `sysroots/x86_64-w64-mingw32/` | the Windows x64 (UCRT) target sysroot: MSYS2 UCRT64 binary packages (mingw-w64 headers, CRT and import libraries, winpthreads, the GCC runtime with libstdc++ and libgcc), only unpacked | `tools/sdk/msys2.lock` |
-| `rust/` | rustc with the standard libraries of x86_64-unknown-linux-gnu and x86_64-pc-windows-gnu | `tools/sdk/rust.lock` |
+| `rust/` | rustc and cargo with the standard libraries of x86_64-unknown-linux-gnu and x86_64-pc-windows-gnu | `tools/sdk/rust.lock` |
 | `manifest/` | the lock files it was made from and every unpacked file with its SHA-256 | |
 
     tools/sdk/yantra_sdk.py make     # download (cached), check, unpack
@@ -143,9 +159,10 @@ unpacked):
   keep `sdk-cache/` to remake an older SDK.
 - Rust: the Windows `rust-std` loads only into the official `rustc` build
   of the same version (a distribution's own `rustc` build is refused,
-  E0514), so the SDK carries the official `rustc` of the system's version,
-  and the toolchain files make cargo use it (`RUSTC`) for every target and
-  test. The system Rust stays as it is; cargo is the system's.
+  E0514), so the SDK carries the official `rustc` and `cargo` of the
+  system's version, and the toolchain files make the build use them
+  (`YANTRA_CARGO_EXECUTABLE`, `RUSTC`) for every target and test. The
+  system Rust stays as it is (the gcc trees use it).
 - Toolchain files (`-DCMAKE_TOOLCHAIN_FILE=`; the SDK folder from
   `-DYANTRA_SDK_DIR`, `$YANTRA_SDK_DIR` or `sdk/`):
   - `tools/sdk/toolchain-x86_64-linux-gnu-clang.cmake`: Linux with the
@@ -186,10 +203,12 @@ WinUSB/Zadig driver notes are the open Windows items).
 ## CI (RAD-134)
 
 `.github/workflows/`: `ci.yml` (every push: lint incl. shell, YAML,
-Python, FFI widths, reuse, cargo-deny, `verify_sources.py`; Linux build
-and fast tests; Windows build; completeness checks incl. the clean
-environment), `ci-full.yml` (nightly and before a release: opt-in and slow
-suites, sanitizers, scalar tree, arm64), `sens-quick.yml` (sensitivity
+Python, FFI widths, reuse, cargo-deny, `verify_sources.py`, workflow YAML
+with PyYAML; Linux build and fast tests with the SDK's clang (the SDK
+cached per lock-file version) and with the system gcc; Windows build;
+completeness checks incl. the clean environment), `ci-full.yml` (nightly
+and before a release: opt-in and slow suites; clang trees x86-64, scalar,
+ASan+UBSan, TSan; gcc trees x86-64 and arm64), `sens-quick.yml` (sensitivity
 sweep), `windows-check.yml` and `release.yml`. The workflows are complete
 while the repository has no remote; `tools/ci/run_linux.sh` runs the same
 Linux steps locally.

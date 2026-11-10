@@ -53,7 +53,7 @@ done
 # tools/deps/deps.cmake, check_completeness.py build_paths).
 forbid=(-e "$root" -e "$build")
 case ${HOME:-} in /*/*) forbid+=(-e "${HOME%/}") ;; esac
-# An asan-ubsan tree is packaged only by its test: gcc's AddressSanitizer
+# An asan-ubsan tree is packaged only by its test: AddressSanitizer
 # keeps each source file's full path.
 if ! grep -q '^YANTRA_SANITIZER:.*=asan-ubsan$' "$build/CMakeCache.txt" \
     && paths=$(grep -rlaF "${forbid[@]}" "$pkg"); then

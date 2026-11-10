@@ -43,7 +43,9 @@ function(yantra_add_radio_plugin name)
     LIBRARY_OUTPUT_DIRECTORY ${ARG_OUTPUT_DIR}
     RUNTIME_OUTPUT_DIRECTORY ${ARG_OUTPUT_DIR})
   if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-    target_link_options(${name} PRIVATE -static-libstdc++ -static-libgcc)
+    # libstdc++ only where the linker is the C++ one (a C plugin has no
+    # libstdc++ to link, and clang warns about the unused flag).
+    target_link_options(${name} PRIVATE $<$<LINK_LANGUAGE:CXX>:-static-libstdc++> -static-libgcc)
     if(WIN32)
       target_link_options(${name} PRIVATE -Wl,-Bstatic -lwinpthread -Wl,-Bdynamic)
     else()

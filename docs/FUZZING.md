@@ -49,9 +49,9 @@ which mutated input crashed a replay, run it with
 
 ## libFuzzer runs (clang)
 
-The `fuzz` preset (`build-fuzz/`, clang, ASan + UBSan, `YANTRA_FUZZ=ON`)
-builds the targets as libFuzzer binaries in `build-fuzz/fuzz/`; the
-default GCC build is not affected. All C and C++ code and the Rust crate
+The `fuzz` preset (`build-fuzz/`, clang of the cross SDK, ASan + UBSan,
+`YANTRA_FUZZ=ON`) builds the targets as libFuzzer binaries in
+`build-fuzz/fuzz/`; the other trees are not affected. All C and C++ code and the Rust crate
 (stable `rustc` codegen options for SanitizerCoverage,
 `cmake/YantraFuzz.cmake`) are instrumented, so `tetra_pdu` fuzzes the
 Rust parsers with coverage feedback through the C ABI.

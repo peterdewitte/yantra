@@ -2,10 +2,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # CI on every push and pull request (RAD-134, RAD-90): lint (shell, YAML,
-# Python, FFI widths, reuse lint, cargo-deny), Linux build with warnings
-# as errors + fast tests, Windows MSYS2 UCRT64 build + fast tests, and the
-# completeness checks (RAD-133). Locally the same Linux steps run with
-# tools/ci/run_linux.sh.
+# Python, FFI widths, reuse lint, cargo-deny), Linux builds with warnings
+# as errors + fast tests (clang of the cross SDK, the default compiler, and
+# the system gcc; RAD-03, RAD-139), Windows MSYS2 UCRT64 build + fast
+# tests, and the completeness checks (RAD-133). Locally the same Linux
+# steps run with tools/ci/run_linux.sh (YANTRA_CI_COMPILER=clang|gcc).
 # DEFERRED (Windows): the windows-ucrt64 job is written but has not run;
 # the Windows build is not worked on yet.
 # Copied from yantra 68ea20a: .github/workflows/ci.yml, adapted for RAD-134.
@@ -27,6 +28,8 @@ permissions:
 env:
   # Static dependency builds (RAD-136), cached per script version.
   DEPS_KEY: deps-${{ hashFiles('tools/deps/**', 'third_party/**') }}
+  # The cross SDK (RAD-139), cached per lock-file version.
+  SDK_KEY: yantra-sdk-${{ hashFiles('tools/sdk/*.lock', 'tools/sdk/yantra_sdk.py') }}
 
 jobs:
   lint:
@@ -47,11 +50,18 @@ jobs:
         run: command -v cargo-deny || cargo install --locked cargo-deny@0.20.2
       - name: Shell, Python and YAML syntax, FFI widths, cargo-deny
         run: YANTRA_LINT_REQUIRE_TOOLS=1 sh tools/ci/lint.sh
+      - name: Workflow YAML parses (PyYAML)
+        run: |
+          python3 -c 'import sys, yaml
+          for f in sys.argv[1:]:
+              yaml.safe_load(open(f))' .github/workflows/*.yml
       - name: REUSE compliance
         run: reuse lint
       - name: Vendored sources match their release archives (RAD-136)
         run: python3 tools/deps/verify_sources.py build/deps-cache
 
+  # Default compiler: clang of the cross SDK (RAD-03, RAD-139), with the
+  # SDK's lld and Rust. The SDK is cached per lock-file version.
   linux-x86-64:
     runs-on: ubuntu-24.04
     steps:
@@ -62,14 +72,23 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build g++ python3 python3-yaml binutils pipx
+            cmake ninja-build python3 python3-yaml binutils gpg zstd pipx
           pipx install reuse
+      - name: Cache the cross SDK (RAD-139)
+        uses: actions/cache@v4
+        with:
+          path: sdk
+          key: ${{ env.SDK_KEY }}-${{ runner.os }}-${{ runner.arch }}
+      - name: Cross SDK (made from the lock files, else checked)
+        run: python3 tools/sdk/yantra_sdk.py check || python3 tools/sdk/yantra_sdk.py make
       - name: Cache the dependency builds (RAD-136)
         uses: actions/cache@v4
         with:
           path: build/deps
-          key: ${{ env.DEPS_KEY }}-${{ runner.os }}-${{ runner.arch }}
+          key: ${{ env.DEPS_KEY }}-${{ env.SDK_KEY }}-${{ runner.os }}-${{ runner.arch }}
       - name: Static dependency builds (RAD-136)
+        env:
+          CMAKE_TOOLCHAIN_FILE: ${{ github.workspace }}/tools/sdk/toolchain-x86_64-linux-gnu-clang.cmake
         run: tools/deps/build_deps.sh build/deps
       - name: Configure (warnings are errors)
         run: cmake --preset ci -DYANTRA_DEPS_PREFIX="$PWD/build/deps"
@@ -101,6 +120,40 @@ jobs:
           name: linux-x86-64-conformance
           path: build/conformance/
           if-no-files-found: ignore
+
+  # The second Linux compiler: the system gcc (RAD-03), tree build-gcc.
+  linux-x86-64-gcc:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install build tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            cmake ninja-build g++ cargo python3 python3-yaml binutils pipx
+          pipx install reuse
+      - name: Cache the dependency builds (RAD-136)
+        uses: actions/cache@v4
+        with:
+          path: build-gcc/deps
+          key: ${{ env.DEPS_KEY }}-gcc-${{ runner.os }}-${{ runner.arch }}
+      - name: Static dependency builds (RAD-136)
+        env:
+          CC: gcc
+          CXX: g++
+        run: tools/deps/build_deps.sh build-gcc/deps
+      - name: Configure (warnings are errors)
+        run: cmake --preset ci-gcc -DYANTRA_DEPS_PREFIX="$PWD/build-gcc/deps"
+      - name: Build
+        run: cmake --build --preset ci-gcc -j "$(nproc)"
+      - name: Fast tests
+        run: ctest --test-dir build-gcc -LE 'slow|timing' --timeout 600 --output-on-failure -j "$(nproc)"
+      - name: Timing-sensitive tests (retried once)
+        run: ctest --test-dir build-gcc -L timing -LE slow --timeout 600 --output-on-failure --repeat until-pass:2
+      - name: Completeness checks (RAD-133)
+        run: python3 tools/ci/check_completeness.py build-gcc/bin/plugins
 
   # RAD-133: the plugins in a clean environment, without SoapySDR or
   # vendor packages: a bare container that only gets the built plugins,

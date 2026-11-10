@@ -11,8 +11,8 @@
 #              the Windows x64 (UCRT) target sysroot, unpacked from MSYS2
 #              UCRT64 binary packages: mingw-w64 headers, CRT and import
 #              libraries, the GCC runtime (libstdc++, libgcc, winpthreads);
-#   rust/      rustc of the pinned Rust version with the standard libraries
-#              of x86_64-unknown-linux-gnu and x86_64-pc-windows-gnu;
+#   rust/      rustc and cargo of the pinned Rust version with the standard
+#              libraries of x86_64-unknown-linux-gnu and x86_64-pc-windows-gnu;
 #   manifest/  the lock files it was made from and the list of every
 #              unpacked file with its SHA-256 (the "check" command).
 # Nothing is compiled or installed in the system; no sudo, no MSYS2 and no
@@ -286,7 +286,8 @@ def llvm_update(version, lock_path, cache, gpg):
 
 # ---- Rust ------------------------------------------------------------------
 def rust_files(version):
-    return [f"rustc-{version}-x86_64-unknown-linux-gnu.tar.xz"] + \
+    return [f"rustc-{version}-x86_64-unknown-linux-gnu.tar.xz",
+            f"cargo-{version}-x86_64-unknown-linux-gnu.tar.xz"] + \
            [f"rust-std-{version}-{t}.tar.xz" for t in RUST_TARGETS]
 
 
@@ -357,7 +358,8 @@ def rust_update(lock_path, cache, gpg):
                ["SPDX-FileCopyrightText: 2026 The Yantra contributors",
                 "SPDX-License-Identifier: GPL-3.0-or-later",
                 "",
-                "Rust of the cross SDK (RAD-139): the version of the rustc on PATH, from",
+                "Rust of the cross SDK (RAD-139): rustc, cargo and the standard libraries of the",
+                "version of the rustc on PATH (the official build of that version), from",
                 f"{RUST_DIST}, signed with the Rust release key {RUST_KEY}.",
                 "tools/sdk/yantra_sdk.py update --rust"],
                [("version", [version]), ("commit", [commit])], files)
