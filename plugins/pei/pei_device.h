@@ -26,6 +26,7 @@
 
 #define PEI_TEXT_BYTES 256u
 #define PEI_PATH_BYTES 256u
+#define PEI_MAX_HELD 8
 
 /* Command profiles (setting command_profile). */
 #define PEI_PROFILE_CELL_LIST 0
@@ -85,7 +86,7 @@ struct yr_device {
     char path[PEI_PATH_BYTES]; /* the port of the key */
     char watch_port[PEI_PATH_BYTES]; /* the port in use: the stream's port, else the key's */
     char label[PEI_PATH_BYTES + 40];
-    char hardware_info[PEI_PATH_BYTES * 2 + 32];
+    char hardware_info[PEI_PATH_BYTES * 2 + 512];
 
     pthread_mutex_t mutex;
     pthread_cond_t wake; /* stop requests for the stream thread */
@@ -116,6 +117,14 @@ struct yr_plugin {
     int watcher_running;
     int stopping;
     uint64_t ports_signature;
+    /* Ports another program held at an open of this plugin (IN_USE in
+     * enumerate until the watcher finds them free again, RAD-80). */
+    struct {
+        char path[PEI_PATH_BYTES];
+        char reason[PEI_TEXT_BYTES];
+    } held[PEI_MAX_HELD];
+    int held_count;
+    unsigned held_round;
 };
 
 /* pei_plugin.c */
@@ -125,6 +134,9 @@ void pei_log(struct yr_device* d, uint32_t level, const char* fmt, ...)
 #endif
     ;
 int64_t pei_monotonic_ns(struct yr_device* d);
+/** Marks `path` as held by another program (held 1, with the reason) or
+ *  free (held 0); devices_changed on a change. No device mutex held. */
+void pei_mark_port(struct yr_plugin* p, const char* path, int held, const char* reason);
 /** snprintf that cuts long texts silently (the sensors and messages have
  *  fixed buffers). */
 void pei_format(char* out, size_t size, const char* fmt, ...)

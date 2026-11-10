@@ -104,6 +104,14 @@ static void init_cond_monotonic(pthread_cond_t* c)
 
 static void timed_wait(pthread_cond_t* c, pthread_mutex_t* m, int ms)
 {
+#if defined(_WIN32)
+    /* winpthreads measures an absolute time against the wall clock (no
+     * CLOCK_MONOTONIC condition variables): wait relative instead. */
+    struct timespec rel;
+    rel.tv_sec = ms / 1000;
+    rel.tv_nsec = (long)(ms % 1000) * 1000000L;
+    pthread_cond_timedwait_relative_np(c, m, &rel);
+#else
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
     ts.tv_sec += ms / 1000;
@@ -113,6 +121,7 @@ static void timed_wait(pthread_cond_t* c, pthread_mutex_t* m, int ms)
         ts.tv_nsec -= 1000000000L;
     }
     pthread_cond_timedwait(c, m, &ts);
+#endif
 }
 
 void pei_wait_locked(yr_device* d, int ms)
@@ -233,10 +242,10 @@ static void pei_shutdown(yr_plugin* p)
 }
 
 /* FNV-1a over the listed ports: a change means devices appeared or went. */
-static void hash_port(void* user, const char* path)
+static void hash_port(void* user, const pei_port_info* info)
 {
     uint64_t* h = (uint64_t*)user;
-    for (const char* c = path; *c != '\0'; ++c) {
+    for (const char* c = info->path; *c != '\0'; ++c) {
         *h ^= (unsigned char)*c;
         *h *= 1099511628211ull;
     }
@@ -249,6 +258,57 @@ static uint64_t ports_signature(void)
     uint64_t h = 1469598103934665603ull;
     pei_port_list(getenv(PEI_PORTS_ENV), hash_port, &h);
     return h;
+}
+
+/* Ports another program held at this plugin's last open (IN_USE in
+ * enumerate, RAD-80). p->mutex held. */
+static int find_held_locked(yr_plugin* p, const char* path)
+{
+    for (int i = 0; i < p->held_count; ++i)
+        if (strcmp(p->held[i].path, path) == 0)
+            return i;
+    return -1;
+}
+
+void pei_mark_port(yr_plugin* p, const char* path, int held, const char* reason)
+{
+    int changed = 0;
+    pthread_mutex_lock(&p->mutex);
+    const int i = find_held_locked(p, path);
+    if (held && i < 0 && p->held_count < PEI_MAX_HELD) {
+        copy_text(p->held[p->held_count].path, sizeof p->held[0].path, path);
+        copy_text(p->held[p->held_count].reason, sizeof p->held[0].reason, reason);
+        ++p->held_count;
+        changed = 1;
+    } else if (!held && i >= 0) {
+        p->held[i] = p->held[--p->held_count];
+        changed = 1;
+    }
+    pthread_mutex_unlock(&p->mutex);
+    if (changed)
+        p->host->devices_changed(p->host->host);
+}
+
+/* Every second: a held port that is free again (or gone) loses its mark.
+ * Opens only ports found held before. p->mutex held; nonzero on a change. */
+static int recheck_held_locked(yr_plugin* p)
+{
+    int changed = 0;
+    for (int i = 0; i < p->held_count;) {
+        char path[PEI_PATH_BYTES];
+        copy_text(path, sizeof path, p->held[i].path);
+        pthread_mutex_unlock(&p->mutex);
+        const int still = pei_port_held_elsewhere(path);
+        pthread_mutex_lock(&p->mutex);
+        const int j = find_held_locked(p, path);
+        if (!still && j >= 0) {
+            p->held[j] = p->held[--p->held_count];
+            changed = 1;
+            continue;
+        }
+        ++i;
+    }
+    return changed;
 }
 
 /* The watch thread (RAD-35): devices_changed when the port list changes;
@@ -267,6 +327,9 @@ static void* watcher_main(void* arg)
         pthread_mutex_lock(&p->mutex);
         const int changed = sig != p->ports_signature;
         p->ports_signature = sig;
+        int held_changed = 0;
+        if (++p->held_round % 4 == 0)
+            held_changed = recheck_held_locked(p);
         for (yr_device* d = p->devices; d != NULL; d = d->next) {
             pthread_mutex_lock(&d->mutex);
             char why[8];
@@ -291,7 +354,7 @@ static void* watcher_main(void* arg)
             }
             pthread_mutex_unlock(&d->mutex);
         }
-        if (changed) {
+        if (changed || held_changed) {
             pthread_mutex_unlock(&p->mutex);
             p->host->devices_changed(p->host->host);
             pthread_mutex_lock(&p->mutex);
@@ -306,27 +369,64 @@ static void* watcher_main(void* arg)
 typedef struct device_entry {
     char key[PEI_PATH_BYTES + 8];
     char label[PEI_PATH_BYTES + 40];
-    char hardware_info[PEI_PATH_BYTES * 2 + 32];
+    char hardware_info[PEI_PATH_BYTES * 2 + 512];
+    char serial[128];
     char reason[PEI_TEXT_BYTES];
     uint32_t flags;
 } device_entry;
 
-static void make_entry(const char* path, device_entry* e)
+static void make_entry(yr_plugin* p, const pei_port_info* info, device_entry* e)
 {
     memset(e, 0, sizeof *e);
+    const char* path = info->path;
     pei_format(e->key, sizeof e->key, PEI_KEY_PREFIX "%s", path);
     pei_format(e->label, sizeof e->label, "TETRA terminal (PEI) on %s", path);
-    char real[PEI_PATH_BYTES] = "";
-#if !defined(_WIN32)
-    char buf[4096];
-    if (realpath(path, buf) != NULL)
-        copy_text(real, sizeof real, buf);
-#endif
-    pei_format(e->hardware_info, sizeof e->hardware_info, "port=%s\ndevice=%s", path, real[0] ? real : path);
-    if (pei_port_check(path, e->reason, sizeof e->reason) < 0)
+    copy_text(e->serial, sizeof e->serial, info->serial);
+    char usb[64] = "";
+    if (info->vendor_id != 0 || info->product_id != 0)
+        pei_format(usb, sizeof usb, "\nusb=%04x:%04x", info->vendor_id, info->product_id);
+    pei_format(e->hardware_info, sizeof e->hardware_info, "port=%s\ndevice=%s%s%s%s%s%s", path,
+               info->device[0] ? info->device : path, usb, info->serial[0] ? "\nserial=" : "", info->serial,
+               info->description[0] ? "\ndescription=" : "", info->description);
+    if (pei_port_check(path, e->reason, sizeof e->reason) < 0) {
         e->flags |= YR_DEVICE_NO_PERMISSION;
-    else
-        e->reason[0] = '\0';
+        return;
+    }
+    e->reason[0] = '\0';
+    pthread_mutex_lock(&p->mutex);
+    const int i = find_held_locked(p, path);
+    if (i >= 0) {
+        e->flags |= YR_DEVICE_IN_USE;
+        copy_text(e->reason, sizeof e->reason, p->held[i].reason);
+    }
+    pthread_mutex_unlock(&p->mutex);
+}
+
+/* The listed port of `path` (USB ids, device), or the bare path. */
+typedef struct find_ctx {
+    const char* path;
+    yr_plugin* plugin;
+    device_entry* entry;
+    int found;
+} find_ctx;
+
+static void find_port(void* user, const pei_port_info* info)
+{
+    find_ctx* c = (find_ctx*)user;
+    if (!c->found && strcmp(info->path, c->path) == 0) {
+        make_entry(c->plugin, info, c->entry);
+        c->found = 1;
+    }
+}
+
+static void entry_of_path(yr_plugin* p, const char* path, device_entry* e)
+{
+    find_ctx c = {path, p, e, 0};
+    pei_port_list(getenv(PEI_PORTS_ENV), find_port, &c);
+    if (!c.found) {
+        const pei_port_info bare = {path, path, "", 0, 0, ""};
+        make_entry(p, &bare, e);
+    }
 }
 
 static void report_entry(const device_entry* e, yr_device_cb cb, void* user)
@@ -338,7 +438,7 @@ static void report_entry(const device_entry* e, yr_device_cb cb, void* user)
     info.key = e->key;
     info.label = e->label;
     info.driver = "pei";
-    info.serial = "";
+    info.serial = e->serial;
     info.module_version = "";
     info.hardware_info = e->hardware_info;
     info.flags_reason = e->reason;
@@ -346,15 +446,16 @@ static void report_entry(const device_entry* e, yr_device_cb cb, void* user)
 }
 
 typedef struct enum_ctx {
+    yr_plugin* plugin;
     yr_device_cb cb;
     void* user;
 } enum_ctx;
 
-static void enum_port(void* user, const char* path)
+static void enum_port(void* user, const pei_port_info* info)
 {
     enum_ctx* c = (enum_ctx*)user;
     device_entry e;
-    make_entry(path, &e);
+    make_entry(c->plugin, info, &e);
     report_entry(&e, c->cb, c->user);
 }
 
@@ -362,10 +463,15 @@ static yr_status pei_enumerate(yr_plugin* p, yr_device_cb cb, void* user)
 {
     if (p == NULL || cb == NULL)
         return YR_ERR_INVALID_ARGUMENT;
-    enum_ctx c = {cb, user};
+    enum_ctx c = {p, cb, user};
     if (pei_port_list(getenv(PEI_PORTS_ENV), enum_port, &c) == 0) {
+#if defined(_WIN32)
+        set_plugin_error(p, "no serial port found (no COM port): connect the terminal's PEI cable (a USB "
+                            "serial adapter or the terminal's USB port) and install its driver");
+#else
         set_plugin_error(p, "no serial port found (/dev/serial/by-id, /dev/ttyUSB*, /dev/ttyACM*): connect "
                             "the terminal's PEI cable (a USB serial adapter or the terminal's USB port)");
+#endif
         return YR_ERR_NO_DEVICE;
     }
     set_plugin_error(p, "");
@@ -424,7 +530,7 @@ static yr_status pei_open(yr_plugin* p, const char* key, yr_device** out)
         return YR_ERR_NO_MEMORY;
     d->plugin = p;
     device_entry e;
-    make_entry(path, &e);
+    entry_of_path(p, path, &e);
     copy_text(d->key, sizeof d->key, e.key);
     copy_text(d->path, sizeof d->path, path);
     copy_text(d->watch_port, sizeof d->watch_port, path);
@@ -480,7 +586,7 @@ static yr_status pei_device_info(yr_device* d, yr_device_cb cb, void* user)
     if (d == NULL || cb == NULL)
         return YR_ERR_INVALID_ARGUMENT;
     device_entry e;
-    make_entry(d->path, &e);
+    entry_of_path(d->plugin, d->path, &e);
     report_entry(&e, cb, user);
     return YR_OK;
 }
@@ -705,7 +811,8 @@ static void setting_def(yr_device* d, int i, yr_setting_def* s)
         s->type = YR_TYPE_STRING;
         s->flags = YR_SETTING_RESTART;
         s->label = "Port";
-        s->help = "Serial port of the terminal's PEI (e.g. /dev/ttyUSB0 or a /dev/serial/by-id name).";
+        s->help = "Serial port of the terminal's PEI (Linux: e.g. /dev/ttyUSB0 or a /dev/serial/by-id name; "
+                  "Windows: e.g. COM3).";
         s->default_value = yr_value_string(d->path);
         break;
     case S_BAUD:

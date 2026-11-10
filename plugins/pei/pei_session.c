@@ -543,6 +543,18 @@ static void reset_connection(session* ss)
     pthread_mutex_unlock(&ss->d->mutex);
 }
 
+/* Opens the session's port; a port another program holds is marked for
+ * enumerate's IN_USE, a port that opens loses its mark (RAD-80). Called
+ * without the device mutex. */
+static pei_port* open_port(session* ss, char* err, size_t err_size)
+{
+    int in_use = 0;
+    pei_port* port = pei_port_open(ss->s.port, ss->s.baud, &in_use, err, err_size);
+    if (port != NULL || in_use)
+        pei_mark_port(ss->d->plugin, ss->s.port, in_use, err);
+    return port;
+}
+
 static void* stream_main(void* arg)
 {
     session* ss = (session*)arg;
@@ -554,7 +566,7 @@ static void* stream_main(void* arg)
     while (!atomic_load(ss->stop)) {
         if (ss->port == NULL) {
             char err[PEI_TEXT_BYTES];
-            ss->port = pei_port_open(ss->s.port, ss->s.baud, err, sizeof err);
+            ss->port = open_port(ss, err, sizeof err);
             if (ss->port == NULL) {
                 set_terminal(ss, PEI_TERMINAL_CONNECTING, err);
                 wait_ms(ss, RETRY_MS);
@@ -619,7 +631,7 @@ yr_status pei_session_start(yr_device* d, yr_stream* sink)
     ss->s = d->settings;
     pthread_mutex_unlock(&d->mutex);
     char err[PEI_TEXT_BYTES];
-    ss->port = pei_port_open(ss->s.port, ss->s.baud, err, sizeof err);
+    ss->port = open_port(ss, err, sizeof err);
     if (ss->port == NULL) {
         pthread_mutex_lock(&d->mutex);
         pei_format(d->last_error, sizeof d->last_error, "%s", err);
@@ -711,7 +723,7 @@ yr_status pei_session_self_test(yr_device* d, yr_selftest_cb cb, void* user)
     static const char* const labels[] = {"Radio info (AT+GMI, AT+GMM, AT+GMR, AT+GSN)", "Level (AT+CSQ)",
                                          "Registration (AT+CREG?)", "Serving cell command",
                                          "Neighbour cells command"};
-    ss->port = pei_port_open(ss->s.port, ss->s.baud, err, sizeof err);
+    ss->port = open_port(ss, err, sizeof err);
     if (ss->port == NULL) {
         item(cb, user, YR_TEST_FAIL, "port", "Serial port opens", err,
              "check the port setting, that the cable is plugged in and that you may use the port");

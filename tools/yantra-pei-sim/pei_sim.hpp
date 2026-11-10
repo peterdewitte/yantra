@@ -7,8 +7,10 @@
 // generator's levels_at, no IQ), the neighbours are its scenario neighbour
 // list entries that are on air. It speaks EN 300 392-5 (AT+CSQ, AT+CREG?,
 // AT+GMI/GMM/GMR/GSN) and the example vendor cell lists AT+YCELL? and
-// AT+YNCELL? of docs/RADIO_PLUGINS.md. PtyTerminal serves it on a
-// pseudo-terminal behind a symlink that can be unplugged and replugged.
+// AT+YNCELL? of docs/RADIO_PLUGINS.md. PortTerminal serves it where the
+// terminal plugin's serial-port code can open it: a pseudo-terminal behind
+// a symlink (PtyTerminal, POSIX) or a named pipe (PipeTerminal, Windows),
+// both of which can be unplugged and replugged (RAD-80, RAD-35).
 #pragma once
 
 #include <yantra/gen/scenario.hpp>
@@ -91,6 +93,7 @@ private:
     std::vector<std::string> commands_;
 };
 
+#if !defined(_WIN32)
 /// The terminal on a pseudo-terminal: `link` is a symlink to the slave
 /// side, which the plugin opens as its serial port. unplug() removes the
 /// link and closes the pseudo-terminal (the plugin reads EOF/EIO), replug()
@@ -123,5 +126,54 @@ private:
     std::atomic<int> delay_ms_{0};
     std::thread thread_;
 };
+
+/// The serial-port stand-in of this platform.
+using PortTerminal = PtyTerminal;
+#else
+/// The terminal on a named pipe (Windows): `link` is the pipe name
+/// \\.\pipe\NAME, which the plugin opens through its Win32 serial-port
+/// code (CreateFileW, overlapped ReadFile/WriteFile; no DCB on a pipe,
+/// RAD-80). One client at a time (a second open gets "in use"); a client
+/// that closes is followed by the next. unplug() closes the pipe (the
+/// plugin reads a broken pipe and the name is gone), replug() makes it
+/// again under the same name.
+class PipeTerminal {
+public:
+    PipeTerminal(Terminal& terminal, std::string link);
+    ~PipeTerminal();
+    PipeTerminal(const PipeTerminal&) = delete;
+    PipeTerminal& operator=(const PipeTerminal&) = delete;
+
+    bool plugged() const { return pipe_ != nullptr; }
+    const std::string& link() const { return link_; }
+    /// The pipe name (the same as link()).
+    const std::string& device() const { return link_; }
+    void unplug();
+    /// std::runtime_error when the pipe cannot be made (name taken).
+    void replug();
+    /// Milliseconds waited before each reply (a slow terminal).
+    void set_reply_delay_ms(int ms) { delay_ms_.store(ms); }
+
+private:
+    void serve();
+    Terminal& terminal_;
+    std::string link_;
+    void* pipe_ = nullptr; ///< HANDLE of the pipe instance
+    void* stop_ = nullptr; ///< HANDLE of the stop event
+    std::atomic<int> delay_ms_{0};
+    std::thread thread_;
+};
+
+/// The serial-port stand-in of this platform.
+using PortTerminal = PipeTerminal;
+#endif
+
+/// A fresh port name for a test terminal: a path under the temp folder
+/// (POSIX: the symlink) or \\.\pipe\yantra-pei-<tag> (Windows).
+std::string make_port_name(const std::string& tag);
+
+/// The terminal's reply bytes for the received bytes: whole command lines
+/// (CR-terminated) are taken from `pending` and answered in order.
+std::vector<std::string> take_replies(Terminal& terminal, std::string& pending);
 
 } // namespace yantra::pei_sim

@@ -77,7 +77,7 @@ endif()
 # the built plugins report (RAD-97, RAD-135). `ninja update-plugin-docs`
 # rewrites the generated blocks of the plugin pages. Not in the sanitizer
 # trees: there the self-test stream items can time out differently.
-if(YANTRA_RADIOS_BUILD_TESTS AND Python3_Interpreter_FOUND AND YANTRA_SANITIZER STREQUAL ""
+if(NOT WIN32 AND YANTRA_RADIOS_BUILD_TESTS AND Python3_Interpreter_FOUND AND YANTRA_SANITIZER STREQUAL ""
    AND TARGET hackrf_fake AND TARGET soapysdr_fake AND TARGET pei AND TARGET yantra-pei-sim
    AND TARGET simulator)
   set(_plugin_docs ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/ci/plugin_docs.py
@@ -91,5 +91,5 @@ if(YANTRA_RADIOS_BUILD_TESTS AND Python3_Interpreter_FOUND AND YANTRA_SANITIZER 
     VERBATIM)
 elseif(WIN32 AND YANTRA_RADIOS_BUILD_TESTS)
   include(YantraTests)
-  yantra_skip_test(plugin_docs REASON "the terminal plugin's page needs yantra-pei-sim (POSIX pseudo-terminal); the pages are checked in the Linux trees, the plugins are the same code")
+  yantra_skip_test(plugin_docs REASON "the checker drives the Linux tree's .so plugins and programs; the pages are checked in the Linux trees, the plugins are the same code")
 endif()

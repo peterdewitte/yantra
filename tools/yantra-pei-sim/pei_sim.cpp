@@ -7,18 +7,27 @@
 #include <yantra/radios/tetra_schemas.hpp>
 
 #include <algorithm>
+#include <atomic>
 #include <cctype>
 #include <cerrno>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <filesystem>
 #include <stdexcept>
 
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#else
 #include <fcntl.h>
 #include <poll.h>
 #include <termios.h>
 #include <unistd.h>
+#endif
 
 namespace yantra::pei_sim {
 
@@ -238,6 +247,40 @@ std::string Terminal::reply_locked(const std::string& cmd, const std::string& up
     return std::string(kCrlf) + line("ERROR");
 }
 
+// ------------------------------------------------------------ shared
+
+std::vector<std::string> take_replies(Terminal& terminal, std::string& pending)
+{
+    std::vector<std::string> out;
+    for (;;) {
+        const size_t end = pending.find('\r');
+        if (end == std::string::npos)
+            break;
+        const std::string cmd = pending.substr(0, end);
+        pending.erase(0, end + 1);
+        std::string reply = terminal.handle(cmd);
+        if (!reply.empty())
+            out.push_back(std::move(reply));
+    }
+    if (pending.size() > 4096)
+        pending.clear();
+    return out;
+}
+
+std::string make_port_name(const std::string& tag)
+{
+    static std::atomic<int> counter{0};
+#if defined(_WIN32)
+    return "\\\\.\\pipe\\yantra-pei-" + tag + "-" + std::to_string(GetCurrentProcessId()) + "-" +
+           std::to_string(++counter);
+#else
+    return (std::filesystem::temp_directory_path() /
+            ("yantra-pei-" + tag + "-" + std::to_string(::getpid()) + "-" + std::to_string(++counter)))
+        .string();
+#endif
+}
+
+#if !defined(_WIN32)
 // ------------------------------------------------------------ PtyTerminal
 
 PtyTerminal::PtyTerminal(Terminal& terminal, std::string link) : terminal_(terminal), link_(std::move(link))
@@ -338,15 +381,7 @@ void PtyTerminal::serve()
         if (n <= 0)
             continue;
         pending.append(buf, static_cast<size_t>(n));
-        for (;;) {
-            const size_t end = pending.find('\r');
-            if (end == std::string::npos)
-                break;
-            const std::string cmd = pending.substr(0, end);
-            pending.erase(0, end + 1);
-            const std::string reply = terminal_.handle(cmd);
-            if (reply.empty())
-                continue;
+        for (const std::string& reply : take_replies(terminal_, pending)) {
             if (const int ms = delay_ms_.load(); ms > 0) {
                 pollfd w = {wake_[0], POLLIN, 0};
                 if (poll(&w, 1, ms) > 0)
@@ -363,9 +398,171 @@ void PtyTerminal::serve()
                 off += static_cast<size_t>(w);
             }
         }
-        if (pending.size() > 4096)
-            pending.clear();
     }
 }
+#endif
+
+#if defined(_WIN32)
+// ------------------------------------------------------------ PipeTerminal
+
+namespace {
+
+std::wstring wide(const std::string& s)
+{
+    const int n = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, nullptr, 0);
+    std::wstring w(static_cast<size_t>(n > 0 ? n : 1), L'\0');
+    if (n > 0)
+        MultiByteToWideChar(CP_UTF8, 0, s.c_str(), -1, w.data(), n);
+    w.resize(w.size() - 1);
+    return w;
+}
+
+// Waits for an overlapped operation or the stop event: true when it
+// completed (result in `got`/`ok`), false on stop (the operation is
+// cancelled and finished).
+bool wait_io(HANDLE pipe, OVERLAPPED& ov, HANDLE stop, DWORD& got, BOOL& ok)
+{
+    HANDLE events[2] = {ov.hEvent, stop};
+    const DWORD w = WaitForMultipleObjects(2, events, FALSE, INFINITE);
+    if (w != WAIT_OBJECT_0) {
+        CancelIoEx(pipe, &ov);
+        GetOverlappedResult(pipe, &ov, &got, TRUE);
+        return false;
+    }
+    ok = GetOverlappedResult(pipe, &ov, &got, FALSE);
+    return true;
+}
+
+void reset(OVERLAPPED& ov)
+{
+    HANDLE e = ov.hEvent;
+    ov = OVERLAPPED{};
+    ov.hEvent = e;
+    ResetEvent(e);
+}
+
+} // namespace
+
+PipeTerminal::PipeTerminal(Terminal& terminal, std::string link) : terminal_(terminal), link_(std::move(link))
+{
+    replug();
+}
+
+PipeTerminal::~PipeTerminal()
+{
+    unplug();
+}
+
+void PipeTerminal::replug()
+{
+    if (pipe_ != nullptr)
+        return;
+    HANDLE h = CreateNamedPipeW(wide(link_).c_str(),
+                                PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED | FILE_FLAG_FIRST_PIPE_INSTANCE,
+                                PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT | PIPE_REJECT_REMOTE_CLIENTS, 1, 4096,
+                                4096, 0, nullptr);
+    if (h == INVALID_HANDLE_VALUE)
+        throw std::runtime_error("cannot make the pipe " + link_ + " (Windows error " +
+                                 std::to_string(GetLastError()) + ")");
+    HANDLE stop = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (stop == nullptr) {
+        CloseHandle(h);
+        throw std::runtime_error("CreateEvent failed");
+    }
+    pipe_ = h;
+    stop_ = stop;
+    thread_ = std::thread([this] { serve(); });
+}
+
+void PipeTerminal::unplug()
+{
+    if (pipe_ == nullptr)
+        return;
+    SetEvent(static_cast<HANDLE>(stop_));
+    thread_.join();
+    // Closing the only instance removes the name; a connected plugin reads
+    // a broken pipe.
+    CloseHandle(static_cast<HANDLE>(pipe_));
+    CloseHandle(static_cast<HANDLE>(stop_));
+    pipe_ = stop_ = nullptr;
+}
+
+void PipeTerminal::serve()
+{
+    HANDLE pipe = static_cast<HANDLE>(pipe_);
+    HANDLE stop = static_cast<HANDLE>(stop_);
+    OVERLAPPED ov{};
+    ov.hEvent = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (ov.hEvent == nullptr)
+        return;
+    char buf[512];
+    for (bool running = true; running;) {
+        // Wait for a client (the plugin opening the port).
+        reset(ov);
+        if (!ConnectNamedPipe(pipe, &ov)) {
+            const DWORD e = GetLastError();
+            if (e == ERROR_IO_PENDING) {
+                DWORD got = 0;
+                BOOL ok = FALSE;
+                if (!wait_io(pipe, ov, stop, got, ok))
+                    break;
+                if (!ok) {
+                    DisconnectNamedPipe(pipe);
+                    continue;
+                }
+            } else if (e != ERROR_PIPE_CONNECTED) {
+                if (WaitForSingleObject(stop, 20) == WAIT_OBJECT_0)
+                    break;
+                DisconnectNamedPipe(pipe);
+                continue;
+            }
+        }
+        // Serve this client until it closes its end.
+        std::string pending;
+        for (;;) {
+            reset(ov);
+            DWORD got = 0;
+            BOOL ok = ReadFile(pipe, buf, sizeof buf, &got, &ov);
+            if (!ok && GetLastError() == ERROR_IO_PENDING) {
+                if (!wait_io(pipe, ov, stop, got, ok)) {
+                    running = false;
+                    break;
+                }
+            }
+            if (!ok)
+                break; // broken pipe: the client closed the port
+            pending.append(buf, got);
+            bool failed = false;
+            for (const std::string& reply : take_replies(terminal_, pending)) {
+                if (const int ms = delay_ms_.load(); ms > 0) {
+                    if (WaitForSingleObject(stop, static_cast<DWORD>(ms)) == WAIT_OBJECT_0) {
+                        running = false;
+                        failed = true;
+                        break;
+                    }
+                }
+                reset(ov);
+                DWORD put = 0;
+                BOOL wok = WriteFile(pipe, reply.data(), static_cast<DWORD>(reply.size()), &put, &ov);
+                if (!wok && GetLastError() == ERROR_IO_PENDING) {
+                    if (!wait_io(pipe, ov, stop, put, wok)) {
+                        running = false;
+                        failed = true;
+                        break;
+                    }
+                }
+                if (!wok) {
+                    failed = true;
+                    break;
+                }
+            }
+            if (failed)
+                break;
+        }
+        DisconnectNamedPipe(pipe);
+    }
+    CloseHandle(ov.hEvent);
+}
+#endif
 
 } // namespace yantra::pei_sim

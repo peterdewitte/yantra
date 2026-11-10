@@ -3,7 +3,8 @@
 //
 // The TETRA terminal plugin end to end (RAD-80, TRM-01, TRM-04): the
 // plugin loaded by the test host, talking to the simulated terminal
-// (tools/yantra-pei-sim) on a pseudo-terminal. The records are compared
+// (tools/yantra-pei-sim) on a pseudo-terminal (POSIX) or a named pipe
+// (Windows, through the plugin's Win32 serial-port code). The records are compared
 // with the simulator's truth (the scenario's cells as the terminal reports
 // them); the tests wait on what arrives, with hang guards only.
 #include "pei_sim.hpp"
@@ -17,6 +18,12 @@
 
 #include "test_platform.hpp"
 
+#ifndef _WIN32
+#include <fcntl.h>
+#include <sys/file.h>
+#include <unistd.h>
+#endif
+
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -28,8 +35,6 @@
 #include <string>
 #include <thread>
 #include <vector>
-
-#include <unistd.h>
 
 using namespace yantra;
 using radio_host::Host;
@@ -56,16 +61,14 @@ std::string scenario_path()
 
 std::string unique_link()
 {
-    static int counter = 0;
-    const auto dir = std::filesystem::temp_directory_path();
-    return (dir / ("yantra-pei-test-" + std::to_string(::getpid()) + "-" + std::to_string(++counter))).string();
+    return pei_sim::make_port_name("test");
 }
 
 // Simulated terminal + plugin + one opened device.
 struct Rig {
     pei_sim::Terminal terminal{gen::load_scenario_file(scenario_path())};
     std::string link = unique_link();
-    std::unique_ptr<pei_sim::PtyTerminal> pty;
+    std::unique_ptr<pei_sim::PortTerminal> pty;
     std::unique_ptr<Host> host;
     yr_device* device = nullptr;
     std::string key;
@@ -73,7 +76,7 @@ struct Rig {
     explicit Rig(bool open_device = true)
     {
         terminal.set_time(10.0);
-        pty = std::make_unique<pei_sim::PtyTerminal>(terminal, link);
+        pty = std::make_unique<pei_sim::PortTerminal>(terminal, link);
         REQUIRE(yantra::test::set_env("YANTRA_PEI_PORTS", link.c_str()) == 0);
         HostConfig cfg;
         std::string error;
@@ -589,4 +592,116 @@ TEST_CASE("pei: devices, keys and a port that is gone (RAD-30)")
     // only the serving plan, with the terminal's own choice
     plan.serving_hz = 390000000u;
     CHECK(rig.sc().set_plan(rig.device, &plan) == YR_ERR_UNSUPPORTED);
+}
+
+namespace {
+
+// Holds the terminal's port the way another program does: on Linux an
+// exclusive flock(2) on the port (as this plugin and pyserial's
+// exclusive mode do), on Windows the pipe's one client (a COM port opened
+// without sharing behaves the same).
+struct OtherProgram {
+#ifdef _WIN32
+    HANDLE h = INVALID_HANDLE_VALUE;
+    explicit OtherProgram(const std::string& port)
+    {
+        h = CreateFileA(port.c_str(), GENERIC_READ | GENERIC_WRITE, 0, nullptr, OPEN_EXISTING, 0, nullptr);
+    }
+    bool holding() const { return h != INVALID_HANDLE_VALUE; }
+    void release()
+    {
+        if (holding())
+            CloseHandle(h);
+        h = INVALID_HANDLE_VALUE;
+    }
+#else
+    int fd = -1;
+    explicit OtherProgram(const std::string& port)
+    {
+        fd = ::open(port.c_str(), O_RDWR | O_NOCTTY | O_NONBLOCK | O_CLOEXEC);
+        if (fd >= 0 && ::flock(fd, LOCK_EX | LOCK_NB) != 0) {
+            ::close(fd);
+            fd = -1;
+        }
+    }
+    bool holding() const { return fd >= 0; }
+    void release()
+    {
+        if (holding())
+            ::close(fd);
+        fd = -1;
+    }
+#endif
+    ~OtherProgram() { release(); }
+};
+
+struct Listed {
+    bool found = false;
+    uint32_t flags = 0;
+    std::string reason, serial, hardware_info;
+};
+
+Listed listed(Rig& rig)
+{
+    struct Ctx {
+        std::string key;
+        Listed out;
+    } ctx{rig.key, {}};
+    rig.sc().enumerate(
+        rig.host->plugin(),
+        [](void* user, const yr_device_info* info) {
+            auto* c = static_cast<Ctx*>(user);
+            if (c->key == info->key) {
+                c->out.found = true;
+                c->out.flags = info->flags;
+                c->out.reason = info->flags_reason != nullptr ? info->flags_reason : "";
+                c->out.serial = info->serial != nullptr ? info->serial : "";
+                c->out.hardware_info = info->hardware_info != nullptr ? info->hardware_info : "";
+            }
+        },
+        &ctx);
+    return ctx.out;
+}
+
+} // namespace
+
+TEST_CASE("pei: a port another program holds is IN_USE with the reason until it is free (RAD-80)")
+{
+    Rig rig;
+    const Listed before = listed(rig);
+    REQUIRE(before.found);
+    CHECK((before.flags & YR_DEVICE_IN_USE) == 0);
+    CHECK(before.hardware_info.find("port=" + rig.link) == 0);
+    const uint64_t changed = rig.host->devices_changed_count();
+    {
+        OtherProgram other(rig.link);
+        REQUIRE(other.holding());
+        yr_plan plan{};
+        plan.struct_size = sizeof plan;
+        plan.type = YR_PLAN_SERVING;
+        StreamSink sink(*rig.host);
+        sink.set_active(true);
+        CHECK(rig.sc().start_stream(rig.device, &plan, sink.handle()) == YR_ERR_IO);
+        CHECK(rig.host->last_error(rig.device).find("in use by another program") != std::string::npos);
+        CHECK(rig.sc().state(rig.device) == YR_DEVICE_OPEN);
+        const Listed held = listed(rig);
+        REQUIRE(held.found);
+        CHECK((held.flags & YR_DEVICE_IN_USE) != 0);
+        CHECK(held.reason.find("in use by another program") != std::string::npos);
+        CHECK(rig.host->devices_changed_count() > changed);
+        // the self-test says so too
+        std::vector<radio_host::SelfTestItem> items;
+        REQUIRE(radio_host::run_self_test(*rig.host, rig.device, items) == YR_OK);
+        REQUIRE_FALSE(items.empty());
+        CHECK(items[0].name == "port");
+        CHECK(items[0].result == YR_TEST_FAIL);
+        CHECK(items[0].detail.find("in use") != std::string::npos);
+    }
+    // released: the watcher clears the mark (devices_changed), the stream starts
+    const auto end = guard(10.0);
+    while ((listed(rig).flags & YR_DEVICE_IN_USE) != 0 && Clock::now() < end)
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    CHECK((listed(rig).flags & YR_DEVICE_IN_USE) == 0);
+    Stream s(rig);
+    CHECK(s.poll_with(3).size() == 3);
 }
