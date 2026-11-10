@@ -138,12 +138,24 @@ unpacked):
     tools/sdk/yantra_sdk.py check    # every lock file against what is unpacked
 
 - Location: `sdk/` in the repository (git-ignored), or `$YANTRA_SDK_DIR`
-  (or `--sdk-dir`); the downloads are cached in `sdk-cache/` or
-  `$YANTRA_SDK_CACHE` (`--cache`), so a re-run downloads nothing. Every
-  path inside the SDK is relative: the folder can be moved or shared (Yantra
-  uses the same SDK through its yantra-radios submodule with
-  `YANTRA_SDK_DIR`; `--msys2-lock <file>` adds the MSYS2 packages of
+  (or `--sdk-dir`; CMake: `-DYANTRA_SDK_DIR`); the downloads are cached in
+  `sdk-cache/` or `$YANTRA_SDK_CACHE` (`--cache`), so a re-run downloads
+  nothing. Every path inside the SDK is relative: the folder can be moved
+  or shared (Yantra uses the same SDK through its yantra-radios submodule
+  with `YANTRA_SDK_DIR`; `--msys2-lock <file>` adds the MSYS2 packages of
   another lock file to the sysroot).
+- Outside the source tree (1.8 GB SDK, 1.4 GB cache; a tool that copies
+  the tree, such as the Windows test VM's runner below, then leaves them
+  out): either `YANTRA_SDK_DIR`/`YANTRA_SDK_CACHE` (and `-DYANTRA_SDK_DIR`
+  for every tree), or links in place of the folders, which every tree and
+  script then uses unchanged:
+
+      mv sdk ~/yantra-sdk && ln -s ~/yantra-sdk sdk
+      mv sdk-cache ~/yantra-sdk-cache && ln -s ~/yantra-sdk-cache sdk-cache
+
+  Compiled files never name the SDK's folder: its paths (the given and
+  the real one) are mapped to `sdk/` in debug information
+  (`-ffile-prefix-map`, `tools/deps/deps.cmake`).
 - Checks: each download's SHA-256 against the lock file and its
   publisher's signature with a private, temporary gpg home: LLVM's `.sig`
   with llvm.org's release keys (the signer's fingerprint is in
@@ -173,12 +185,13 @@ unpacked):
     (`YANTRA_WIN_STATIC_RUNTIME`, ON) and winpthreads added to every link
     (`tools/sdk/mingw-clang-rules.cmake`: clang's MinGW driver does not
     link it, MSYS2's gcc does).
-- Windows programs run on this PC's Windows from WSL2 through Windows
-  interop: `tools/sdk/wsl_run.sh [--with <dll-folder>] <program.exe> [args]`
-  copies the program into a scratch folder under the Windows `%TEMP%`,
-  runs it and deletes the folder; with `--in-place` it runs the program
-  where it is (the Windows tree's ctest emulator, below). ctest
-  `sdk_windows_smoke` (label slow; skipped without SDK or interop)
+- On WSL2 (optional), Windows programs run on the PC's Windows through
+  Windows interop: `tools/sdk/wsl_run.sh [--with <dll-folder>]
+  <program.exe> [args]` copies the program into a scratch folder under
+  the Windows `%TEMP%`, runs it and deletes the folder; with `--in-place`
+  it runs the program where it is (the optional ctest runner of the
+  Windows tree, below); `--check` exits 77 without interop. ctest
+  `sdk_windows_smoke` (label slow; skipped without SDK or WSL interop)
   cross-compiles a C++20 program with threads, iostream, std::filesystem,
   exceptions, a version resource and a Rust static library, checks with
   `llvm-objdump -p` that it imports only Windows system DLLs and the UCRT,
@@ -190,27 +203,61 @@ The Windows tree is cross-compiled on Linux with the cross SDK (above):
 `.dll` plugins, `yantra-radio-host.exe`, `yantra-gen.exe`,
 `yantra-hackrf.exe` and every test program, the bundled libraries built
 statically from the same sources (RAD-136), the Rust code with the SDK's
-`cargo` for `x86_64-pc-windows-gnu`. Its tests run on this PC's Windows
-through WSL interop:
+`cargo` for `x86_64-pc-windows-gnu`. Its ctest runs natively on a
+Windows machine, the Windows test VM:
 
-    python3 tools/sdk/yantra_sdk.py make        # once: the SDK in sdk/
+    python3 tools/sdk/yantra_sdk.py make        # once: the SDK (above)
     cmake --preset windows                      # build-win/
     ninja -C build-win
-    ctest --test-dir build-win -j"$(nproc)"     # the .exe run on Windows
+    wintest.sh test build-win                   # ctest in the Windows VM
 
 Presets: `windows` (build-win), `windows-scalar` (build-win-scalar,
-`YANTRA_SIMD=OFF`), `ci-windows` (warnings are errors). The emulator
-(`CMAKE_CROSSCOMPILING_EMULATOR`) is `tools/sdk/wsl_run.sh --in-place`:
-each `.exe` runs where it was built, from the ctest folder on
-`\\wsl.localhost\<distribution>`, so a program starts in a fraction of a
-second, and the Linux paths in the test list and compiled into the tests
-(`/home/...`) resolve to the same files (Windows reads a rooted path on
-the drive or share of the current folder). The program sees PATH with
-only the Windows system folders (no MSYS2) and the `YANTRA_*`/`SOAPY_*`
-variables of its ctest (passed through `WSLENV`). Without WSL interop the
-emulator exits 77: every doctest binary then becomes one ctest (the CI's
-Linux job), and the `.exe` tests fail there, so that job runs only the
-checks (`ctest -L 'completeness|release'`).
+`YANTRA_SIMD=OFF`), `ci-windows` (warnings are errors). No emulator: every
+test command is a Windows program (`.exe`), `cmake` or `python3` (no shell
+scripts), so the tree's `CTestTestfile.cmake` runs as it is on Windows.
+
+The VM runner (`wintest.sh test <build-dir> [-j N] [ctest -R/-E/-L/-LE
+args]`; the maintainers' VirtualBox Windows 11 VM) needs on the guest only
+a portable CMake and Python 3 that `/usr/bin/cmake` and `/usr/bin/python3`
+resolve to (`C:\usr\bin`), no MSYS2, no shell. It mirrors the source tree
+(without `.git` and `build*`; keep the SDK outside, above) and the build
+folder (without objects and archives) to the same absolute paths on `C:`
+(`/home/...` is `C:\home\...`: Windows reads a rooted path on the
+current drive, so the Linux paths in the test list and compiled into the
+tests resolve there), restores a clean snapshot, runs ctest, copies
+`junit.xml` and `LastTest.log` back to `<build-dir>/wintest-results/<time>/`
+and powers the VM off; its exit code is ctest's. About 1.1 GB is pushed
+per run (the build-win programs with their debug information). Expected:
+339 tests: 319 passed and 20 skipped with the reason (the 6
+Linux-only tests below, the 13 build-machine checks and `fuzz_proto_rust`,
+below), build-win and build-win-scalar alike; the `timing` tests are best
+run on their own (`-L timing -j 1`, the rest with `-LE timing`).
+
+How the cases are listed: the build cannot run a Windows program, so it
+writes one ctest per doctest group (`<group>/all`); ctest on Windows runs
+each `.exe --list-test-cases` when it reads the tests
+(`cmake/doctest_discover.py --at-test-time`) and registers one ctest per
+case, as in the Linux trees (`ctest -N` on Linux shows the groups only).
+
+Build-machine checks (label `build_host`): the tests that check the build
+machine or run its tools (`sdk_check`, `sdk_windows_smoke`, `deps_build*`,
+`deps_manifest`, `repo_lint`, `reuse_lint`, `radio_api_doxygen`,
+`radio_api_header_*`, `rust_cargo_test`, `release_package`) run through
+`cmake/build_host_test.py`: skipped (77) on Windows, run on Linux with
+`ctest --test-dir build-win -L build_host`. `fuzz_proto_rust` is skipped
+in this tree (its cargo runs on the build machine, its corpus comes from
+the Windows `yantra-fuzz-seeds.exe`; the Linux trees run it).
+
+On WSL2 the tree can run its ctest on the PC's Windows instead
+(optional): `cmake --preset windows -DYANTRA_WINDOWS_TEST_RUNNER=wsl`
+makes `tools/sdk/wsl_run.sh --in-place` the emulator
+(`CMAKE_CROSSCOMPILING_EMULATOR`): ctest runs on Linux, each `.exe` where
+it was built (`\\wsl.localhost\<distribution>`), with PATH holding only
+the Windows system folders and the `YANTRA_*`/`SOAPY_*` variables of its
+ctest (through `WSLENV`); the cases are listed at build time. Without WSL
+interop the option is ignored with a warning. The CI's Linux job runs
+only the checks of the tree (`ctest -L 'completeness|release'`); its
+Windows runner runs the programs with `tools/ci/run_windows_tests.py`.
 
 What runs on Windows: every doctest program, the CLI tests of the three
 tools, the conformance kit on every plugin `.dll` (beacon, simulator,
@@ -221,13 +268,15 @@ plugin needs a terminal), and the checks:
   system DLLs and the UCRT (no `libstdc++-6.dll`, `libgcc_s_seh-1.dll`,
   `libwinpthread-1.dll`, nothing of MSYS2, no `msvcrt.dll`), exports only
   `yantra_radio_entry` (the `.def` file), no build folder inside
-  (`tools/ci/check_completeness.py --platform windows --objdump
-  sdk/llvm/bin/llvm-objdump`, which reads GNU and llvm-objdump output);
+  (`tools/ci/check_completeness.py --platform windows`, which reads the
+  PE import and export tables itself, so it runs on Windows too, or with
+  `--objdump` from GNU or llvm-objdump output; `--build-folder` names the
+  build machine's folders when it runs on another one);
 - `completeness_programs` (every `.exe`: imports) and
   `completeness_programs_shipped` (the three tools: also no build folder);
 - `completeness_negative` (a plugin importing a non-system DLL and
   exporting everything is caught), `completeness_build_paths`;
-- `release_package`: the `.zip` package (below).
+- `release_package`: the `.zip` package (below; a build-machine check).
 
 Skipped on Windows (reported as skipped, with the reason, by
 `yantra_skip_test()`): `test_pei` and `conformance_pei` (the simulated
@@ -239,10 +288,14 @@ layout with udev rules), `completeness_surprises` (static TLS and GNU
 unique symbols are ELF properties).
 
 Golden files: `tests/gen_sim/golden/windows` and
-`tests/yantra_gen/golden/windows` hold the Windows digests. MinGW-w64's
+`tests/yantra_gen/golden/windows` hold the Windows digests. The UCRT's
 math functions round some results differently in the last bit from
 glibc's; same seeds and scenarios, rewritten the same way
 (`ninja -C build-win update-golden-gen-sim update-golden-yantra-gen`).
+They can also differ between Windows machines (the UCRT picks
+CPU-dependent code paths, e.g. FMA3): the `cells_cs16_impaired` digest of
+`test_yantra_gen` written on a PC through WSL differs from the one the
+test VM computes (that VM gives the Linux value); open, see CHANGELOG.
 
 Portability lives in a few small interfaces: plugin loading
 (`tools/yantra-radio-host/dynlib.cpp`, `LoadLibraryExW` with the plugin's
@@ -268,11 +321,17 @@ Pitfalls:
 - `std::system` runs `cmd.exe`, which refuses a network-share current
   folder (`\\wsl.localhost`): tests start programs with
   `yantra::test::run_program()` and give `cmd.exe` absolute native paths.
+  `cmd.exe /c` strips the first and last quote of a line, so
+  `yantra-radio-host conformance --unplug/--replug` encloses the command
+  once more on Windows; the conformance tests use
+  `"<cmake>" -E touch/rm -f "<file>"`, the same on Linux and Windows.
+- UCRT math functions may round differently from one Windows machine to
+  another (CPU-dependent code paths); see the golden files above.
 - libstdc++'s `lexically_normal()` shortens a UNC path's leading `\\`.
 - Paths written into JSON text use `generic_string()` (backslashes would
   be escapes).
-- Never two heavy jobs at once: a Windows ctest run uses all cores of the
-  PC through interop as well.
+- Never two heavy jobs at once: a Windows ctest run through WSL interop
+  uses all cores of the PC as well.
 
 The bundled libraries as a prefix for Windows:
 

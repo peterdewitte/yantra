@@ -81,6 +81,28 @@ well; they change independently of the radio API version.
   checked with PyYAML. `tools/ci/run_linux.sh` takes
   `YANTRA_CI_COMPILER=clang|gcc`; `tools/deps/build_deps.sh` rebuilds when
   the compiler changes. No behaviour change.
+- The Windows tree's ctest runs natively on Windows (RAD-131, RAD-133;
+  BUILD.md "Windows x64"): the presets have no emulator; every test
+  command is a `.exe`, `cmake` or `python3`, so the tree runs in a Windows
+  test VM that mirrors it to the same paths. The doctest cases of a
+  cross-compiled program are listed when ctest runs on Windows
+  (`doctest_discover.py --at-test-time`; the build writes one
+  `<group>/all` test). The command-line tests that used `sh -c` and
+  `with_remote_server.sh` use Python drivers on every platform
+  (`tests/test_command.py`, `decode_iq_sigmf.py`, `fixtures_selftest.py`,
+  `install_check.py`); the conformance tests unplug and replug with
+  `cmake -E touch/rm`. Build-machine checks (SDK, lint, cargo, Doxygen,
+  dependency and release scripts) carry the label `build_host`: skipped
+  on Windows, run with `ctest -L build_host` on Linux;
+  `fuzz_proto_rust` is skipped in the Windows tree. WSL2 interop stays
+  optional (`-DYANTRA_WINDOWS_TEST_RUNNER=wsl`; ignored with a warning
+  without WSL).
+- The completeness check reads the PE import and export tables itself
+  (`--objdump` stays optional) and takes the build machine's folders
+  with `--build-folder` when it runs elsewhere (RAD-133).
+- The cross SDK and its cache may be links to folders outside the tree
+  (git-ignored either way; BUILD.md); the SDK's folder is mapped to
+  `sdk/` in debug information (RAD-139).
 
 ### Fixed
 
@@ -92,6 +114,15 @@ well; they change independently of the radio API version.
   `LoadLibraryExW` from their own folder first.
 - Tests: paths written into JSON text use forward slashes; the generator
   tests link the bundled nlohmann-json (they used the system's headers).
+- Windows: `yantra-radio-host conformance --unplug/--replug` commands
+  with a quoted program path work (`cmd.exe` quoting).
+
+### Known issues
+
+- Windows: the `cells_cs16_impaired` digest of `test_yantra_gen` differs
+  between Windows machines (UCRT math, CPU-dependent): the test VM
+  computes the Linux value, the Windows golden file holds the value of the
+  PC it was written on.
 
 ## [0.2.7] - 2026-11-09
 
