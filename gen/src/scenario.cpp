@@ -18,6 +18,7 @@
 #include <fstream>
 #include <set>
 #include <sstream>
+#include <tuple>
 
 namespace yantra::gen {
 
@@ -175,6 +176,10 @@ ScenarioCell parse_cell(const json& j, const std::string& w)
     ScenarioCell c;
     c.id = text(j, "id", w, true);
     c.label = text(j, "label", w, false);
+    if (member(j, "mcc"))
+        c.mcc = static_cast<uint16_t>(integer(j, "mcc", w, 0, 0, 1023));
+    if (member(j, "mnc"))
+        c.mnc = static_cast<uint16_t>(integer(j, "mnc", w, 0, 0, 16383));
     c.cell_number = static_cast<uint8_t>(integer(j, "cell_number", w, 1, 0, 31));
     c.location_area = static_cast<uint16_t>(integer(j, "la", w, 1, 0, 16383));
     c.colour_code = static_cast<uint8_t>(integer(j, "colour_code", w, 1, 0, 63));
@@ -201,6 +206,10 @@ ScenarioCell parse_cell(const json& j, const std::string& w)
             n.main_carrier = static_cast<uint16_t>(integer(ns[i], "main_carrier", nw, 0, 0, 4095));
         if (member(ns[i], "la"))
             n.location_area = static_cast<uint16_t>(integer(ns[i], "la", nw, 0, 0, 16383));
+        if (member(ns[i], "mcc"))
+            n.mcc = static_cast<uint16_t>(integer(ns[i], "mcc", nw, 0, 0, 1023));
+        if (member(ns[i], "mnc"))
+            n.mnc = static_cast<uint16_t>(integer(ns[i], "mnc", nw, 0, 0, 16383));
         c.neighbours.push_back(std::move(n));
     }
     c.level_dbm = num(j, "level_dbm", w, -70.0);
@@ -607,7 +616,8 @@ void validate_scenario(const Scenario& s)
             const ScenarioCell* c = s.find_cell(sc_cell.id);
             if (!c)
                 fail(w, "scene cell \"" + sc_cell.id + "\" is not a scenario cell");
-            if (sc_cell.mcc != s.mcc || sc_cell.mnc != s.mnc || sc_cell.la != c->location_area ||
+            if (sc_cell.mcc != cell_mcc(s, *c) || sc_cell.mnc != cell_mnc(s, *c) ||
+                sc_cell.la != c->location_area ||
                 sc_cell.colour_code != c->colour_code ||
                 std::llround(cell_frequency_hz(*c)) != static_cast<long long>(sc_cell.carrier_hz))
                 fail(w, "scene cell \"" + sc_cell.id + "\" differs from the scenario cell (MCC, MNC, LA, colour code "
@@ -687,12 +697,27 @@ void validate_scenario(const Scenario& s)
     }
 }
 
+uint16_t cell_mcc(const Scenario& s, const ScenarioCell& c) { return c.mcc.value_or(s.mcc); }
+uint16_t cell_mnc(const Scenario& s, const ScenarioCell& c) { return c.mnc.value_or(s.mnc); }
+
+std::pair<std::optional<uint16_t>, std::optional<uint16_t>> announced_network(const Scenario& s,
+                                                                            const ScenarioCell& from,
+                                                                            const ScenarioNeighbour& ref,
+                                                                            const ScenarioCell& to)
+{
+    if (ref.mcc || ref.mnc)
+        return {ref.mcc, ref.mnc};
+    if (cell_mcc(s, to) != cell_mcc(s, from) || cell_mnc(s, to) != cell_mnc(s, from))
+        return {cell_mcc(s, to), cell_mnc(s, to)};
+    return {};
+}
+
 CellConfig cell_config(const Scenario& s, const ScenarioCell& c)
 {
     CellConfig cfg = CellConfig::defaults();
     cfg.sync.colour_code = c.colour_code;
-    cfg.sync.mle.mcc = s.mcc;
-    cfg.sync.mle.mnc = s.mnc;
+    cfg.sync.mle.mcc = cell_mcc(s, c);
+    cfg.sync.mle.mnc = cell_mnc(s, c);
     cfg.sysinfo.main_carrier = c.main_carrier;
     cfg.sysinfo.frequency_band = c.frequency_band;
     cfg.sysinfo.offset = c.offset;
@@ -720,6 +745,9 @@ CellConfig cell_config(const Scenario& s, const ScenarioCell& c)
                 // takes 48 instead of 23 bits.
                 if (ref.location_area)
                     nc.location_area = ref.location_area;
+                // MCC/MNC when planted or when the neighbour is of another
+                // network (RAD-22).
+                std::tie(nc.mcc, nc.mnc) = announced_network(s, c, ref, *n);
                 list.push_back(nc);
             }
             nb.neighbours = list;
@@ -786,6 +814,13 @@ void add_scene_cells(Scenario& s, const radios::Scene& scene, const ScenarioCell
         ScenarioCell c = defaults;
         c.id = sc.id;
         c.label = sc.label;
+        // The plan cell's own network when it is not the scenario's.
+        c.mcc.reset();
+        c.mnc.reset();
+        if (sc.mcc != s.mcc || sc.mnc != s.mnc) {
+            c.mcc = static_cast<uint16_t>(sc.mcc);
+            c.mnc = static_cast<uint16_t>(sc.mnc);
+        }
         c.location_area = static_cast<uint16_t>(sc.la);
         c.colour_code = static_cast<uint8_t>(sc.colour_code);
         c.neighbours.clear();

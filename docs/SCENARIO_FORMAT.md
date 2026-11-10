@@ -63,6 +63,7 @@ place or person is described.
 |---|---|---|---|
 | `id` | string | required | Unique; the same id as the cell in the scenes. |
 | `label` | string | "" | |
+| `mcc`, `mnc` | 0..1023, 0..16383 | the scenario's `network` | The cell's own network, for a cell of a neighbouring network. |
 | `cell_number` | 0..31 | 1 | The cell identifier neighbour lists use. |
 | `la` | 0..16383 | 1 | Location area. |
 | `colour_code` | 0..63 | 1 | |
@@ -71,7 +72,7 @@ place or person is described.
 | `rxlev_access_min`, `ms_txpwr_max_cell` | 0..15, 0..7 | 2, 5 | SYSINFO values. |
 | `reselect` | object | 2, 2, 4, 2 | `slow_threshold`, `slow_hysteresis`, `fast_threshold`, `fast_hysteresis` of D-NWRK-BROADCAST. |
 | `network_time` | bool | true | D-NWRK-BROADCAST carries the network time. |
-| `neighbours` | [ref] | [] | `{ "cell", "main_carrier"?, "la"? }`, at most 31: the cells this cell announces. The optional values plant a wrong announcement. A neighbour in another band or with an offset gets a carrier extension. |
+| `neighbours` | [ref] | [] | `{ "cell", "main_carrier"?, "la"?, "mcc"?, "mnc"? }`, at most 31: the cells this cell announces. The optional values plant a wrong announcement. A neighbour in another band or with an offset gets a carrier extension; a neighbour of another network (its `mcc`/`mnc` differ from the announcing cell's) is announced with its own MCC and MNC (RAD-22), else the entry has none and a receiver takes the announcing cell's. |
 | `level_dbm` | number | -70 | Level when there is no position, or no antenna of the cell on the receiver's floor and no site. |
 | `site` | object | none | An outdoor site in the plan frame: `x_m`, `y_m` (required), `height_m` (30, above the receiver's floor), `eirp_dbm` (45), `pattern` (`omni`, or `sector` with `azimuth_deg`, `beamwidth_deg`, `front_to_back_db`). |
 | `ppm` | number | 0 | Base-station oscillator error. |
@@ -165,6 +166,7 @@ writes these rows as CSV and record files (RAD-71).
 | `floor_change.json` | A walk from the ground floor to the first floor: the serving cell changes (DEMO-09). |
 | `failed_site.json` | Three sites, one announced but not on the air, one off for 2 s (DEMO-09, Yantra PP-03). |
 | `weak_signal.json` | A weak cell with a noisy receiver, fading, DC, IQ imbalance and an AGC step (DEMO-09). |
+| `network_border.json` | Two networks meet: cell `B1` (901-1) announces `B2` of the neighbouring network 901-2 with its MCC and MNC, and the other way round (RAD-22). |
 | `fraunces.json` | Example plan `fraunces-*`. |
 | `mak_beer_house.json`, `mak_haus_claeson.json`, `mak_villa_bunzl.json` | Example plans `mak-beer-house-*`, `mak-haus-claeson-*`, `mak-villa-bunzl-*` (Yantra DEMO-12): cell `T1` of the plan's scene and the DAS antenna powers. |
 

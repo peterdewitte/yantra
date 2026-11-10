@@ -280,6 +280,82 @@ TEST_CASE("scenario: broadcast configuration of a cell")
     CHECK_FALSE(b.nwrk_broadcast->neighbours.has_value());
 }
 
+TEST_CASE("scenario: neighbours of another network are announced with their MCC and MNC (RAD-22)")
+{
+    json j = minimal();
+    j["floors"] = json::array();
+    j["path"] = json::object();
+    j["cells"][1]["neighbours"] = json::array({json{{"cell", "A"}}});
+    SUBCASE("one network: no MCC/MNC in the entry") {
+        const Scenario s = parse_scenario(j.dump());
+        const CellConfig a = cell_config(s, s.cells[0]);
+        const NeighbourCell& n = a.nwrk_broadcast->neighbours->front();
+        CHECK_FALSE(n.mcc.has_value());
+        CHECK_FALSE(n.mnc.has_value());
+    }
+    SUBCASE("B of network 901-2: A announces it with 901-2, B announces A with 901-1") {
+        j["cells"][1]["mcc"] = 901;
+        j["cells"][1]["mnc"] = 2;
+        const Scenario s = parse_scenario(j.dump());
+        CHECK(cell_mcc(s, s.cells[1]) == 901);
+        CHECK(cell_mnc(s, s.cells[1]) == 2);
+        CHECK(cell_mnc(s, s.cells[0]) == 1);
+        const CellConfig b = cell_config(s, s.cells[1]);
+        CHECK(b.sync.mle.mcc == 901);
+        CHECK(b.sync.mle.mnc == 2); // B broadcasts its own network
+        const CellConfig a = cell_config(s, s.cells[0]);
+        const NeighbourCell& to_b = a.nwrk_broadcast->neighbours->front();
+        CHECK(to_b.mcc == std::optional<uint16_t>(901));
+        CHECK(to_b.mnc == std::optional<uint16_t>(2));
+        const NeighbourCell& to_a = b.nwrk_broadcast->neighbours->front();
+        CHECK(to_a.mcc == std::optional<uint16_t>(901));
+        CHECK(to_a.mnc == std::optional<uint16_t>(1));
+    }
+    SUBCASE("a planted MCC/MNC is announced as given") {
+        j["cells"][0]["neighbours"][0]["mcc"] = 1;
+        j["cells"][0]["neighbours"][0]["mnc"] = 99;
+        const Scenario s = parse_scenario(j.dump());
+        CHECK(s.cells[0].neighbours[0].mcc == std::optional<uint16_t>(1));
+        const CellConfig a = cell_config(s, s.cells[0]);
+        const NeighbourCell& n = a.nwrk_broadcast->neighbours->front();
+        CHECK(n.mcc == std::optional<uint16_t>(1));
+        CHECK(n.mnc == std::optional<uint16_t>(99));
+    }
+    SUBCASE("out of range") {
+        j["cells"][0]["neighbours"][0]["mcc"] = 1024;
+        CHECK(contains(error_of(j), "cells[0].neighbours[0].mcc"));
+        j["cells"][0]["neighbours"][0]["mcc"] = 1;
+        j["cells"][1]["mnc"] = 16384;
+        CHECK(contains(error_of(j), "cells[1].mnc"));
+    }
+    SUBCASE("the bundled network_border scenario") {
+        const Scenario s = load_scenario_file(kDir + "/network_border.json");
+        const ScenarioCell* b1 = s.find_cell("B1");
+        const ScenarioCell* b2 = s.find_cell("B2");
+        REQUIRE(b1);
+        REQUIRE(b2);
+        CHECK(cell_mnc(s, *b1) == 1);
+        CHECK(cell_mnc(s, *b2) == 2);
+        const CellConfig c1 = cell_config(s, *b1);
+        const NeighbourCell& n = c1.nwrk_broadcast->neighbours->front();
+        CHECK(n.mnc == std::optional<uint16_t>(2));
+    }
+}
+
+TEST_CASE("scenario: a scene cell of another network keeps its MCC and MNC (RAD-22, RAD-61)")
+{
+    Scenario s = parse_scenario(minimal().dump());
+    radios::Scene scene = s.floors[0].scene;
+    scene.cells.push_back({"far", "Other network", 262, 7, 12, 3, 390006250});
+    add_scene_cells(s, scene);
+    const ScenarioCell* far = s.find_cell("far");
+    REQUIRE(far);
+    CHECK(cell_mcc(s, *far) == 262);
+    CHECK(cell_mnc(s, *far) == 7);
+    CHECK(cell_config(s, *far).sync.mle.mcc == 262);
+    CHECK_FALSE(s.find_cell("A")->mcc.has_value()); // the scenario's network
+}
+
 TEST_CASE("scenario: cells added from a scene")
 {
     Scenario s = parse_scenario(minimal().dump());

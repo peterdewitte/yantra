@@ -164,6 +164,11 @@ TruthRecords TruthRecorder::convert(const TruthRow& row)
                            value_uint(hz(downlink_frequency_hz(n->frequency_band, carrier, n->offset))));
             if (list[k].location_area)
                 neighbour_.set(r, "neighbour_la", value_uint(*list[k].location_area));
+            const auto [mcc, mnc] = announced_network(s_, *serving_cell, list[k], *n);
+            if (mcc)
+                neighbour_.set(r, "neighbour_mcc", value_uint(*mcc));
+            if (mnc)
+                neighbour_.set(r, "neighbour_mnc", value_uint(*mnc));
             neighbour_.set(r, "neighbour_cell_id", value_string(n->id));
             out.records.push_back(std::move(r));
         }

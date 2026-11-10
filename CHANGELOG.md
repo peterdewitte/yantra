@@ -59,6 +59,14 @@ well; they change independently of the radio API version.
 
 ### Added
 
+- Generator (RAD-22, RAD-70, RAD-74): a scenario cell may belong to
+  another network (`mcc`, `mnc` on the cell); a neighbour of another
+  network is announced in D-NWRK-BROADCAST with its own MCC and MNC, and a
+  neighbour entry may plant an MCC/MNC (`mcc`, `mnc` on the entry); the
+  ground truth records carry `neighbour_mcc`/`neighbour_mnc` when sent. A
+  plan cell (scene) of another network keeps its MCC and MNC. New bundled
+  scenario `network_border` (cells of 901-1 and 901-2 announcing each
+  other).
 - Cross SDK (RAD-139): `tools/sdk/yantra_sdk.py make` builds a
   git-ignored SDK folder (`sdk/` or `$YANTRA_SDK_DIR`) from pinned,
   signature-checked downloads: LLVM 23.1.5 (clang, lld, llvm-rc,

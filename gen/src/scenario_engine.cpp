@@ -225,8 +225,8 @@ CellTruth ScenarioEngine::cell_truth(size_t i, const std::optional<ReceiverPosit
     const Cell& c = *cells_[i];
     CellTruth out;
     out.cell = spec.id;
-    out.mcc = s_.mcc;
-    out.mnc = s_.mnc;
+    out.mcc = cell_mcc(s_, spec);
+    out.mnc = cell_mnc(s_, spec);
     out.location_area = spec.location_area;
     out.colour_code = spec.colour_code;
     out.frequency_hz = c.frequency_hz;

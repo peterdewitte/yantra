@@ -567,7 +567,11 @@ Scenario load_scenario(const Options& o, const std::vector<std::string>& dirs)
             for (const CellOption& c : o.cells) {
                 gen::ScenarioCell cell = c.cell;
                 for (const auto& n : c.neighbours)
-                    cell.neighbours.push_back(gen::ScenarioNeighbour{n, std::nullopt, std::nullopt});
+                    {
+                    gen::ScenarioNeighbour ref;
+                    ref.cell = n;
+                    cell.neighbours.push_back(ref);
+                }
                 s.cells.push_back(cell);
             }
         } else if (!o.scenario.empty() && fs::is_regular_file(o.scenario)) {

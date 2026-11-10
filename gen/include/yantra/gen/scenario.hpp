@@ -27,6 +27,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <utility>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -45,11 +46,16 @@ struct ScenarioError : std::runtime_error {
 
 /// One entry of a cell's broadcast neighbour list. The optional values
 /// plant a finding: the neighbour is announced with a value that differs
-/// from what that cell broadcasts.
+/// from what that cell broadcasts. Without a planted MCC/MNC an entry
+/// carries the neighbour's own MCC and MNC when its network differs from
+/// the broadcasting cell's (EN 300 392-2 neighbour cell information;
+/// RAD-22), else none (the receiver then takes the broadcaster's).
 struct ScenarioNeighbour {
     std::string cell;
     std::optional<uint16_t> main_carrier;
     std::optional<uint16_t> location_area;
+    std::optional<uint16_t> mcc;  ///< planted MCC (10 bits)
+    std::optional<uint16_t> mnc;  ///< planted MNC (14 bits)
 };
 
 /// An outdoor site (a macro cell seen from inside the building), in the
@@ -65,6 +71,10 @@ struct ScenarioSite {
 struct ScenarioCell {
     std::string id;     ///< unique; matches the scene's cells[].id
     std::string label;
+    /// The cell's own network when it is not the scenario's (a neighbour
+    /// network); see cell_mcc() and cell_mnc().
+    std::optional<uint16_t> mcc;
+    std::optional<uint16_t> mnc;
     uint8_t cell_number = 1;  ///< 0..31, the neighbour cell identifier
     uint16_t location_area = 1;
     uint8_t colour_code = 1;
@@ -228,6 +238,16 @@ double centre_frequency_hz(const Scenario& s);
 /// The broadcast configuration of a cell (SYNC, SYSINFO,
 /// D-NWRK-BROADCAST with its neighbour list; start time not set).
 CellConfig cell_config(const Scenario& s, const ScenarioCell& c);
+/// The MCC and MNC cell `c` broadcasts: its own, else the scenario's.
+uint16_t cell_mcc(const Scenario& s, const ScenarioCell& c);
+uint16_t cell_mnc(const Scenario& s, const ScenarioCell& c);
+/// The MCC and MNC that `from`'s neighbour entry `ref` (naming cell `to`)
+/// announces: the planted values, else `to`'s own network when it differs
+/// from `from`'s, else none (RAD-22).
+std::pair<std::optional<uint16_t>, std::optional<uint16_t>> announced_network(const Scenario& s,
+                                                                            const ScenarioCell& from,
+                                                                            const ScenarioNeighbour& ref,
+                                                                            const ScenarioCell& to);
 /// The scene with the scenario's antenna EIRP overrides applied.
 radios::Scene apply_overrides(const Scenario& s, radios::Scene scene);
 
