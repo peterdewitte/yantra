@@ -515,7 +515,9 @@ inline std::string check_value_type(const yr_value& v, uint32_t type, const yr_e
 /**
  * Problems of one record against the descriptor's schema (empty when
  * valid): schema index, value types, the core fields (RAD-21), presence
- * flags (RAD-22), time (RAD-27), SIMULATED and sim_position (RAD-19).
+ * flags (RAD-22), time (RAD-27), SIMULATED and sim_position (RAD-19), the
+ * flags the plugin's API version knows and LEVEL_DBM on every record of a
+ * SELF_CALIBRATED plugin of API 1.1 or later (RAD-21).
  */
 inline std::vector<std::string> validate_record(const yr_descriptor& d, const yr_record& r)
 {
@@ -545,8 +547,13 @@ inline std::vector<std::string> validate_record(const yr_descriptor& d, const yr
         bad("unknown utc_source");
     else if (r.time.utc_source != YR_TIME_SOURCE_NONE && r.time.utc_ns <= 0)
         bad("utc_ns must be set when utc_source is not NONE (RAD-27)");
-    if ((r.flags & ~YR_RECORD_ALL_MASK) != 0)
+    // A 1.0 plugin knows only the 1.0 flags; LEVEL_DBM came with 1.1.
+    const uint32_t known = d.api_version.minor >= 1 ? YR_RECORD_ALL_MASK : YR_RECORD_ALL_MASK_1_0;
+    if ((r.flags & ~known) != 0)
         bad("unknown flag bits");
+    if (d.api_version.minor >= 1 && (d.capabilities & YR_CAP_SELF_CALIBRATED) != 0 &&
+        (r.flags & YR_RECORD_LEVEL_DBM) == 0)
+        bad("LEVEL_DBM missing: every record of a SELF_CALIBRATED plugin is in dBm (RAD-21, API 1.1)");
     if ((r.present & ~s.groups) != 0)
         bad("present has groups the schema does not declare (RAD-22)");
     const bool simulated = (d.capabilities & YR_CAP_SIMULATED) != 0;

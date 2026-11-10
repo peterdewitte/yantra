@@ -112,7 +112,7 @@
  * than its own (yr_api_compatible()).
  * @{ */
 #define YR_API_VERSION_MAJOR 1u /**< Changes on any breaking change. */
-#define YR_API_VERSION_MINOR 0u /**< Changes on every compatible addition. */
+#define YR_API_VERSION_MINOR 1u /**< Changes on every compatible addition (1.1: level unit flags, #YR_RECORD_LEVEL_DBM, #YR_DEVICE_LEVEL_DBM). */
 /** @} */
 
 /** Marks the entry point as exported from the plugin's shared library
@@ -360,8 +360,13 @@ typedef struct yr_enum_item {
  * starts with the YR_CORE_FIELD_COUNT (8) core fields, in the order of the
  * `YR_CORE_*` indexes and with the `YR_FIELD_*` names, types and units
  * given there, so Yantra reads them without a name lookup. The level is in
- * "dBFS" at the device's current settings, or "dBm" for a plugin with
- * #YR_CAP_SELF_CALIBRATED; Yantra calibrates dBFS levels (Yantra RF-02).
+ * dBFS at the device's current settings, or in dBm when the plugin has
+ * #YR_CAP_SELF_CALIBRATED or the record has #YR_RECORD_LEVEL_DBM (since
+ * 1.1: a device that reports calibrated dBm without being self-calibrated,
+ * e.g. the simulator in its dBm mode; yr_record_level_is_dbm()). The level
+ * field's unit is "dBm" for a #YR_CAP_SELF_CALIBRATED plugin, else "dBFS"
+ * (the unit without the flag). Yantra calibrates dBFS levels only (Yantra
+ * RF-02).
  * frequency_hz, role and level are always present; channel, mcc, mnc, la
  * and colour_code are present unless the record has #YR_RECORD_NO_SYNC.
  * Every carrier measured gets a MEASUREMENT record at least once per
@@ -500,8 +505,15 @@ typedef struct yr_schema {
 #define YR_RECORD_OVERLOAD (1u << 1)     /**< Clipping or saturation during the measurement. */
 #define YR_RECORD_UNCALIBRATED (1u << 2) /**< The plugin knows its level cannot be trusted. */
 #define YR_RECORD_SIMULATED (1u << 3)    /**< Simulated data, never a real measurement (Yantra DEMO-07). */
+/** The level is calibrated dBm, not dBFS (since 1.1, RAD-21). Set on every
+ *  record of a device whose entry has #YR_DEVICE_LEVEL_DBM (and so on every
+ *  record of a #YR_CAP_SELF_CALIBRATED plugin of API 1.1 or later); a
+ *  change of the device's level unit takes effect with the next record. */
+#define YR_RECORD_LEVEL_DBM (1u << 4)
 /** All record flags of this API version. */
-#define YR_RECORD_ALL_MASK 0x0Fu
+#define YR_RECORD_ALL_MASK 0x1Fu
+/** The record flags of API 1.0 (a 1.0 plugin sets no other bit). */
+#define YR_RECORD_ALL_MASK_1_0 0x0Fu
 
 /** One measurement record (versioned struct, RAD-20). Valid during
  *  yr_host_api::push_record only. */
@@ -565,7 +577,11 @@ typedef struct yr_floor_plan_info {
     double width_m;       /**< Plan width in metres (0 without scale). */
     double height_m;      /**< Plan height in metres (0 without scale). */
     char plan_name[YR_CONTEXT_NAME_BYTES];  /**< e.g. "Fraunces Tavern, first floor". Never into records (RAD-19). */
-    char example_id[YR_CONTEXT_ID_BYTES];   /**< Bundled example plan id (e.g. "fraunces-1"), "" for the user's own plans. */
+    /** Bundled example plan id, "" for the user's own plans (RAD-18):
+     *  `fraunces-N` (Fraunces Tavern), `mak-beer-house-N`,
+     *  `mak-haus-claeson-N` and `mak-villa-bunzl-N` (the MAK example
+     *  buildings, Yantra DEMO-12), where N is the floor. */
+    char example_id[YR_CONTEXT_ID_BYTES];
     char floor_id[YR_CONTEXT_ID_BYTES];     /**< Id of the floor shown. */
     char floor_name[YR_CONTEXT_NAME_BYTES]; /**< Name of the floor shown. */
 } yr_floor_plan_info;
@@ -622,6 +638,10 @@ typedef struct yr_plan_position {
  *   (gains relative to the main direction, clockwise from azimuth_deg).
  * - An antenna's "cell" refers to cells[].id; one cell may have several
  *   antennas (DAS). "eirp_dbm" is per antenna in its main direction.
+ * - "cells" are the plan's cells (the cells its antennas serve), with the
+ *   plan cell ids of the project, e.g. "T1" in the bundled example plans
+ *   (RAD-18). A simulating plugin simulates only these cells when there
+ *   are any (RAD-61).
  * - Optional members (added compatibly in version 1, docs/SCENE_FORMAT.md):
  *   floor "slab_attenuation_db" and "storey_height_m", wall class
  *   "reflection_loss_db", antenna "floor_offset" (storeys above or below
@@ -708,6 +728,16 @@ typedef struct yr_host_api {
 #define YR_DEVICE_IN_USE (1u << 0)        /**< Opened by another program. */
 #define YR_DEVICE_NO_PERMISSION (1u << 1) /**< Present but not accessible; see flags_reason. */
 #define YR_DEVICE_SIMULATED (1u << 2)     /**< Simulated device. */
+/** The device reports its levels in calibrated dBm, not dBFS (since 1.1,
+ *  RAD-21, RAD-30): its records carry #YR_RECORD_LEVEL_DBM. Set on every
+ *  device of a #YR_CAP_SELF_CALIBRATED plugin; a device with a level unit
+ *  setting (the simulator) reports its current unit, in enumerate (the
+ *  default when not open) and in device_info. */
+#define YR_DEVICE_LEVEL_DBM (1u << 3)
+/** All device flags of this API version. */
+#define YR_DEVICE_ALL_MASK 0x0Fu
+/** The device flags of API 1.0. */
+#define YR_DEVICE_ALL_MASK_1_0 0x07u
 
 /** One device (versioned struct, RAD-30, RAD-31). */
 typedef struct yr_device_info {
@@ -969,6 +999,14 @@ typedef struct yr_translation {
 #define YR_CAP_SELF_CALIBRATED (1u << 5) /**< Levels already in dBm (terminal, measurement receiver). */
 /** All capability bits of this API version. */
 #define YR_CAP_ALL_MASK 0x3Fu
+
+/** Nonzero when a record's level is in dBm (RAD-21): the plugin has
+ *  #YR_CAP_SELF_CALIBRATED (also a 1.0 plugin) or the record has
+ *  #YR_RECORD_LEVEL_DBM; else it is dBFS and the host's calibration applies. */
+static inline int yr_record_level_is_dbm(uint32_t capabilities, uint32_t record_flags)
+{
+    return (capabilities & YR_CAP_SELF_CALIBRATED) != 0 || (record_flags & YR_RECORD_LEVEL_DBM) != 0;
+}
 
 /** What `yantra_radio_entry` returns (versioned struct, RAD-12). Owned by
  *  the plugin, valid until the library is unloaded. The first three fields

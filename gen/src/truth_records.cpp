@@ -106,7 +106,7 @@ TruthRecords TruthRecorder::convert(const TruthRow& row)
                 if (n.cell == c.cell)
                     role = YR_ROLE_NEIGHBOUR;
         }
-        Record r = cell_.start(time, YR_RECORD_SIMULATED);
+        Record r = cell_.start(time, YR_RECORD_SIMULATED | YR_RECORD_LEVEL_DBM);
         cell_.set(r, YR_FIELD_FREQUENCY_HZ, value_uint(hz(c.frequency_hz)));
         cell_.set(r, YR_FIELD_CHANNEL, value_uint(sc ? sc->main_carrier : 0));
         cell_.set(r, YR_FIELD_ROLE, value_enum(role));
@@ -154,7 +154,7 @@ TruthRecords TruthRecorder::convert(const TruthRow& row)
             if (!n)
                 continue;
             const uint16_t carrier = list[k].main_carrier.value_or(n->main_carrier);
-            Record r = neighbour_.start(time, YR_RECORD_SIMULATED);
+            Record r = neighbour_.start(time, YR_RECORD_SIMULATED | YR_RECORD_LEVEL_DBM);
             neighbour_.set(r, YR_FIELD_FREQUENCY_HZ, value_uint(f));
             neighbour_.set(r, YR_FIELD_ENTRY_INDEX, value_uint(k));
             neighbour_.set(r, YR_FIELD_ENTRY_COUNT, value_uint(list.size()));

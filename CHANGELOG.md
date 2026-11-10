@@ -32,6 +32,31 @@ well; they change independently of the radio API version.
 
 ## [Unreleased]
 
+### Radio API
+
+- **Radio API 1.1** (compatible, RAD-21, RAD-30): a device can report
+  calibrated dBm without being SELF_CALIBRATED. New device flag
+  `YR_DEVICE_LEVEL_DBM` (in enumerate and device_info: the device's
+  current level unit) and record flag `YR_RECORD_LEVEL_DBM` (on every
+  record of such a device; a unit change takes effect with the next
+  record); `YR_DEVICE_ALL_MASK`, the 1.0 masks `YR_RECORD_ALL_MASK_1_0` and
+  `YR_DEVICE_ALL_MASK_1_0`, and `yr_record_level_is_dbm()`. A
+  SELF_CALIBRATED plugin of 1.1 sets both flags on every device and record
+  (a 1.0 one is dBm by its capability). Hosts of 1.0 refuse 1.1 plugins
+  (newer minor version); 1.1 hosts load 1.0 plugins.
+- The record validator (`radio.hpp`) checks the flags against the
+  plugin's API version and LEVEL_DBM on SELF_CALIBRATED records; the
+  conformance kit checks the device flags of the plugin's version, LEVEL_DBM
+  on SELF_CALIBRATED devices, and that every record's LEVEL_DBM matches the
+  device entry (fault `level_dbm` of the fake plugin).
+- Record files stay version 1: new flag name `level_dbm` for records and
+  devices (readers ignore flag names they do not know); `plugin.api_version`
+  is `"1.1"`. The terminal plugin, `decode-iq --calibrated` and
+  `yantra-gen`'s ground truth records carry `level_dbm`.
+- Documentation of `get_floor_plan` names every bundled example id
+  (`fraunces-N`, `mak-beer-house-N`, `mak-haus-claeson-N`,
+  `mak-villa-bunzl-N`) and the scene's plan cell ids (RAD-18).
+
 ### Added
 
 - Cross SDK (RAD-139): `tools/sdk/yantra_sdk.py make` builds a

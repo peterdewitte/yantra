@@ -44,9 +44,9 @@ conversions from the C structs, library `yantra::radios_common`). Example:
 | `producer` | string | Program and version, e.g. `"yantra-radio-host 0.2.1"` |
 | `created_utc_ns` | int | When the file was started, ns since 1970-01-01 UTC; 0 if unknown |
 | `plugin.id`, `name`, `version`, `technology_id`, `licence` | string | From the plugin's descriptor (RAD-12) |
-| `plugin.api_version` | string | Radio API version of the plugin, `"1.0"` (RAD-11) |
+| `plugin.api_version` | string | Radio API version of the plugin, e.g. `"1.1"` (RAD-11) |
 | `plugin.capabilities` | array of names | `scan`, `hotplug`, `retune_live`, `simulated`, `scene`, `self_calibrated` (RAD-13) |
-| `device` | object, optional | The device streamed: `key`, `label`, `driver`, `serial`, `module_version`, `flags` (`in_use`, `no_permission`, `simulated`) (RAD-30) |
+| `device` | object, optional | The device streamed: `key`, `label`, `driver`, `serial`, `module_version`, `flags` (`in_use`, `no_permission`, `simulated`, `level_dbm` since radio API 1.1) (RAD-30) |
 | `plan` | object, optional | The plan of the stream: `type` (`serving`, `carriers`, `scan`), `serving_hz`, `carriers_hz` (array), `flags` (`measure_neighbours`), `scan_first_hz`, `scan_last_hz`, `scan_step_hz` (RAD-32) |
 | `schemas` | array | Every record schema of the plugin, in descriptor order |
 
@@ -69,7 +69,7 @@ fields `frequency_hz`, `channel`, `role`, `level`, `mcc`, `mnc`, `la`,
 | `time.monotonic_ns` | int | Host monotonic clock when the measurement was made (RAD-27) |
 | `time.utc_ns` | int | UTC, ns since 1970-01-01; meaningless when `utc_source` is `none` |
 | `time.utc_source` | string | `none`, `system` (the computer's clock) or `device` |
-| `flags` | array of names | `no_sync`, `overload`, `uncalibrated`, `simulated` |
+| `flags` | array of names | `no_sync`, `overload`, `uncalibrated`, `simulated`, `level_dbm` (radio API 1.1: the level is dBm; also in dBm when `plugin.capabilities` has `self_calibrated`, RAD-21) |
 | `groups` | array of names | The optional groups this record carries |
 | `values` | object | Field name to value (see "Values") |
 

@@ -323,6 +323,28 @@ TEST_CASE("record validation: core fields and presence flags (RAD-21, RAD-22, RA
         b.r.flags = YR_RECORD_NO_SYNC;
         CHECK(yr::validate_record(d, b.r).empty());
     }
+    SUBCASE("LEVEL_DBM: a 1.1 flag (RAD-21)") {
+        b.r.flags = YR_RECORD_LEVEL_DBM;
+        CHECK(yr::validate_record(d, b.r).empty()); // a dBm device without SELF_CALIBRATED
+        CHECK(yr_record_level_is_dbm(d.capabilities, b.r.flags) != 0);
+        CHECK(yr_record_level_is_dbm(d.capabilities, 0u) == 0);
+        CHECK(yr_record_level_is_dbm(YR_CAP_SELF_CALIBRATED, 0u) != 0); // also a 1.0 plugin
+        yr_descriptor old = d;
+        old.api_version.minor = 0;
+        CHECK(mentions(yr::validate_record(old, b.r), "unknown flag bits"));
+        b.r.flags = 0;
+        CHECK(yr::validate_record(old, b.r).empty());
+    }
+    SUBCASE("LEVEL_DBM on every record of a SELF_CALIBRATED plugin of API 1.1") {
+        yr_descriptor cal = d;
+        cal.capabilities |= YR_CAP_SELF_CALIBRATED;
+        CHECK(mentions(yr::validate_record(cal, b.r), "LEVEL_DBM missing"));
+        b.r.flags = YR_RECORD_LEVEL_DBM;
+        CHECK(yr::validate_record(cal, b.r).empty());
+        cal.api_version.minor = 0; // a 1.0 plugin: dBm by its capability alone
+        b.r.flags = 0;
+        CHECK(yr::validate_record(cal, b.r).empty());
+    }
     SUBCASE("level is required even with NO_SYNC") {
         b.r.flags = YR_RECORD_NO_SYNC;
         b.values[YR_CORE_LEVEL] = yr_value_none();

@@ -48,6 +48,7 @@ struct Descriptor {
             ptrs.push_back(&views.back()->schema_c);
         }
         d.struct_size = sizeof(yr_descriptor);
+        d.api_version = yr_api_version_compiled(); // the engine's records are of this version
         d.capabilities = (e.config().calibrated ? YR_CAP_SELF_CALIBRATED : 0u) |
                          (e.config().simulated ? YR_CAP_SIMULATED : 0u) | (e.config().scan_records ? YR_CAP_SCAN : 0u);
         d.schema_count = static_cast<uint32_t>(ptrs.size());

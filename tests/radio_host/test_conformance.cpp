@@ -61,7 +61,7 @@ TEST_CASE("the beacon example plugin passes the kit")
     INFO(problems_of(r));
     CHECK(r.passed());
     CHECK(r.plugin_id == "beacon");
-    CHECK(r.api_version == "1.0");
+    CHECK(r.api_version == std::to_string(YR_API_VERSION_MAJOR) + "." + std::to_string(YR_API_VERSION_MINOR));
     CHECK(r.device == "beacon:0");
     for (const char* id : {"load", "version", "enumerate", "open_close", "settings", "persistence",
                            "actions", "presets", "sensors", "self_test", "plans", "records",
@@ -124,6 +124,7 @@ TEST_CASE("the kit finds injected faults")
         {"off_raster", "settings", "raster"},
         {"no_busy", "state_machine", "RESTART setting while streaming"},
         {"any_plan", "plans", "unsupported plan type"},
+        {"level_dbm", "records", "with LEVEL_DBM from a device whose entry lacks it"},
     };
     for (const Case& c : cases) {
         const std::string fault = c.fault;

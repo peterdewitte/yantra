@@ -410,7 +410,7 @@ static void push_locked(session* ss, const cell_values* cv, const yr_time* t)
     rec.struct_size = sizeof rec;
     rec.schema_index = 0;
     rec.time = *t;
-    rec.flags = cv->flags;
+    rec.flags = cv->flags | YR_RECORD_LEVEL_DBM; /* SELF_CALIBRATED: dBm (RAD-21, API 1.1) */
     rec.present = cv->present;
     rec.value_count = PEI_SCHEMA_FIELD_COUNT;
     rec.values = cv->v;

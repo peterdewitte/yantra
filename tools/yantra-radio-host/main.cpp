@@ -481,6 +481,7 @@ int cmd_devices(const Options& o)
         std::cout << "  " << dv.key << " \"" << dv.label << "\" driver " << dv.driver
                   << (dv.serial.empty() ? "" : " serial " + dv.serial)
                   << ((dv.flags & YR_DEVICE_SIMULATED) != 0 ? " simulated" : "")
+                  << ((dv.flags & YR_DEVICE_LEVEL_DBM) != 0 ? " level-dbm" : "")
                   << ((dv.flags & YR_DEVICE_IN_USE) != 0 ? " in-use" : "")
                   << ((dv.flags & YR_DEVICE_NO_PERMISSION) != 0 ? " no-permission" : "") << "\n";
     return kExitPass;

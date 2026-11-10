@@ -334,7 +334,7 @@ static void report_entry(const device_entry* e, yr_device_cb cb, void* user)
     yr_device_info info;
     memset(&info, 0, sizeof info);
     info.struct_size = sizeof info;
-    info.flags = e->flags;
+    info.flags = e->flags | YR_DEVICE_LEVEL_DBM; /* the terminal reports dBm (RAD-30, API 1.1) */
     info.key = e->key;
     info.label = e->label;
     info.driver = "pei";

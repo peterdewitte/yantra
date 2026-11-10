@@ -117,7 +117,8 @@ struct Plugin {
     std::atomic<bool> scene_dirty{true};
     /** Faults for the conformance kit's own tests (YANTRA_FAKE_FAULT, a
      *  comma list read at init): no_settings_changed, off_raster, no_busy,
-     *  slow_stop, any_plan. */
+     *  slow_stop, any_plan, level_dbm (records flagged LEVEL_DBM while the
+     *  device entry says dBFS). */
     std::string faults;
     bool fault(const char* name) const
     {
@@ -314,7 +315,7 @@ void stream_main(Device* d)
             r.time.monotonic_ns = h->monotonic_ns(h->host);
             r.time.utc_ns = h->utc_now_ns(h->host);
             r.time.utc_source = YR_TIME_SOURCE_SYSTEM;
-            r.flags = YR_RECORD_SIMULATED;
+            r.flags = YR_RECORD_SIMULATED | (d->plugin->fault("level_dbm") ? YR_RECORD_LEVEL_DBM : 0u);
             r.present = YR_GROUP_QUALITY | (have_pos ? YR_GROUP_SIM_POSITION : 0u);
             r.value_count = kCellFields;
             r.values = v;
@@ -731,7 +732,8 @@ extern "C" YR_EXPORT const yr_descriptor* yantra_radio_entry(void)
 {
     static const yr_descriptor d = {
         sizeof(yr_descriptor),
-        {FAKE_API_MAJOR, YR_API_VERSION_MINOR},
+        // fake_radio_v2 is a plugin of radio API 2.0 (the host refuses it).
+        {FAKE_API_MAJOR, FAKE_API_MAJOR == YR_API_VERSION_MAJOR ? YR_API_VERSION_MINOR : 0u},
         YR_CAP_SIMULATED | YR_CAP_SCENE,
         "fake-radio",
         "Fake radio (tests)",

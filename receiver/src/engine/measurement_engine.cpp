@@ -534,6 +534,8 @@ void MeasurementEngine::emit(EngineOutput& out, bool partial)
     const double mid = 0.5 * static_cast<double>(interval_start_ + pos_);
     const yr_time time = time_at(mid);
     uint32_t flags = cfg_.simulated ? YR_RECORD_SIMULATED : 0u;
+    if (cfg_.calibrated)
+        flags |= YR_RECORD_LEVEL_DBM; // every record of a dBm device (RAD-21, API 1.1)
     if (interval_overload_)
         flags |= YR_RECORD_OVERLOAD;
     interval_overload_ = false;

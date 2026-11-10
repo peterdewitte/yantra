@@ -21,7 +21,10 @@ Code: `common/include/yantra/radios/tetra_schemas.hpp`
 All three have version 1. Only two options change the field lists:
 
 - the level unit: `dBm` for a SELF_CALIBRATED producer (yantra-gen, or a
-  calibrated receiver), otherwise `dBFS`;
+  calibrated receiver), otherwise `dBFS`. A record of a device that
+  reports dBm without being SELF_CALIBRATED (the simulator in its default
+  `dBm` mode, RAD-61) has the flag `LEVEL_DBM` (radio API 1.1, RAD-21): its
+  level is dBm although the schema says `dBFS`, and its C1 is given;
 - `simulated`: adds the `sim_position` group and the generator's values
   (`cell_id`, `level_inst_dbm`, `level_source`, `best_antenna`, `walls`,
   `neighbour_cell_id`).

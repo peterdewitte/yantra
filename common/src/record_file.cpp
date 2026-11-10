@@ -59,10 +59,11 @@ constexpr std::array<Name, 3> kPlanTypes{
 constexpr std::array<Name, 3> kTimeSources{{{YR_TIME_SOURCE_NONE, "none"},
                                             {YR_TIME_SOURCE_SYSTEM, "system"},
                                             {YR_TIME_SOURCE_DEVICE, "device"}}};
-constexpr std::array<Name, 4> kRecordFlags{{{YR_RECORD_NO_SYNC, "no_sync"},
+constexpr std::array<Name, 5> kRecordFlags{{{YR_RECORD_NO_SYNC, "no_sync"},
                                             {YR_RECORD_OVERLOAD, "overload"},
                                             {YR_RECORD_UNCALIBRATED, "uncalibrated"},
-                                            {YR_RECORD_SIMULATED, "simulated"}}};
+                                            {YR_RECORD_SIMULATED, "simulated"},
+                                            {YR_RECORD_LEVEL_DBM, "level_dbm"}}};
 constexpr std::array<Name, 2> kFieldFlags{{{YR_FIELD_KEY, "key"}, {YR_FIELD_DEFAULT, "default"}}};
 constexpr std::array<Name, 6> kCaps{{{YR_CAP_SCAN, "scan"},
                                      {YR_CAP_HOTPLUG, "hotplug"},
@@ -70,9 +71,10 @@ constexpr std::array<Name, 6> kCaps{{{YR_CAP_SCAN, "scan"},
                                      {YR_CAP_SIMULATED, "simulated"},
                                      {YR_CAP_SCENE, "scene"},
                                      {YR_CAP_SELF_CALIBRATED, "self_calibrated"}}};
-constexpr std::array<Name, 3> kDeviceFlags{{{YR_DEVICE_IN_USE, "in_use"},
+constexpr std::array<Name, 4> kDeviceFlags{{{YR_DEVICE_IN_USE, "in_use"},
                                             {YR_DEVICE_NO_PERMISSION, "no_permission"},
-                                            {YR_DEVICE_SIMULATED, "simulated"}}};
+                                            {YR_DEVICE_SIMULATED, "simulated"},
+                                            {YR_DEVICE_LEVEL_DBM, "level_dbm"}}};
 constexpr std::array<Name, 1> kPlanFlags{{{YR_PLAN_MEASURE_NEIGHBOURS, "measure_neighbours"}}};
 
 template <std::size_t N>

@@ -62,9 +62,20 @@ Rules that hold everywhere (the main page of the radio.h reference):
   push and no event of that stream may follow (RAD-33). `open`,
   `run_action` and `self_test` take at most 10 s; every other control
   call returns within 1 s.
-- **Units.** Frequencies in Hz (uint64), levels in dBFS (or dBm with
-  `YR_CAP_SELF_CALIBRATED`), times in ns: `monotonic_ns` from the host's
-  monotonic clock, `utc_ns` with its source (RAD-27).
+- **Units.** Frequencies in Hz (uint64), levels in dBFS at the device's
+  settings, or in dBm (RAD-21), times in ns: `monotonic_ns` from the
+  host's monotonic clock, `utc_ns` with its source (RAD-27).
+- **Level unit** (radio API 1.1, RAD-21, RAD-30). A device that reports
+  calibrated dBm sets `YR_DEVICE_LEVEL_DBM` in its entry (enumerate and
+  device_info) and `YR_RECORD_LEVEL_DBM` on every record; a plugin with
+  `YR_CAP_SELF_CALIBRATED` (a terminal) does so for every device and
+  record. A device whose unit is a setting (the simulator's `level_unit`)
+  reports its current unit, and a change takes effect with the next
+  record. `yr_record_level_is_dbm(capabilities, flags)` tells a host which
+  unit a record has (a 1.0 SELF_CALIBRATED plugin sets no flag and is dBm
+  by its capability). Yantra applies its calibration (RF-02) to dBFS
+  levels only. The schema's level unit stays `dBFS` for a plugin without
+  SELF_CALIBRATED (the unit without the flag).
 - **State machine** (RAD-34): a device is CLOSED, OPEN, STREAMING or
   LOST. A call in the wrong state returns `YR_ERR_BUSY` (for example a
   second `start_stream`, a self-test while streaming, or a RESTART setting
@@ -740,7 +751,7 @@ plugin must not keep its own settings file (RAD-47).
 | 0 | `frequency_hz` | uint | Hz | Carrier frequency |
 | 1 | `channel` | uint | - | Channel number of the technology's band plan |
 | 2 | `role` | enum | - | `serving`, `neighbour` or `other` |
-| 3 | `level` | double | dBFS (dBm when self-calibrated) | Signal level |
+| 3 | `level` | double | dBFS, or dBm with `YR_RECORD_LEVEL_DBM` or SELF_CALIBRATED | Signal level |
 | 4 | `mcc` | uint | - | Mobile country code |
 | 5 | `mnc` | uint | - | Mobile network code |
 | 6 | `la` | uint | - | Location area |
@@ -803,7 +814,13 @@ Record files (docs/RECORD_FILES.md) store these schemas in their header.
 A plugin with `YR_CAP_SCENE` (the simulator, RAD-61) gets four more host
 callbacks (RAD-18), all NULL for other plugins:
 
-- `get_floor_plan`: the floor shown (id, name, scale), or `YR_ERR_NO_PLAN`;
+- `get_floor_plan`: the floor shown (id, name, scale) and, for a bundled
+  example plan, its example id: `fraunces-N` (Fraunces Tavern),
+  `mak-beer-house-N`, `mak-haus-claeson-N` and `mak-villa-bunzl-N` (the MAK
+  example buildings, Yantra DEMO-12), where N is the floor; "" for the
+  user's own plans; or `YR_ERR_NO_PLAN`. The cells of the plan (the cells
+  its antennas serve, in the scene's `cells`) have plan cell ids such as
+  `T1` (RAD-18);
 - `get_cursor`: the mouse position over the plan in plan metres, or
   `YR_ERR_NO_POSITION`;
 - `get_walk_position`: the walk-test position, or `YR_ERR_NO_POSITION`;
@@ -1169,13 +1186,13 @@ pass, fail or skip:
 |---|---|---|
 | `load` | Loads the library, validates the descriptor and every schema | RAD-10, RAD-12, RAD-13 |
 | `version` | The refusal rule: other major or older host minor refused | RAD-11 |
-| `enumerate` | Devices with unique keys and complete info, or NO_DEVICE with a diagnostic | RAD-16, RAD-30 |
+| `enumerate` | Devices with unique keys and complete info, only the device flags of the plugin's API version, `LEVEL_DBM` on every device of a SELF_CALIBRATED 1.1 plugin, or NO_DEVICE with a diagnostic | RAD-16, RAD-30 |
 | `open_close` | Unknown key refused with a text; open, device_info, stats, close, open again | RAD-16, RAD-31, RAD-34 |
 | `settings` | Every setting read; every writable one written at its minimum, maximum, between two steps and back; read-back in range, on the raster, within one step; wrong type, out of range and unknown items refused with a text; any other setting that changes needs `settings_changed` | RAD-40, RAD-41, RAD-44 |
 | `persistence` | A changed setting is back at its default after close and open | RAD-47 |
 | `actions`, `presets`, `sensors`, `self_test` | Each one run, with result texts, `settings_changed` after a preset, remedies for warnings | RAD-42, RAD-43, RAD-45, RAD-46 |
 | `plans` | Plan ranges; SCAN offered exactly with the capability; unsupported plan types refused | RAD-23, RAD-32 |
-| `records` | A stream: every record matches its schema, at least one MEASUREMENT, time inside the stream and in order per carrier, UTC near the host clock, a record per carrier at least every 1.25 s, known events, statistics | RAD-20..22, RAD-24, RAD-25, RAD-27 |
+| `records` | A stream: every record matches its schema, at least one MEASUREMENT, time inside the stream and in order per carrier, UTC near the host clock, a record per carrier at least every 1.25 s, every record's `LEVEL_DBM` as the device entry's, known events, statistics | RAD-20..22, RAD-24, RAD-25, RAD-27, RAD-30 |
 | `plan_change` | A carrier plan gives records on those carriers only; `set_plan` while streaming is BUSY or (RETUNE_LIVE) PLAN_APPLIED; a scan ends with SCAN_DONE | RAD-23, RAD-32 |
 | `state_machine` | Second start, self-test and RESTART settings while streaming are BUSY; stop within 1 s, no push after it; second stop harmless; close while streaming | RAD-15, RAD-31, RAD-33, RAD-34 |
 | `stop_during_push` | The host holds each push 100 ms; stop comes during a push and must wait for it | RAD-33 |

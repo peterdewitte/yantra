@@ -490,7 +490,14 @@ void Kit::check_enumerate(Check& c)
     struct Seen {
         std::vector<radios::DeviceInfo> devices;
         std::vector<std::string> problems;
+        uint32_t known = YR_DEVICE_ALL_MASK; ///< the flags of the plugin's API version
+        bool dbm = false;                    ///< SELF_CALIBRATED of API 1.1+: LEVEL_DBM due
     } seen;
+    const yr_descriptor& desc = host_->descriptor();
+    if (desc.api_version.minor < 1)
+        seen.known = YR_DEVICE_ALL_MASK_1_0;
+    else
+        seen.dbm = (desc.capabilities & YR_CAP_SELF_CALIBRATED) != 0;
     const yr_status st = sc().enumerate(
         host_->plugin(),
         [](void* user, const yr_device_info* info) {
@@ -512,9 +519,11 @@ void Kit::check_enumerate(Check& c)
                 s->problems.push_back("device " + key +
                                       ": serial, module_version, hardware_info and "
                                       "flags_reason must not be NULL (use \"\")");
-            if ((info->flags & ~(YR_DEVICE_IN_USE | YR_DEVICE_NO_PERMISSION |
-                                 YR_DEVICE_SIMULATED)) != 0)
+            if ((info->flags & ~s->known) != 0)
                 s->problems.push_back("device " + key + " has unknown flag bits");
+            if (s->dbm && (info->flags & YR_DEVICE_LEVEL_DBM) == 0)
+                s->problems.push_back("device " + key + " of a SELF_CALIBRATED plugin lacks "
+                                                        "LEVEL_DBM (RAD-30, API 1.1)");
             if ((info->flags & (YR_DEVICE_IN_USE | YR_DEVICE_NO_PERMISSION)) != 0 &&
                 text(info->flags_reason).empty())
                 s->problems.push_back("device " + key +
@@ -1053,6 +1062,16 @@ void Kit::check_plans(Check& c)
 void Kit::check_records(Check& c)
 {
     const yr_plan plan = default_plan();
+    // The device's level unit (RAD-30); its records carry the same (RAD-21).
+    uint32_t device_flags = 0;
+    sc().device_info(
+        device_,
+        [](void* user, const yr_device_info* info) {
+            if (info != nullptr)
+                *static_cast<uint32_t*>(user) = info->flags;
+        },
+        &device_flags);
+    const bool dbm = (device_flags & YR_DEVICE_LEVEL_DBM) != 0;
     const int64_t mono0 = mono();
     const int64_t utc0 = utc();
     std::vector<Record> records;
@@ -1087,7 +1106,10 @@ void Kit::check_records(Check& c)
     const auto& schemas = host_->header().schemas;
     std::map<uint64_t, std::vector<int64_t>> times; // MEASUREMENT records per carrier
     int measurement = 0;
+    int unit_mismatch = 0;
     for (const Record& rec : records) {
+        if (((rec.flags & YR_RECORD_LEVEL_DBM) != 0) != dbm)
+            ++unit_mismatch;
         const int64_t t = rec.time.monotonic_ns;
         c.expect(t >= mono0 && t <= mono1,
                  "a record's monotonic_ns lies outside the stream (RAD-27)");
@@ -1103,6 +1125,11 @@ void Kit::check_records(Check& c)
         times[rec.values[YR_CORE_FREQUENCY_HZ].u64].push_back(t);
     }
     c.expect(records.empty() || measurement > 0, "no MEASUREMENT record (RAD-21)");
+    c.expect(unit_mismatch == 0,
+             std::to_string(unit_mismatch) + " record(s) " +
+                 (dbm ? "without LEVEL_DBM from a device whose entry has LEVEL_DBM"
+                      : "with LEVEL_DBM from a device whose entry lacks it") +
+                 " (RAD-21, RAD-30)");
     seen_carriers_.clear();
     for (auto& [hz, ts] : times) {
         seen_carriers_.push_back(hz);
@@ -1674,7 +1701,7 @@ ConformanceReport Kit::run()
         check("self_test", "self-test", {"RAD-46"}, [&](Check& c) { check_self_test(c); });
         check("plans", "plan ranges and plan types", {"RAD-32"}, [&](Check& c) { check_plans(c); });
         check("records", "records, time rules, stream counters",
-              {"RAD-20", "RAD-21", "RAD-22", "RAD-24", "RAD-25", "RAD-27"},
+              {"RAD-20", "RAD-21", "RAD-22", "RAD-24", "RAD-25", "RAD-27", "RAD-30"},
               [&](Check& c) { check_records(c); });
         check("plan_change", "plan changes", {"RAD-23", "RAD-32"},
               [&](Check& c) { check_plan_change(c); });
