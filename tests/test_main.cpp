@@ -3,11 +3,13 @@
 //
 // Shared doctest main of every test binary (Yantra TST-01). It also takes
 // the option --update (golden files, RAD-93; see golden.hpp), which it
-// removes before doctest reads the command line.
+// removes before doctest reads the command line. On Windows it turns the C
+// runtime's CPU-dependent FMA3 math paths off first (portable_math.hpp).
 #define DOCTEST_CONFIG_IMPLEMENT
 #include <doctest/doctest.h>
 
 #include "golden.hpp"
+#include "yantra/gen/portable_math.hpp"
 
 #include <cstdlib>
 #include <cstring>
@@ -29,6 +31,7 @@ bool update_golden()
 
 int main(int argc, char** argv)
 {
+    yantra::gen::use_portable_math();
     std::vector<char*> args;
     for (int i = 0; i < argc; ++i) {
         if (i > 0 && std::strcmp(argv[i], "--update") == 0)

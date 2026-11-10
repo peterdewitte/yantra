@@ -290,12 +290,17 @@ unique symbols are ELF properties).
 Golden files: `tests/gen_sim/golden/windows` and
 `tests/yantra_gen/golden/windows` hold the Windows digests. The UCRT's
 math functions round some results differently in the last bit from
-glibc's; same seeds and scenarios, rewritten the same way
-(`ninja -C build-win update-golden-gen-sim update-golden-yantra-gen`).
-They can also differ between Windows machines (the UCRT picks
-CPU-dependent code paths, e.g. FMA3): the `cells_cs16_impaired` digest of
-`test_yantra_gen` written on a PC through WSL differs from the one the
-test VM computes (that VM gives the Linux value); open, see CHANGELOG.
+glibc's (in `tests/gen_sim`: the `floor_change` and `weak_signal` truth
+texts; the `tests/yantra_gen` digests equal the Linux ones). The UCRT
+also picks CPU-dependent code paths (FMA3) unless told not to, so
+`yantra-gen` and every test main call `_set_FMA3_enable(0)` first
+(`gen/include/yantra/gen/portable_math.hpp`): the results no longer depend
+on the Windows machine. Same seeds and scenarios; the Windows files come
+from a run in the test VM: a golden check that fails prints the computed
+text, which `LastTest.log` brings back (`--update` in the guest writes
+into the guest's copy only; the `update-golden-*` targets run the test
+programs on the build machine, so on a Linux build server they work for
+the Linux trees only).
 
 Portability lives in a few small interfaces: plugin loading
 (`tools/yantra-radio-host/dynlib.cpp`, `LoadLibraryExW` with the plugin's

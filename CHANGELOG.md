@@ -116,13 +116,14 @@ well; they change independently of the radio API version.
   tests link the bundled nlohmann-json (they used the system's headers).
 - Windows: `yantra-radio-host conformance --unplug/--replug` commands
   with a quoted program path work (`cmd.exe` quoting).
-
-### Known issues
-
-- Windows: the `cells_cs16_impaired` digest of `test_yantra_gen` differs
-  between Windows machines (UCRT math, CPU-dependent): the test VM
-  computes the Linux value, the Windows golden file holds the value of the
-  PC it was written on.
+- Windows: `yantra-gen` and the test programs turn the UCRT's
+  CPU-dependent FMA3 math paths off (`_set_FMA3_enable(0)`), so the
+  generator's output and its golden digests are the same on every
+  Windows machine; the Windows golden files now come from the test VM
+  (the `cells_cs16_impaired` digest equals the Linux one).
+- Tests: `yantra_gen_stdout_endless` drops the generator's standard error
+  after the reader closes the pipe (on Windows it reports the closed pipe,
+  where Linux ends it silently by SIGPIPE).
 
 ## [0.2.7] - 2026-11-09
 
