@@ -42,6 +42,7 @@
 #include "yantra/receiver/kernels.hpp"
 #include "yantra/receiver/nco.hpp"
 
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <vector>
@@ -144,6 +145,10 @@ private:
     bool have_prev_ = false;
     double theta_ = 0.0;      // phase tracker
     double amp_ = 1.0;        // symbol magnitude estimate
+    // The 9 decision angles k*pi/4 (k = -4..4) as unit phasors, made once
+    // with std::polar: the same floats as computing them per symbol, without
+    // a sin/cos pair per symbol (their cost is the C runtime's).
+    std::array<cf, 9> ideal_phasor_;
     double sig_acc_ = 0.0;
     double err_acc_ = 0.0;
     DemodStatus status_;

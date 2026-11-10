@@ -72,6 +72,9 @@ Pi4DqpskDemodulator::Pi4DqpskDemodulator(const Pi4DqpskConfig& config)
       // error (1.02 for roll-off 0.35), i.e. 1/sps per sample.
       kd_(1.0 / config.samples_per_symbol)
 {
+    for (int k = -4; k <= 4; ++k)
+        ideal_phasor_[static_cast<std::size_t>(k + 4)] =
+            std::polar(1.0f, static_cast<float>(static_cast<double>(k) * (kPi / 4.0)));
     reset();
 }
 
@@ -344,18 +347,24 @@ void Pi4DqpskDemodulator::symbols(std::vector<DemodSymbol>& out)
         // Quality: phase tracking on the 8 points, MER, amplitude.
         const cf zr = z * std::polar(1.0f, static_cast<float>(-theta_));
         const double a = std::arg(zr);
-        const double ideal_angle = std::round(a / (kPi / 4.0)) * (kPi / 4.0);
+        const double q = std::round(a / (kPi / 4.0));
+        const double ideal_angle = q * (kPi / 4.0);
+        // Unit phasor of the decision; outside -4..4 (NaN symbols) as before.
+        const cf unit = q >= -4.0 && q <= 4.0 ? ideal_phasor_[static_cast<std::size_t>(static_cast<int>(q) + 4)]
+                                              : std::polar(1.0f, static_cast<float>(ideal_angle));
         theta_ = wrap_pi(theta_ + config_.phase_gain * wrap_pi(a - ideal_angle));
         const double mag = std::abs(zr);
         amp_ += (mag - amp_) * (1.0 / 64.0);
-        const cf ideal = std::polar(static_cast<float>(amp_), static_cast<float>(ideal_angle));
+        // = std::polar(amp, ideal_angle): rho * cos, rho * sin.
+        const float amp_f = static_cast<float>(amp_);
+        const cf ideal(amp_f * unit.real(), amp_f * unit.imag());
         sig_acc_ += (amp_ * amp_ - sig_acc_) * beta;
         err_acc_ += (static_cast<double>(std::norm(zr - ideal)) - err_acc_) * beta;
         status_.mer_db = err_acc_ > 0.0 ? 10.0 * std::log10(sig_acc_ / err_acc_) : 99.0;
 
         const float inv = static_cast<float>(1.0 / std::max(amp_, 1e-9));
         s.z = zr * inv;
-        s.ideal = std::polar(1.0f, static_cast<float>(ideal_angle));
+        s.ideal = unit;
         const cf dsoft = d * (inv * inv);
         s.soft[0] = dsoft.imag();
         s.soft[1] = dsoft.real();
