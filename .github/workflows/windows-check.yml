@@ -1,10 +1,13 @@
 # SPDX-FileCopyrightText: 2026 The Yantra contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Full Windows run on demand (RAD-134, RAD-131): MSYS2 UCRT64 build, every
-# test including slow, the completeness checks of the .dll plugins
-# (RAD-133) and the conformance kit without MSYS2 on PATH.
-# DEFERRED (Windows): written, never run yet.
+# Full Windows run on demand (RAD-134, RAD-131): a native build with
+# MSYS2 UCRT64's gcc (the second Windows compiler next to the cross SDK's
+# clang of ci.yml), every test including slow, the completeness checks of
+# the .dll plugins and .exe programs (RAD-133) with MSYS2's objdump. No
+# toolchain file and no emulator: ctest runs the .exe directly.
+# Checked with PyYAML and tools/ci/lint.sh; not run locally (no Windows
+# runner here; the same tree's tests run through WSL, BUILD.md).
 # Copied from yantra 68ea20a: .github/workflows/windows.yml, adapted.
 
 name: windows-check
@@ -44,14 +47,18 @@ jobs:
           key: deps-${{ hashFiles('tools/deps/**', 'third_party/**') }}-windows-ucrt64
       - name: Static dependency builds (RAD-136)
         run: tools/deps/build_deps.sh build/deps
+      # Not a preset: those set the cross SDK's toolchain files.
       - name: Configure and build (warnings are errors)
         run: |
-          cmake --preset ci -DYANTRA_DEPS_PREFIX="$PWD/build/deps"
-          cmake --build --preset ci
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DYANTRA_WERROR=ON \
+            -DYANTRA_DEPS_PREFIX="$PWD/build/deps"
+          cmake --build build -j "$(nproc)"
       - name: All tests including slow
-        run: ctest --test-dir build --timeout 1800 --output-on-failure --repeat until-pass:2
+        run: ctest --test-dir build --timeout 1800 --output-on-failure -j "$(nproc)"
       - name: Completeness checks (RAD-133)
-        run: python3 tools/ci/check_completeness.py --platform windows build/bin/plugins
+        run: |
+          python3 tools/ci/check_completeness.py --platform windows build/bin/plugins
+          python3 tools/ci/check_completeness.py --platform windows --programs --allow-build-paths build/bin
       - uses: actions/upload-artifact@v4
         with:
           name: windows-x64-plugins

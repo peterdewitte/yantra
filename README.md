@@ -58,8 +58,10 @@ and how: [DEVICES.md](DEVICES.md) (none on real hardware yet).
 ## Status
 
 Release 0.2.7 (2026-11-09, tag v0.2.7; [CHANGELOG.md](CHANGELOG.md)): the release files name no folder of the machine that built them; the documentation is checked against this release.
-Linux x86-64 is built and tested; Linux arm64 is in the nightly CI; the
-Windows build (MSYS2 UCRT64, `.dll`) is written and not yet run.
+Platforms: Linux x86-64 is built and tested; Linux arm64 is in the
+nightly CI; Windows x64 (`.dll` plugins, `.exe` tools) is cross-compiled
+with the cross SDK and tested on Windows (BUILD.md), except the terminal
+plugin's serial ports.
 
 ## In Yantra
 

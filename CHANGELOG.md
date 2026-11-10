@@ -46,6 +46,27 @@ well; they change independently of the radio API version.
   runs a Windows program from WSL2. ctests `sdk_check` and
   `sdk_windows_smoke` (a C++20 + Rust program cross-compiled, its DLL
   imports checked, run on Windows through WSL interop).
+- Windows x64 (RAD-131, RAD-132, RAD-133, RAD-136): the whole tree is
+  cross-compiled with the cross SDK (presets `windows`, `windows-scalar`,
+  `ci-windows`; tree `build-win`): the plugins as `.dll` exporting only
+  `yantra_radio_entry`, `yantra-radio-host.exe`, `yantra-gen.exe`,
+  `yantra-hackrf.exe`, every test, the Rust code for
+  `x86_64-pc-windows-gnu`, the bundled libraries static from the same
+  sources (also as a prefix: `build_deps.sh` with the Windows toolchain
+  file). ctest runs the `.exe` on Windows through WSL interop
+  (`tools/sdk/wsl_run.sh --in-place`); Linux-only tests are reported as
+  skipped with their reason (`yantra_skip_test()`). The completeness
+  check reads llvm-objdump's PE output and checks programs too
+  (`--programs`; tests `completeness_programs`,
+  `completeness_programs_shipped`); `msvcrt.dll` and the GCC runtime
+  DLLs are refused. Windows golden files for the generator tests
+  (MinGW-w64's math functions round some results differently). Release
+  package `yantra-radios-<version>-windows-x86_64.zip`
+  (`package_release.sh`, `make_release.sh`). CI: `windows-cross` builds
+  the tree on Linux, `windows-x86-64-tests` runs its tests natively on a
+  Windows runner (`tools/ci/run_windows_tests.py`); `windows-check.yml`
+  builds natively with MSYS2 UCRT64's gcc; the release job cross-compiles.
+  The terminal plugin's serial ports on Windows are not done yet.
 
 ### Changed
 
@@ -65,6 +86,12 @@ well; they change independently of the radio API version.
 
 - Builds without warnings under clang: a C plugin no longer gets
   `-static-libstdc++`; a test expression clang read as a declaration.
+- Windows: the GSMTAP output starts Winsock before resolving its address;
+  `yantra-gen` finds its scenarios next to the `.exe`; the conformance
+  kit's cleanup check counts threads on Windows too; plugins load with
+  `LoadLibraryExW` from their own folder first.
+- Tests: paths written into JSON text use forward slashes; the generator
+  tests link the bundled nlohmann-json (they used the system's headers).
 
 ## [0.2.7] - 2026-11-09
 

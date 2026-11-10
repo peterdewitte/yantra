@@ -5,16 +5,21 @@
 #   release_notes    CHANGELOG.md section extraction
 #   release_package  plugin package with the licence bundle and the
 #                    corresponding source (without osmo-tetra crypto/,
-#                    with the upstream archives and their SHA-256)
+#                    with the upstream archives and their SHA-256); in
+#                    the Windows tree the .zip of .dll and .exe
 #   licence_bundle   manifest.tsv, third_party/, LICENSES/ and
 #                    THIRD_PARTY.md agree (tools/ci/licence_bundle.py)
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 add_test(NAME release_notes
          COMMAND Python3::Interpreter -I ${CMAKE_CURRENT_SOURCE_DIR}/test_release_notes.py
                  ${PROJECT_SOURCE_DIR}/tools/ci)
+set(_platform linux-x86_64)
+if(WIN32)
+  set(_platform windows-x86_64)
+endif()
 add_test(NAME release_package
          COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/test_package.sh ${PROJECT_SOURCE_DIR}
-                 ${PROJECT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/package)
+                 ${PROJECT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/package ${_platform})
 add_test(NAME licence_bundle
          COMMAND Python3::Interpreter -B ${PROJECT_SOURCE_DIR}/tools/ci/licence_bundle.py check
                  ${PROJECT_SOURCE_DIR})

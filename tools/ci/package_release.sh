@@ -3,7 +3,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Release packaging (RAD-98, RAD-134 release.yml, RAD-137):
-#   <out>/yantra-radios-<version>-<platform>.tar.gz
+#   <out>/yantra-radios-<version>-<platform>.tar.gz (Linux, .so plugins)
+#   <out>/yantra-radios-<version>-<platform>.zip (platform windows-*: the
+#       Windows tree, preset "windows": .dll plugins and .exe programs)
 #       the install tree of <build> (cmake --install, prefix "."):
 #       lib/yantra-radios/plugins/ the self-contained plugins (RAD-132;
 #       not the example or the test builds), bin/ yantra-radio-host,
@@ -61,8 +63,17 @@ if ! grep -q '^YANTRA_SANITIZER:.*=asan-ubsan$' "$build/CMakeCache.txt" \
     echo "$paths" >&2
     exit 1
 fi
-tar -C "$stage" -czf "$out/$name.tar.gz" "$name"
-echo "package_release: $out/$name.tar.gz"
+case $platform in
+    windows*)
+        rm -f "$out/$name.zip"
+        (cd "$stage" && python3 -m zipfile -c "$out/$name.zip" "$name")
+        echo "package_release: $out/$name.zip"
+        ;;
+    *)
+        tar -C "$stage" -czf "$out/$name.tar.gz" "$name"
+        echo "package_release: $out/$name.tar.gz"
+        ;;
+esac
 
 case $platform in
     linux*)

@@ -10,9 +10,16 @@
 # crypto/, with every upstream release archive and its SHA-256 when the
 # archives are in the cache (tools/deps/verify_sources.py; otherwise that
 # part is left out and the test says so).
-# Usage: test_package.sh <source-dir> <build-dir> <out-dir>
+# With platform windows-x86_64 (the Windows tree) the package is a .zip of
+# .dll plugins and .exe programs, and there is no source archive (the
+# Linux package carries it; the sources are the same).
+# Usage: test_package.sh <source-dir> <build-dir> <out-dir> [<platform>]
 set -eu
-src=$1 build=$2 out=$3
+src=$1 build=$2 out=$3 platform=${4:-linux-x86_64}
+case $platform in
+    windows*) so=.dll exe=.exe ;;
+    *) so=.so exe= ;;
+esac
 rm -rf "$out"
 cache=${YANTRA_DEPS_CACHE:-$src/build/deps-cache}
 upstream=1
@@ -23,19 +30,29 @@ if [ $upstream -eq 0 ]; then
     echo "note: upstream archives not cached: the source archive is checked without upstream/"
     export YANTRA_RELEASE_NO_UPSTREAM=1
 fi
-"$src/tools/ci/package_release.sh" "$build" "$out" vtest linux-x86_64 >/dev/null 2>"$out.err" \
+"$src/tools/ci/package_release.sh" "$build" "$out" vtest "$platform" >/dev/null 2>"$out.err" \
     || { cat "$out.err"; exit 1; }
 rm -f "$out.err"
-p=yantra-radios-vtest-linux-x86_64
-pkg=$(tar -tzf "$out/$p.tar.gz")
+p=yantra-radios-vtest-$platform
+case $platform in
+    windows*)
+        pkg=$(python3 -c 'import sys, zipfile; print("\n".join(zipfile.ZipFile(sys.argv[1]).namelist()))' "$out/$p.zip")
+        extract() { python3 -c 'import sys, zipfile; zipfile.ZipFile(sys.argv[1]).extract(sys.argv[3], sys.argv[2])' "$out/$p.zip" "$@"; }
+        ;;
+    *)
+        pkg=$(tar -tzf "$out/$p.tar.gz")
+        extract() { tar -C "$1" -xzf "$out/$p.tar.gz" "$2"; }
+        ;;
+esac
 fail=0
 need() { echo "$pkg" | grep -qx "$1" || { echo "missing in package: $1"; fail=1; }; }
 lic=$p/share/licenses/yantra-radios
-need "$p/lib/yantra-radios/plugins/hackrf.so"
-need "$p/lib/yantra-radios/plugins/soapysdr.so"
-need "$p/lib/yantra-radios/plugins/simulator.so"
-need "$p/lib/yantra-radios/plugins/pei.so"
-need "$p/bin/yantra-radio-host"
+for plugin in hackrf soapysdr simulator pei; do
+    need "$p/lib/yantra-radios/plugins/$plugin$so"
+done
+for program in yantra-radio-host yantra-gen yantra-hackrf; do
+    need "$p/bin/$program$exe"
+done
 need "$lic/LICENSE"
 need "$lic/THIRD_PARTY.md"
 need "$lic/BUNDLE.md"
@@ -45,15 +62,22 @@ for folder in $(grep -v '^#' "$src/tools/deps/manifest.tsv" | cut -f4); do
     comp=${folder##*/}
     echo "$pkg" | grep -q "^$lic/$comp/." || { echo "no licence text for $folder"; fail=1; }
 done
-for bad in beacon.so hackrf_fake.so soapysdr_fake.so doctest; do
+for bad in beacon$so hackrf_fake$so soapysdr_fake$so doctest; do
     if echo "$pkg" | grep -q "$bad"; then echo "must not be in the package: $bad"; fail=1; fi
 done
 tmp=$out/x
 mkdir -p "$tmp"
-tar -C "$tmp" -xzf "$out/$p.tar.gz" "$lic/BUNDLE.md"
+extract "$tmp" "$lic/BUNDLE.md"
 for name in $(grep -v '^#' "$src/tools/deps/manifest.tsv" | cut -f1); do
     grep -q "^| $name |" "$tmp/$lic/BUNDLE.md" || { echo "BUNDLE.md lacks $name"; fail=1; }
 done
+case $platform in
+    windows*)
+        rm -rf "$out"
+        [ $fail -eq 0 ] && echo "release package ($platform): OK"
+        exit $fail
+        ;;
+esac
 s=yantra-radios-vtest-source
 srcs=$(tar -tzf "$out/$s.tar.gz")
 echo "$srcs" | grep -qx "$s/CMakeLists.txt" || { echo "source archive lacks CMakeLists.txt"; fail=1; }

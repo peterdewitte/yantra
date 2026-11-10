@@ -7,8 +7,9 @@
 # the pinned versions and the build scripts), SHA-256 checksums and the
 # release notes from CHANGELOG.md. Packaging: tools/ci/package_release.sh
 # (locally all steps for Linux: `ninja -C build release`,
-# tools/ci/make_release.sh).
-# DEFERRED (Windows): the windows-x64 job is written, never run yet.
+# tools/ci/make_release.sh). Both packages are built with the cross SDK's
+# clang (RAD-139): Linux natively, Windows x64 cross-compiled (RAD-131;
+# its tests ran natively on Windows in the full CI's ci.yml jobs).
 
 name: release
 
@@ -18,6 +19,9 @@ on:
 
 permissions:
   contents: write
+
+env:
+  SDK_KEY: yantra-sdk-${{ hashFiles('tools/sdk/*.lock', 'tools/sdk/yantra_sdk.py') }}
 
 jobs:
   full-ci:
@@ -33,8 +37,17 @@ jobs:
       - name: Install build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends cmake ninja-build g++ python3 binutils
+          sudo apt-get install -y --no-install-recommends cmake ninja-build python3 binutils gpg zstd
+      - name: Cache the cross SDK (RAD-139)
+        uses: actions/cache@v4
+        with:
+          path: sdk
+          key: ${{ env.SDK_KEY }}-${{ runner.os }}-${{ runner.arch }}
+      - name: Cross SDK (made from the lock files, else checked)
+        run: python3 tools/sdk/yantra_sdk.py check || python3 tools/sdk/yantra_sdk.py make
       - name: Static dependency builds (RAD-136)
+        env:
+          CMAKE_TOOLCHAIN_FILE: ${{ github.workspace }}/tools/sdk/toolchain-x86_64-linux-gnu-clang.cmake
         run: tools/deps/build_deps.sh build/deps
       - name: Build (warnings are errors) and fast tests
         run: |
@@ -57,44 +70,48 @@ jobs:
           name: release-linux-x86_64
           path: dist/
 
-  # DEFERRED (Windows): written, never run yet.
+  # Windows x64, cross-compiled with the SDK's clang (RAD-131, RAD-139).
   windows-x64:
     needs: full-ci
-    runs-on: windows-2022
-    defaults:
-      run:
-        shell: msys2 {0}
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - uses: msys2/setup-msys2@v2
-        with:
-          msystem: UCRT64
-          update: true
-          install: >-
-            git
-            zip
-            mingw-w64-ucrt-x86_64-gcc
-            mingw-w64-ucrt-x86_64-cmake
-            mingw-w64-ucrt-x86_64-ninja
-            mingw-w64-ucrt-x86_64-python
-            mingw-w64-ucrt-x86_64-rust
-            mingw-w64-ucrt-x86_64-binutils
-      - name: Static dependency builds (RAD-136)
-        run: tools/deps/build_deps.sh build/deps
-      - name: Build and fast tests
+      - name: Install build tools
         run: |
-          cmake --preset ci -DCMAKE_BUILD_TYPE=Release -DYANTRA_DEPS_PREFIX="$PWD/build/deps"
-          cmake --build --preset ci
-          ctest --test-dir build -LE slow --timeout 600 --output-on-failure
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends cmake ninja-build python3 gpg zstd
+      - name: Cache the cross SDK (RAD-139)
+        uses: actions/cache@v4
+        with:
+          path: sdk
+          key: ${{ env.SDK_KEY }}-${{ runner.os }}-${{ runner.arch }}
+      - name: Cross SDK (made from the lock files, else checked)
+        run: python3 tools/sdk/yantra_sdk.py check || python3 tools/sdk/yantra_sdk.py make
+      - name: Static dependency builds for Windows (RAD-136)
+        env:
+          CMAKE_TOOLCHAIN_FILE: ${{ github.workspace }}/tools/sdk/toolchain-x86_64-w64-mingw32-clang.cmake
+        run: tools/deps/build_deps.sh build-win-deps
+      - name: Build (warnings are errors)
+        run: |
+          cmake --preset ci-windows -DCMAKE_BUILD_TYPE=Release -DYANTRA_DEPS_PREFIX="$PWD/build-win-deps"
+          cmake --build --preset ci-windows -j "$(nproc)"
       - name: Completeness checks (RAD-133)
-        run: python3 tools/ci/check_completeness.py --platform windows build/bin/plugins
-      - name: Package plugins and licence bundle
-        run: tools/ci/package_release.sh build dist "${GITHUB_REF_NAME}" windows-x64
+        run: ctest --test-dir build-win -L completeness --timeout 600 --output-on-failure
+      - name: Package plugins, programs and licence bundle
+        run: tools/ci/package_release.sh build-win dist "${GITHUB_REF_NAME}" windows-x86_64
+      - name: Completeness of the packaged plugins (RAD-133, RAD-138)
+        run: |
+          mkdir -p check
+          python3 -m zipfile -e "dist/yantra-radios-${GITHUB_REF_NAME}-windows-x86_64.zip" check
+          python3 tools/ci/check_completeness.py --platform windows --objdump sdk/llvm/bin/llvm-objdump \
+            "check/yantra-radios-${GITHUB_REF_NAME}-windows-x86_64/lib/yantra-radios/plugins"
+          python3 tools/ci/check_completeness.py --platform windows --programs --objdump sdk/llvm/bin/llvm-objdump \
+            "check/yantra-radios-${GITHUB_REF_NAME}-windows-x86_64/bin"
       - uses: actions/upload-artifact@v4
         with:
-          name: release-windows-x64
+          name: release-windows-x86_64
           path: dist/
 
   publish:

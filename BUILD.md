@@ -176,37 +176,136 @@ unpacked):
 - Windows programs run on this PC's Windows from WSL2 through Windows
   interop: `tools/sdk/wsl_run.sh [--with <dll-folder>] <program.exe> [args]`
   copies the program into a scratch folder under the Windows `%TEMP%`,
-  runs it and deletes the folder. ctest `sdk_windows_smoke` (label slow;
-  skipped without SDK or interop) cross-compiles a C++20 program with
-  threads, iostream, std::filesystem, exceptions, a version resource and
-  a Rust static library, checks with `llvm-objdump -p` that it imports
-  only Windows system DLLs and the UCRT, and runs it that way.
+  runs it and deletes the folder; with `--in-place` it runs the program
+  where it is (the Windows tree's ctest emulator, below). ctest
+  `sdk_windows_smoke` (label slow; skipped without SDK or interop)
+  cross-compiles a C++20 program with threads, iostream, std::filesystem,
+  exceptions, a version resource and a Rust static library, checks with
+  `llvm-objdump -p` that it imports only Windows system DLLs and the UCRT,
+  and runs it that way.
 
-## Windows (MSYS2 UCRT64) - deferred
+## Windows x64 (RAD-131)
 
-The Windows build (RAD-131: `.dll` plugins and `.exe` tools, gcc in MSYS2
-UCRT64, static GCC runtime, `.def` export files, DLL import checks with
-`objdump -p`) is written but not yet run: the CI jobs `windows-ucrt64` in
-`ci.yml`, `windows-check.yml` and the `windows-x64` release job hold the
-steps. In a UCRT64 shell:
+The Windows tree is cross-compiled on Linux with the cross SDK (above):
+`.dll` plugins, `yantra-radio-host.exe`, `yantra-gen.exe`,
+`yantra-hackrf.exe` and every test program, the bundled libraries built
+statically from the same sources (RAD-136), the Rust code with the SDK's
+`cargo` for `x86_64-pc-windows-gnu`. Its tests run on this PC's Windows
+through WSL interop:
+
+    python3 tools/sdk/yantra_sdk.py make        # once: the SDK in sdk/
+    cmake --preset windows                      # build-win/
+    ninja -C build-win
+    ctest --test-dir build-win -j"$(nproc)"     # the .exe run on Windows
+
+Presets: `windows` (build-win), `windows-scalar` (build-win-scalar,
+`YANTRA_SIMD=OFF`), `ci-windows` (warnings are errors). The emulator
+(`CMAKE_CROSSCOMPILING_EMULATOR`) is `tools/sdk/wsl_run.sh --in-place`:
+each `.exe` runs where it was built, from the ctest folder on
+`\\wsl.localhost\<distribution>`, so a program starts in a fraction of a
+second, and the Linux paths in the test list and compiled into the tests
+(`/home/...`) resolve to the same files (Windows reads a rooted path on
+the drive or share of the current folder). The program sees PATH with
+only the Windows system folders (no MSYS2) and the `YANTRA_*`/`SOAPY_*`
+variables of its ctest (passed through `WSLENV`). Without WSL interop the
+emulator exits 77: every doctest binary then becomes one ctest (the CI's
+Linux job), and the `.exe` tests fail there, so that job runs only the
+checks (`ctest -L 'completeness|release'`).
+
+What runs on Windows: every doctest program, the CLI tests of the three
+tools, the conformance kit on every plugin `.dll` (beacon, simulator,
+soapysdr through its fake module, hackrf through its fake; the terminal
+plugin needs a terminal), and the checks:
+
+- `completeness_<plugin>`, `completeness_plugins`: imports only Windows
+  system DLLs and the UCRT (no `libstdc++-6.dll`, `libgcc_s_seh-1.dll`,
+  `libwinpthread-1.dll`, nothing of MSYS2, no `msvcrt.dll`), exports only
+  `yantra_radio_entry` (the `.def` file), no build folder inside
+  (`tools/ci/check_completeness.py --platform windows --objdump
+  sdk/llvm/bin/llvm-objdump`, which reads GNU and llvm-objdump output);
+- `completeness_programs` (every `.exe`: imports) and
+  `completeness_programs_shipped` (the three tools: also no build folder);
+- `completeness_negative` (a plugin importing a non-system DLL and
+  exporting everything is caught), `completeness_build_paths`;
+- `release_package`: the `.zip` package (below).
+
+Skipped on Windows (reported as skipped, with the reason, by
+`yantra_skip_test()`): `test_pei` and `conformance_pei` (the simulated
+terminal `yantra-pei-sim` needs a POSIX pseudo-terminal; the plugin's
+Windows serial port is the next step), `plugin_docs` (needs that
+simulator), `clean_env_conformance` (a bubblewrap sandbox; the CI's
+Windows runner is the clean machine), `install_destdir` (the Linux FHS
+layout with udev rules), `completeness_surprises` (static TLS and GNU
+unique symbols are ELF properties).
+
+Golden files: `tests/gen_sim/golden/windows` and
+`tests/yantra_gen/golden/windows` hold the Windows digests. MinGW-w64's
+math functions round some results differently in the last bit from
+glibc's; same seeds and scenarios, rewritten the same way
+(`ninja -C build-win update-golden-gen-sim update-golden-yantra-gen`).
+
+Portability lives in a few small interfaces: plugin loading
+(`tools/yantra-radio-host/dynlib.cpp`, `LoadLibraryExW` with the plugin's
+own folder first), the test helpers `tests/test_platform.hpp`
+(environment variables, starting a program without a shell, shell
+commands for the `--*-cmd` options, a loopback UDP receiver) and the
+GSMTAP socket (Winsock started on first use).
+
+Pitfalls:
+
+- Upstream libraries mark their API `dllexport` on Windows whatever is
+  defined (SoapySDR's `Config.h`, `hackrf.h`, `airspy.h`, SoapyRemote).
+  SoapySDR is compiled against a copy of its `Config.h` without
+  `SOAPY_SDR_DLL` (upstream's static case), and the export directives
+  (`.drectve`) are removed from every bundled archive after it is built
+  (`llvm-objcopy --remove-section=.drectve`, `tools/deps/sdr.cmake`);
+  otherwise a plugin exports hundreds of symbols next to its `.def` entry.
+- SoapyRemote 0.5.3 writes its Windows code for MSVC only (`_MSC_VER`);
+  four of its files are compiled from copies in the build tree with
+  `_MSC_VER` read as `_WIN32` (`tools/deps/sdr.cmake`).
+- A plugin is linked with `-static` only; a `-Wl,-Bdynamic` after it
+  makes the driver import `libstdc++-6.dll` again.
+- `std::system` runs `cmd.exe`, which refuses a network-share current
+  folder (`\\wsl.localhost`): tests start programs with
+  `yantra::test::run_program()` and give `cmd.exe` absolute native paths.
+- libstdc++'s `lexically_normal()` shortens a UNC path's leading `\\`.
+- Paths written into JSON text use `generic_string()` (backslashes would
+  be escapes).
+- Never two heavy jobs at once: a Windows ctest run uses all cores of the
+  PC through interop as well.
+
+The bundled libraries as a prefix for Windows:
+
+    CMAKE_TOOLCHAIN_FILE=$PWD/tools/sdk/toolchain-x86_64-w64-mingw32-clang.cmake \
+        tools/deps/build_deps.sh build-win-deps
+    cmake --preset windows -DYANTRA_DEPS_PREFIX="$PWD/build-win-deps"
+
+Natively on Windows, in an MSYS2 UCRT64 shell (gcc; `windows-check.yml`,
+not run here):
 
     pacman -S git mingw-w64-ucrt-x86_64-{gcc,cmake,ninja,python,rust,binutils}
     tools/deps/build_deps.sh build/deps
-    cmake --preset ci -DYANTRA_DEPS_PREFIX="$PWD/build/deps"
-    cmake --build --preset ci
+    cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo \
+        -DYANTRA_DEPS_PREFIX="$PWD/build/deps"
+    cmake --build build
     ctest --test-dir build -LE slow
-    python3 tools/ci/check_completeness.py --platform windows build/bin/plugins
 
-The code is kept portable (the terminal plugin's serial ports and the
-WinUSB/Zadig driver notes are the open Windows items).
+Open Windows items: the terminal plugin's serial ports (COM ports) and
+its fake terminal, and the WinUSB/Zadig driver notes.
 
 ## CI (RAD-134)
 
 `.github/workflows/`: `ci.yml` (every push: lint incl. shell, YAML,
 Python, FFI widths, reuse, cargo-deny, `verify_sources.py`, workflow YAML
 with PyYAML; Linux build and fast tests with the SDK's clang (the SDK
-cached per lock-file version) and with the system gcc; Windows build;
-completeness checks incl. the clean environment), `ci-full.yml` (nightly
+cached per lock-file version) and with the system gcc; the Windows tree
+cross-compiled with the SDK (`windows-cross`: build with warnings as
+errors, completeness checks, release package) and its tests natively on
+a Windows runner (`windows-x86-64-tests`: the tree without objects as an
+artefact, `tools/ci/run_windows_tests.py` runs every `.exe` test of the
+cross job's `ctest --show-only=json-v1` list, then the conformance kit on
+every `.dll`); completeness checks incl. the clean environment),
+`ci-full.yml` (nightly
 and before a release: opt-in and slow suites; clang trees x86-64, scalar,
 ASan+UBSan, TSan; gcc trees x86-64 and arm64), `sens-quick.yml` (sensitivity
 sweep), `windows-check.yml` and `release.yml`. The workflows are complete
@@ -238,12 +337,13 @@ which runs `tools/ci/make_release.sh` into `build/release/v<version>/`:
 | File | Contents |
 |---|---|
 | `yantra-radios-v<version>-linux-x86_64.tar.gz` | the install tree: plugins (`lib/yantra-radios/plugins/*.so`), tools, scenarios, udev rules, docs and the licence bundle `share/licenses/yantra-radios` (LICENSE, LICENSES/, THIRD_PARTY.md, each bundled library's licence texts and copyright notices, BUNDLE.md) |
+| `yantra-radios-v<version>-windows-x86_64.zip` | the Windows tree's install tree (`tools/ci/package_release.sh build-win <out> <tag> windows-x86_64`): `lib/yantra-radios/plugins/*.dll`, `bin/*.exe`, scenarios, docs and the same licence bundle |
 | `yantra-radios-v<version>-source.tar.gz` | the complete corresponding source (RAD-137): the repository at the tag with the pinned submodules (without osmo-tetra's `crypto/`) and `upstream/` with every release archive of `tools/deps/manifest.tsv` and its SHA256SUMS |
 | `RELEASE_NOTES.md` | the CHANGELOG.md section |
 | `SHA256SUMS` | SHA-256 of the files above |
 
 The packaged plugins pass the completeness check before the folder is
-written. `release.yml` does the same on a pushed tag for Linux (and, when
-it runs, Windows) and publishes the files. Yantra pins the tagged commit
+written. `release.yml` does the same on a pushed tag for Linux and
+Windows x64 (cross-compiled) and publishes the files. Yantra pins the tagged commit
 as its submodule and builds the plugins with these scripts, or takes the
 release `.so` files of the tag (RAD-138).
