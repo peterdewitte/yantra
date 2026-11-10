@@ -6,6 +6,10 @@
 # installed plugins pass the completeness check (RAD-133). No system
 # changes: nothing outside the DESTDIR, no udevadm, no root.
 # Sanitizer trees are never installed (their plugins need the runtimes).
+if(WIN32)
+  yantra_skip_test(install_destdir REASON "the Linux install layout (DESTDIR, udev rules, modprobe.d); the Windows install tree is checked by release_package (the .zip)")
+  return()
+endif()
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR NOT TARGET hackrf OR NOT TARGET yantra-hackrf
    OR NOT YANTRA_SANITIZER STREQUAL "")
   return()

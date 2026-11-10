@@ -4,12 +4,17 @@
 """Completeness check of the radio plugin artefacts (RAD-132, RAD-133).
 
 For every plugin (.so on Linux, .dll on Windows) given on the command line,
-directly or as a folder that is scanned (not recursively):
+directly or as a folder that is scanned (not recursively), and with
+--programs for every program (Windows .exe: the needed and build_paths
+checks only):
 
   needed   Linux: the NEEDED entries (readelf -d) name only the allowed
            system libraries of RAD-132 (glibc and its parts, libudev).
-           Windows: the DLL imports (objdump -p) name only Windows system
-           DLLs and the UCRT. Everything else must be built in statically.
+           Windows: the DLL imports (objdump -p, GNU or llvm-objdump) name
+           only Windows system DLLs and the UCRT, never the GCC runtime
+           (libstdc++-6, libgcc_s_seh-1, libwinpthread-1), anything of
+           MSYS2 or msvcrt.dll (a second C runtime next to the UCRT).
+           Everything else must be built in statically.
   exports  the plugin exports exactly one symbol, yantra_radio_entry
            (version script on Linux, .def file on Windows), so bundled
            libraries never clash between plugins or with Yantra.
@@ -22,7 +27,7 @@ directly or as a folder that is scanned (not recursively):
   execstack  (Linux) the GNU_STACK segment is not executable.
   unique   (Linux) no STB_GNU_UNIQUE symbols: they cannot be hidden, bind
            across plugins and keep a plugin from unloading.
-  build_paths  (Linux) the file holds neither this source tree's folder nor
+  build_paths  the file holds neither this source tree's folder nor
            the home folder of the user who built it: a released plugin names
            no person or machine (no personal data; -ffile-prefix-map in
            tools/deps/deps.cmake). --forbid TEXT adds a text to look for.
@@ -40,8 +45,8 @@ An empty set of plugins passes (the skeleton has none yet).
 Exit codes: 0 clean, 1 findings, 2 usage or tool error.
 With --expect KIND[,KIND...] the check inverts for negative tests: exit 0
 only if the findings are exactly of these kinds.
-The Windows part is DEFERRED (Windows): it is written and its parsers are
-tested with --self-test, but it has not run on a real .dll.
+The Windows part runs on the cross-compiled .dll and .exe of the Windows
+tree (cross SDK, RAD-131/139), with the SDK's llvm-objdump.
 """
 from __future__ import annotations
 
@@ -68,11 +73,15 @@ LINUX_ALLOWED = [
 ]
 
 # Windows system DLLs and the UCRT (RAD-132); compared case-insensitively.
+# userenv, bcryptprimitives and api-ms-win-core-synch come with the Rust
+# standard library (x86_64-pc-windows-gnu); iphlpapi with SoapyRemote.
+# msvcrt.dll is left out on purpose: it is a second C runtime next to the
+# UCRT, a sign of a library built for the wrong runtime.
 WINDOWS_ALLOWED = [
     r"kernel32\.dll", r"user32\.dll", r"advapi32\.dll", r"ws2_32\.dll",
     r"setupapi\.dll", r"cfgmgr32\.dll", r"winusb\.dll", r"ole32\.dll",
-    r"shell32\.dll", r"bcrypt\.dll", r"ntdll\.dll", r"iphlpapi\.dll",
-    r"ucrtbase\.dll", r"msvcrt\.dll",
+    r"shell32\.dll", r"bcrypt\.dll", r"bcryptprimitives\.dll", r"ntdll\.dll",
+    r"iphlpapi\.dll", r"userenv\.dll", r"ucrtbase\.dll",
     r"api-ms-win-crt-[a-z0-9-]+\.dll", r"api-ms-win-core-[a-z0-9-]+\.dll",
 ]
 
@@ -148,19 +157,30 @@ def parse_readelf_stack(text: str) -> str | None:
 
 
 def parse_objdump_pe(text: str) -> tuple[list[str], list[str]]:
-    """DLL imports and exported names from `objdump -p` of a PE file."""
+    """DLL imports and exported names from `objdump -p` of a PE file, in
+    GNU objdump's format ("[Ordinal/Name Pointer] Table", "[   0] name")
+    or llvm-objdump's ("Export Table:", "Ordinal RVA Name" rows)."""
     imports = re.findall(r"^\s*DLL Name:\s*(\S+)", text, re.MULTILINE)
-    exports, in_table = [], False
+    exports, table = [], None
     for line in text.splitlines():
         if re.match(r"^\[Ordinal/Name Pointer\] Table", line.strip()):
-            in_table = True
+            table = "gnu"
             continue
-        if in_table:
+        if line.strip() == "Export Table:":
+            table = "llvm"
+            continue
+        if table == "gnu":
             m = re.match(r"^\s*\[\s*\d+\]\s+(\S+)", line)
             if m:
                 exports.append(m.group(1))
             else:
-                in_table = False
+                table = None
+        elif table == "llvm":
+            m = re.match(r"^\s*\d+\s+0x[0-9a-fA-F]+\s+(\S+)", line)
+            if m:
+                exports.append(m.group(1))
+            elif not re.match(r"^\s*(DLL name:|Ordinal base:|Ordinal\s+RVA)", line):
+                table = None
     return imports, sorted(set(exports))
 
 
@@ -224,12 +244,16 @@ def check_linux(path: str, extra: list[str], tools: dict) -> list[tuple[str, str
 
 def check_windows(path: str, extra: list[str], tools: dict) -> list[tuple[str, str]]:
     findings = []
+    with open(path, "rb") as f:
+        for t in texts_in(f.read(), tools["forbid"]):
+            findings.append(("build_paths", f"the file holds {t}: a folder of the machine it was built on"))
     imports, exports = parse_objdump_pe(_run([tools["objdump"], "-p", path]))
     for n in imports:
         if not _matches(n, WINDOWS_ALLOWED, extra, True):
             findings.append(("needed", f"imports {n}, not a Windows system DLL or the UCRT (RAD-132)"))
-    if exports != [ENTRY]:
-        findings.append(("exports", f"exports [{', '.join(exports[:10])}], expected only {ENTRY}"))
+    if not tools["program"] and exports != [ENTRY]:
+        shown = ", ".join(exports[:10]) + (" ..." if len(exports) > 10 else "")
+        findings.append(("exports", f"exports {len(exports)} symbol(s) [{shown}], expected only {ENTRY}"))
     return findings
 
 
@@ -279,6 +303,24 @@ The Export Tables (interpreted .edata section contents)
     imports, exports = parse_objdump_pe(pe)
     assert imports == ["KERNEL32.dll", "api-ms-win-crt-runtime-l1-1-0.dll", "libstdc++-6.dll"]
     assert exports == [ENTRY]
+    llvm_pe = """
+    DLL Name: KERNEL32.dll
+    vma:  Hint/Ord  Name
+    DLL Name: libwinpthread-1.dll
+
+Export Table:
+ DLL name: soapysdr.dll
+ Ordinal base: 1
+ Ordinal      RVA  Name
+       1  0xe4ef0  _Z16listSoapyIfAddrsv
+       2   0x1430  yantra_radio_entry
+"""
+    imports, exports = parse_objdump_pe(llvm_pe)
+    assert imports == ["KERNEL32.dll", "libwinpthread-1.dll"]
+    assert exports == ["_Z16listSoapyIfAddrsv", ENTRY]
+    assert not _matches("libwinpthread-1.dll", WINDOWS_ALLOWED, [], True)
+    assert not _matches("msvcrt.dll", WINDOWS_ALLOWED, [], True)
+    assert _matches("api-ms-win-core-synch-l1-2-0.dll", WINDOWS_ALLOWED, [], True)
     assert _matches("KERNEL32.dll", WINDOWS_ALLOWED, [], True)
     assert not _matches("libstdc++-6.dll", WINDOWS_ALLOWED, [], True)
     assert _matches("ld-linux-x86-64.so.2", LINUX_ALLOWED, [], False)
@@ -327,13 +369,18 @@ def main() -> int:
                     help="do not look for this machine's folders (asan-ubsan trees)")
     ap.add_argument("--readelf", default=os.environ.get("READELF", "readelf"))
     ap.add_argument("--objdump", default=os.environ.get("OBJDUMP", "objdump"))
+    ap.add_argument("--programs", action="store_true",
+                    help="check programs (.exe, Windows only) instead of plugins: imports and build paths")
     ap.add_argument("--self-test", action="store_true", help="test the output parsers and exit")
     a = ap.parse_args()
     if a.self_test:
         return self_test()
+    if a.programs and a.platform != "windows":
+        ap.error("--programs needs --platform windows")
 
-    tools = {"readelf": a.readelf, "objdump": a.objdump, "forbid": ([] if a.allow_build_paths else build_folders()) + a.forbid}
-    suffix = ".so" if a.platform == "linux" else ".dll"
+    tools = {"readelf": a.readelf, "objdump": a.objdump, "program": a.programs,
+             "forbid": ([] if a.allow_build_paths else build_folders()) + a.forbid}
+    suffix = ".so" if a.platform == "linux" else (".exe" if a.programs else ".dll")
     files = collect(a.paths, suffix)
     check = check_linux if a.platform == "linux" else check_windows
     kinds: set[str] = set()
@@ -345,7 +392,7 @@ def main() -> int:
         if not found:
             print(f"{f}: OK")
     if not files:
-        print(f"check_completeness: no {suffix} plugins found, nothing to check")
+        print(f"check_completeness: no {suffix} files found, nothing to check")
     present = {os.path.basename(f)[: -len(suffix)] for f in files}
     for name in [n for n in a.require.split(",") if n]:
         if name not in present:

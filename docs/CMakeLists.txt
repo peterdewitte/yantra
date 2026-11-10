@@ -87,4 +87,7 @@ if(YANTRA_RADIOS_BUILD_TESTS AND Python3_Interpreter_FOUND AND YANTRA_SANITIZER 
     DEPENDS yantra-radio-host yantra-pei-sim hackrf_fake soapysdr_fake pei simulator hackrf soapysdr
     COMMENT "Rewriting the generated blocks of docs/plugins/*.md"
     VERBATIM)
+elseif(WIN32 AND YANTRA_RADIOS_BUILD_TESTS)
+  include(YantraTests)
+  yantra_skip_test(plugin_docs REASON "the terminal plugin's page needs yantra-pei-sim (POSIX pseudo-terminal); the pages are checked in the Linux trees, the plugins are the same code")
 endif()

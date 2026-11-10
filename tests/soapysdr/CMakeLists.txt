@@ -27,7 +27,7 @@ if(YANTRA_SANITIZER STREQUAL "asan-ubsan")
 endif()
 add_test(NAME completeness_soapysdr_fake
          COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/ci/check_completeness.py
-                 ${_allow} $<TARGET_FILE:soapysdr_fake>)
+                 ${YANTRA_COMPLETENESS_PLATFORM} ${_allow} $<TARGET_FILE:soapysdr_fake>)
 set_tests_properties(completeness_soapysdr_fake PROPERTIES LABELS fast)
 
 # Conformance with a fake HackRF-like device, unplugged and replugged by

@@ -7,6 +7,10 @@
 # (tools/ci/clean_env.py; skipped when bubblewrap cannot run). A fixture
 # plugin that needs a library of the build tree must be refused there.
 # The CI job runs the same script in a bare container (--sandbox none).
+if(WIN32)
+  yantra_skip_test(clean_env_conformance REASON "a bubblewrap sandbox (Linux); on Windows the completeness_* tests check the imports and the CI's Windows runner, a machine without the build tools, runs the kit natively")
+  return()
+endif()
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR NOT YANTRA_SANITIZER STREQUAL ""
    OR NOT TARGET yantra-radio-host OR NOT TARGET simulator)
   return()

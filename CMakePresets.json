@@ -127,6 +127,34 @@
         "CMAKE_CXX_COMPILER": "g++",
         "YANTRA_WERROR": "ON"
       }
+    },
+    {
+      "name": "windows",
+      "displayName": "Windows x64, cross-compiled with the SDK's clang; ctest runs the .exe through WSL interop (RAD-131, RAD-139)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-win",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/tools/sdk/toolchain-x86_64-w64-mingw32-clang.cmake",
+        "CMAKE_CROSSCOMPILING_EMULATOR": "${sourceDir}/tools/sdk/wsl_run.sh;--in-place"
+      }
+    },
+    {
+      "name": "windows-scalar",
+      "displayName": "Windows x64 without SIMD (RAD-131, RAD-90)",
+      "inherits": "windows",
+      "binaryDir": "${sourceDir}/build-win-scalar",
+      "cacheVariables": {
+        "YANTRA_SIMD": "OFF"
+      }
+    },
+    {
+      "name": "ci-windows",
+      "displayName": "CI Windows cross build: warnings are errors (RAD-131, RAD-90)",
+      "inherits": "windows",
+      "cacheVariables": {
+        "YANTRA_WERROR": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -169,6 +197,18 @@
     {
       "name": "ci-gcc",
       "configurePreset": "ci-gcc"
+    },
+    {
+      "name": "windows",
+      "configurePreset": "windows"
+    },
+    {
+      "name": "windows-scalar",
+      "configurePreset": "windows-scalar"
+    },
+    {
+      "name": "ci-windows",
+      "configurePreset": "ci-windows"
     }
   ],
   "testPresets": [
@@ -196,6 +236,20 @@
     {
       "name": "gcc-scalar",
       "configurePreset": "gcc-scalar",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "windows",
+      "configurePreset": "windows",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "windows-scalar",
+      "configurePreset": "windows-scalar",
       "output": {
         "outputOnFailure": true
       }

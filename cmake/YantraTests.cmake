@@ -77,6 +77,11 @@ function(yantra_doctest_tests target)
   if(ARG_WORKING_DIRECTORY)
     list(APPEND _opts --workdir ${ARG_WORKING_DIRECTORY})
   endif()
+  # The Windows tree lists and runs its .exe through the emulator
+  # (tools/sdk/wsl_run.sh --in-place, preset "windows").
+  foreach(_e ${CMAKE_CROSSCOMPILING_EMULATOR})
+    list(APPEND _opts --emulator=${_e})
+  endforeach()
   add_custom_command(TARGET ${target} POST_BUILD
     COMMAND ${Python3_EXECUTABLE} ${YANTRA_DOCTEST_DISCOVER} --exe $<TARGET_FILE:${target}>
             --group ${ARG_GROUP} --out ${_gen} --labels ${_labels_arg} --costs ${YANTRA_TEST_COSTS}
@@ -99,6 +104,15 @@ endfunction()
 function(yantra_add_opt_in_test name)
   cmake_parse_arguments(ARG "RUN_SERIAL" "TIMEOUT;COST" "COMMAND;LABELS" ${ARGN})
   set(_cmd)
+  list(GET ARG_COMMAND 0 _first)
+  if(TARGET ${_first})
+    get_target_property(_type ${_first} TYPE)
+    if(_type STREQUAL "EXECUTABLE")
+      foreach(_e ${CMAKE_CROSSCOMPILING_EMULATOR})
+        string(APPEND _cmd " [==[${_e}]==]")
+      endforeach()
+    endif()
+  endif()
   foreach(_a ${ARG_COMMAND})
     if(TARGET ${_a})
       set(_a $<TARGET_FILE:${_a}>)
@@ -120,4 +134,22 @@ function(yantra_add_opt_in_test name)
   file(GENERATE OUTPUT ${_inc} CONTENT
     "${_yantra_opt_in_if}  add_test([==[${name}]==]${_cmd})\n  set_tests_properties([==[${name}]==] PROPERTIES ${_props})\nendif()\n")
   set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES ${_inc})
+endfunction()
+
+# yantra_skip_test(<name> REASON <text> [LABELS <l>...])
+#
+# A test that does not apply on this platform (e.g. a Linux-only check in
+# the Windows tree): it stays in the list and ctest reports it as skipped
+# (exit code 77, SKIP_RETURN_CODE) with the reason in its output, so a
+# platform's skipped tests are visible instead of silently missing.
+function(yantra_skip_test name)
+  cmake_parse_arguments(ARG "" "REASON" "LABELS" ${ARGN})
+  if(NOT ARG_REASON)
+    message(FATAL_ERROR "yantra_skip_test(${name}): REASON is required")
+  endif()
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  add_test(NAME ${name}
+           COMMAND ${Python3_EXECUTABLE} -c "import sys; print(sys.argv[1]); sys.exit(77)"
+                   "skipped on ${CMAKE_SYSTEM_NAME}: ${ARG_REASON}")
+  set_tests_properties(${name} PROPERTIES SKIP_RETURN_CODE 77 LABELS "skipped;${ARG_LABELS}")
 endfunction()

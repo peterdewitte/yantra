@@ -9,17 +9,10 @@
 # completeness check and the conformance kit through the simulator, with
 # --unplug/--replug (the plugin was added with NO_TESTS so the kit never
 # opens a real serial port).
-if(NOT TARGET pei OR NOT TARGET yantra_pei_sim)
-  message(STATUS "test_pei: left out (no terminal plugin or simulator)")
+if(NOT TARGET pei)
+  message(STATUS "test_pei: left out (no terminal plugin)")
   return()
 endif()
-add_executable(test_pei test_pei.cpp test_pei_at.cpp)
-target_link_libraries(test_pei PRIVATE yantra_test_main yantra_warnings
-  yantra::radio_host yantra_pei_sim yantra_pei_at)
-target_compile_definitions(test_pei PRIVATE PEI_PLUGIN="$<TARGET_FILE:pei>")
-add_dependencies(test_pei pei)
-yantra_doctest_tests(test_pei GROUP test_pei LABELS fast TIMEOUT 300
-  WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 set(_allow "")
@@ -32,8 +25,25 @@ if(YANTRA_SANITIZER STREQUAL "asan-ubsan")
 endif()
 add_test(NAME completeness_pei
          COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/ci/check_completeness.py
-                 ${_allow} $<TARGET_FILE:pei>)
+                 ${YANTRA_COMPLETENESS_PLATFORM} ${_allow} $<TARGET_FILE:pei>)
 set_tests_properties(completeness_pei PROPERTIES LABELS fast)
+
+if(NOT TARGET yantra_pei_sim)
+  # Windows: the simulated terminal needs a POSIX pseudo-terminal; the
+  # plugin's Windows serial port and its fake terminal are step 13.5.
+  foreach(_t test_pei conformance_pei)
+    yantra_skip_test(${_t} REASON "yantra-pei-sim (the simulated terminal) needs a POSIX pseudo-terminal; the Windows serial port follows in 13.5")
+  endforeach()
+  return()
+endif()
+
+add_executable(test_pei test_pei.cpp test_pei_at.cpp)
+target_link_libraries(test_pei PRIVATE yantra_test_main yantra_warnings
+  yantra::radio_host yantra_pei_sim yantra_pei_at)
+target_compile_definitions(test_pei PRIVATE PEI_PLUGIN="$<TARGET_FILE:pei>")
+add_dependencies(test_pei pei)
+yantra_doctest_tests(test_pei GROUP test_pei LABELS fast TIMEOUT 300
+  WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
 # The kit's records check wants a record per carrier every 1.25 s of wall
 # time (RAD-21): label timing, like the other real-time conformance runs.

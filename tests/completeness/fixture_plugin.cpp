@@ -29,6 +29,13 @@ int count_names(const std::vector<std::string> &names)
 }
 } // namespace
 
+#ifdef YANTRA_FIXTURE_IMPORT
+// completeness_negative on Windows: the module imports a DLL that is not a
+// Windows system DLL (fixture_dep.cpp), as a dynamically linked library
+// would; the check must name it.
+extern "C" __declspec(dllimport) int yantra_fixture_dep(void);
+#endif
+
 #ifdef YANTRA_FIXTURE_SURPRISES
 // completeness_surprises: initial-exec thread-local data (DF_STATIC_TLS),
 // which RAD-133 must catch, and a function-local static of an exported
@@ -49,6 +56,10 @@ extern "C" YR_EXPORT const yr_descriptor *yantra_radio_entry(void)
     shared_counter() += g_calls;
 #endif
     static yr_descriptor descriptor{};
+#ifdef YANTRA_FIXTURE_IMPORT
+    if (yantra_fixture_dep() != 1)
+        return nullptr;
+#endif
     try {
         descriptor.struct_size =
             count_names({YANTRA_RADIO_ENTRY_SYMBOL, "fixture"}) > 0 ? sizeof descriptor : 0;
