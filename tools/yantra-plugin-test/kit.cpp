@@ -954,26 +954,30 @@ void Run::neighbours() {
             const auto f = by_frequency.find(std::get<std::uint64_t>(it.record.values[*nb_freq]));
             if (f != by_frequency.end()) broadcaster = f->second;
         }
-        // The announced cell's key: linked fields from the entry, the other
-        // KEY fields from the broadcasting cell (plugin.h yantra_field_link).
+        // The announced cell's key (link rule of plugin API 1.2, PLG-05):
+        // a linked field is the entry's own value when it gives one, else
+        // the broadcasting cell's; the other KEY fields are the
+        // broadcasting cell's (plugin.h yantra_field_link). At least one
+        // linked value must come from the entry itself.
         yp::Record target;
         target.values.resize(cell.fields.size());
         bool complete = true;
+        bool own = false;
         for (const std::size_t k : cell.key_fields()) {
             const yp::FieldLink* link = nullptr;
             for (const yp::FieldLink& l : t->links)
                 if (l.cell_field == cell.fields[k].name) link = &l;
-            if (link != nullptr) {
-                const auto ni = nb.field_index(link->neighbour_field);
-                if (ni && !std::holds_alternative<std::monostate>(it.record.values[*ni]))
-                    target.values[k] = it.record.values[*ni];
-                else complete = false;
+            const auto ni = link != nullptr ? nb.field_index(link->neighbour_field) : std::nullopt;
+            if (ni && !std::holds_alternative<std::monostate>(it.record.values[*ni])) {
+                target.values[k] = it.record.values[*ni];
+                own = true;
             } else if (broadcaster != nullptr) {
                 target.values[k] = broadcaster->record.values[k];
             } else {
                 complete = false;
             }
         }
+        complete = complete && own;
         json j = {{"entry", it.key}};
         if (complete) {
             const std::string key = yp::record_key(target, cell);

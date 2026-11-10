@@ -495,6 +495,59 @@ TEST_CASE("DB-03 auto-learn: new cells added, missing fields and lists filled, n
 // ---------------------------------------------------------------------------
 // DB-05: cross-check
 
+TEST_CASE("PLG-05 link rule (plugin API 1.2): a linked field is the entry's own value, else the broadcaster's (inherited)") {
+    // The fake technology with a second, OPTIONAL linked field: the
+    // neighbour's area (as TETRA's neighbour_la -> la).
+    yc::Technology t = fake_technology();
+    yp::Field la;
+    la.name = "neighbour_la";
+    la.type = yp::FieldType::UInt;
+    t.neighbour_schema->fields.push_back(la);
+    t.links.push_back(yp::FieldLink{"neighbour_la", "la"});
+    const yc::Technologies techs = {t};
+    Survey s;
+    s.tech = t;
+    s.neighbour = std::make_shared<yp::Schema>(*t.neighbour_schema);
+    auto entry = [&](std::uint64_t index, std::uint64_t hz, yp::Value area) {
+        ym::MappedRecord m = s.entry(400'025'000, index, 3, hz);
+        m.record.values.push_back(std::move(area));
+        return m;
+    };
+    yc::Observations obs(techs);
+    obs.add(s.cell_record(400'025'000, 1, 5, -60.0));
+    obs.add(entry(0, 400'050'000, std::uint64_t{7}));   // another area, given
+    obs.add(entry(1, 400'075'000, std::monostate{}));   // not given: the broadcaster's
+    // Only the optional field, no frequency: it names a cell by its own
+    // area; the frequency is the broadcaster's (the rule holds for every link).
+    ym::MappedRecord no_hz = entry(2, 0, std::uint64_t{9});
+    no_hz.record.values[3] = std::monostate{};
+    obs.add(no_hz);
+    const auto cells = obs.cells();
+    REQUIRE(cells.size() == 1);
+    REQUIRE(cells[0].neighbours);
+    REQUIRE(cells[0].neighbours->size() == 3);
+    const yc::NeighbourRef& given = cells[0].neighbours->at(0);
+    CHECK(given.fields.at("la") == yc::FieldValue{std::int64_t{7}});
+    CHECK(given.inherited.count("la") == 0);
+    const yc::NeighbourRef& taken = cells[0].neighbours->at(1);
+    CHECK(taken.fields.at("frequency_hz") == yc::FieldValue{std::int64_t{400'075'000}});
+    CHECK(taken.fields.at("la") == yc::FieldValue{std::int64_t{1}});
+    CHECK(taken.inherited.count("la") == 1);
+    const yc::NeighbourRef& area_only = cells[0].neighbours->at(2);
+    CHECK(area_only.fields.at("la") == yc::FieldValue{std::int64_t{9}});
+    CHECK(area_only.fields.at("frequency_hz") == yc::FieldValue{std::int64_t{400'025'000}});
+    CHECK(area_only.inherited.count("frequency_hz") == 1);
+
+    // In the database: the given area must agree (a cell of area 1 on that
+    // carrier is not it), the inherited one never refuses.
+    yc::CellDatabase db;
+    db.add(fake_entry("a", 400'025, 1, 5));
+    db.add(fake_entry("b1", 400'050, 1, 1));
+    db.add(fake_entry("c", 400'075, 2, 1));
+    CHECK_FALSE(yc::match_score(given, db.find("b1")->fields()));
+    CHECK(yc::match_score(taken, db.find("c")->fields()));
+}
+
 TEST_CASE("DB-05 cross-check: not mutual, list unknown, not seen, ambiguous; inherited fields never refuse") {
     yc::CellDatabase db;
     yc::CellEntry a = fake_entry("a", 400'025, 1, 1);

@@ -125,16 +125,20 @@ of the cell that served on that carrier; entries at or above the latest
 `entry_count` are dropped.
 
 A list entry becomes a reference by the plugin's links (TETRA:
-`neighbour_frequency_hz` -> `frequency_hz`). The KEY fields without a
-link are taken from the broadcasting cell (plugin.h `yantra_field_link`)
-and marked **inherited**.
+`neighbour_frequency_hz` -> `frequency_hz`, `neighbour_la` -> `la`,
+`neighbour_mcc` -> `mcc`, `neighbour_mnc` -> `mnc`). Link rule of plugin
+API 1.2 (PLG-05): a linked field is the entry's own value when the entry
+gives it, else the broadcasting cell's; the KEY fields without a link are
+the broadcasting cell's too (plugin.h `yantra_field_link`). Every value
+taken from the broadcasting cell is marked **inherited**.
 
 **Matching a reference to a cell.** A reference names a cell when every
 named (not inherited) field it shares with the cell agrees and at least
 one named field is shared; agreeing inherited fields only make the match
 better. When two cells match equally well the reference is ambiguous.
 Inherited fields are a guess (a TETRA neighbour may lie in another
-location area, and D-NWRK-BROADCAST sends its LA only when it chooses to),
+location area or network, and D-NWRK-BROADCAST sends its LA, MCC and MNC
+only when it chooses to),
 so they never refuse a match.
 
 ## Verification and the difference log (DB-04)

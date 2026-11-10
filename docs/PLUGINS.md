@@ -142,7 +142,12 @@ The technology adds what the radio does not know:
 A measurement schema needs `frequency_hz`, `role` and `level`; a neighbour
 schema needs `frequency_hz`, `entry_index` and `entry_count`. Every field
 needs a label and a help text, which Yantra shows as its tooltip (DOC-07).
-The links tell Yantra how a neighbour entry names a cell (DB-05).
+The links tell Yantra how a neighbour entry names a cell (DB-05). Since
+plugin API 1.2 (PLG-05) a linked field is the entry's own value when the
+entry gives it, else the broadcasting cell's: an OPTIONAL neighbour field
+such as a neighbour's location area or network code may be linked, and a
+plugin that does so declares API 1.2
+([PLUGIN_API_CHANGELOG.md](PLUGIN_API_CHANGELOG.md#12)).
 
 <!-- snippet: plugins/example_beacon/beacon_technology.c#schema -->
 ```c
@@ -722,7 +727,7 @@ through Yantra's own plugin loader and checks it the way Yantra uses it:
 | `radio_schema` | every radio schema of the inputs matches a technology schema, and the technology id matches |
 | `records` | every mapped record is valid for its schema |
 | `rules` | channel, C1, reselection and values_match answers for every record |
-| `neighbours` | the links turn neighbour entries into cell keys |
+| `neighbours` | the links turn neighbour entries into cell keys (linked fields an entry lacks are the broadcaster's, API 1.2) |
 | `feature`, `exporter` | `on_record` with every record; every export format runs |
 | `ui` | every window drawn: ids, labels, tooltips, disabled reasons, balanced sections; translations |
 | `threading` | processing on a measurement thread, host calls refused there, the time per call (`--call-limit-ms`, default 100 ms), and pure rules (the same answers from `--threads` threads) |

@@ -83,7 +83,7 @@
     }
   ],
   "plugin": {
-    "api_version": "1.1",
+    "api_version": "1.2",
     "author": "The Yantra contributors",
     "data_categories": [
       "system_info",
@@ -6013,6 +6013,18 @@
       {
         "cell_field": "frequency_hz",
         "neighbour_field": "neighbour_frequency_hz"
+      },
+      {
+        "cell_field": "la",
+        "neighbour_field": "neighbour_la"
+      },
+      {
+        "cell_field": "mcc",
+        "neighbour_field": "neighbour_mcc"
+      },
+      {
+        "cell_field": "mnc",
+        "neighbour_field": "neighbour_mnc"
       }
     ],
     "schemas": [

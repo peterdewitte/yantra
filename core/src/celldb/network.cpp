@@ -29,8 +29,13 @@ std::optional<std::uint64_t> uint_field(const FieldMap& m, std::string_view name
     return static_cast<std::uint64_t>(*i);
 }
 
-// A neighbour list entry as a reference, by the technology's links; the
-// cell KEY fields without a link are the broadcaster's (inherited).
+// A neighbour list entry as a reference, by the technology's links (link
+// rule of plugin API 1.2, PLG-05): a linked cell KEY field is the entry's
+// own value when the entry gives it (e.g. a neighbour's LA, MCC, MNC,
+// RAD-22), else the broadcaster's; KEY fields without a link are the
+// broadcaster's. Values taken from the broadcaster are inherited (they
+// rank a match but never refuse one). An entry without any linked value
+// of its own names no cell.
 std::optional<NeighbourRef> reference_of(const FieldMap& entry, const FieldMap& broadcaster, const Technology& t) {
     NeighbourRef ref;
     for (const plugin::FieldLink& l : t.links)
@@ -38,9 +43,6 @@ std::optional<NeighbourRef> reference_of(const FieldMap& entry, const FieldMap& 
     if (ref.fields.empty()) return std::nullopt;
     for (const std::string& k : t.key_fields()) {
         if (ref.fields.count(k) != 0) continue;
-        const bool linked = std::any_of(t.links.begin(), t.links.end(),
-                                        [&](const plugin::FieldLink& l) { return l.cell_field == k; });
-        if (linked) continue;  // linked but absent in this entry: not known
         if (const auto it = broadcaster.find(k); it != broadcaster.end()) {
             ref.fields[k] = it->second;
             ref.inherited.insert(k);

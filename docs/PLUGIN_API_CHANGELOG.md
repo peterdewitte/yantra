@@ -13,6 +13,30 @@ rules are in [PLUGIN_API.md](PLUGIN_API.md#versioning-plg-04). The
 documentation of an API version stays available while Yantra supports
 plugins for it.
 
+## 1.2
+
+**Compatible.** Plugins built for 1.0 and 1.1 load unchanged.
+
+- `YANTRA_PLUGIN_API_VERSION_MINOR` is 2.
+- Neighbour link rule (`yantra_field_link`, PLG-05): a linked field is
+  the neighbour entry's own value when the entry gives it, else the
+  broadcasting cell's value of the linked cell field (until 1.1 a linked
+  field the entry lacked left the cell unknown). So a technology may link
+  OPTIONAL neighbour fields such as a neighbour's location area or
+  network code, which a radio sends only when they differ from the
+  broadcaster's (yantra-radios RAD-22). Values taken from the
+  broadcasting cell are presumed (inherited): they rank a match in the
+  cell database but never refuse one. An entry without any linked value
+  of its own names no cell. No layout change.
+- The TETRA technology plugin links `neighbour_la`, `neighbour_mcc` and
+  `neighbour_mnc` besides `neighbour_frequency_hz`
+  ([plugins/TETRA.md](plugins/TETRA.md)).
+
+Deprecations: none. Migration: a plugin that links OPTIONAL neighbour
+fields declares `api_version` 1.2 (a 1.1 host refuses it, as it would
+leave such entries unknown); one that links only fields its radios always
+send keeps working on every 1.x host.
+
 ## 1.1
 
 **Compatible.** Plugins built for 1.0 load unchanged.
@@ -74,8 +98,8 @@ The reference of each API version is generated from the comments of
 `include/yantra/plugin.h` and `plugin.hpp` by Doxygen (build target
 `docs-plugin-api`, output `<build>/docs/plugin-api/html`; the ctest
 `plugin_api_doxygen` fails on any undocumented item). Every release
-publishes that output with its documentation, so the reference of 1.0 and
-1.1 stays available from the releases that shipped them while Yantra
+publishes that output with its documentation, so the reference of 1.0,
+1.1 and 1.2 stays available from the releases that shipped them while Yantra
 loads plugins built for them. Within a major version the newest reference
 covers the older minor versions too: members added later are marked with
 their version (for example "API 1.1" in the host table).

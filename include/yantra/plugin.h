@@ -178,7 +178,7 @@
  * version is not newer than its own (yantra_api_compatible()).
  * @{ */
 #define YANTRA_PLUGIN_API_VERSION_MAJOR 1u /**< Changes on any breaking change. */
-#define YANTRA_PLUGIN_API_VERSION_MINOR 1u /**< Changes on every compatible addition. */
+#define YANTRA_PLUGIN_API_VERSION_MINOR 2u /**< Changes on every compatible addition (1.2: the neighbour link rule of ::yantra_field_link). */
 /** @} */
 
 /** Marks the entry point as exported from the plugin's shared library
@@ -597,7 +597,17 @@ typedef struct yantra_band {
 /** Links a field of the NEIGHBOUR schema to the cell key field it names
  *  (frozen struct, DB-05). KEY fields of the cell schema without a link
  *  are taken from the cell that broadcast the list (e.g. the network
- *  code). */
+ *  code).
+ *
+ *  Link rule since API 1.2 (PLG-05): a linked field is the entry's own
+ *  value when the entry gives it, else the broadcasting cell's value of
+ *  `cell_field`; so an OPTIONAL neighbour field (e.g. a neighbour's
+ *  location area or network code, sent only when it differs) may be
+ *  linked. Values taken from the broadcasting cell are presumed: they
+ *  rank a match in the cell database but never refuse one. An entry with
+ *  no linked value of its own names no cell. (API 1.0/1.1 hosts treated a
+ *  linked field the entry lacks as unknown: a plugin that links OPTIONAL
+ *  fields declares API 1.2.) */
 typedef struct yantra_field_link {
     const char* neighbour_field; /**< Field of the schema yantra_technology_api::neighbour_schema. */
     const char* cell_field;      /**< KEY field of the schema yantra_technology_api::cell_schema. */

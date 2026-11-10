@@ -182,6 +182,72 @@ TEST_CASE("DB-05 floor_change: M1 does not list D1; the survey alone cannot tell
     CHECK(findings(db::database_views(d)) == std::vector<std::string>{"D1>M1:not_mutual"});
 }
 
+TEST_CASE("PLG-05 network_border: B1's neighbour B2 of network 901-2 is named by its own MCC and MNC (link rule, plugin API 1.2, RAD-22)") {
+    if (!have_records("")) return;
+    const Truth truth("network_border");
+    Truth::Cell b1 = truth.cells.at("B1");
+    Truth::Cell b2 = truth.cells.at("B2");
+    Survey s("network_border");
+    const db::ObservedCell* home = s.cell(b1.frequency_hz);
+    REQUIRE(home);
+    // Each cell's network as it broadcasts it (its tetra_cell records; the
+    // generator's cells.csv lists one network for every cell).
+    const db::ObservedCell* other = s.cell(b2.frequency_hz);
+    REQUIRE(other);
+    b1.mcc = static_cast<std::uint64_t>(std::get<std::int64_t>(home->fields.at("mcc")));
+    b1.mnc = static_cast<std::uint64_t>(std::get<std::int64_t>(home->fields.at("mnc")));
+    b2.mcc = static_cast<std::uint64_t>(std::get<std::int64_t>(other->fields.at("mcc")));
+    b2.mnc = static_cast<std::uint64_t>(std::get<std::int64_t>(other->fields.at("mnc")));
+    REQUIRE(b1.mnc != b2.mnc);  // two networks (901-1 and 901-2)
+    REQUIRE(home->neighbours);
+    const db::NeighbourRef* to_b2 = nullptr;
+    for (const db::NeighbourRef& r : *home->neighbours)
+        if (r.fields.count("frequency_hz") != 0 &&
+            std::get<std::int64_t>(r.fields.at("frequency_hz")) == static_cast<std::int64_t>(b2.frequency_hz))
+            to_b2 = &r;
+    REQUIRE(to_b2);
+    // The entry's own MCC and MNC (not inherited from B1's network).
+    CHECK(std::get<std::int64_t>(to_b2->fields.at("mcc")) == static_cast<std::int64_t>(b2.mcc));
+    CHECK(std::get<std::int64_t>(to_b2->fields.at("mnc")) == static_cast<std::int64_t>(b2.mnc));
+    CHECK(to_b2->inherited.count("mcc") == 0);
+    CHECK(to_b2->inherited.count("mnc") == 0);
+
+    // In a database with a cell of B1's network on B2's carrier: the
+    // given network refuses it, B2 matches (with the frequency link alone
+    // and the network inherited, both would match).
+    db::CellDatabase d;
+    for (const Truth::Cell& c : {b1, b2}) {
+        const std::string& id = c.id;
+        db::CellEntry e;
+        e.cell.id = id;
+        e.cell.technology_id = "tetra";
+        e.cell.schema_id = "tetra_cell";
+        e.set_field("frequency_hz", static_cast<std::int64_t>(c.frequency_hz));
+        e.set_field("mcc", static_cast<std::int64_t>(c.mcc));
+        e.set_field("mnc", static_cast<std::int64_t>(c.mnc));
+        e.set_field("la", static_cast<std::int64_t>(c.la));
+        d.add(e);
+    }
+    db::CellEntry decoy;
+    decoy.cell.id = "X";
+    decoy.cell.technology_id = "tetra";
+    decoy.cell.schema_id = "tetra_cell";
+    decoy.set_field("frequency_hz", static_cast<std::int64_t>(b2.frequency_hz));
+    decoy.set_field("mcc", static_cast<std::int64_t>(b1.mcc));
+    decoy.set_field("mnc", static_cast<std::int64_t>(b1.mnc));
+    decoy.set_field("la", static_cast<std::int64_t>(b2.la));
+    d.add(decoy);
+    CHECK(db::match_score(*to_b2, d.find("B2")->fields()));
+    CHECK_FALSE(db::match_score(*to_b2, d.find("X")->fields()));
+    db::NeighbourRef old_rule = *to_b2;  // as plugin API 1.1 resolved it
+    old_rule.fields["mcc"] = static_cast<std::int64_t>(b1.mcc);
+    old_rule.fields["mnc"] = static_cast<std::int64_t>(b1.mnc);
+    old_rule.inherited.insert("mcc");
+    old_rule.inherited.insert("mnc");
+    old_rule.fields.erase("la");
+    CHECK(db::match_score(old_rule, d.find("X")->fields()));
+}
+
 TEST_CASE("DB-05 failed_site: N1 lists N3, which is never on air: not seen; N2 is seen but its list is not") {
     if (!have_records("")) return;
     const Truth truth("failed_site");

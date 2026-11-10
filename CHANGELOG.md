@@ -25,6 +25,14 @@ own changes are in its CHANGELOG.md.
   (HW-01b). The device information names dBm devices.
 - Record files with the flag `level_dbm` (radio API 1.1) are read.
 
+### Plugins
+
+- Plugin API 1.2 (compatible): a neighbour entry names its cell by its
+  own location area and network code when it carries them, else by those
+  of the cell that sent the list (PLG-05). The TETRA plugin uses it, so a
+  neighbour of another network or location area is found in the cell
+  database by its own MCC, MNC and LA.
+
 ## [0.1.0] - 2026-11-09
 
 The first release of Yantra (version of the CMake project, 0.1.0; git tag

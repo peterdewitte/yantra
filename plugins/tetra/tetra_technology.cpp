@@ -44,14 +44,16 @@ constexpr const yantra_schema* kSchemas[] = {&kTetraCell, &kTetraNeighbour, &kTe
 // as no neighbour list carries it, and is verified instead, DB-04).
 //
 // DB-05: a neighbour list entry names its cell by the main carrier
-// frequency; the other KEY fields come from the broadcasting cell
-// (plugin.h, yantra_field_link). D-NWRK-BROADCAST sends the neighbour's
-// MCC, MNC and LA only when it chooses to (EN 300 392-2 18.4.1.4.1), and a
-// linked field must be present, so they are not linked: an entry whose
-// neighbour lies in another location area resolves to the broadcaster's
-// LA (docs/plugins/TETRA.md, an open question for the cell database).
+// frequency and, when D-NWRK-BROADCAST sends them (EN 300 392-2
+// 18.4.1.4.1: only when it chooses to, e.g. for a neighbour of another
+// location area or network, RAD-22), the neighbour's LA, MCC and MNC.
+// With the link rule of plugin API 1.2 (plugin.h yantra_field_link,
+// PLG-05) a linked field the entry lacks is the broadcasting cell's.
 constexpr yantra_field_link kLinks[] = {
     {"neighbour_frequency_hz", "frequency_hz"},
+    {"neighbour_la", "la"},
+    {"neighbour_mcc", "mcc"},
+    {"neighbour_mnc", "mnc"},
 };
 
 // ---------------------------------------------------------------------------

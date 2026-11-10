@@ -3,7 +3,7 @@ SPDX-FileCopyrightText: 2026 The Yantra contributors
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
-# Yantra plugin API 1.1
+# Yantra plugin API 1.2
 
 This page describes the C interface between Yantra and its plugins
 (DOC-17), declared in [`include/yantra/plugin.h`](../include/yantra/plugin.h)

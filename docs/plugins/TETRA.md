@@ -46,10 +46,13 @@ the cell database (DB-04).
 - A cell (DB-01) is the main carrier of a location area of a network. The
   colour code is not part of the key, since no neighbour list carries it;
   it is a VERIFY field.
-- Neighbour links (DB-05): `neighbour_frequency_hz` names the cell's
-  `frequency_hz`; MCC, MNC and LA come from the broadcasting cell
-  (plugin.h `yantra_field_link`). A neighbour in another location area
-  therefore resolves to the broadcaster's LA; see "Open points".
+- Neighbour links (DB-05, plugin API 1.2 link rule, PLG-05):
+  `neighbour_frequency_hz` names the cell's `frequency_hz`, and
+  `neighbour_la`, `neighbour_mcc` and `neighbour_mnc` its `la`, `mcc` and
+  `mnc` when the entry carries them (D-NWRK-BROADCAST sends them when it
+  chooses to, e.g. for a neighbour of another network, yantra-radios
+  RAD-22); a field the entry lacks is the broadcasting cell's and is kept
+  as inherited (it ranks a match but never refuses one).
 - Every schema is checked against every shipped radio plugin by
   `test_tetra` (`check_radio_schema`); a radio schema change in
   yantra-radios fails it until this table follows.
@@ -165,13 +168,6 @@ Every text of the window is translated (nl, fr, de); the kit checks it
 
 ## Open points
 
-- Neighbour links use the frequency only; linking `neighbour_la`,
-  `neighbour_mcc` and `neighbour_mnc` needs a link rule "the entry's
-  value, else the broadcaster's" in plugin.h (an API change). Until then
-  the cell database treats the LA it takes from the broadcaster as
-  inherited: it ranks a match but never refuses one, so a neighbour in
-  another location area still resolves by its frequency
-  ([CELL_DATABASE.md](../CELL_DATABASE.md)).
 - The reselection formulation is ours; it is to be checked against
   EN 300 392-2 clause 18.3.4. The cell database's simulator (DB-08) uses
   it as it is. The earlier implementation (yantra-v1) applied

@@ -69,7 +69,7 @@ API from a feature plugin.
 
 ### Plugins (`plugin/`, `include/yantra/plugin.h`)
 
-`plugin.h` is Yantra's own C plugin API (PLG-03, version 1.1; reference
+`plugin.h` is Yantra's own C plugin API (PLG-03, version 1.2; reference
 by Doxygen, guide [docs/PLUGINS.md](docs/PLUGINS.md), summary
 [docs/PLUGIN_API.md](docs/PLUGIN_API.md), changes
 [docs/PLUGIN_API_CHANGELOG.md](docs/PLUGIN_API_CHANGELOG.md)). The loader
