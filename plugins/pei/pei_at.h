@@ -5,7 +5,7 @@
  * TRM-04), plain C11. A TETRA terminal is read through the ETSI
  * Peripheral Equipment Interface (PEI, AT commands, EN 300 392-5) on a
  * serial port. Only reading commands are used: no call set-up, no SDS,
- * no addresses (RAD-17; TRM-02/TRM-03 are not built).
+ * no addresses (RAD-17); receive-only, no call control.
  *
  * Commands and how they are grounded:
  *   ATE0                 echo off (ITU-T V.250, which the PEI builds on);

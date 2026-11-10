@@ -8,8 +8,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 Generated test signals are only as good as the generator's assumptions.
 This page lists what real radios, real air and real computers do to a
 TETRA capture and where each item is tested, or why it cannot happen.
-Then: real-signal fixtures (RAD-121) and the cross-check with an
-independent decoder (RAD-122).
+No real recordings are available, so there are no real-signal fixtures;
+the checks with real radios are the hardware checks of
+[DEVICES.md](DEVICES.md) (RAD-95).
 
 Most items are tested end to end in `tests/robustness/test_robustness.cpp`
 ("robustness" below): generator cells (RAD-70) with the impairment of
@@ -87,56 +88,3 @@ NFR-03 is checked per radio type in [DEVICES.md](DEVICES.md) (RAD-95):
 `yantra-hackrf level` measures it on a HackRF One (tested against the fake
 module in `yantra_hackrf/test_yantra_hackrf.cpp`); no real radio has been
 measured yet.
-
-## Real-signal fixtures (RAD-121)
-
-Status: **BLOCKED** until real recordings exist (the build machine has no
-radio; recordings are never faked). The framework: `tests/fixtures/real/`
-holds one sub-folder per radio type (`rtlsdr`, `hackrf`, `airspy`, ...)
-with, per recording `NAME`:
-
-- `NAME.sigmf-data` and `NAME.sigmf-meta`: the samples as the radio gave
-  them (`cu8`, `ci8`, `ci16_le` or `cf32_le`), `core:sample_rate`,
-  `core:hw`, one capture with `core:frequency`. No author, no location.
-- `NAME.expected.json`:
-
-```json
-{
-  "format": "yantra-radios-fixture",
-  "version": 1,
-  "radio": "RTL-SDR v3",
-  "complete": true,
-  "cells": [
-    {"downlink_hz": 390012500, "mcc": 901, "mnc": 9999, "colour_code": 12,
-     "location_area": 1234, "air_encryption": false}
-  ]
-}
-```
-
-One entry per cell that must decode (main-carrier downlink frequency and
-identity, values above invented). With `"complete": true` any other
-decoded cell fails. At most 30 s and 32 MiB per recording, at least
-250 ksps.
-
-The ctest `real_fixtures` decodes every recording with
-`yantra-radio-host decode-iq` and compares the cells; it passes with a
-message while there are none. `real_fixtures_selftest` runs the same
-check on a yantra-gen recording written into the build tree, so the
-framework itself is tested.
-
-Anonymisation (scope, RAD-17): capture only main carriers at a quiet
-time, keep only stretches whose decoded blocks are broadcast (SYNC,
-SYSINFO, ACCESS-ASSIGN, Null, D-NWRK-BROADCAST): run decode-iq with
-`--gsmtap` and compare its GSMTAP counters: `filtered` and `encrypted`
-must be 0. No personal data in the metadata.
-
-## Cross-check with an independent decoder (RAD-122)
-
-Not done. The candidate, tetra-kit, decodes demodulated bits that a
-GNU Radio flowgraph sends it over UDP; it has no IQ file input, and GNU
-Radio is not among the allowed tools (RAD-04). It is not installed here,
-and there are no real fixtures to compare yet (RAD-121). The generator
-side is already cross-checked against osmo-tetra's own decoder
-(`gen_osmo`, RAD-123). When fixtures exist, the hook is: run the
-independent decoder as an external program on each fixture and compare
-identity, SYSINFO and neighbour lists with decode-iq's record file.

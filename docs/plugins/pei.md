@@ -89,6 +89,6 @@ Self-test items (RAD-46), with the result in the test set-up above:
   392-5 has none); the default profile speaks a documented example format.
   Profiles for real terminals wait for their PEI manuals (owner question).
 - Not yet checked with a real terminal (DEVICES.md).
-- Only reading commands are sent; group calls and call set-up (TRM-02,
-  TRM-03) are not built (scope, owner question).
+- Only reading commands are sent: the plugin is receive-only, with no
+  call control, PTT or call set-up (scope).
 - Windows serial ports are DEFERRED (Windows).

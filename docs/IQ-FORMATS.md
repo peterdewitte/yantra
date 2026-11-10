@@ -13,9 +13,7 @@ this repository, for receiver development and tests:
 - `yantra-radio-host capture-iq` and `yantra-hackrf capture` record an
   SDR to SigMF (RAD-63, [YANTRA_HACKRF.md](YANTRA_HACKRF.md));
 - `yantra-radio-host decode-iq` decodes a file with the TETRA receiver into
-  a record file (RAD-63, [RECORD_FILES.md](RECORD_FILES.md));
-- the real-signal fixtures of RAD-121 are SigMF recordings
-  ([REAL_WORLD_CHECKLIST.md](../REAL_WORLD_CHECKLIST.md#real-signal-fixtures-rad-121)).
+  a record file (RAD-63, [RECORD_FILES.md](RECORD_FILES.md)).
 
 Code: `tools/yantra-radio-host/iq_file.hpp` (reader: `IqReader`,
 `read_sigmf_meta`, `IqFormat`), `tools/yantra-gen` (writer).
@@ -57,9 +55,3 @@ are capture segments: a new `captures` entry whose `core:global_index`
 says where the signal continues; decode-iq treats it as a discontinuity.
 Raw files without metadata need `--rate` and `--center` (decode-iq) and
 are taken as continuous.
-
-## Limits
-
-Real-signal fixtures (RAD-121) are at most 30 s and 32 MiB, at least
-250 ksps, and anonymised: the metadata holds no location, no person and
-no serial number.

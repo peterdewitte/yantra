@@ -125,6 +125,16 @@ well; they change independently of the radio API version.
   after the reader closes the pipe (on Windows it reports the closed pipe,
   where Linux ends it silently by SIGPIPE).
 
+### Removed
+
+- The real-signal fixture framework (`tests/real_fixtures`,
+  `tests/fixtures/real`, ctests `real_fixtures` and
+  `real_fixtures_selftest`): its requirement was removed from the spec
+  (no real recordings are available); the real-world checks stay in
+  REAL_WORLD_CHECKLIST.md and DEVICES.md. Likewise the independent decoder
+  cross-check and the terminal's call control are no longer requirements:
+  the terminal plugin stays receive-only.
+
 ## [0.2.7] - 2026-11-09
 
 A patch release (tag v0.2.7, RAD-98) from the release check of Yantra's

@@ -1126,7 +1126,8 @@ Only reading commands are sent (RAD-17): a configured command must be
 `AT+NAME` or `AT+NAME?` (also `$`, `%`, `^`) and not one of the call, SDS
 or number commands (`+CMG*`, `+CMS*`, `+CTS*`, `+CTX*`, `+CTC*`, `+CTG*`,
 `+CTD*`, `+CUTX*`, `+CNUM`); anything else is not sent and shown as the
-`problem` sensor. TRM-02/TRM-03 (calls) are out of scope.
+`problem` sensor. The plugin is receive-only: no call control, PTT or
+call set-up (scope).
 
 Records use the schema `tetra_terminal_cell`: the core fields, `c1_db`
 (group C1) when the terminal gives C1, and for the serving cell
