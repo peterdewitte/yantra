@@ -42,7 +42,7 @@ SPDX-License-Identifier = "GPL-3.0-or-later"
 # Cargo's generated lock file of the Rust protocol crate (no comment
 # syntax that cargo keeps).
 [[annotations]]
-path = ["receiver/rust/Cargo.lock", "receiver/rust/fuzz/Cargo.lock"]
+path = ["receiver/rust/Cargo.lock", "receiver/rust/fuzz/Cargo.lock", "tests/sdk/win_smoke/rust/Cargo.lock"]
 SPDX-FileCopyrightText = "2026 The Yantra contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
@@ -141,3 +141,13 @@ path = ["third_party/soapyremote/LICENSE_1_0.txt", "third_party/soapyremote/clie
 precedence = "override"
 SPDX-FileCopyrightText = "2015-2020 Josh Blum, 2016 Bastille Networks (see the file headers)"
 SPDX-License-Identifier = "BSL-1.0"
+
+# The cross SDK (RAD-139): scripts, toolchain files and lock files carry
+# their own headers; the lock files are written by tools/sdk/yantra_sdk.py.
+# The SDK it makes (sdk/, git-ignored) holds third-party binaries under
+# their own licences (THIRD_PARTY.md, "Cross SDK").
+[[annotations]]
+path = ["tools/sdk/*.lock"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2026 The Yantra contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"

@@ -1,9 +1,12 @@
 # SPDX-FileCopyrightText: 2026 The Yantra contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 
-# Build output (default, scalar, sanitizer and fuzz trees)
+# Build output (default, scalar, sanitizer, fuzz and gcc trees)
 /build/
 /build-*/
+# The cross SDK and its download cache (tools/sdk/yantra_sdk.py, RAD-139)
+/sdk/
+/sdk-cache/
 /out/
 /target/
 **/target/

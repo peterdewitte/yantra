@@ -21,6 +21,14 @@ if(NOT YANTRA_CARGO_EXECUTABLE)
   return()
 endif()
 find_package(Threads REQUIRED)
+# The cross SDK's toolchain files (tools/sdk, RAD-139) set YANTRA_RUSTC:
+# cargo then builds with the SDK's rustc for every target and test, so the
+# library, the tests and the lint share one compiler (and the folder
+# <build>/cargo stays valid). Without it cargo takes the rustc on PATH.
+set(YANTRA_CARGO_ENV "")
+if(YANTRA_RUSTC)
+  set(YANTRA_CARGO_ENV "RUSTC=${YANTRA_RUSTC}")
+endif()
 
 set(YANTRA_PROTO_DIR ${PROJECT_SOURCE_DIR}/receiver/rust)
 set(YANTRA_CARGO_TARGET_DIR ${PROJECT_BINARY_DIR}/cargo)
@@ -45,7 +53,7 @@ string(STRIP "--remap-path-prefix=${PROJECT_SOURCE_DIR}=. ${YANTRA_FUZZ_RUSTFLAG
 add_custom_command(
   OUTPUT ${_proto_stamp}
   BYPRODUCTS ${_proto_lib}
-  COMMAND ${CMAKE_COMMAND} -E env CARGO_BUILD_JOBS=${_cores} "RUSTFLAGS=${_proto_rustflags}"
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_BUILD_JOBS=${_cores} "RUSTFLAGS=${_proto_rustflags}" ${YANTRA_CARGO_ENV}
           ${YANTRA_CARGO_EXECUTABLE} build --release --offline --locked --quiet
           --manifest-path ${YANTRA_PROTO_DIR}/Cargo.toml --target-dir ${_proto_target_dir} --lib
   COMMAND ${CMAKE_COMMAND} -E touch ${_proto_stamp}

@@ -37,7 +37,7 @@ missing() {
 
 list() {
     find . \( -path ./.git -o -path './build*' -o -path ./third_party \
-              -o -name target -o -path ./out \) -prune -o \
+              -o -name target -o -path ./out -o -path ./sdk -o -path ./sdk-cache \) -prune -o \
            -type f \( "$@" \) -print | sort
 }
 

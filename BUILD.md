@@ -104,6 +104,67 @@ Nothing is written to `/etc` and nothing runs udevadm: for a prefix
 other than `/usr`, copy the udev rules to `/etc/udev/rules.d` and reload
 udev as root. ctest `install_destdir` checks the result.
 
+## Cross SDK (RAD-139)
+
+One folder with everything the clang trees and the Windows cross build
+need, made from pinned downloads only (no sudo, nothing installed in the
+system, no MSYS2 or Windows needed; about 1.2 GB of downloads, 1.8 GB
+unpacked):
+
+| Folder | What | Lock file |
+|---|---|---|
+| `llvm/` | one LLVM release: clang, clang++, lld, llvm-ar/ranlib, llvm-rc, llvm-objdump, llvm-strip, llvm-symbolizer and more, compiler-rt (sanitizers, libFuzzer) | `tools/sdk/llvm.lock` |
+| `sysroots/x86_64-w64-mingw32/` | the Windows x64 (UCRT) target sysroot: MSYS2 UCRT64 binary packages (mingw-w64 headers, CRT and import libraries, winpthreads, the GCC runtime with libstdc++ and libgcc), only unpacked | `tools/sdk/msys2.lock` |
+| `rust/` | rustc with the standard libraries of x86_64-unknown-linux-gnu and x86_64-pc-windows-gnu | `tools/sdk/rust.lock` |
+| `manifest/` | the lock files it was made from and every unpacked file with its SHA-256 | |
+
+    tools/sdk/yantra_sdk.py make     # download (cached), check, unpack
+    tools/sdk/yantra_sdk.py check    # every lock file against what is unpacked
+
+- Location: `sdk/` in the repository (git-ignored), or `$YANTRA_SDK_DIR`
+  (or `--sdk-dir`); the downloads are cached in `sdk-cache/` or
+  `$YANTRA_SDK_CACHE` (`--cache`), so a re-run downloads nothing. Every
+  path inside the SDK is relative: the folder can be moved or shared (Yantra
+  uses the same SDK through its yantra-radios submodule with
+  `YANTRA_SDK_DIR`; `--msys2-lock <file>` adds the MSYS2 packages of
+  another lock file to the sysroot).
+- Checks: each download's SHA-256 against the lock file and its
+  publisher's signature with a private, temporary gpg home: LLVM's `.sig`
+  with llvm.org's release keys (the signer's fingerprint is in
+  `llvm.lock`), Rust's `.asc` with the Rust release key, every MSYS2
+  package's `.sig` with the keys of the `msys2-keyring` package pinned in
+  `msys2.lock`. `check` fails on any difference between the lock files and
+  the SDK (ctest `sdk_check`); the toolchain files refuse an SDK made from
+  other lock files.
+- New versions: `tools/sdk/yantra_sdk.py update --llvm latest` (the
+  newest stable LLVM release with a signed Linux x86-64 archive),
+  `--msys2` (today's packages), `--rust` (the version of the `rustc` on
+  PATH); then `make`. MSYS2 removes old package versions after a while:
+  keep `sdk-cache/` to remake an older SDK.
+- Rust: the Windows `rust-std` loads only into the official `rustc` build
+  of the same version (a distribution's own `rustc` build is refused,
+  E0514), so the SDK carries the official `rustc` of the system's version,
+  and the toolchain files make cargo use it (`RUSTC`) for every target and
+  test. The system Rust stays as it is; cargo is the system's.
+- Toolchain files (`-DCMAKE_TOOLCHAIN_FILE=`; the SDK folder from
+  `-DYANTRA_SDK_DIR`, `$YANTRA_SDK_DIR` or `sdk/`):
+  - `tools/sdk/toolchain-x86_64-linux-gnu-clang.cmake`: Linux with the
+    SDK's clang and lld, the system's glibc and libstdc++;
+  - `tools/sdk/toolchain-x86_64-w64-mingw32-clang.cmake`: Windows x64,
+    target `x86_64-w64-windows-gnu`, `--sysroot` the SDK's sysroot, lld,
+    libstdc++, `llvm-rc` for resources, the GCC runtime linked statically
+    (`YANTRA_WIN_STATIC_RUNTIME`, ON) and winpthreads added to every link
+    (`tools/sdk/mingw-clang-rules.cmake`: clang's MinGW driver does not
+    link it, MSYS2's gcc does).
+- Windows programs run on this PC's Windows from WSL2 through Windows
+  interop: `tools/sdk/wsl_run.sh [--with <dll-folder>] <program.exe> [args]`
+  copies the program into a scratch folder under the Windows `%TEMP%`,
+  runs it and deletes the folder. ctest `sdk_windows_smoke` (label slow;
+  skipped without SDK or interop) cross-compiles a C++20 program with
+  threads, iostream, std::filesystem, exceptions, a version resource and
+  a Rust static library, checks with `llvm-objdump -p` that it imports
+  only Windows system DLLs and the UCRT, and runs it that way.
+
 ## Windows (MSYS2 UCRT64) - deferred
 
 The Windows build (RAD-131: `.dll` plugins and `.exe` tools, gcc in MSYS2

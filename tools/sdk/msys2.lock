@@ -1,0 +1,24 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Windows x64 (UCRT) target sysroot of the cross SDK (RAD-139): MSYS2
+# UCRT64 binary packages from https://repo.msys2.org/mingw/ucrt64, only
+# unpacked. 'asked' are the packages wanted (without the
+# mingw-w64-ucrt-x86_64- prefix): mingw-w64 headers, CRT and import
+# libraries, winpthreads and the GCC runtime (gcc for libstdc++'s headers
+# and static libraries, libgcc, libstdc++); their dependencies come along,
+# except the 'skip' ones (gcc's own tools: binutils and the libraries of
+# the compiler, never part of a program). 'keyring' is the msys2-keyring
+# package whose packager keys check every package's .sig.
+# tools/sdk/yantra_sdk.py update --msys2
+asked headers crt winpthreads libwinpthread gcc libgcc libstdc++
+skip binutils gmp isl mpc mpfr windows-default-manifest zlib zstd
+keyring msys2-keyring-1~20260814-1-any.pkg.tar.zst a9a02c41bc14eb0965fb23b7e7d43a1d0eb20d9e70cbfeb193fcbf68bb0dc5d0
+file mingw-w64-ucrt-x86_64-crt 14.0.0.r598.ge3d18511f-1 mingw-w64-ucrt-x86_64-crt-14.0.0.r598.ge3d18511f-1-any.pkg.tar.zst e863d0d1c5cef1269738f23dcc155b9b0d161d198b93d9d5aa481cb3a2f2cf53
+file mingw-w64-ucrt-x86_64-gcc 16.2.0-6 mingw-w64-ucrt-x86_64-gcc-16.2.0-6-any.pkg.tar.zst 0290e91f5a9a8a3699bcea6221a899403bb9bd5d6f7dbd98c883d74e2ef36338
+file mingw-w64-ucrt-x86_64-headers 14.0.0.r598.ge3d18511f-1 mingw-w64-ucrt-x86_64-headers-14.0.0.r598.ge3d18511f-1-any.pkg.tar.zst b3cec87298555a7c6694bd4d421d586d08a1cb47bc5bc76e79602cbf4421d3c9
+file mingw-w64-ucrt-x86_64-libgcc 16.2.0-6 mingw-w64-ucrt-x86_64-libgcc-16.2.0-6-any.pkg.tar.zst 80b2497f019977dd9528b1abc8621b1328a0115ab1f724047ccbb56bf323f11d
+file mingw-w64-ucrt-x86_64-libstdc++ 16.2.0-6 mingw-w64-ucrt-x86_64-libstdc++-16.2.0-6-any.pkg.tar.zst 33c5e58a85a538cf843a8672991cce591f0231d66da3b66a57629712d64be17f
+file mingw-w64-ucrt-x86_64-libwinpthread 14.0.0.r598.ge3d18511f-1 mingw-w64-ucrt-x86_64-libwinpthread-14.0.0.r598.ge3d18511f-1-any.pkg.tar.zst c35d6be83d141c8cfbb61f1637dd4b53aac8f5562d766aa26d0741c40bad4e4d
+file mingw-w64-ucrt-x86_64-tzdata 2026f-1 mingw-w64-ucrt-x86_64-tzdata-2026f-1-any.pkg.tar.zst dd8af2f770b3241d8c299343c12cd4d7e3b94c47195608158d28788a01575323
+file mingw-w64-ucrt-x86_64-winpthreads 14.0.0.r598.ge3d18511f-1 mingw-w64-ucrt-x86_64-winpthreads-14.0.0.r598.ge3d18511f-1-any.pkg.tar.zst 282485a1e453e972b86639cedcf43686e0000dfe5eff0421e47a4405ecdd85ce

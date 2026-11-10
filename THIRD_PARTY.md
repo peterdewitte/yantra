@@ -55,8 +55,8 @@ version, source and checksum are filled in when they are added.
 | Tool | Licence | Used for |
 |------|---------|----------|
 | CMake, Ninja | BSD-3-Clause, Apache-2.0 | build |
-| gcc / clang | GPL-3.0-or-later WITH GCC-exception-3.1 / Apache-2.0 WITH LLVM-exception | C++20 compiler |
-| cargo / rustc | MIT OR Apache-2.0 | Rust protocol crate (RAD-101) |
+| clang (cross SDK, default) / gcc (second Linux tree) | Apache-2.0 WITH LLVM-exception / GPL-3.0-or-later WITH GCC-exception-3.1 | C++20 compiler (RAD-03); clang from the cross SDK below |
+| cargo / rustc | MIT OR Apache-2.0 | Rust protocol crate (RAD-101); rustc from the cross SDK below when a preset uses it |
 | cargo-deny, cargo-fuzz (optional) | MIT OR Apache-2.0 | licence check and fuzzing of the Rust crate |
 | reuse | GPL-3.0-or-later | `reuse lint` licence compliance check |
 | Python 3 (standard library) | PSF-2.0 | test and check scripts |
@@ -64,6 +64,26 @@ version, source and checksum are filled in when they are added.
 | binutils (readelf, objdump) | GPL-3.0-or-later | completeness checks of the plugins (RAD-133) |
 | Doxygen (optional) | GPL-2.0-only | the radio API reference from `radio.h` (RAD-97, Yantra DOC-17); ctest `radio_api_doxygen` |
 | bubblewrap (optional, local only) | LGPL-2.0-or-later | the clean-environment conformance run on a developer machine (`tools/ci/clean_env.py`, RAD-133); CI uses a bare container instead |
+
+## Cross SDK (build tools and the Windows runtime; RAD-139)
+
+`tools/sdk/yantra_sdk.py make` unpacks these into the git-ignored SDK
+folder (`sdk/` or `$YANTRA_SDK_DIR`); nothing is installed in the system.
+Every file is pinned by name, version and SHA-256 in `tools/sdk/*.lock`
+and checked against its publisher's signature ([BUILD.md](BUILD.md#cross-sdk-rad-139)).
+The SDK is never shipped. Of its contents only the Windows GCC runtime
+and the Windows Rust standard library end up in an artefact: linked
+statically into the Windows `.dll` and `.exe` (RAD-132), the GCC runtime
+under the GCC Runtime Library Exception 3.1, which allows that whatever
+the program's licence.
+
+| Component | Licence | Used for | How it is obtained (`tools/sdk/*.lock`) |
+|-----------|---------|----------|------------------------------------------|
+| LLVM 23.1.5 (clang, lld, llvm-ar, llvm-rc, llvm-objdump, llvm-strip, llvm-symbolizer, compiler-rt) | Apache-2.0 WITH LLVM-exception | the compiler of every tree but `gcc`, for Linux x86-64 and Windows x64; the sanitizer and libFuzzer runtimes of the Linux sanitizer and fuzz trees (never in a release) | official release archive `LLVM-23.1.5-Linux-X64.tar.zst` from https://github.com/llvm/llvm-project/releases (`llvm.lock`), signature checked with https://releases.llvm.org/release-keys.asc |
+| MSYS2 UCRT64: mingw-w64 headers, crt, winpthreads, libwinpthread 14.0.0.r598 | headers ZPL-2.1 AND LGPL-2.1-or-later, crt ZPL-2.1, winpthreads MIT AND BSD-3-Clause (the packages' licences) | Windows target headers, the UCRT and system import libraries, the thread library of libstdc++ (linked statically into Windows artefacts) | binary packages from https://repo.msys2.org/mingw/ucrt64 (`msys2.lock`), each checked against its `.sig` with the keys of the pinned `msys2-keyring` package; licence texts in `sysroots/x86_64-w64-mingw32/share/licenses/` |
+| MSYS2 UCRT64: gcc, libgcc, libstdc++ 16.2.0 | GPL-3.0-or-later WITH GCC-exception-3.1 | libstdc++ headers and libraries and libgcc of the Windows target (linked statically into Windows artefacts, RAD-132); the compiler programs of the package are left out | as above (`msys2.lock`) |
+| MSYS2 UCRT64: tzdata 2026f | Public Domain | dependency of the libstdc++ package (`std::chrono` time zones); unused | as above (`msys2.lock`) |
+| Rust 1.93.1: rustc, rust-std for x86_64-unknown-linux-gnu and x86_64-pc-windows-gnu | MIT OR Apache-2.0 | the Rust protocol crate for Linux and Windows with one compiler (the Windows rust-std only works with the official rustc build of the same version) | official dist tarballs from https://static.rust-lang.org/dist (`rust.lock`), signatures checked with the Rust release key |
 
 ## Excluded
 

@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Minimal Rust static library of the cross SDK's Windows smoke test
+# (RAD-139, tests/sdk): built for x86_64-pc-windows-gnu with the SDK's
+# rustc and linked into the C++ test program. No external crates. Its own
+# workspace so cargo never looks for a parent manifest.
+
+[package]
+name = "yantra-sdk-smoke"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+publish = false
+
+[lib]
+crate-type = ["staticlib"]
+path = "src/lib.rs"
+
+[workspace]

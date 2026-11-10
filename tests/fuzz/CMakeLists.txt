@@ -83,7 +83,8 @@ endforeach()
 # fuzz_smoke.rs) over the generated tetra_pdu corpus.
 if(YANTRA_CARGO_EXECUTABLE)
   add_test(NAME fuzz_proto_rust
-           COMMAND ${YANTRA_CARGO_EXECUTABLE} test --offline --locked --quiet
+           COMMAND ${CMAKE_COMMAND} -E env ${YANTRA_CARGO_ENV}
+                   ${YANTRA_CARGO_EXECUTABLE} test --offline --locked --quiet
                    --manifest-path ${PROJECT_SOURCE_DIR}/receiver/rust/Cargo.toml
                    --target-dir ${PROJECT_BINARY_DIR}/cargo --test fuzz_smoke)
   set_tests_properties(fuzz_proto_rust PROPERTIES

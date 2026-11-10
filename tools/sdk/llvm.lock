@@ -1,0 +1,9 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# LLVM release of the cross SDK (RAD-139): tools/sdk/yantra_sdk.py update --llvm <version|latest>
+# source https://github.com/llvm/llvm-project/releases/download/llvmorg-23.1.5/LLVM-23.1.5-Linux-X64.tar.zst
+# signature LLVM-23.1.5-Linux-X64.tar.zst.sig, checked with https://releases.llvm.org/release-keys.asc; 'signer' is the primary key
+version 23.1.5
+signer FFB3368980F3E6BB5737145A316C56D064CACBA5
+file llvm 23.1.5 LLVM-23.1.5-Linux-X64.tar.zst c3107384835f788768f614db610e87fba7077f125ca950eb02a78bab0a308065

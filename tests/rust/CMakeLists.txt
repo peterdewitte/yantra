@@ -20,7 +20,7 @@ if(_cores LESS 1)
   set(_cores 1)
 endif()
 add_test(NAME rust_cargo_test
-         COMMAND ${CMAKE_COMMAND} -E env CARGO_BUILD_JOBS=${_cores}
+         COMMAND ${CMAKE_COMMAND} -E env CARGO_BUILD_JOBS=${_cores} ${YANTRA_CARGO_ENV}
                  ${YANTRA_CARGO_EXECUTABLE} test --offline --locked
                  --manifest-path ${YANTRA_PROTO_DIR}/Cargo.toml
                  --target-dir ${YANTRA_CARGO_TARGET_DIR})

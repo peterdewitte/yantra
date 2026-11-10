@@ -30,6 +30,23 @@ marked:
 Record file (RAD-65) and scene JSON (RAD-36) versions are listed here as
 well; they change independently of the radio API version.
 
+## [Unreleased]
+
+### Added
+
+- Cross SDK (RAD-139): `tools/sdk/yantra_sdk.py make` builds a
+  git-ignored SDK folder (`sdk/` or `$YANTRA_SDK_DIR`) from pinned,
+  signature-checked downloads: LLVM 23.1.5 (clang, lld, llvm-rc,
+  llvm-objdump, compiler-rt), the Windows x64 UCRT sysroot from MSYS2
+  UCRT64 packages (mingw-w64 14.0.0, GCC 16.2.0 runtime) and Rust 1.93.1
+  for x86_64-unknown-linux-gnu and x86_64-pc-windows-gnu; `check`
+  compares every lock file with what is unpacked. CMake toolchain files
+  for Linux (clang) and Windows x64 (`x86_64-w64-windows-gnu`, static GCC
+  runtime, winpthreads in every link, llvm-rc); `tools/sdk/wsl_run.sh`
+  runs a Windows program from WSL2. ctests `sdk_check` and
+  `sdk_windows_smoke` (a C++20 + Rust program cross-compiled, its DLL
+  imports checked, run on Windows through WSL interop).
+
 ## [0.2.7] - 2026-11-09
 
 A patch release (tag v0.2.7, RAD-98) from the release check of Yantra's
