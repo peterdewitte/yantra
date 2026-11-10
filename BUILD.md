@@ -228,7 +228,7 @@ tests resolve there), restores a clean snapshot, runs ctest, copies
 `junit.xml` and `LastTest.log` back to `<build-dir>/wintest-results/<time>/`
 and powers the VM off; its exit code is ctest's. About 1.1 GB is pushed
 per run (the build-win programs with their debug information). Expected:
-339 tests: 319 passed and 20 skipped with the reason (the 6
+343 tests: 323 passed and 20 skipped with the reason (the 6
 Linux-only tests below, the 13 build-machine checks and `fuzz_proto_rust`,
 below), build-win and build-win-scalar alike; the `timing` tests are best
 run on their own (`-L timing -j 1`, the rest with `-LE timing`).
