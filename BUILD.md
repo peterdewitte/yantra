@@ -242,7 +242,8 @@ case, as in the Linux trees (`ctest -N` on Linux shows the groups only).
 Build-machine checks (label `build_host`): the tests that check the build
 machine or run its tools (`sdk_check`, `sdk_windows_smoke`, `deps_build*`,
 `deps_manifest`, `repo_lint`, `reuse_lint`, `radio_api_doxygen`,
-`radio_api_header_*`, `rust_cargo_test`, `release_package`) run through
+`radio_api_header_*`, `rust_cargo_test`, `release_package`,
+`radios_manual`, `radios_manual_faults`) run through
 `cmake/build_host_test.py`: skipped (77) on Windows, run on Linux with
 `ctest --test-dir build-win -L build_host`. `fuzz_proto_rust` is skipped
 in this tree (its cargo runs on the build machine, its corpus comes from
@@ -261,8 +262,8 @@ Windows runner runs the programs with `tools/ci/run_windows_tests.py`.
 
 What runs on Windows: every doctest program, the CLI tests of the three
 tools, the conformance kit on every plugin `.dll` (beacon, simulator,
-soapysdr through its fake module, hackrf through its fake; the terminal
-plugin needs a terminal), and the checks:
+soapysdr through its fake module, hackrf through its fake, pei through
+the simulated terminal on a named pipe), and the checks:
 
 - `completeness_<plugin>`, `completeness_plugins`: imports only Windows
   system DLLs and the UCRT (no `libstdc++-6.dll`, `libgcc_s_seh-1.dll`,
@@ -279,13 +280,21 @@ plugin needs a terminal), and the checks:
 - `release_package`: the `.zip` package (below; a build-machine check).
 
 Skipped on Windows (reported as skipped, with the reason, by
-`yantra_skip_test()`): `test_pei` and `conformance_pei` (the simulated
-terminal `yantra-pei-sim` needs a POSIX pseudo-terminal; the plugin's
-Windows serial port is the next step), `plugin_docs` (needs that
-simulator), `clean_env_conformance` (a bubblewrap sandbox; the CI's
-Windows runner is the clean machine), `install_destdir` (the Linux FHS
-layout with udev rules), `completeness_surprises` (static TLS and GNU
-unique symbols are ELF properties).
+`yantra_skip_test()`): `plugin_docs` (it drives the Linux tree's `.so`
+files; the pages are checked in the Linux trees), `clean_env_conformance`
+(a bubblewrap sandbox; the CI's Windows runner is the clean machine),
+`install_destdir` (the Linux FHS layout with udev rules),
+`completeness_surprises` (static TLS and GNU unique symbols are ELF
+properties).
+
+The terminal plugin on Windows (RAD-80): `test_pei` and `conformance_pei`
+run in the VM against the simulated terminal `yantra-pei-sim.exe` on a
+named pipe (`\\.\pipe\yantra-pei-*`), which the plugin opens through its
+Win32 serial-port code (CreateFileW, overlapped ReadFile/WriteFile, timed
+waits; on a pipe without the DCB of a COM port); `test_pei_port.cpp`
+checks the port layer itself (COM names, USB ids of SetupAPI instance
+ids, listing, paths that are not serial ports, in-use, unplug/replug). A
+real COM port is a hardware check (DEVICES.md).
 
 Golden files: `tests/gen_sim/golden/windows` and
 `tests/yantra_gen/golden/windows` hold the Windows digests. The UCRT's
@@ -386,6 +395,19 @@ compiled example plugin), `doc_links` (relative links and anchors),
 items, and the record schema tables, against the built plugins;
 `ninja -C build update-plugin-docs` rewrites the generated parts).
 
+`ninja -C build docs-manual`: the PDF manual
+`build/docs/manual/yantra-radios-manual-<version>.pdf` (RAD-97) from the
+plugin pages, docs/TETRA_RECORDS.md, docs/RADIO_PLUGINS.md and
+docs/manual/overview.md (`tools/docs/build_manual.py`: pandoc, then
+WeasyPrint; `apt install pandoc weasyprint fonts-dejavu-core`). The build
+fails on a pandoc or WeasyPrint warning, a missing picture, an internal
+link or bookmark that does not resolve, text past the page margin or out
+of a table cell, or a font that is not embedded. ctest `radios_manual`
+builds and checks it, `radios_manual_faults` checks the checker (label
+`docs`; Skipped without pandoc or WeasyPrint; on the build machine in the
+Windows trees). The build date is `SOURCE_DATE_EPOCH`, else the last
+commit's date.
+
 ## Release
 
 The version is `project(YantraRadios VERSION ...)` in CMakeLists.txt, the
@@ -400,8 +422,9 @@ which runs `tools/ci/make_release.sh` into `build/release/v<version>/`:
 
 | File | Contents |
 |---|---|
-| `yantra-radios-v<version>-linux-x86_64.tar.gz` | the install tree: plugins (`lib/yantra-radios/plugins/*.so`), tools, scenarios, udev rules, docs and the licence bundle `share/licenses/yantra-radios` (LICENSE, LICENSES/, THIRD_PARTY.md, each bundled library's licence texts and copyright notices, BUNDLE.md) |
-| `yantra-radios-v<version>-windows-x86_64.zip` | the Windows tree's install tree (`tools/ci/package_release.sh build-win <out> <tag> windows-x86_64`): `lib/yantra-radios/plugins/*.dll`, `bin/*.exe`, scenarios, docs and the same licence bundle |
+| `yantra-radios-manual-<version>.pdf` | the PDF manual (RAD-97; the `release` target builds it first) |
+| `yantra-radios-v<version>-linux-x86_64.tar.gz` | the install tree: plugins (`lib/yantra-radios/plugins/*.so`), tools, scenarios, udev rules, docs (with the PDF manual in `share/doc/yantra-radios/`) and the licence bundle `share/licenses/yantra-radios` (LICENSE, LICENSES/, THIRD_PARTY.md, each bundled library's licence texts and copyright notices, BUNDLE.md) |
+| `yantra-radios-v<version>-windows-x86_64.zip` | the Windows tree's install tree (`ninja -C build-win release`, or `tools/ci/package_release.sh build-win <out> <tag> windows-x86_64`): `lib/yantra-radios/plugins/*.dll`, `bin/*.exe`, scenarios, docs with the PDF manual and the same licence bundle |
 | `yantra-radios-v<version>-source.tar.gz` | the complete corresponding source (RAD-137): the repository at the tag with the pinned submodules (without osmo-tetra's `crypto/`) and `upstream/` with every release archive of `tools/deps/manifest.tsv` and its SHA256SUMS |
 | `RELEASE_NOTES.md` | the CHANGELOG.md section |
 | `SHA256SUMS` | SHA-256 of the files above |

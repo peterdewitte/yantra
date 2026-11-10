@@ -52,6 +52,10 @@ export directives (`.drectve` sections, from the `dllexport` marks of
 SoapySDR, libhackrf, libairspy and SoapyRemote) are removed from every
 bundled archive after it is built, so a plugin exports only its entry
 point (RAD-133). The vendored files themselves are unchanged.
+The terminal plugin's serial ports use no library (RAD-04): its own code
+on POSIX termios, and on Windows the Win32 communications API with the
+SetupAPI and the configuration manager (`setupapi.dll`, `cfgmgr32.dll`,
+`advapi32.dll`: Windows system DLLs, allowed by RAD-132).
 ## Test libraries (never shipped)
 
 | Component | Licence | Used for | How it is obtained |
@@ -71,6 +75,9 @@ point (RAD-133). The vendored files themselves are unchanged.
 | PyYAML (CI lint only) | MIT | YAML syntax check of the workflows in `tools/ci/lint.sh` (RAD-134) |
 | binutils (readelf, objdump) | GPL-3.0-or-later | completeness checks of the plugins (RAD-133) |
 | Doxygen (optional) | GPL-2.0-only | the radio API reference from `radio.h` (RAD-97, Yantra DOC-17); ctest `radio_api_doxygen` |
+| pandoc (optional) | GPL-2.0-or-later | the PDF manual (RAD-97): Markdown to the HTML that WeasyPrint lays out (`tools/docs/build_manual.py`); ctest `radios_manual` |
+| WeasyPrint (optional) | BSD-3-Clause | the PDF manual's layout and PDF (Yantra spec 16.2 build tool); its Python API also gives the layout checks |
+| DejaVu fonts (system package, optional) | Bitstream Vera Fonts licence and public domain (DejaVu changes) | the fonts of the PDF manual: WeasyPrint embeds subsets of DejaVu Sans and DejaVu Sans Mono in the PDF, which their licence allows (the manual names them in its style sheet; another sans-serif font is used where they are missing) |
 | bubblewrap (optional, local only) | LGPL-2.0-or-later | the clean-environment conformance run on a developer machine (`tools/ci/clean_env.py`, RAD-133); CI uses a bare container instead |
 
 ## Cross SDK (build tools and the Windows runtime; RAD-139)

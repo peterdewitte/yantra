@@ -4,7 +4,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 -->
 # Plugin: pei (TETRA terminal over PEI)
 
-`pei.so` (plugin id `pei`, RAD-80, TRM-01, TRM-04): a TETRA terminal
+`pei.so` / `pei.dll` (plugin id `pei`, RAD-80, TRM-01, TRM-04): a TETRA terminal
 in TMO read over its Peripheral Equipment Interface (AT commands of
 EN 300 392-5). Plain C11. Capabilities SELF_CALIBRATED (the terminal's
 dBm) and HOTPLUG. Commands, profiles and the example cell-list format:
@@ -12,10 +12,26 @@ dBm) and HOTPLUG. Commands, profiles and the example cell-list format:
 
 ## Devices
 
-Serial ports: `/dev/serial/by-id/*`, then `/dev/ttyUSB*` and
-`/dev/ttyACM*`, then the `:`-separated `YANTRA_PEI_PORTS`. Key
-`pei:<path>`; a port without access is listed as NO_PERMISSION with the
-remedy (group `dialout`).
+Serial ports, listed without opening them:
+
+- Linux: `/dev/serial/by-id/*`, then `/dev/ttyUSB*` and `/dev/ttyACM*`,
+  then the `:`-separated `YANTRA_PEI_PORTS`; USB vendor/product id and
+  serial number from sysfs. A port without access is listed as
+  NO_PERMISSION with the remedy (group `dialout`).
+- Windows: the COM ports of the SetupAPI (Ports class: friendly name, USB
+  ids and serial from the device instance id or its parent's), then the
+  other `COMn` device names, by number, then the `;`-separated
+  `YANTRA_PEI_PORTS`. `COM1`..`COM256` open as `\\.\COMn` (needed from
+  COM10 on) through the Win32 communications API (no sharing, 8N1
+  without flow control, overlapped I/O with timed waits).
+
+Key `pei:<port>` (e.g. `pei:/dev/ttyUSB0`, `pei:COM3`); `hardware_info`
+holds `port=`, `device=` and, when known, `usb=vvvv:pppp`, `serial=` and
+`description=`. The plugin holds the port for itself while it talks to
+the terminal (Linux: an exclusive `flock`; Windows: no sharing). A port
+another program held at the last open is listed as IN_USE with the
+reason until the watcher finds it free again. Plug and unplug are seen
+within about 250 ms on both platforms (RAD-35).
 
 ## Records
 
@@ -91,4 +107,7 @@ Self-test items (RAD-46), with the result in the test set-up above:
 - Not yet checked with a real terminal (DEVICES.md).
 - Only reading commands are sent: the plugin is receive-only, with no
   call control, PTT or call set-up (scope).
-- Windows serial ports are DEFERRED (Windows).
+- Windows serial ports are tested in the Windows test VM against the
+  simulated terminal on a named pipe (the same open/read/write code
+  without the DCB); a real COM port or USB serial adapter on Windows is
+  still a hardware check (DEVICES.md).
