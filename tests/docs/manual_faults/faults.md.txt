@@ -1,0 +1,19 @@
+<!--
+SPDX-FileCopyrightText: 2026 The Yantra contributors
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+# A chapter with faults
+
+The manual checker's own test (tests/docs/check_manual_faults.py): this page must fail.
+
+## A missing picture
+
+![a picture that is not there](no-such-picture.png)
+
+## A broken link
+
+A link to [nowhere](#no-such-heading) and to [a missing file](no-such-file.md).
+
+## Text past the margin
+
+<p><span style="white-space: nowrap">This line is not allowed to wrap, so it runs far past the right margin of the A4 page and the checker has to say so.</span></p>

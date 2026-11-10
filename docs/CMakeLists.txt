@@ -93,3 +93,34 @@ elseif(WIN32 AND YANTRA_RADIOS_BUILD_TESTS)
   include(YantraTests)
   yantra_skip_test(plugin_docs REASON "the checker drives the Linux tree's .so plugins and programs; the pages are checked in the Linux trees, the plugins are the same code")
 endif()
+
+# The radio plugins manual as one PDF (RAD-97, RAD-134): `ninja
+# docs-manual` writes <build>/docs/manual/yantra-radios-manual-<version>.pdf
+# (pandoc and WeasyPrint, build tools of Yantra's spec 16.2) with its
+# checks (tools/docs/build_manual.py); the release ships it. ctest
+# radios_manual builds and checks it into its own folder,
+# radios_manual_faults checks that the checker finds faults. Both report
+# Skipped without pandoc or WeasyPrint; in a cross tree they run on the
+# build machine (label build_host).
+if(Python3_Interpreter_FOUND OR Python3_EXECUTABLE)
+  set(YANTRA_RADIOS_MANUAL ${CMAKE_CURRENT_BINARY_DIR}/manual/yantra-radios-manual-${PROJECT_VERSION}.pdf
+      CACHE INTERNAL "The PDF manual (ninja docs-manual)")
+  add_custom_target(docs-manual
+    COMMAND ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/docs/build_manual.py
+            --source ${PROJECT_SOURCE_DIR} --out ${CMAKE_CURRENT_BINARY_DIR}/manual --version ${PROJECT_VERSION}
+    COMMENT "PDF manual in ${YANTRA_RADIOS_MANUAL}"
+    VERBATIM)
+  if(YANTRA_RADIOS_BUILD_TESTS)
+    add_test(NAME radios_manual
+             COMMAND ${YANTRA_BUILD_HOST_TEST} ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/docs/build_manual.py
+                     --source ${PROJECT_SOURCE_DIR} --out ${CMAKE_CURRENT_BINARY_DIR}/manual-check
+                     --version ${PROJECT_VERSION})
+    add_test(NAME radios_manual_faults
+             COMMAND ${YANTRA_BUILD_HOST_TEST} ${Python3_EXECUTABLE} -B
+                     ${PROJECT_SOURCE_DIR}/tests/docs/check_manual_faults.py ${PROJECT_SOURCE_DIR}
+                     ${CMAKE_CURRENT_BINARY_DIR}/manual-faults)
+    set_tests_properties(radios_manual radios_manual_faults PROPERTIES
+      LABELS "docs" SKIP_RETURN_CODE 77 TIMEOUT 600)
+    yantra_build_host_tests(radios_manual radios_manual_faults)
+  endif()
+endif()

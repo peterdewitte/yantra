@@ -10,7 +10,8 @@
 #       lib/yantra-radios/plugins/ the self-contained plugins (RAD-132;
 #       not the example or the test builds), bin/ yantra-radio-host,
 #       yantra-gen and yantra-hackrf, share/yantra-radios/scenarios,
-#       lib/udev/rules.d and lib/modprobe.d (RAD-99), the docs, and the
+#       lib/udev/rules.d and lib/modprobe.d (RAD-99), the docs (with the
+#       PDF manual of `ninja docs-manual` when it is there, RAD-97), and the
 #       licence bundle share/licenses/yantra-radios (licence_bundle.py:
 #       LICENSE, LICENSES/, THIRD_PARTY.md, every bundled library's texts,
 #       BUNDLE.md), so the licences ship next to the libraries
@@ -51,6 +52,13 @@ done
 [ -f "$pkg/share/licenses/yantra-radios/BUNDLE.md" ] \
     || { echo "package_release: no licence bundle" >&2; exit 1; }
 [ -f "$build/deps/deps-manifest.tsv" ] && cp "$build/deps/deps-manifest.tsv" "$pkg/share/licenses/yantra-radios/"
+# The PDF manual (RAD-97) when `ninja docs-manual` made it; a release
+# (make_release.sh) requires it.
+manual=$build/docs/manual/yantra-radios-manual-${version#v}.pdf
+if [ -f "$manual" ]; then
+    mkdir -p "$pkg/share/doc/yantra-radios"
+    cp "$manual" "$pkg/share/doc/yantra-radios/"
+fi
 # No file of the package names a folder of this machine (no personal data;
 # tools/deps/deps.cmake, check_completeness.py build_paths).
 forbid=(-e "$root" -e "$build")

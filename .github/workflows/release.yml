@@ -37,7 +37,8 @@ jobs:
       - name: Install build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends cmake ninja-build python3 binutils gpg zstd
+          sudo apt-get install -y --no-install-recommends cmake ninja-build python3 binutils gpg zstd \
+            pandoc weasyprint fonts-dejavu-core
       - name: Cache the cross SDK (RAD-139)
         uses: actions/cache@v4
         with:
@@ -58,7 +59,12 @@ jobs:
         run: python3 tools/ci/check_completeness.py build/bin/plugins
       - name: Release archives of the bundled libraries (corresponding source, RAD-137)
         run: python3 tools/deps/verify_sources.py build/deps-cache
-      - name: Package plugins, licence bundle and source
+      - name: PDF manual with its checks (RAD-97)
+        run: |
+          ninja -C build docs-manual
+          mkdir -p dist
+          cp build/docs/manual/yantra-radios-manual-*.pdf dist/
+      - name: Package plugins, licence bundle, manual and source
         run: tools/ci/package_release.sh build dist "${GITHUB_REF_NAME}" linux-x86_64
       - name: Completeness of the packaged plugins (RAD-133, RAD-138)
         run: |
@@ -81,7 +87,8 @@ jobs:
       - name: Install build tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends cmake ninja-build python3 gpg zstd
+          sudo apt-get install -y --no-install-recommends cmake ninja-build python3 gpg zstd \
+            pandoc weasyprint fonts-dejavu-core
       - name: Cache the cross SDK (RAD-139)
         uses: actions/cache@v4
         with:
@@ -99,7 +106,9 @@ jobs:
           cmake --build --preset ci-windows -j "$(nproc)"
       - name: Completeness checks (RAD-133)
         run: ctest --test-dir build-win -L completeness --timeout 600 --output-on-failure
-      - name: Package plugins, programs and licence bundle
+      - name: PDF manual for the package (RAD-97)
+        run: ninja -C build-win docs-manual
+      - name: Package plugins, programs, licence bundle and manual
         run: tools/ci/package_release.sh build-win dist "${GITHUB_REF_NAME}" windows-x86_64
       - name: Completeness of the packaged plugins (RAD-133, RAD-138)
         run: |

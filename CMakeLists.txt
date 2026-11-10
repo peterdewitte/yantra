@@ -169,13 +169,18 @@ install(DIRECTORY docs/img DESTINATION ${CMAKE_INSTALL_DATADIR}/doc/yantra-radio
 # the plugin package with the licence bundle, the corresponding source,
 # SHA256SUMS and the release notes (tools/ci/make_release.sh). Build the
 # The tag is v${PROJECT_VERSION}; the packaged artefacts are built first.
+set(_release_platform linux-x86_64)
+if(WIN32)
+  set(_release_platform windows-x86_64)
+endif()
 add_custom_target(release
   COMMAND ${CMAKE_COMMAND} -E env bash ${PROJECT_SOURCE_DIR}/tools/ci/make_release.sh
           ${CMAKE_BINARY_DIR} ${CMAKE_BINARY_DIR}/release/v${PROJECT_VERSION} v${PROJECT_VERSION}
+          ${_release_platform}
   WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
   COMMENT "Release v${PROJECT_VERSION} in ${CMAKE_BINARY_DIR}/release/v${PROJECT_VERSION}"
   VERBATIM USES_TERMINAL)
-foreach(_t licence_bundle hackrf soapysdr simulator pei yantra-radio-host yantra-gen yantra-hackrf)
+foreach(_t licence_bundle hackrf soapysdr simulator pei yantra-radio-host yantra-gen yantra-hackrf docs-manual)
   if(TARGET ${_t})
     add_dependencies(release ${_t})
   endif()
