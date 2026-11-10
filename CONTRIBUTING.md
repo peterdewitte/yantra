@@ -45,8 +45,10 @@ simulator radio plugin or recorded measurement files) (TST-60).
 [BUILD.md](BUILD.md) has the dependencies, every build tree and the
 options; [ARCHITECTURE.md](ARCHITECTURE.md) the layers and threads. The
 yantra-radios submodule is needed for every build
-(`git submodule update --init --recursive`; its URL is relative,
-`../yantra-radios`, so yantra-radios is cloned next to yantra). Yantra
+(`git submodule update --init --recursive`; its URL is the absolute
+clone URL `https://github.com/peterdewitte/yantra-radio-plugins.git`,
+PLG-26; for a local clone, `git config submodule.third_party/yantra-radios.url
+<path>` before the update). Yantra
 compiles only its radio API header (`yantra::radio_api`) and builds its
 radio plugins as a separate build (`cmake/YantraRadiosBuild.cmake`).
 Moving the pin is its own commit and needs Yantra's full test suite and

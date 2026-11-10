@@ -1,3 +1,3 @@
 [submodule "third_party/yantra-radios"]
 	path = third_party/yantra-radios
-	url = ../yantra-radios
+	url = https://github.com/peterdewitte/yantra-radio-plugins.git

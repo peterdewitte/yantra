@@ -65,10 +65,10 @@ Yantra's own plugins: the TETRA technology plugin and the probe plugin
 
 **Linux**: build from source; `ninja -C build deb` then makes a .deb
 package of the build ([BUILD.md](BUILD.md#linux-package-nfr-09)). The radio plugins
-come from the yantra-radios repository as a git submodule with a relative
-URL (`../yantra-radios`), so yantra-radios is cloned next to yantra:
+come from the yantra-radios repository as a git submodule; its URL in
+`.gitmodules` is the absolute clone URL
+`https://github.com/peterdewitte/yantra-radio-plugins.git` (PLG-26):
 
-    git clone <yantra-radios repository> yantra-radios
     git clone https://github.com/peterdewitte/yantra.git yantra
     cd yantra
     git submodule update --init --recursive
