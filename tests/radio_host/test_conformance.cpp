@@ -7,6 +7,8 @@
 // broken rule, so the kit finds what it claims to find.
 #include <doctest/doctest.h>
 
+#include "test_platform.hpp"
+
 #include <conformance.hpp>
 
 #include <nlohmann/json.hpp>
@@ -42,11 +44,7 @@ std::string problems_of(const ConformanceReport& r)
 }
 
 // Sets an environment variable for one scope.
-struct ScopedEnv {
-    std::string name;
-    ScopedEnv(const char* n, const char* value) : name(n) { setenv(n, value, 1); }
-    ~ScopedEnv() { unsetenv(name.c_str()); }
-};
+using yantra::test::ScopedEnv;
 
 ConformanceOptions quick()
 {

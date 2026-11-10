@@ -22,10 +22,7 @@
 
 #include <doctest/doctest.h>
 
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <unistd.h>
+#include "test_platform.hpp"
 
 #include <algorithm>
 #include <complex>
@@ -345,20 +342,10 @@ TEST_CASE("gsmtap: fragments are held until the whole TM-SDU is in scope")
 
 TEST_CASE("gsmtap: a generator cell through the engine into a loopback UDP socket")
 {
-    // Receiver on an ephemeral loopback port.
-    const int rx = ::socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
-    REQUIRE(rx >= 0);
-    sockaddr_in a{};
-    a.sin_family = AF_INET;
-    a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    a.sin_port = 0;
-    REQUIRE(::bind(rx, reinterpret_cast<sockaddr*>(&a), sizeof a) == 0);
-    socklen_t alen = sizeof a;
-    REQUIRE(::getsockname(rx, reinterpret_cast<sockaddr*>(&a), &alen) == 0);
-    const uint16_t port = ntohs(a.sin_port);
-    // Enough room for every datagram of the run (drained after each block).
-    int rcvbuf = 1 << 20;
-    ::setsockopt(rx, SOL_SOCKET, SO_RCVBUF, &rcvbuf, sizeof rcvbuf);
+    // Receiver on an ephemeral loopback port, with enough room for every
+    // datagram of the run (drained after each block).
+    yantra::test::LoopbackUdpReceiver rx(1 << 20);
+    const uint16_t port = rx.port();
 
     gen::CellConfig cell = gen::CellConfig::defaults();
     gen::NwrkBroadcast nb;
@@ -390,14 +377,8 @@ TEST_CASE("gsmtap: a generator cell through the engine into a loopback UDP socke
 
     std::vector<std::vector<uint8_t>> got;
     auto drain = [&] {
-        for (;;) {
-            std::vector<uint8_t> buf(2048);
-            const ssize_t len = ::recv(rx, buf.data(), buf.size(), MSG_DONTWAIT);
-            if (len < 0)
-                break;
-            buf.resize(static_cast<std::size_t>(len));
-            got.push_back(std::move(buf));
-        }
+        while (auto d = rx.receive(2048))
+            got.push_back(std::move(*d));
     };
     const auto block = static_cast<std::size_t>(kRate / 10.0);
     std::vector<std::complex<float>> x(block);
@@ -411,7 +392,6 @@ TEST_CASE("gsmtap: a generator cell through the engine into a loopback UDP socke
         engine.process(x.data(), block, kCentre, kRate, info, out);
         drain();
     }
-    ::close(rx);
 
     CHECK(engine.gsmtap_send_failures() == 0);
     const tp::GsmtapCounters c = engine.gsmtap_counters();

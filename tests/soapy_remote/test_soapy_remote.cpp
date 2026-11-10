@@ -10,6 +10,8 @@
 // and the diagnostic says how to name a server.
 #include <doctest/doctest.h>
 
+#include "test_platform.hpp"
+
 #include <yantra/gen/scenario.hpp>
 #include <yantra/gen/scenario_engine.hpp>
 
@@ -51,16 +53,16 @@ struct Rig {
                              (std::to_string(getpid()) + "_" + std::to_string(++n));
         fs::remove_all(dir);
         fs::create_directories(dir);
-        control = dir.string();
+        control = dir.generic_string(); // goes into JSON text: forward slashes
         // The fake (in this process, behind the server); unpaced: values,
         // not timing, and SoapyRemote's flow control paces the network.
         const std::string fake = "{\"control\":\"" + control + "\",\"devices\":[{\"serial\":\"" + kSerial +
                                  "\",\"scenario\":\"" + fixture() + "\",\"paced\":false}]}";
-        REQUIRE(setenv("YANTRA_FAKE_SOAPY", fake.c_str(), 1) == 0);
+        REQUIRE(yantra::test::set_env("YANTRA_FAKE_SOAPY", fake.c_str()) == 0);
         if (with_servers)
-            REQUIRE(setenv("YANTRA_SOAPY_REMOTE", server.url().c_str(), 1) == 0);
+            REQUIRE(yantra::test::set_env("YANTRA_SOAPY_REMOTE", server.url().c_str()) == 0);
         else
-            REQUIRE(unsetenv("YANTRA_SOAPY_REMOTE") == 0);
+            REQUIRE(yantra::test::unset_env("YANTRA_SOAPY_REMOTE") == 0);
         std::string error;
         host = Host::load(SOAPYSDR_PLUGIN, HostConfig{}, error);
         REQUIRE_MESSAGE(host != nullptr, error);
@@ -72,8 +74,8 @@ struct Rig {
             host->descriptor().stream->close(device);
         host.reset();
         server.stop();
-        unsetenv("YANTRA_SOAPY_REMOTE");
-        unsetenv("YANTRA_FAKE_SOAPY");
+        yantra::test::unset_env("YANTRA_SOAPY_REMOTE");
+        yantra::test::unset_env("YANTRA_FAKE_SOAPY");
         std::error_code ec;
         fs::remove_all(control, ec);
     }

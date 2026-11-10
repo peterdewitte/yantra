@@ -6,6 +6,8 @@
 // stream formats, gain-following level, overflows and unplug.
 #include <doctest/doctest.h>
 
+#include "test_platform.hpp"
+
 #include <SoapySDR/Device.hpp>
 #include <SoapySDR/Formats.hpp>
 #include <SoapySDR/Registry.hpp>
@@ -34,14 +36,14 @@ struct Config {
     {
         control = fs::path(YANTRA_BINARY_DIR) / "tests" / "fake_soapy_control" / std::to_string(::getpid());
         fs::create_directories(control);
-        const std::string json = "{\"control\":\"" + control.string() + "\",\"devices\":[{\"serial\":\"" +
+        const std::string json = "{\"control\":\"" + control.generic_string() + "\",\"devices\":[{\"serial\":\"" +
                                  kSerial + "\",\"scenario\":\"" + YANTRA_TEST_DATA_DIR +
                                  "/soapy/fake_two_cells.json\",\"buffer_s\":10" + extra + "}]}";
-        setenv("YANTRA_FAKE_SOAPY", json.c_str(), 1);
+        yantra::test::set_env("YANTRA_FAKE_SOAPY", json.c_str());
     }
     ~Config()
     {
-        unsetenv("YANTRA_FAKE_SOAPY");
+        yantra::test::unset_env("YANTRA_FAKE_SOAPY");
         std::error_code ec;
         fs::remove_all(control, ec);
     }
@@ -68,7 +70,7 @@ TEST_CASE("fake soapy: a HackRF-like device of the configuration (RAD-92)")
 {
     const auto finds = SoapySDR::Registry::listFindFunctions();
     REQUIRE(finds.count("yantrafake") == 1);
-    unsetenv("YANTRA_FAKE_SOAPY");
+    yantra::test::unset_env("YANTRA_FAKE_SOAPY");
     CHECK(finds.at("yantrafake")({}).empty()); // no configuration, no device
     Config c;
     const SoapySDR::KwargsList found = finds.at("yantrafake")({});

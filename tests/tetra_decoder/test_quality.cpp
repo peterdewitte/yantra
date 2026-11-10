@@ -21,6 +21,7 @@
 #include <doctest/doctest.h>
 
 #include <cmath>
+#include <numbers>
 #include <complex>
 #include <cstdint>
 #include <deque>
@@ -256,7 +257,7 @@ TEST_CASE("quality: M2M4 SNR estimator")
         const int count = 200000;
         for (int k = 0; k < count; ++k) {
             const std::complex<double> z =
-                std::polar(1.0, phase(rng) * M_PI / 4.0) + std::complex<double>(n(rng), n(rng));
+                std::polar(1.0, phase(rng) * std::numbers::pi / 4.0) + std::complex<double>(n(rng), n(rng));
             const double p = std::norm(z);
             m2 += p;
             m4 += p * p;

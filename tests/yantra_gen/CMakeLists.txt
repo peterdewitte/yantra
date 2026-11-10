@@ -8,15 +8,24 @@
 # the build target update-golden-yantra-gen), and the command itself:
 # streaming to stdout and an install-tree run. The osmo-tetra round trip of
 # yantra-gen's IQ files is in tests/gen_osmo.
+# Windows has golden files of its own (golden/windows): the C runtime's
+# math functions (MinGW-w64 libm: log10, pow, exp, sin) round some results
+# differently in the last bit from glibc's, which changes digits of the
+# truth levels and, rarely, a quantised sample. Same seeds, same scenarios;
+# rewritten the same way, in the Windows tree.
+set(_golden ${CMAKE_CURRENT_SOURCE_DIR}/golden)
+if(WIN32)
+  string(APPEND _golden /windows)
+endif()
 yantra_add_test_dir(yantra_gen LIBS yantra_gen_app yantra::gen yantra::radios_common yantra::json)
 target_compile_definitions(test_yantra_gen PRIVATE
-  YANTRA_GEN_CLI_GOLDEN_DIR="${CMAKE_CURRENT_SOURCE_DIR}/golden"
+  YANTRA_GEN_CLI_GOLDEN_DIR="${_golden}"
   YANTRA_SCENARIO_DIR="${CMAKE_SOURCE_DIR}/data/scenarios")
 add_custom_target(update-golden-yantra-gen
   COMMAND $<TARGET_FILE:test_yantra_gen> --update --test-suite=gen-cli-golden
   DEPENDS test_yantra_gen
   WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
-  COMMENT "Rewriting the yantra-gen golden digests (tests/yantra_gen/golden)"
+  COMMENT "Rewriting the yantra-gen golden digests (tests/yantra_gen/golden, golden/windows in the Windows tree)"
   VERBATIM)
 
 # The command itself (a process, not the library).
@@ -46,6 +55,6 @@ set_tests_properties(yantra_gen_stdout_endless PROPERTIES LABELS fast TIMEOUT 60
 # Install rules: yantra-gen and the scenarios in a scratch prefix; the
 # installed binary lists and runs a scenario by id.
 add_test(NAME yantra_gen_install
-  COMMAND sh -c "rm -rf \"$1\" && \"$0\" --install \"$2\" --prefix \"$1\" >/dev/null && \"$1/bin/yantra-gen\" --list | grep -q '^fraunces' && \"$1/bin/yantra-gen\" --scenario fraunces --duration 0.05 --quiet --out \"$1/run.cs8\" --format cs8 && test -s \"$1/run.records.jsonl\" && test -f \"$1/share/yantra-radios/scenarios/scenes/demo_office_f0.json\"; rc=$?; rm -rf \"$1\"; exit $rc"
+  COMMAND sh -c "rm -rf \"$1\" && \"$0\" --install \"$2\" --prefix \"$1\" >/dev/null && \"$1/bin/$<TARGET_FILE_NAME:yantra-gen>\" --list | grep -q '^fraunces' && \"$1/bin/$<TARGET_FILE_NAME:yantra-gen>\" --scenario fraunces --duration 0.05 --quiet --out \"$1/run.cs8\" --format cs8 && test -s \"$1/run.records.jsonl\" && test -f \"$1/share/yantra-radios/scenarios/scenes/demo_office_f0.json\"; rc=$?; rm -rf \"$1\"; exit $rc"
           ${CMAKE_COMMAND} ${CMAKE_BINARY_DIR}/yantra_gen_install_test ${CMAKE_BINARY_DIR})
 set_tests_properties(yantra_gen_install PROPERTIES LABELS fast TIMEOUT 120)

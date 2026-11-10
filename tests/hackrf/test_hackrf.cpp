@@ -9,6 +9,8 @@
 // events (RAD-24, RAD-25) and hot-plug (RAD-35).
 #include <doctest/doctest.h>
 
+#include "test_platform.hpp"
+
 #include <yantra/gen/scenario.hpp>
 #include <yantra/gen/scenario_engine.hpp>
 #include <yantra/radios/tetra_schemas.hpp>
@@ -51,7 +53,7 @@ std::string control_dir()
                        (std::to_string(getpid()) + "_" + std::to_string(++n));
     fs::remove_all(p);
     fs::create_directories(p);
-    return p.string();
+    return p.generic_string(); // goes into JSON text: forward slashes
 }
 
 bool wait_for(const std::function<bool()>& ok, double seconds)
@@ -75,7 +77,7 @@ struct Fake {
     {
         const std::string json = "{\"control\":\"" + control + "\",\"devices\":[{\"serial\":\"" + kSerial +
                                  "\",\"scenario\":\"" + fixture() + "\"" + extra + "}]}";
-        REQUIRE(setenv("YANTRA_FAKE_SOAPY", json.c_str(), 1) == 0);
+        REQUIRE(yantra::test::set_env("YANTRA_FAKE_SOAPY", json.c_str()) == 0);
         std::string error;
         host = Host::load(HACKRF_FAKE_PLUGIN, HostConfig{}, error);
         REQUIRE_MESSAGE(host != nullptr, error);
@@ -86,7 +88,7 @@ struct Fake {
         if (device != nullptr)
             host->descriptor().stream->close(device);
         host.reset();
-        unsetenv("YANTRA_FAKE_SOAPY");
+        yantra::test::unset_env("YANTRA_FAKE_SOAPY");
         std::error_code ec;
         fs::remove_all(control, ec);
     }

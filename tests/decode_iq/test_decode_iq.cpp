@@ -19,10 +19,7 @@
 
 #include <yantra/radios/record_file.hpp>
 
-#include <arpa/inet.h>
-#include <netinet/in.h>
-#include <sys/socket.h>
-#include <unistd.h>
+#include "test_platform.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -319,14 +316,7 @@ TEST_CASE("decode-iq: impairments: LO and clock error, IQ imbalance, DC, sample 
 TEST_CASE("decode-iq: --gsmtap sends the broadcast blocks to a UDP port (RAD-115)")
 {
     // A receiver on an ephemeral loopback port, closed at the end.
-    const int rx = ::socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
-    REQUIRE(rx >= 0);
-    sockaddr_in a{};
-    a.sin_family = AF_INET;
-    a.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
-    REQUIRE(::bind(rx, reinterpret_cast<sockaddr*>(&a), sizeof a) == 0);
-    socklen_t alen = sizeof a;
-    REQUIRE(::getsockname(rx, reinterpret_cast<sockaddr*>(&a), &alen) == 0);
+    std::optional<yantra::test::LoopbackUdpReceiver> rx(std::in_place);
 
     TempDir d("gsmtap");
     const std::string data = d.file("x.sigmf-data");
@@ -337,22 +327,18 @@ TEST_CASE("decode-iq: --gsmtap sends the broadcast blocks to a UDP port (RAD-115
     o.format = "sigmf";
     o.out = "";
     o.gsmtap_host = "127.0.0.1";
-    o.gsmtap_port = ntohs(a.sin_port);
+    o.gsmtap_port = rx->port();
     DecodeIqResult r;
     std::string error;
     const bool ok = decode_iq(o, r, error);
     // The whole run is queued at the socket (up to its buffer): read it.
     std::size_t got = 0;
     bool headers_ok = true;
-    for (;;) {
-        uint8_t buf[512];
-        const ssize_t n = ::recv(rx, buf, sizeof buf, MSG_DONTWAIT);
-        if (n < 0)
-            break;
+    while (auto buf = rx->receive(512)) {
         ++got;
-        headers_ok = headers_ok && n > 16 && buf[0] == 2 && buf[2] == 0x05;
+        headers_ok = headers_ok && buf->size() > 16 && (*buf)[0] == 2 && (*buf)[2] == 0x05;
     }
-    ::close(rx);
+    rx.reset();
     REQUIRE_MESSAGE(ok, error);
     CHECK(r.gsmtap_sent > 0);
     CHECK(got > 0);

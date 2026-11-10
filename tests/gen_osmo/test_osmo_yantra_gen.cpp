@@ -14,6 +14,7 @@
 
 #include "osmo_support.hpp"
 #include "ref_demod.hpp"
+#include "test_platform.hpp"
 
 #include "yantra/gen/modulator.hpp"
 #include "yantra/gen/timing.hpp"
@@ -94,12 +95,11 @@ TEST_CASE("yantra-gen IQ files decode with osmo-tetra as the ground truth says")
     fs::remove_all(dir);
     fs::create_directories(dir);
     const fs::path stem = dir / "two_cells";
-    const std::string cmd = std::string("\"") + YANTRA_GEN_EXE + "\" --quiet" +
-                            " --cell id=A,carrier=3600,la=1234,cc=21,number=1,level=-70,neighbours=B" +
-                            " --cell id=B,carrier=3606,la=1235,cc=22,number=2,level=-82,ppm=0.2,neighbours=A" +
-                            " --mcc 901 --mnc 77 --ppm 0.3 --noise-figure 9 --seed 11 --rate 500k --duration 2.5" +
-                            " --format cs16 --out \"" + (stem.string() + ".cs16") + "\"";
-    REQUIRE(std::system(cmd.c_str()) == 0);
+    REQUIRE(yantra::test::run_program(
+                {YANTRA_GEN_EXE, "--quiet", "--cell", "id=A,carrier=3600,la=1234,cc=21,number=1,level=-70,neighbours=B",
+                 "--cell", "id=B,carrier=3606,la=1235,cc=22,number=2,level=-82,ppm=0.2,neighbours=A", "--mcc", "901",
+                 "--mnc", "77", "--ppm", "0.3", "--noise-figure", "9", "--seed", "11", "--rate", "500k",
+                 "--duration", "2.5", "--format", "cs16", "--out", stem.string() + ".cs16"}) == 0);
 
     const auto meta = nlohmann::json::parse(slurp(stem.string() + ".sigmf-meta"));
     REQUIRE(meta["global"]["core:datatype"] == "ci16_le");

@@ -1,0 +1,17 @@
+samples 100000 bad8eba3b0a89e0b33978d2f64e8f883fb52388679bf2c37c5818380cc147752
+t 0 sample 0 out 0
+  N1 fixed -72 -72 0 
+  N2 fixed -85 -85 0 
+  N3 off -inf -inf 0 
+t 0.050000000000000003 sample 25000 out 25000
+  N1 fixed -72 -72 0 
+  N2 fixed -85 -85 0 
+  N3 off -inf -inf 0 
+t 0.10000000000000001 sample 50000 out 50000
+  N1 fixed -72 -72 0 
+  N2 fixed -85 -85 0 
+  N3 off -inf -inf 0 
+t 0.15000000000000002 sample 75000 out 75000
+  N1 fixed -72 -72 0 
+  N2 fixed -85 -85 0 
+  N3 off -inf -inf 0 

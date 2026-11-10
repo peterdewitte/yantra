@@ -5,6 +5,8 @@
 // with --json, the exit codes and the --bias-tee confirmation.
 #include <doctest/doctest.h>
 
+#include "test_platform.hpp"
+
 #include "hackrf_app.hpp"
 
 #include <nlohmann/json.hpp>
@@ -49,12 +51,12 @@ struct Fake {
         fs::create_directories(control);
         const std::string devices =
             device ? "{\"serial\":\"" + std::string(kSerial) + "\",\"scenario\":\"" + fixture() + "\"" + extra + "}" : "";
-        const std::string cfg = "{\"control\":\"" + control.string() + "\",\"devices\":[" + devices + "]}";
-        REQUIRE(setenv("YANTRA_FAKE_SOAPY", cfg.c_str(), 1) == 0);
+        const std::string cfg = "{\"control\":\"" + control.generic_string() + "\",\"devices\":[" + devices + "]}";
+        REQUIRE(yantra::test::set_env("YANTRA_FAKE_SOAPY", cfg.c_str()) == 0);
     }
     ~Fake()
     {
-        unsetenv("YANTRA_FAKE_SOAPY");
+        yantra::test::unset_env("YANTRA_FAKE_SOAPY");
         std::error_code ec;
         fs::remove_all(control, ec);
     }
@@ -261,7 +263,7 @@ TEST_CASE("yantra-hackrf: level linearity with the level steps (RAD-66, RAD-125)
 {
     Fake f;
     // The fake's level control file plays the signal generator.
-    const std::string step = "printf %s {dbm} > " + f.file(".level_offset");
+    const std::string step = yantra::test::write_command("{dbm}", f.file(".level_offset"));
     const Result r = f.cli({"level", "--frequency", "392.5M", "--levels", "-20,-10,0", "--step-cmd", step,
                             "--duration", guard(60), "--json"});
     REQUIRE_MESSAGE(r.code == kPass, std::string(r.out + r.err));
@@ -320,8 +322,8 @@ TEST_CASE("yantra-hackrf: throughput per sample rate (RAD-66, RAD-24)")
 TEST_CASE("yantra-hackrf: replug and report (RAD-66, RAD-35, RAD-95)")
 {
     Fake f;
-    const std::string unplug = "touch " + f.file(".unplugged");
-    const std::string replug = "rm " + f.file(".unplugged");
+    const std::string unplug = yantra::test::touch_command(f.file(".unplugged"));
+    const std::string replug = yantra::test::remove_command(f.file(".unplugged"));
     const Result r = f.cli({"replug", "--unplug-cmd", unplug, "--replug-cmd", replug, "--timeout", "20",
                             "--bias-tee", "--set", "antenna_power=true", "--json"});
     REQUIRE_MESSAGE(r.code == kPass, std::string(r.out + r.err));

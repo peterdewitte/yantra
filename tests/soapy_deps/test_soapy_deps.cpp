@@ -7,6 +7,8 @@
 // and the libraries work without a device.
 #include <doctest/doctest.h>
 
+#include "test_platform.hpp"
+
 #include <SoapySDR/Device.hpp>
 #include <SoapySDR/Modules.hpp>
 #include <SoapySDR/Registry.hpp>
@@ -30,8 +32,8 @@ TEST_CASE("the module loader loads nothing from the system")
     const auto dir = std::filesystem::path(YANTRA_BINARY_DIR) / "tests" / "soapy_deps_modules";
     std::filesystem::create_directories(dir);
     std::ofstream(dir / "libbogusSupport.so") << "not a module";
-    ::setenv("SOAPY_SDR_PLUGIN_PATH", dir.c_str(), 1);
-    ::setenv("SOAPY_SDR_ROOT", dir.c_str(), 1);
+    yantra::test::set_env("SOAPY_SDR_PLUGIN_PATH", dir.string().c_str());
+    yantra::test::set_env("SOAPY_SDR_ROOT", dir.string().c_str());
     CHECK(SoapySDR::listModules().empty());
     CHECK(SoapySDR::listSearchPaths().empty());
     CHECK(SoapySDR::getRootPath().empty());

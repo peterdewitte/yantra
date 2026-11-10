@@ -7,6 +7,8 @@
 // and decode-iq of a capture finding the fake's cells.
 #include <doctest/doctest.h>
 
+#include "test_platform.hpp"
+
 #include <yantra/plugins/soapy_plugin.hpp>
 
 #include "capture_iq.hpp"
@@ -39,15 +41,15 @@ struct Setup {
               (std::to_string(getpid()) + "_" + std::to_string(++n));
         fs::remove_all(dir);
         fs::create_directories(dir);
-        const std::string json = "{\"control\":\"" + dir.string() + "\",\"devices\":[{\"serial\":\"" + kSerial +
+        const std::string json = "{\"control\":\"" + dir.generic_string() + "\",\"devices\":[{\"serial\":\"" + kSerial +
                                  "\",\"paced\":false,\"scenario\":\"" + YANTRA_TEST_DATA_DIR +
                                  "/soapy/fake_two_cells.json\"" + extra + "}]}";
-        setenv("YANTRA_FAKE_SOAPY", json.c_str(), 1);
+        yantra::test::set_env("YANTRA_FAKE_SOAPY", json.c_str());
         yantra::soapy::module_table() = "yantrafake|yantra fake module (test)|0.3.6-fake|yantra-gen";
     }
     ~Setup()
     {
-        unsetenv("YANTRA_FAKE_SOAPY");
+        yantra::test::unset_env("YANTRA_FAKE_SOAPY");
         std::error_code ec;
         fs::remove_all(dir, ec);
     }

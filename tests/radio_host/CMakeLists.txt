@@ -51,7 +51,9 @@ set_tests_properties(test_radio_host PROPERTIES LABELS fast TIMEOUT 120
 # yantra_add_radio_plugin(), as for every plugin.
 
 # The command line. PASS_REGULAR_EXPRESSION checks the output; FAIL_ wins.
-set(_host $<TARGET_FILE:yantra-radio-host>)
+# The target name (not its file): ctest then runs it through the
+# CMAKE_CROSSCOMPILING_EMULATOR of the Windows tree.
+set(_host yantra-radio-host)
 set(_fake $<TARGET_FILE:fake_radio>)
 set(_scene ${PROJECT_SOURCE_DIR}/tests/fixtures/scenes/two_rooms_v1.json)
 set(_records ${CMAKE_CURRENT_BINARY_DIR}/host_cli.records.jsonl)

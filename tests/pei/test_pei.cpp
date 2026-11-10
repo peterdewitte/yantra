@@ -15,6 +15,8 @@
 
 #include <doctest/doctest.h>
 
+#include "test_platform.hpp"
+
 #include <algorithm>
 #include <atomic>
 #include <chrono>
@@ -72,7 +74,7 @@ struct Rig {
     {
         terminal.set_time(10.0);
         pty = std::make_unique<pei_sim::PtyTerminal>(terminal, link);
-        REQUIRE(::setenv("YANTRA_PEI_PORTS", link.c_str(), 1) == 0);
+        REQUIRE(yantra::test::set_env("YANTRA_PEI_PORTS", link.c_str()) == 0);
         HostConfig cfg;
         std::string error;
         host = Host::load(PEI_PLUGIN, cfg, error);
@@ -87,7 +89,7 @@ struct Rig {
         close();
         host.reset();
         pty.reset();
-        ::unsetenv("YANTRA_PEI_PORTS");
+        yantra::test::unset_env("YANTRA_PEI_PORTS");
     }
     const yr_stream_control& sc() const { return *host->descriptor().stream; }
     void open()

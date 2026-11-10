@@ -7,6 +7,8 @@
 // and notifications (RAD-18, RAD-36), and record files (RAD-65).
 #include <doctest/doctest.h>
 
+#include "test_platform.hpp"
+
 #include <host.hpp>
 
 #include <cstdlib>
@@ -162,11 +164,11 @@ TEST_CASE("host: devices, settings, presets, sensors, actions and self-test")
 TEST_CASE("host: no device gives the plugin's diagnostic")
 {
     auto host = load_fake();
-    ::setenv("YANTRA_FAKE_NO_DEVICE", "1", 1);
+    yantra::test::set_env("YANTRA_FAKE_NO_DEVICE", "1");
     std::vector<radios::DeviceInfo> devices;
     std::string diag;
     CHECK(enumerate_devices(*host, devices, diag) == YR_ERR_NO_DEVICE);
-    ::unsetenv("YANTRA_FAKE_NO_DEVICE");
+    yantra::test::unset_env("YANTRA_FAKE_NO_DEVICE");
     CHECK(devices.empty());
     CHECK(diag == "no fake device: YANTRA_FAKE_NO_DEVICE is set");
 }

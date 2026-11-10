@@ -26,7 +26,7 @@ yantra_osmo_tetra_compile(${_osmo_test_sources})
 target_link_libraries(yantra_test_osmo_extra PUBLIC yantra::osmo_tetra)
 set_target_properties(yantra_test_osmo_extra PROPERTIES C_STANDARD 11 C_EXTENSIONS ON)
 
-yantra_add_test_dir(gen_osmo LIBS yantra::gen yantra_test_osmo_extra)
+yantra_add_test_dir(gen_osmo LIBS yantra::gen yantra_test_osmo_extra yantra::json)
 # The modulated-sample round trip demodulates with the test-only
 # demodulator of tests/gen.
 target_sources(test_gen_osmo PRIVATE ${CMAKE_SOURCE_DIR}/tests/gen/ref_demod.cpp)
