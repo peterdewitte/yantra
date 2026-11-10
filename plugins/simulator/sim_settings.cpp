@@ -61,6 +61,8 @@ const yr_enum_item kFadingItems[] = {{0, "scenario", "As in the scenario"},
                                      {4, "static", "Static multipath"},
                                      {5, "tu50", "Typical urban, 50 km/h"},
                                      {6, "ht200", "Hilly terrain, 200 km/h"}};
+const yr_enum_item kLevelUnitItems[] = {{kLevelDbm, "dbm", "dBm (calibrated)"},
+                                        {kLevelDbfs, "dbfs", "dBFS (like an SDR)"}};
 const yr_enum_item kPositionItems[] = {
     {kPosAuto, "auto", "Walk position during a walk test, else the mouse"},
     {kPosMouse, "mouse", "Mouse position"},
@@ -204,18 +206,29 @@ std::vector<yr_setting_def> settings_of(const Settings& now)
     d.push_back(fx);
     d.push_back(fy);
     // Calibration
+    yr_setting_def unit = make_setting(
+        "level_unit", YR_TYPE_ENUM, "Levels", "", kGroupCalibration,
+        "Unit of the measured levels. dBm (calibrated): the simulator converts its measured "
+        "levels with the gain chain it knows, like a calibrated measurement receiver; no "
+        "calibration is needed. dBFS (like an SDR): levels relative to full scale at the "
+        "simulated gain, as a real radio gives them; Yantra's calibration turns them into dBm "
+        "(practise it with the simulated signal generator).",
+        1);
+    set_items(unit, kLevelUnitItems);
+    unit.default_value = yr_value_enum(kLevelDbm);
+    d.push_back(unit);
     yr_setting_def cg = make_setting(
         "calibration_generator", YR_TYPE_BOOL, "Simulated signal generator", "",
         kGroupCalibration,
         "Practice calibration: instead of the scenario, one TETRA carrier (the scenario's "
         "first cell) at the level below, without fading, like a signal generator on the "
-        "antenna input.",
-        1);
+        "antenna input. With Levels in dBFS, Yantra's calibration finds the true offset.",
+        2);
     cg.default_value = yr_value_bool(0);
     d.push_back(cg);
     yr_setting_def cl = number("calibration_level_dbm", YR_TYPE_DOUBLE, "Generator level", "dBm",
                                kGroupCalibration,
-                               "True level of the simulated signal generator.", 2, -120.0,
+                               "True level of the simulated signal generator.", 3, -120.0,
                                -20.0, 0.5, -60.0);
     unavailable(cl, !now.calibration_generator, "switch the simulated signal generator on");
     d.push_back(cl);
@@ -284,6 +297,8 @@ yr_status get_setting(const Settings& s, const char* key, yr_value* out, char* t
         *out = yr_value_double(s.fixed_x_m);
     else if (is("fixed_y_m"))
         *out = yr_value_double(s.fixed_y_m);
+    else if (is("level_unit"))
+        *out = yr_value_enum(s.level_unit);
     else if (is("calibration_generator"))
         *out = yr_value_bool(s.calibration_generator ? 1 : 0);
     else if (is("calibration_level_dbm"))
@@ -339,6 +354,8 @@ void store_setting(Settings& s, const yr_setting_def& def, const yr_value& v)
         s.fixed_x_m = x;
     else if (is("fixed_y_m"))
         s.fixed_y_m = x;
+    else if (is("level_unit"))
+        s.level_unit = e;
     else if (is("calibration_generator"))
         s.calibration_generator = v.u.i64 != 0;
     else if (is("calibration_level_dbm"))

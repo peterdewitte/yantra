@@ -163,6 +163,7 @@ struct GsmtapSettings {
     bool enabled = false;
     std::string host = "127.0.0.1";
     uint64_t port = receiver::tetra::kGsmtapDefaultPort;
+    bool operator==(const GsmtapSettings&) const = default;
 };
 /// Appends the three definitions (orders first_order..first_order + 2).
 void add_gsmtap_settings(std::vector<yr_setting_def>& defs, const char* group,

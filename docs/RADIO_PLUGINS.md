@@ -855,12 +855,22 @@ live settings and context events.
 Which scenario runs. The setting `scenario` is "auto" by default: the
 plugin asks `get_floor_plan` and picks the scenario whose `example_ids`
 match the example id of the plan shown (data/scenarios,
-docs/SCENARIO_FORMAT.md); with an own plan it uses the default scenario
-plus the cells of the plan's scene (a plan cell on the carrier of a
-default-scenario cell replaces that cell, so every cell on the plan's
-carriers is calculated from the plan's scene); without a plan
-(`YR_ERR_NO_PLAN`) the default scenario. Any bundled scenario can also be chosen by name. The
-scenario files are embedded in the plugin, so it needs no data folder.
+docs/SCENARIO_FORMAT.md): `fraunces-N`, `mak-beer-house-N`,
+`mak-haus-claeson-N`, `mak-villa-bunzl-N` (RAD-18); with an own plan, or
+without a plan (`YR_ERR_NO_PLAN`), the default scenario. Any bundled
+scenario can also be chosen by name. The scenario files are embedded in
+the plugin, so it needs no data folder.
+
+Which cells. When the plan's scene has cells (the cells its antennas
+serve, plan cell ids such as `T1`), only those cells are simulated and
+the scenario's own cells are dropped (RAD-61); the scenario still gives
+the receiver, the channel and the antenna powers. A plan without cells
+gets the scenario's cells (with the plan's walls). One exception keeps
+the bundled demos whole: a bundled example plan whose cells all belong to
+its own scenario (Fraunces' `T1`, the MAK plans' `T1`) runs that
+scenario as it is, the example network's macro cell `M1` included. A
+plan cell of another network keeps its MCC and MNC, unless the setting
+`network` gives every cell one network.
 
 Where the receiver is. Each record interval the plugin reads the position
 (setting `position_source`: auto takes the walk position when a walk
@@ -885,14 +895,21 @@ span is found and measured each interval (failed_site's cells at
 a SERVING plan with a given carrier follows that one, the others as its
 neighbours.
 
-Levels and calibration. The plugin is not SELF_CALIBRATED: levels are
-dBFS, as from a real radio, and dBm = dBFS + offset. The true offset is
-the scenario receiver's reference level minus the setting `gain_db`
-(-20 dB with the bundled scenarios and gain 0); the sensor
-`true_offset_db` shows it. For practice, `calibration_generator` replaces
-the network by one carrier at `calibration_level_dbm`, so Yantra's
-calibration (RF-02) can be tried: generator level minus the measured
-level gives the true offset.
+Levels and calibration. The receiver measures dBFS, as from a real
+radio; dBm = dBFS + offset, where the true offset is the scenario
+receiver's reference level minus the setting `gain_db` (-20 dB with the
+bundled scenarios and gain 0; sensor `true_offset_db`). The setting
+`level_unit` ("Levels", radio API 1.1, RAD-21, RAD-61) chooses what the
+records carry: `dbm` "dBm (calibrated)", the default, turns each measured
+level into dBm with that offset, so it keeps the receiver's measurement
+noise; the device entry and every record carry LEVEL_DBM, never
+UNCALIBRATED, and Yantra applies no calibration. `dbfs` "dBFS (like an
+SDR)" gives the dBFS levels without the flag, and Yantra calibrates them.
+The unit is read for every record pushed, so a change takes effect with
+the next record, without restarting the simulation. For practice in dBFS
+mode, `calibration_generator` replaces the network by one carrier at
+`calibration_level_dbm`, so Yantra's calibration (RF-02) can be tried:
+generator level minus the measured level gives the true offset.
 
 C1 (EN 300 392-2 clause 23.3) uses the decoded level with the true
 offset, the broadcast `rxlev_access_min` and `ms_txpwr_max_cell`, and the
@@ -900,7 +917,7 @@ MS maximum power, the device setting `ms_max_power_dbm` (default 30 dBm:
 a power class 4 hand-held, 1 W; a class 2 vehicle radio is 10 W, 40 dBm).
 
 Other settings: network (the scenario's, the test network 001-01 or the
-fictitious 901-99), playback speed (record times run as fast), records
+fictitious 901-99 for every cell), playback speed (record times run as fast), records
 per second, seed (0: the scenario's; the same seed gives the same
 output), sample rate, signal offset, receiver noise (the scenario's, off
 or a custom noise floor), oscillator error, fading, gain, clipping,
@@ -929,7 +946,12 @@ formula at each record's `sim_position`, a cursor move followed within
 1 s, a scene change reloaded, the fallbacks without plan or position,
 ground truth (identity, neighbours, C1), each example id's scenario,
 seeds, real-time pacing within 1 % and the cursor latency (both in
-`test_simulator_timing`, label timing), the practice calibration, the
+`test_simulator_timing`, label timing), the practice calibration in dBFS
+mode, dBm mode (levels within 0.5 dB of the true levels, LEVEL_DBM on
+the device and every record) and a unit change taking effect with the
+next record, a plan with cells giving only its cells and one without
+cells the scenario's, a neighbour of another network announced with its
+MCC and MNC (`network_border`, RAD-22), the
 slow sink, pause/resume, and for every bundled scenario with two or more
 decodable cells each cell measured within 0.5 dB of the ground truth,
 with the strongest or the given serving cell (weak_signal is left out:

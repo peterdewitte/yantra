@@ -16,6 +16,16 @@
 // position their level was generated for (sim_position, RAD-19), with the
 // ground truth of that interval (cell id, level source, strongest antenna,
 // walls) and C1 from the true calibration (RAD-22).
+//
+// Plan cells (RAD-61): when the floor's scene has cells, only those are
+// simulated and the scenario's own cells are dropped, unless the plan is
+// a bundled example plan whose cells are all its scenario's (that
+// scenario is the example building's network, its macro cell included).
+//
+// Level unit (RAD-21, RAD-61): the receiver measures dBFS; in dBm mode
+// (the default) each record's level is turned into dBm with the true
+// offset of the simulated gain chain and carries LEVEL_DBM. The unit is
+// read at every push, so a change takes effect with the next record.
 #include "sim_device.hpp"
 #include "sim_scenarios.hpp"
 
@@ -136,6 +146,24 @@ bool knows_all_cells(const gen::Scenario& s, const radios::Scene& scene)
                        [&](const radios::SceneCell& c) { return s.find_cell(c.id) != nullptr; });
 }
 
+// The network setting (RAD-61): the scenario's, or one network for all
+// cells (the cells' own networks are dropped).
+void apply_network(gen::Scenario& sc, const Settings& s)
+{
+    if (s.network == kNetScenario)
+        return;
+    sc.mcc = s.network == kNetTest00101 ? 1 : 901;
+    sc.mnc = s.network == kNetTest00101 ? 1 : 99;
+    for (gen::ScenarioCell& c : sc.cells) {
+        c.mcc.reset();
+        c.mnc.reset();
+        for (gen::ScenarioNeighbour& n : c.neighbours) {
+            n.mcc.reset();
+            n.mnc.reset();
+        }
+    }
+}
+
 // The scene cells' network code when they all agree.
 void network_of_scene(gen::Scenario& s, const radios::Scene& scene)
 {
@@ -169,13 +197,7 @@ gen::Scenario base_scenario(const Settings& s, const PlanContext& plan)
         sc.seed = s.seed;
     if (s.sample_rate > 0 && s.sample_rate < std::size(kSampleRates))
         sc.sample_rate_hz = kSampleRates[s.sample_rate];
-    if (s.network == kNetTest00101) {
-        sc.mcc = 1;
-        sc.mnc = 1;
-    } else if (s.network == kNetFictitious90199) {
-        sc.mcc = 901;
-        sc.mnc = 99;
-    }
+    apply_network(sc, s);
     if (s.receiver_noise == kNoiseOff)
         sc.receiver.noise = false;
     else if (s.receiver_noise == kNoiseCustom) {
@@ -334,36 +356,30 @@ void Stream::build()
             log(*d_->plugin, d_, YR_LOG_WARNING, error + "; the scenario's own levels are used");
         if (scene_) {
             offset_scene(*scene_, s_.signal_offset_db);
-            if (!knows_all_cells(sc, *scene_)) {
-                // An own plan's cells: added to the scenario (replacing a
-                // scenario cell on the same carrier), or (when they do not
-                // fit its span) the plan's cells alone.
-                gen::Scenario with = sc;
+            // A bundled example plan with its own scenario's cells: that
+            // scenario is the plan's network (RAD-18, RAD-74).
+            const bool example_network = s_.scenario == 0 && !pc_.example_id.empty() &&
+                                         knows_all_cells(sc, *scene_);
+            if (!scene_->cells.empty() && !example_network) {
+                // The plan's cells only; the scenario's are dropped (RAD-61).
+                gen::Scenario only = sc;
+                only.cells.clear();
+                only.floors.clear();
+                only.antennas.clear();
+                only.path = gen::ReceiverPath{};
+                only.events.clear();
+                only.centre_frequency_hz.reset();
                 try {
-                    gen::add_scene_cells(with, *scene_);
-                    network_of_scene(with, *scene_);
-                    gen::validate_scenario(with);
-                    sc = std::move(with);
-                } catch (const gen::ScenarioError&) {
-                    gen::Scenario only = sc;
-                    only.cells.clear();
-                    only.floors.clear();
-                    only.antennas.clear();
-                    only.path = gen::ReceiverPath{};
-                    only.events.clear();
-                    only.centre_frequency_hz.reset();
-                    try {
-                        gen::add_scene_cells(only, *scene_);
-                        network_of_scene(only, *scene_);
-                        if (only.cells.empty())
-                            throw gen::ScenarioError("the plan has no cells");
-                        gen::validate_scenario(only);
-                        sc = std::move(only);
-                    } catch (const gen::ScenarioError& e) {
-                        log(*d_->plugin, d_, YR_LOG_WARNING,
-                            std::string("the cells of the plan cannot be simulated (") +
-                                e.what() + "); the scenario's cells are used");
-                    }
+                    gen::add_scene_cells(only, *scene_);
+                    network_of_scene(only, *scene_);
+                    apply_network(only, s_);
+                    gen::validate_scenario(only);
+                    sc = std::move(only);
+                    simulating_ += ": the plan's cells";
+                } catch (const gen::ScenarioError& e) {
+                    log(*d_->plugin, d_, YR_LOG_WARNING,
+                        std::string("the cells of the plan cannot be simulated (") + e.what() +
+                            "); the scenario's cells are used");
                 }
             }
         }
@@ -450,8 +466,8 @@ void Stream::reload_scene()
         return;
     }
     offset_scene(*scene, s_.signal_offset_db);
-    if (!knows_all_cells(scenario_, *scene)) {
-        build(); // new cells: the scenario is made again
+    if (!scene_ || scene->cells != scene_->cells || !knows_all_cells(scenario_, *scene)) {
+        build(); // other cells: the scenario is made again (RAD-61)
         return;
     }
     scene_ = scene;
@@ -540,7 +556,24 @@ void Stream::annotate(EngineOutput& out)
 void Stream::deliver(EngineOutput& out)
 {
     annotate(out);
-    plugins::push_output(h_, d_->sink, out, d_->counters);
+    for (radios::Record& r : out.records) {
+        // The unit is read for each record, so a change takes effect with
+        // the next one (RAD-21). dBm = dBFS + the true offset of the
+        // simulated gain chain: the level keeps the receiver's measurement
+        // noise (RAD-61); C1 was calculated from the same dBm level.
+        if (d_->level_dbm.load()) {
+            r.flags |= YR_RECORD_LEVEL_DBM;
+            r.flags &= ~YR_RECORD_UNCALIBRATED; // calibrated by construction
+            if (r.schema_index == 0) {
+                radios::Value& level = r.values.at(YR_CORE_LEVEL);
+                if (level.type == YR_TYPE_DOUBLE)
+                    level.f64 += offset_db_;
+            }
+        }
+        plugins::push_record(h_, d_->sink, r, d_->counters);
+    }
+    for (const radios::Event& e : out.events)
+        h_.stream_event(d_->sink, e.event, e.value);
     out.clear();
 }
 
@@ -558,9 +591,13 @@ void Stream::run()
             if (d_->stop)
                 break;
             if (d_->settings_version != version_) {
+                // The level unit alone needs no rebuild: annotate reads it
+                // at every push.
+                Settings same = d_->settings;
+                same.level_unit = s_.level_unit;
+                rebuild = version_ == ~uint64_t{0} || !(same == s_);
                 s_ = d_->settings;
                 version_ = d_->settings_version;
-                rebuild = true;
             }
             if (!eng_)
                 plan_ = d_->plan_setup;

@@ -75,18 +75,34 @@ yr_status sim_init(const yr_host_api* host, yr_plugin** out)
 
 void sim_shutdown(yr_plugin* plugin) { delete P(plugin); }
 
-const yr_device_info& device_info()
+// The device entry with its level unit (RAD-30): LEVEL_DBM in dBm mode.
+const yr_device_info& device_info(bool level_dbm = true)
 {
     static const std::string hw = "scenarios=" + std::to_string(scenario_list().size());
-    static const yr_device_info info = {sizeof(yr_device_info), YR_DEVICE_SIMULATED,
-                                        "simulator:0", "Demo (simulated network)",
-                                        "simulator", "0", "1.0", hw.c_str(), ""};
-    return info;
+    static const yr_device_info dbm = {sizeof(yr_device_info),
+                                       YR_DEVICE_SIMULATED | YR_DEVICE_LEVEL_DBM,
+                                       "simulator:0", "Demo (simulated network)",
+                                       "simulator", "0", "1.0", hw.c_str(), ""};
+    static const yr_device_info dbfs = [] {
+        yr_device_info i = dbm;
+        i.flags = YR_DEVICE_SIMULATED;
+        return i;
+    }();
+    return level_dbm ? dbm : dbfs;
 }
 
-yr_status sim_enumerate(yr_plugin*, yr_device_cb cb, void* user)
+yr_status sim_enumerate(yr_plugin* plugin, yr_device_cb cb, void* user)
 {
-    cb(user, &device_info()); // always present: the device is simulated
+    // Always present (the device is simulated); the unit of the open
+    // device, else the default (dBm).
+    Plugin* p = P(plugin);
+    bool dbm = true;
+    {
+        std::lock_guard lock(p->mutex);
+        if (p->device != nullptr)
+            dbm = p->device->level_dbm.load();
+    }
+    cb(user, &device_info(dbm));
     return YR_OK;
 }
 
@@ -201,9 +217,9 @@ void sim_close(yr_device* device)
     delete d;
 }
 
-yr_status sim_device_info(yr_device*, yr_device_cb cb, void* user)
+yr_status sim_device_info(yr_device* device, yr_device_cb cb, void* user)
 {
-    cb(user, &device_info());
+    cb(user, &device_info(D(device)->level_dbm.load()));
     return YR_OK;
 }
 
@@ -358,7 +374,8 @@ yr_status sim_set(yr_device* device, const char* key, const yr_value* value)
             return YR_ERR_BUSY;
         }
         store_setting(d->settings, *def, *value);
-        ++d->settings_version; // a running stream rebuilds the simulation
+        d->level_dbm = d->settings.level_unit == kLevelDbm;
+        ++d->settings_version; // a running stream rebuilds the simulation (not for the unit)
         const bool notify = others_differ(before, settings_of(d->settings));
         lock.unlock();
         d->wake.notify_all();
@@ -417,6 +434,7 @@ yr_status sim_apply_preset(yr_device* device, const char* id)
                 return YR_ERR_BUSY;
             }
             d->settings = s;
+            d->level_dbm = d->settings.level_unit == kLevelDbm;
             ++d->settings_version;
         }
         d->wake.notify_all();
@@ -573,7 +591,7 @@ extern "C" YR_EXPORT const yr_descriptor* yantra_radio_entry(void)
         YR_CAP_SIMULATED | YR_CAP_SCENE,
         "simulator",
         "Demo (simulated network)",
-        "0.2.4",
+        "0.3.0",
         "The Yantra contributors",
         "GPL-3.0-or-later AND AGPL-3.0-or-later", // the receiver uses osmo-tetra (RAD-05)
         "Simulated TETRA network: generated signal, decoded by the real receiver (RAD-61)",

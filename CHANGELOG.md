@@ -103,6 +103,16 @@ well; they change independently of the radio API version.
 
 ### Changed
 
+- Simulator 0.3.0 (RAD-61, RAD-94): new setting `level_unit` ("Levels"):
+  `dbm` "dBm (calibrated)" (default) delivers calibrated dBm with the
+  flag LEVEL_DBM on the device and every record (radio API 1.1); `dbfs`
+  "dBFS (like an SDR)" behaves as before. A unit change takes effect with
+  the next record, without restarting the simulation. When the plan's
+  scene has cells, only those cells are simulated and the scenario's own
+  are dropped (before: added to the default scenario); a bundled example
+  plan with its own scenario's cells keeps that scenario whole. The
+  setting `network` now also applies to plan cells.
+
 - clang of the cross SDK is the default compiler (RAD-03, RAD-139): the
   presets `default`, `scalar`, `ci`, `ci-scalar`, `asan-ubsan`, `tsan` and
   `fuzz` use `tools/sdk/toolchain-x86_64-linux-gnu-clang.cmake` (with the

@@ -11,16 +11,20 @@ practice, real time): [RADIO_PLUGINS.md, the simulator plugin](../RADIO_PLUGINS.
 
 ## Devices
 
-One device, `simulator:0` "Demo (simulated network)", always present.
+One device, `simulator:0` "Demo (simulated network)", always present,
+with the flag LEVEL_DBM while the setting `level_unit` (Levels) is
+`dbm` (the default; radio API 1.1, RAD-30).
 
 ## Records
 
-`tetra_cell` and `tetra_neighbour` with `simulated` set: levels in
-dBFS (not SELF_CALIBRATED), the `sim_position` group when a position is
-known, and the generator's own fields (`cell_id`, `level_inst_dbm`,
-`level_source`, `best_antenna`, `walls`); every field in
-[TETRA_RECORDS.md](../TETRA_RECORDS.md). Every record has the SIMULATED
-flag.
+`tetra_cell` and `tetra_neighbour` with `simulated` set: levels in dBm
+(calibrated, flag LEVEL_DBM, never UNCALIBRATED) by default, or in dBFS
+like an SDR with Levels `dbfs` (the plugin is not SELF_CALIBRATED; the
+schema's level unit says dBFS, RAD-21); the `sim_position` group when a
+position is known, and the generator's own fields (`cell_id`,
+`level_inst_dbm`, `level_source`, `best_antenna`, `walls`); every field
+in [TETRA_RECORDS.md](../TETRA_RECORDS.md). Every record has the
+SIMULATED flag.
 
 ## Settings, presets, sensors and self-test
 
@@ -48,6 +52,7 @@ Settings (RAD-40, RAD-41):
 | `position_source` | Position source | enum | Position |  |  |  |
 | `fixed_x_m` | Fixed point x | double | Position | m | -10000..10000 step 0.01 | unavailable |
 | `fixed_y_m` | Fixed point y | double | Position | m | -10000..10000 step 0.01 | unavailable |
+| `level_unit` | Levels | enum | Calibration |  |  |  |
 | `calibration_generator` | Simulated signal generator | bool | Calibration |  |  |  |
 | `calibration_level_dbm` | Generator level | double | Calibration | dBm | -120..-20 step 0.5 | unavailable |
 | `ms_max_power_dbm` | MS maximum power (C1) | double | Receiver | dBm | 15..45 step 0.25 |  |

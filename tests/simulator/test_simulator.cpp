@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <limits>
 #include <map>
@@ -149,6 +150,13 @@ struct Sim {
         return v;
     }
     double offset() { return sensor("true_offset_db").f64; }
+    // The record's level in dBm: as is with LEVEL_DBM (the default dBm
+    // mode, RAD-61), else dBFS + the true offset.
+    double dbm(const Record& r)
+    {
+        const double level = v(r, YR_FIELD_LEVEL).f64;
+        return (r.flags & YR_RECORD_LEVEL_DBM) != 0 ? level : level + offset();
+    }
 
     // Streams with a serving plan until `done` says so (or `seconds` times
     // YANTRA_TEST_TIME_SCALE pass).
@@ -247,7 +255,7 @@ TEST_CASE("simulator: levels follow the multi-wall model at each sim_position (R
                 return false;
             CHECK(sim.v(r, YR_FIELD_SIM_FLOOR_ID).str == "fr-ground");
             const double want = formula_t1(fraunces_scene(), sim.x(r), sim.y(r));
-            const double got = sim.v(r, YR_FIELD_LEVEL).f64 + offset;
+            const double got = sim.dbm(r);
             worst = std::max(worst, std::abs(got - want));
             CHECK_MESSAGE(std::abs(got - want) <= 0.5,
                           "at " << sim.x(r) << ", " << sim.y(r) << ": " << got << " dBm, model "
@@ -314,13 +322,12 @@ TEST_CASE("simulator: a scene 1.1 is simulated with its polylines, bands and sto
     Sim sim(fraunces_plan(path, 12, scene));
     std::set<std::pair<double, double>> seen;
     int checked = 0;
-    const double offset = -20.0;
     sim.stream(
         [&](const Record& r) {
             if (!sim.is_cell(r, kT1Hz) || !sim.has_position(r))
                 return false;
             const double want = formula_t1(scene, sim.x(r), sim.y(r));
-            const double got = sim.v(r, YR_FIELD_LEVEL).f64 + offset;
+            const double got = sim.dbm(r);
             CHECK_MESSAGE(std::abs(got - want) <= 0.5,
                           "at " << sim.x(r) << ", " << sim.y(r) << ": " << got << " dBm, model " << want
                                 << " dBm");
@@ -329,7 +336,7 @@ TEST_CASE("simulator: a scene 1.1 is simulated with its polylines, bands and sto
             return seen.size() >= path.size() && checked >= 6;
         },
         60.0);
-    CHECK(sim.offset() == doctest::Approx(offset));
+    CHECK(sim.offset() == doctest::Approx(-20.0));
     CHECK(seen.size() == path.size());
 }
 
@@ -390,7 +397,7 @@ TEST_CASE("simulator: an own plan's cell on a default-scenario carrier is calcul
             CHECK(sim.v(r, YR_FIELD_COLOUR_CODE).u64 == 5);
             CHECK(sim.v(r, "walls").u64 == static_cast<uint64_t>(walls));
             const double want = model.cell(scene, "cell-1", gen::PlanPoint{x, sim.y(r)}).level_dbm;
-            const double got = sim.v(r, YR_FIELD_LEVEL).f64 + sim.offset();
+            const double got = sim.dbm(r);
             CHECK_MESSAGE(std::abs(got - want) <= 0.5, "at x " << x << ": " << got << " dBm, model " << want);
             ++checked[x];
             return checked.size() >= 2 && std::all_of(checked.begin(), checked.end(),
@@ -398,9 +405,251 @@ TEST_CASE("simulator: an own plan's cell on a default-scenario carrier is calcul
         },
         60.0);
     CHECK(checked.size() == 2);
-    // Only one cell is on the carrier: the default scenario's D0 is gone,
-    // its first-floor DAS and the macro site stay.
+    // The plan has a cell, so only the plan's cells are simulated: the
+    // default scenario's D0, D1 and M1 are gone (RAD-61).
     CHECK(sim.sensor("scenario_id").str == def.id);
+    CHECK(sim.sensor("simulating").str == "own plan: the plan's cells");
+}
+
+namespace {
+
+// An own plan with two cells, and one with walls only (no cells).
+std::string own_two_cells_scene()
+{
+    return R"({"format": "yantra-radio-scene", "version": 1,
+  "floor": {"id": "own-ground", "name": "Ground floor", "scale_set": true,
+            "width_m": 20.0, "height_m": 10.0},
+  "wall_classes": [], "walls": [],
+  "cells": [{"id": "cell-1", "label": "Indoor DAS", "mcc": 901, "mnc": 1, "la": 321,
+             "colour_code": 5, "carrier_hz": 390000000},
+            {"id": "cell-2", "label": "Second DAS", "mcc": 901, "mnc": 1, "la": 322,
+             "colour_code": 6, "carrier_hz": 390150000}],
+  "antennas": [{"id": "antenna-1", "cell": "cell-1", "x_m": 3.0, "y_m": 5.0, "height_m": 2.8,
+                "eirp_dbm": 10.0, "pattern": {"type": "omni"}},
+               {"id": "antenna-2", "cell": "cell-2", "x_m": 15.0, "y_m": 5.0, "height_m": 2.8,
+                "eirp_dbm": 10.0, "pattern": {"type": "omni"}}]})";
+}
+std::string own_walls_only_scene()
+{
+    return R"({"format": "yantra-radio-scene", "version": 1,
+  "floor": {"id": "own-ground", "name": "Ground floor", "scale_set": true,
+            "width_m": 20.0, "height_m": 10.0},
+  "wall_classes": [{"id": "concrete", "label": "Concrete", "attenuation_db": 12.0}],
+  "walls": [{"x1_m": 8.0, "y1_m": 0.0, "x2_m": 8.0, "y2_m": 10.0, "class": "concrete",
+             "attenuation_db": 12.0}],
+  "cells": [], "antennas": []})";
+}
+
+// The scenario cell ids of the synchronised cell records until `want` of
+// them were seen and then `more` further synchronised records.
+std::set<std::string> cells_seen(Sim& sim, std::size_t want, int more)
+{
+
+    std::set<std::string> ids;
+    int after = 0;
+    sim.stream(
+        [&](const Record& r) {
+            if (r.schema_index != 0 || (r.flags & YR_RECORD_NO_SYNC) != 0)
+                return false;
+            if (const radios::Value& id = sim.v(r, "cell_id"); id.type == YR_TYPE_STRING)
+                ids.insert(id.str);
+            else
+                ids.insert("(no truth) " + std::to_string(r.values[YR_CORE_FREQUENCY_HZ].u64));
+            return ids.size() >= want && ++after >= more;
+        },
+        60.0);
+    std::string list;
+    for (const std::string& id : ids)
+        list += id + " ";
+    MESSAGE("cells: " << list);
+    return ids;
+}
+
+} // namespace
+
+TEST_CASE("simulator: a plan with cells gives the plan's cells only, a plan without cells the scenario's (RAD-61, RAD-94)")
+{
+    {
+        INFO("an own plan with two cells");
+        ContextOptions c;
+        c.plan = true;
+        c.plan_name = "Own office";
+        c.scene_json = {own_two_cells_scene()};
+        c.cursor = {{9, 5}};
+        Sim sim(c);
+        const std::set<std::string> ids = cells_seen(sim, 2, 30);
+        CHECK(ids == std::set<std::string>{"cell-1", "cell-2"});
+        const std::string truth = sim.sensor("true_levels").str;
+        for (const char* gone : {"D0 ", "D1 ", "M1 "})
+            CHECK(truth.find(gone) == std::string::npos);
+        CHECK(sim.sensor("simulating").str == "own plan: the plan's cells");
+    }
+    {
+        INFO("an own plan without cells: the default scenario's cells");
+        ContextOptions c;
+        c.plan = true;
+        c.plan_name = "Own office";
+        c.scene_json = {own_walls_only_scene()};
+        c.cursor = {{5, 5}};
+        Sim sim(c);
+        const std::set<std::string> ids = cells_seen(sim, 3, 10);
+        CHECK(ids == std::set<std::string>{"D0", "D1", "M1"});
+        CHECK(sim.sensor("simulating").str == "own plan");
+    }
+    {
+        INFO("a bundled example plan with its own scenario's cell T1: the example network");
+        Sim sim(fraunces_plan({{5, 5}}));
+        const std::set<std::string> ids = cells_seen(sim, 1, 5);
+        CHECK(ids == std::set<std::string>{"T1"}); // M1 is ~60 dB weaker here: masked
+        const std::string truth = sim.sensor("true_levels").str;
+        CHECK(truth.find("T1 ") != std::string::npos);
+        CHECK(truth.find("M1 ") != std::string::npos); // the macro cell is simulated
+        CHECK(sim.sensor("simulating").str == "example plan fraunces-1");
+    }
+    {
+        INFO("an example plan whose scene has a cell its scenario lacks: the plan's cells only");
+        std::string scene = fraunces_scene();
+        const std::string t1 = R"("id": "T1", "label": "Indoor DAS")";
+        REQUIRE(scene.find(t1) != std::string::npos);
+        scene.replace(scene.find(t1), t1.size(), R"("id": "X1", "label": "Added DAS")");
+        scene.replace(scene.find(R"("cell": "T1")"), 12, R"("cell": "X1")");
+        Sim sim(fraunces_plan({{5, 5}}, 0, scene));
+        const std::set<std::string> ids = cells_seen(sim, 1, 30);
+        CHECK(ids == std::set<std::string>{"X1"});
+    }
+}
+
+namespace {
+
+uint32_t device_flags(Sim& sim, bool enumerate)
+{
+    uint32_t flags = 0;
+    auto cb = [](void* user, const yr_device_info* info) {
+        *static_cast<uint32_t*>(user) = info->flags;
+    };
+    const yr_stream_control& sc = *sim.host->descriptor().stream;
+    REQUIRE((enumerate ? sc.enumerate(sim.host->plugin(), cb, &flags)
+                       : sc.device_info(sim.device, cb, &flags)) == YR_OK);
+    return flags;
+}
+
+} // namespace
+
+TEST_CASE("simulator: dBm by default, dBFS on request, the unit changes with the next record (RAD-21, RAD-30, RAD-61, RAD-94)")
+{
+    Sim sim;
+    sim.set_enum("scenario", "fraunces"); // no plan: T1 at its scenario level, no fading
+    CHECK((device_flags(sim, false) & YR_DEVICE_LEVEL_DBM) != 0);
+    CHECK((device_flags(sim, true) & YR_DEVICE_LEVEL_DBM) != 0);
+
+    yr_plan plan{};
+    plan.struct_size = sizeof plan;
+    plan.type = YR_PLAN_SERVING;
+    StreamSink sink(*sim.host);
+    sink.set_active(true);
+    REQUIRE(sim.host->descriptor().stream->start_stream(sim.device, &plan, sink.handle()) == YR_OK);
+    // Records in push order: those up to `switch_at` came before the
+    // change returned; one more may have read the unit just before it.
+    std::vector<Record> before, after;
+    uint64_t seen = 0, switch_at = 0;
+    int t1_before = 0, t1_after = 0;
+    auto t1_synced = [&](const Record& r) {
+        return sim.is_cell(r, kT1Hz) && (r.flags & YR_RECORD_NO_SYNC) == 0 &&
+               sim.v(r, "level_inst_dbm").type == YR_TYPE_DOUBLE;
+    };
+    const auto deadline = std::chrono::steady_clock::now() +
+                          std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                              std::chrono::duration<double>(60.0 * YANTRA_TEST_TIME_SCALE));
+    while (std::chrono::steady_clock::now() < deadline && t1_after < 10) {
+        for (StreamSink::Item& item :
+             sink.take(std::chrono::steady_clock::now() + std::chrono::milliseconds(200))) {
+            if (!item.is_record)
+                continue;
+            ++seen;
+            if (switch_at == 0) {
+                t1_before += t1_synced(item.record) ? 1 : 0;
+                before.push_back(item.record);
+            } else if (seen > switch_at + 1) {
+                t1_after += t1_synced(item.record) ? 1 : 0;
+                after.push_back(item.record);
+            }
+        }
+        if (switch_at == 0 && t1_before >= 12) {
+            sim.set_enum("level_unit", "dbfs");
+            switch_at = sink.pushes();
+        }
+    }
+    REQUIRE(sim.host->descriptor().stream->stop_stream(sim.device) == YR_OK);
+    sink.set_active(false);
+    REQUIRE(t1_before >= 12);
+    REQUIRE(t1_after >= 10);
+    const double offset = sim.offset(); // known once the stream ran
+
+    // dBm mode: LEVEL_DBM on every record, never UNCALIBRATED; the levels
+    // within 0.5 dB of the true levels (mean over the run).
+    double diff = 0.0;
+    int n = 0;
+    for (const Record& r : before) {
+        CHECK((r.flags & YR_RECORD_LEVEL_DBM) != 0);
+        CHECK((r.flags & YR_RECORD_UNCALIBRATED) == 0);
+        if (t1_synced(r) && n++ >= 2) // after the receiver settled
+            diff += sim.v(r, YR_FIELD_LEVEL).f64 - sim.v(r, "level_inst_dbm").f64;
+    }
+    REQUIRE(n > 2);
+    CHECK(std::abs(diff / (n - 2)) <= 0.5);
+
+    // dBFS mode from the next record on, without a rebuild (T1 stays
+    // synchronised): dBm = dBFS + the true offset.
+    double diff_fs = 0.0;
+    int m = 0, lost = 0;
+    for (const Record& r : after) {
+        CHECK((r.flags & YR_RECORD_LEVEL_DBM) == 0);
+        lost += sim.is_cell(r, kT1Hz) && (r.flags & YR_RECORD_NO_SYNC) != 0 ? 1 : 0;
+        if (t1_synced(r)) {
+            diff_fs += sim.v(r, YR_FIELD_LEVEL).f64 + offset - sim.v(r, "level_inst_dbm").f64;
+            ++m;
+        }
+    }
+    CHECK(lost == 0);
+    REQUIRE(m > 0);
+    CHECK(std::abs(diff_fs / m) <= 0.5);
+    CHECK((device_flags(sim, false) & YR_DEVICE_LEVEL_DBM) == 0);
+    CHECK((device_flags(sim, true) & YR_DEVICE_LEVEL_DBM) == 0);
+}
+
+TEST_CASE("simulator: a neighbour of another network is announced with its MCC and MNC (RAD-22, RAD-94)")
+{
+    const gen::Scenario s = gen::load_scenario_file(std::string(YANTRA_SOURCE_DIR) + "/data/scenarios/network_border.json");
+    const gen::ScenarioCell& b2 = *s.find_cell("B2");
+    Sim sim;
+    sim.set_enum("scenario", "network_border");
+    const auto& ns = sim.host->header().schemas[1];
+    const auto at = [&](const Record& r, const char* name) -> const radios::Value& {
+        const int i = ns.field_index(name);
+        REQUIRE(i >= 0);
+        return r.values[static_cast<std::size_t>(i)];
+    };
+    bool b2_cell = false, entry = false;
+    sim.stream(
+        [&](const Record& r) {
+            if (sim.is_cell(r, static_cast<uint64_t>(std::llround(gen::cell_frequency_hz(b2)))) &&
+                (r.flags & YR_RECORD_NO_SYNC) == 0) {
+                CHECK(r.values[YR_CORE_MCC].u64 == 901);
+                CHECK(r.values[YR_CORE_MNC].u64 == 2); // B2 broadcasts its own network
+                b2_cell = true;
+            }
+            if (r.schema_index == 1 && at(r, "main_carrier").u64 == b2.main_carrier) {
+                REQUIRE(at(r, "neighbour_mcc").type == YR_TYPE_UINT);
+                REQUIRE(at(r, "neighbour_mnc").type == YR_TYPE_UINT);
+                CHECK(at(r, "neighbour_mcc").u64 == 901);
+                CHECK(at(r, "neighbour_mnc").u64 == 2);
+                entry = true;
+            }
+            return b2_cell && entry;
+        },
+        60.0);
+    CHECK(b2_cell);
+    CHECK(entry);
 }
 
 TEST_CASE("simulator: walk position and position sources (RAD-61)")
@@ -442,7 +691,7 @@ TEST_CASE("simulator: a scene change is reloaded (RAD-36, RAD-94)")
         [&](const Record& r) {
             if (!sim.is_cell(r, kT1Hz) || !sim.has_position(r))
                 return false;
-            const double got = sim.v(r, YR_FIELD_LEVEL).f64 - 20.0;
+            const double got = sim.dbm(r);
             if (phase == 0) {
                 CHECK(std::abs(got - before) <= 0.5);
                 if (++ok_before == 3) {
@@ -481,7 +730,7 @@ TEST_CASE("simulator: no plan or no position gives the scenario levels (RAD-61, 
                     return false;
                 CHECK_FALSE(sim.has_position(r));
                 if ((r.flags & YR_RECORD_NO_SYNC) == 0) {
-                    CHECK(sim.v(r, YR_FIELD_LEVEL).f64 + sim.offset() ==
+                    CHECK(sim.dbm(r) ==
                           doctest::Approx(scenario_t1).epsilon(0.5 / 65.0));
                     CHECK(sim.v(r, "level_source").str == "fixed");
                 }
@@ -519,7 +768,7 @@ TEST_CASE("simulator: records match the ground truth: identity, neighbours, C1 (
                     CHECK(sim.v(r, "best_antenna").str == "a1");
                     CHECK(sim.v(r, "rxlev_access_min_dbm").i64 == rxlev);
                     CHECK(sim.v(r, "ms_txpwr_max_cell_dbm").i64 == txpwr);
-                    const double level = sim.v(r, YR_FIELD_LEVEL).f64 + sim.offset();
+                    const double level = sim.dbm(r);
                     const double truth = formula_t1(fraunces_scene(), p.x_m, p.y_m);
                     // C1 from the decoded level and broadcast, and against the truth.
                     CHECK(sim.v(r, YR_FIELD_C1_DB).f64 ==
@@ -556,6 +805,7 @@ struct CellRecord {
     uint64_t hz = 0;
     uint64_t role = 0;
     double level_dbm = 0.0; ///< decoded level, dBm (true offset)
+    bool dbfs = false;      ///< the record was in dBFS (level_unit dbfs)
     std::optional<double> truth_dbm; ///< level_inst_dbm of its interval
 };
 
@@ -593,7 +843,8 @@ std::vector<CellRecord> stream_cells(Sim& sim, const std::set<uint64_t>& want, i
             c.t_ns = r.time.monotonic_ns;
             c.hz = hz;
             c.role = static_cast<uint64_t>(r.values[YR_CORE_ROLE].i64);
-            c.level_dbm = sim.v(r, YR_FIELD_LEVEL).f64; // dBFS until the stream ends
+            c.level_dbm = sim.v(r, YR_FIELD_LEVEL).f64; // dBFS ones: + offset at the end
+            c.dbfs = (r.flags & YR_RECORD_LEVEL_DBM) == 0;
             if (const radios::Value& v = sim.v(r, "level_inst_dbm"); v.type == YR_TYPE_DOUBLE)
                 c.truth_dbm = v.f64;
             out.push_back(c);
@@ -607,7 +858,8 @@ std::vector<CellRecord> stream_cells(Sim& sim, const std::set<uint64_t>& want, i
         60.0, {}, {}, serving_hz);
     const double offset = sim.offset(); // known once the stream ran
     for (CellRecord& c : out)
-        c.level_dbm += offset;
+        if (c.dbfs)
+            c.level_dbm += offset;
     for (uint64_t f : want) {
         CAPTURE(f);
         CHECK(synced[f] >= per_cell);
@@ -756,6 +1008,10 @@ TEST_CASE("simulator: every cell of mak_villa_bunzl is measured (RAD-61, RAD-102
 {
     check_every_cell("mak_villa_bunzl");
 }
+TEST_CASE("simulator: every cell of network_border is measured (RAD-61, RAD-102, RAD-112)")
+{
+    check_every_cell("network_border");
+}
 
 TEST_CASE("simulator: a given serving carrier is followed, the other measured (RAD-32, RAD-61)")
 {
@@ -816,6 +1072,7 @@ TEST_CASE("simulator: the practice calibration recovers the true offset (RAD-61,
     for (double gain : {0.0, 17.0}) {
         CAPTURE(gain);
         Sim sim;
+        sim.set_enum("level_unit", "dbfs"); // like an SDR: Yantra calibrates (RAD-61)
         sim.set_bool("calibration_generator", true);
         sim.set_double("calibration_level_dbm", -60.0);
         sim.set_double("gain_db", gain);
@@ -998,7 +1255,7 @@ TEST_SUITE("timing")
                     }
                     return false;
                 }
-                const double got = sim.v(r, YR_FIELD_LEVEL).f64 + sim.offset();
+                const double got = sim.dbm(r);
                 if (sim.x(r) == b.x_m && std::abs(got - want_b) <= 0.5) {
                     followed_ns = r.time.monotonic_ns;
                     return true;

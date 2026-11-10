@@ -31,6 +31,8 @@ enum PositionSource : uint32_t { kPosAuto = 0, kPosMouse = 1, kPosWalk = 2, kPos
 enum Network : uint32_t { kNetScenario = 0, kNetTest00101 = 1, kNetFictitious90199 = 2 };
 /// Receiver noise (setting receiver_noise).
 enum Noise : uint32_t { kNoiseScenario = 0, kNoiseOff = 1, kNoiseCustom = 2 };
+/// Level unit (setting level_unit, RAD-61): calibrated dBm or dBFS.
+enum LevelUnit : uint32_t { kLevelDbm = 0, kLevelDbfs = 1 };
 
 /// The device settings (RAD-40, RAD-61); defaults are list_settings'.
 struct Settings {
@@ -47,6 +49,7 @@ struct Settings {
     uint32_t fading = 0;             ///< 0: the scenario's; k: gen::FadingModel(k - 1)
     double gain_db = 0.0;
     bool clipping = false;
+    uint32_t level_unit = kLevelDbm; ///< dBm: LEVEL_DBM device and records (RAD-21, RAD-30)
     bool calibration_generator = false;
     double calibration_level_dbm = -60.0;
     uint32_t position_source = kPosAuto;
@@ -56,6 +59,7 @@ struct Settings {
     uint64_t threads = 2;
     double device_buffer_s = 1.0;
     plugins::GsmtapSettings gsmtap;
+    bool operator==(const Settings&) const = default;
 };
 
 /// Sample rates of the sample_rate setting (index 0: the scenario's).
@@ -96,6 +100,10 @@ struct Device {
     bool stop = false;
     uint32_t context_events = 0; ///< bit (1 << YR_CONTEXT_*) pending
     bool fault = false;          ///< the simulated noisy receiver
+    /// settings.level_unit == kLevelDbm, read by the stream at every push
+    /// and by device_info, so a unit change takes effect with the next
+    /// record (RAD-21) without a rebuild.
+    std::atomic<bool> level_dbm{true};
     Snapshot snapshot;
     plugins::SinkCounters counters;
     std::atomic<uint64_t> samples_dropped{0};

@@ -88,9 +88,11 @@ file). Floor ids must be unique and have a scale. Every cell of a scene
 must be a scenario cell with the same MCC, MNC, LA, colour code and
 carrier. For a bundled example plan the scenario usually has no floors:
 the host supplies the plan's scene (RAD-18) and the scenario gives the
-network and the antenna powers. A cell of the host's scene on the carrier
-of a scenario cell it does not name replaces that cell
-([RADIO_PLUGINS.md](RADIO_PLUGINS.md#the-simulator-plugin-rad-61)).
+network and the antenna powers. When the host's scene has cells the
+scenario lacks, the simulator simulates only the scene's cells
+([RADIO_PLUGINS.md](RADIO_PLUGINS.md#the-simulator-plugin-rad-61)); with
+`add_scene_cells` (yantra-gen's library) a scene cell on the carrier of a
+scenario cell it does not name replaces that cell.
 
 ## Channel
 
