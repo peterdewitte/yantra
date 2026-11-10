@@ -55,8 +55,8 @@ def start_server(folder, program):
         return server, f.read().strip()
 
 
-def count_stdout(cmd, limit, env):
-    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, env=env)
+def count_stdout(cmd, limit, env, stderr):
+    proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=stderr, env=env)
     total = 0
     while limit is None or total < limit:
         chunk = proc.stdout.read(min(1 << 16, limit - total) if limit is not None else 1 << 16)
@@ -100,11 +100,11 @@ def main():
         if a.server:
             server, env["YANTRA_SOAPY_REMOTE"] = start_server(*a.server)
         sys.stdout.flush()
+        stderr = subprocess.DEVNULL if a.quiet_stderr else None
         if a.count_stdout:
-            rc = count_stdout(cmd, a.limit, env)
+            rc = count_stdout(cmd, a.limit, env, stderr)
         else:
-            rc = subprocess.run(cmd, env=env,
-                                stderr=subprocess.DEVNULL if a.quiet_stderr else None).returncode
+            rc = subprocess.run(cmd, env=env, stderr=stderr).returncode
     finally:
         if server is not None:
             server.terminate()
