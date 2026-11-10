@@ -32,6 +32,18 @@ well; they change independently of the radio API version.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-10
+
+Tag v0.3.0 (RAD-98). Radio API 1.1 (compatible: LEVEL_DBM), the
+simulator's "Levels" setting with dBm by default and plan cells only,
+Windows x64 (`.dll` plugins and `.exe` tools cross-compiled with the new
+cross SDK, tested on Windows), clang from the SDK as the default compiler,
+the terminal plugin's serial ports on Windows, and the PDF manual.
+Removed requirement IDs: the real-signal fixtures, the independent
+decoder cross-check and the terminal's call control (below). Record files
+stay version 1, scene JSON 1.1, scenario files 1. Plugin versions:
+simulator 0.3.0, pei 0.2.0; hackrf and soapysdr as in 0.2.6.
+
 ### Radio API
 
 - **Radio API 1.1** (compatible, RAD-21, RAD-30): a device can report
@@ -99,7 +111,33 @@ well; they change independently of the radio API version.
   the tree on Linux, `windows-x86-64-tests` runs its tests natively on a
   Windows runner (`tools/ci/run_windows_tests.py`); `windows-check.yml`
   builds natively with MSYS2 UCRT64's gcc; the release job cross-compiles.
-  The terminal plugin's serial ports on Windows are not done yet.
+  The terminal plugin's serial ports on Windows: see below.
+- Terminal plugin 0.2.0 (RAD-80, RAD-04): one serial-port interface with
+  a POSIX implementation (termios) and a Windows one (the Win32
+  communications API: CreateFileW on `\\.\COMn` without sharing,
+  SetCommState, SetCommTimeouts, overlapped I/O with timed waits). The
+  port list on Windows comes from the SetupAPI (COM ports with friendly
+  name, USB ids and serial) and the other `COMn` names; on Linux the USB
+  ids and serial come from sysfs. Enumerate shows them in
+  `hardware_info` and `serial`, and IN_USE with the reason for a port
+  another program holds (Linux: the plugin and other programs lock the
+  port with flock; Windows: no sharing) until it is free again. Hot-plug
+  on both platforms. `YANTRA_PEI_PORTS` is `;`-separated on Windows.
+- `yantra-pei-sim` on Windows: the simulated terminal on a named pipe
+  (`--link \\.\pipe\NAME`), opened by the plugin through the same Win32
+  code; new option `--control FILE` (unplug marker). `test_pei` and
+  `conformance_pei` run on Windows (they were skipped there), with new
+  tests of the port layer and of IN_USE on both platforms.
+- PDF manual (RAD-97): `ninja docs-manual` builds
+  `yantra-radios-manual-<version>.pdf` (the plugin pages, the record
+  schemas, the guide and its tutorial, with a new overview chapter) with
+  pandoc and WeasyPrint: title page, contents with page numbers, numbered
+  sections, bookmarks, working links, metadata, embedded fonts; its checks
+  fail the build on warnings, missing pictures, unresolved links or
+  bookmarks, text past the margin and fonts not embedded (ctests
+  `radios_manual`, `radios_manual_faults`). Every release ships it
+  (`make_release.sh`, `release.yml`, and in the packages under
+  `share/doc/yantra-radios`).
 
 ### Changed
 
@@ -167,6 +205,13 @@ well; they change independently of the radio API version.
 - Tests: `yantra_gen_stdout_endless` drops the generator's standard error
   after the reader closes the pipe (on Windows it reports the closed pipe,
   where Linux ends it silently by SIGPIPE).
+
+- Terminal plugin on Windows: its timed waits used an absolute
+  monotonic time, which winpthreads compares with the wall clock, so
+  they returned at once (the watcher and the poll loop spun); they wait
+  relative now.
+- The `release` target of the Windows tree packages the `.zip`
+  (platform `windows-x86_64`); it used the Linux platform name.
 
 ### Removed
 

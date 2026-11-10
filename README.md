@@ -45,23 +45,27 @@ speech, short data or subscriber identities, and never decrypt anything.
 
 | Plugin | Radio | Page |
 |---|---|---|
-| `hackrf.so` | HackRF One (SoapyHackRF, libhackrf) | [docs/plugins/hackrf.md](docs/plugins/hackrf.md) |
-| `soapysdr.so` | RTL-SDR (incl. Blog V4), Airspy, network radios (SoapyRemote) | [docs/plugins/soapysdr.md](docs/plugins/soapysdr.md) |
-| `pei.so` | a TETRA terminal over its PEI (AT commands) | [docs/plugins/pei.md](docs/plugins/pei.md) |
-| `simulator.so` | a simulated TETRA network (demo, training, tests) | [docs/plugins/simulator.md](docs/plugins/simulator.md) |
+| `hackrf` | HackRF One (SoapyHackRF, libhackrf) | [docs/plugins/hackrf.md](docs/plugins/hackrf.md) |
+| `soapysdr` | RTL-SDR (incl. Blog V4), Airspy, network radios (SoapyRemote) | [docs/plugins/soapysdr.md](docs/plugins/soapysdr.md) |
+| `pei` | a TETRA terminal over its PEI (AT commands; Linux and Windows serial ports) | [docs/plugins/pei.md](docs/plugins/pei.md) |
+| `simulator` | a simulated TETRA network (demo, training, tests) | [docs/plugins/simulator.md](docs/plugins/simulator.md) |
 
-Every plugin is one self-contained `.so` (SoapySDR, its modules, the
+Every plugin is one self-contained `.so` (Linux) or `.dll` (Windows x64)
+(SoapySDR, its modules, the
 vendor libraries and libusb built in; RAD-132), so it needs no SoapySDR
 or vendor package on the target system. Which radios have been checked,
 and how: [DEVICES.md](DEVICES.md) (none on real hardware yet).
 
 ## Status
 
-Release 0.2.7 (2026-11-09, tag v0.2.7; [CHANGELOG.md](CHANGELOG.md)): the release files name no folder of the machine that built them; the documentation is checked against this release.
-Platforms: Linux x86-64 is built and tested; Linux arm64 is in the
-nightly CI; Windows x64 (`.dll` plugins, `.exe` tools) is cross-compiled
-with the cross SDK and tested on Windows (BUILD.md), except the terminal
-plugin's serial ports.
+Release 0.3.0 (2026-11-10, tag v0.3.0; [CHANGELOG.md](CHANGELOG.md)): radio API 1.1
+(levels in dBm without SELF_CALIBRATED), the simulator's "Levels" setting
+(dBm by default), Windows x64, the cross SDK with clang, the terminal
+plugin's Windows serial ports and the PDF manual.
+Platforms: Linux x86-64 (clang, and gcc as a second tree) and Windows x64
+(`.dll` plugins, `.exe` tools, cross-compiled with the cross SDK and
+tested on Windows, BUILD.md) are built and tested; Linux arm64 is in the
+nightly CI.
 
 ## In Yantra
 
@@ -158,7 +162,8 @@ as root. `yantra-hackrf` tests a HackRF One through the HackRF plugin
 
 - [ARCHITECTURE.md](ARCHITECTURE.md): layers, data flow from the antenna
   to a record, threads.
-- [BUILD.md](BUILD.md): building on Linux and MSYS2 UCRT64, the static
+- [BUILD.md](BUILD.md): building on Linux (clang and gcc), the Windows x64
+  cross build and its tests, MSYS2 UCRT64, the static
   dependency builds, the completeness checks, install and release.
 - [CONTRIBUTING.md](CONTRIBUTING.md): tests, code style, licence rules,
   adding a plugin or a SoapySDR module. [CONTRIBUTORS.md](CONTRIBUTORS.md).
@@ -168,6 +173,10 @@ as root. `yantra-hackrf` tests a HackRF One through the HackRF plugin
   conformance kit. The radio API reference: `ninja -C build
   docs-radio-api` (Doxygen) into `build/docs/radio-api/html`.
 - One page per plugin: [docs/plugins/](docs/plugins/).
+- The PDF manual `yantra-radios-manual-<version>.pdf` (the plugin pages,
+  the record schemas, the guide and its tutorial in one file, RAD-97):
+  `ninja -C build docs-manual` into `build/docs/manual/`; every release
+  ships it.
 - [docs/TETRA_RECORDS.md](docs/TETRA_RECORDS.md): every record field
   with its unit and source (broadcast message and EN 300 392-2 clause, or
   how it is measured).
