@@ -350,3 +350,33 @@ TEST_CASE("record file: a replay is mapped and calibrated by the device's key or
         CHECK(ym::device_calibration_key(*gen.value) == nullptr);
     }
 }
+
+TEST_CASE("record file: records flagged level_dbm are dBm whatever the schema's unit; the others keep the dBFS path (radio API 1.1, HW-01b)") {
+    // A dBFS schema (not SELF_CALIBRATED), as the simulator writes it in
+    // either "Levels" mode: the record flag says which unit each level has.
+    const auto p = parse(kHeader + "\n" +
+                         R"({"type":"record","schema":"cell","time":{"monotonic_ns":1000},"flags":["simulated","level_dbm"],"values":{"frequency_hz":430025000,"role":1,"level":-61.5}})" "\n" +
+                         R"({"type":"record","schema":"cell","time":{"monotonic_ns":2000},"flags":["simulated"],"values":{"frequency_hz":430025000,"role":1,"level":-41.5}})" "\n");
+    INFO(all(p.errors));
+    REQUIRE(p.ok());
+    const ym::RecordFile& file = *p.value;
+    REQUIRE(file.record_count == 2);
+
+    ym::MeasurementPipeline::Options o;
+    o.clock = std::make_shared<yantra::platform::ManualClock>(0);
+    ym::MeasurementPipeline pipeline(std::move(o));
+    auto out = std::make_shared<Replayed>();
+    pipeline.add_observer(out);
+    ym::ReplayOptions ro;
+    ro.key_from_device = false;
+    REQUIRE(ym::replay(file, pipeline, ro) == 2);
+    REQUIRE(out->records.size() == 2);
+    const ym::MappedRecord& dbm = out->records[0];
+    CHECK_FALSE(dbm.radio_dbfs);
+    CHECK(dbm.level == doctest::Approx(-61.5));
+    CHECK((dbm.flags & ym::sample_flag::kUncalibrated) == 0);
+    CHECK((dbm.flags & ym::sample_flag::kSimulated) != 0);
+    const ym::MappedRecord& dbfs = out->records[1];
+    CHECK(dbfs.radio_dbfs);
+    CHECK((dbfs.flags & ym::sample_flag::kUncalibrated) != 0);
+}

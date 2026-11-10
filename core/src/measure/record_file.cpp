@@ -47,7 +47,8 @@ constexpr Name kFieldFlags[] = {{"key", YR_FIELD_KEY}, {"default", YR_FIELD_DEFA
 constexpr Name kRecordFlags[] = {{"no_sync", YR_RECORD_NO_SYNC},
                                  {"overload", YR_RECORD_OVERLOAD},
                                  {"uncalibrated", YR_RECORD_UNCALIBRATED},
-                                 {"simulated", YR_RECORD_SIMULATED}};
+                                 {"simulated", YR_RECORD_SIMULATED},
+                                 {"level_dbm", YR_RECORD_LEVEL_DBM}};  // radio API 1.1
 constexpr Name kCapabilities[] = {{"scan", YR_CAP_SCAN},
                                   {"hotplug", YR_CAP_HOTPLUG},
                                   {"retune_live", YR_CAP_RETUNE_LIVE},

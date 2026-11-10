@@ -725,6 +725,41 @@ TEST_CASE("pipeline: a SELF_CALIBRATED radio's dBm levels get no table and no UN
     CHECK_FALSE(m.correction.calibrated);
 }
 
+TEST_CASE("pipeline: a LEVEL_DBM record of a dBFS schema is dBm: no table, no UNCALIBRATED; the next dBFS record is calibrated (radio API 1.1, HW-01b)") {
+    yantra::calibration::AntennaSettings antenna;
+    antenna.all.cable_loss_db = 3.0;
+    Fixture f({}, nullptr, std::make_shared<yantra::calibration::TableCorrector>(cal_table(), antenna));
+    const auto key = std::make_shared<const yantra::calibration::Key>(cal_key("10"));  // has an entry
+    // The simulator in its dBm mode: the schema's unit says dBFS, the record says dBm.
+    ym::RadioRecord a = cell(f.now(), 390'000'000, -71.0, YR_ROLE_SERVING, YR_RECORD_LEVEL_DBM);
+    a.calibration_key = key;
+    f.p->on_radio_record(a);
+    REQUIRE(f.out->records.size() == 1);
+    const ym::MappedRecord m = f.out->records[0];
+    CHECK(m.level == doctest::Approx(-68.0));  // the antenna correction only (HW-09)
+    CHECK(m.radio_level == doctest::Approx(-71.0));
+    CHECK_FALSE(m.radio_dbfs);
+    CHECK(m.flags == 0);
+    CHECK((m.record.flags & ~YANTRA_RECORD_ALL_MASK) == 0);  // the radio API's bit stays on the radio side
+    CHECK(m.correction.source == "radio");
+    CHECK_FALSE(m.correction.calibrated);
+    // The same device switched to dBFS (no flag): the table applies again.
+    ym::RadioRecord b = cell(f.now() + 1, 390'000'000, -40.0);
+    b.calibration_key = key;
+    f.p->on_radio_record(b);
+    REQUIRE(f.out->records.size() == 2);
+    const ym::MappedRecord n = f.out->records[1];
+    CHECK(n.radio_dbfs);
+    CHECK(n.correction.calibrated);
+    CHECK(n.level == doctest::Approx(-40.0 - 60.0 + 3.0));
+    CHECK(n.flags == 0);
+    // dBFS without an entry: uncalibrated, as before.
+    ym::RadioRecord c = cell(f.now() + 2, 390'000'000, -40.0);
+    f.p->on_radio_record(c);
+    REQUIRE(f.out->records.size() == 3);
+    CHECK(f.out->records[2].flags == sf::kUncalibrated);
+}
+
 namespace {
 
 // A schema with C1 (RF-06): level, the radio's C1 and two access parameters.

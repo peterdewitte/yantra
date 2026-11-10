@@ -225,6 +225,11 @@ MeasurementPipeline::Mapped MeasurementPipeline::map_record(const RadioRecord& r
         return out;
     }
 
+    // The level unit (HW-01b): the schema's unit, unless the record says
+    // dBm (radio API 1.1 YR_RECORD_LEVEL_DBM, or a SELF_CALIBRATED radio):
+    // the simulator in its dBm mode keeps "dBFS" in its schema.
+    const bool radio_dbfs = e->radio_dbfs && !yr_record_level_is_dbm(rr.capabilities, rr.record.flags);
+
     // Stage 3: level correction (RF-02, HW-09; the 6.2 hook).
     LevelCorrection c;
     if (has_level_field) {
@@ -241,7 +246,7 @@ MeasurementPipeline::Mapped MeasurementPipeline::map_record(const RadioRecord& r
             lc.radio_plugin_id = rr.plugin_id;
             lc.device_key = rr.device_key;
             lc.frequency_hz = *freq;
-            lc.radio_dbm = !e->radio_dbfs;
+            lc.radio_dbm = !radio_dbfs;
             lc.simulated = (rr.capabilities & YR_CAP_SIMULATED) != 0;
             lc.calibration_key = rr.calibration_key.get();
             c = corrector->correction(lc);
@@ -259,7 +264,7 @@ MeasurementPipeline::Mapped MeasurementPipeline::map_record(const RadioRecord& r
     m.stream_id = rr.stream_id;
     m.schema = e->schema;
     m.schema_index = e->index;
-    m.record = e->map->map(rr.record, {c.calibrated, c.offset_db, c.correction_db});
+    m.record = e->map->map(rr.record, {c.calibrated, c.offset_db, c.correction_db, !radio_dbfs});
     m.frequency_hz = *freq;
     if (e->kind == YR_SCHEMA_SCAN) {
         m.role = CarrierRole::ScanChannel;
@@ -278,7 +283,7 @@ MeasurementPipeline::Mapped MeasurementPipeline::map_record(const RadioRecord& r
     if (const plugin::Value* lv = value_at(m.record, e->tech_level))
         if (const double* d = std::get_if<double>(lv)) m.level = *d;
     m.radio_level = radio_level;
-    m.radio_dbfs = e->radio_dbfs;
+    m.radio_dbfs = radio_dbfs;
     m.correction = c;
     // Stage 3b: C1 (RF-06): the radio's, else estimated from the calibrated level.
     if (e->tech_c1 >= 0) {

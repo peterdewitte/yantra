@@ -13,8 +13,14 @@ table (RF-02, HW-01b), and then adds the antenna correction (HW-09):
     correction_db = -antenna_gain_dbi + cable_loss_db + attenuator_db
 
 A SELF_CALIBRATED radio (a TETRA terminal, a measurement receiver) already
-gives dBm. It gets the antenna correction only. It never uses the table
-and its levels are never flagged uncalibrated. A dBFS level without a
+gives dBm, and so does every record flagged `YR_RECORD_LEVEL_DBM` (radio
+API 1.1, `yr_record_level_is_dbm()`; e.g. the simulator with its "Levels"
+setting at dBm, its default), whatever the unit its schema names. Such a
+level gets the antenna correction only. It never uses the table and is
+never flagged uncalibrated; the device's entry (`YR_DEVICE_LEVEL_DBM`) is
+shown as dBm and the calibration window says no calibration is needed.
+The unit is decided per record, so a device switched between dBm and dBFS
+takes the matching path from its next record on. A dBFS level without a
 usable table entry keeps its dBFS value, still gets the antenna correction
 and is flagged UNCALIBRATED.
 

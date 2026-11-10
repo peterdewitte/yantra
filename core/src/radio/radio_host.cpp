@@ -708,7 +708,9 @@ struct RadioHost::Impl : std::enable_shared_from_this<RadioHost::Impl> {
         return st == YR_OK ? *info : std::nullopt;
     }
 
-    // HW-01b: reads the device's driver and serial (once per open) and the
+    // HW-01b: reads the device's entry (driver, serial; again after a
+    // setting change, since its LEVEL_DBM flag may follow a setting, radio
+    // API 1.1) and the
     // current value of every CALIBRATION setting (RAD-40), and records the
     // key from `since_ns` on. Called after open/reopen (the stored settings
     // applied), after each set_setting and on settings_changed. Caller
@@ -1037,7 +1039,7 @@ struct RadioHost::Impl : std::enable_shared_from_this<RadioHost::Impl> {
                 const std::lock_guard lock(d->m);
                 if (d->dev == nullptr || (device != nullptr && d->dev != device)) continue;
             }
-            refresh_key(rt, *d, now, false);
+            refresh_key(rt, *d, now, true);  // the entry's LEVEL_DBM may follow a setting (radio API 1.1)
         }
     }
 
@@ -1804,7 +1806,7 @@ yr_status RadioDevice::set_setting(const std::string& key, const plugin::Value& 
     // key for the records measured from now on.
     if (st == YR_OK) {
         host->state->set_device_setting(d.plugin_id, d.key, key, value);
-        host->refresh_key(rt, d, platform::monotonic_ns(), false);
+        host->refresh_key(rt, d, platform::monotonic_ns(), true);
     }
     return st;
 }
@@ -1919,7 +1921,7 @@ yr_status RadioDevice::run_action(const std::string& key, std::string& result) {
     if (st == YR_OK) {
         Impl& d = *impl_;
         const std::lock_guard op(d.op);
-        if (auto host = d.host.lock(); host && d.rt != nullptr) host->refresh_key(*d.rt, d, platform::monotonic_ns(), false);
+        if (auto host = d.host.lock(); host && d.rt != nullptr) host->refresh_key(*d.rt, d, platform::monotonic_ns(), true);
     }
     return st;
 }
@@ -1966,7 +1968,7 @@ yr_status RadioDevice::apply_preset(const std::string& id) {
             if (known || !(v == s.default_value)) host->state->set_device_setting(d.plugin_id, d.key, s.key, v);
         }
     }
-    host->refresh_key(*d.rt, d, platform::monotonic_ns(), false);
+    host->refresh_key(*d.rt, d, platform::monotonic_ns(), true);
     return st;
 }
 

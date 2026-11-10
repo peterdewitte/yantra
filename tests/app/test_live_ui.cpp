@@ -28,6 +28,7 @@
 #include "yantra/app/app_state.h"
 #include "yantra/core/calibration/table.h"
 #include "yantra/core/project/project.h"
+#include "yantra/core/radio/radio_host.h"
 #include "yantra/core/raytrace/model.h"
 #include "yantra/core/recording/replay.h"
 #include "yantra/core/report/coverage.h"
@@ -320,6 +321,11 @@ TEST_CASE("DEMO-11 DEMO-14 the guided tour's mouse survey: Show me starts the si
     REQUIRE_MESSAGE(r.ok, r.message);
     REQUIRE(state.live()->running());
     REQUIRE(state.live()->chosen()->simulated);  // "Demo (simulated network)"
+    // The practice calibration of the mouse survey works on dBFS levels:
+    // the simulator's "Levels" setting dBFS (yantra-radios RAD-61; its
+    // default is dBm since radio API 1.1). Step 13.7 reworks DEMO-14.
+    REQUIRE(state.live()->device());
+    REQUIRE(state.live()->device()->set_setting("level_unit", yantra::plugin::Value{yantra::plugin::EnumValue{1}}) == YR_OK);
     REQUIRE(ui.frames(3));
     CHECK(gui.tour_overlay().target == "walk.stop");
     CHECK(gui.tour_overlay().window);

@@ -90,14 +90,16 @@ plugin::Record SchemaMap::map(const plugin::Record& radio, const Calibration& ca
     out.schema_id = schema_id_;
     out.schema_version = tech_version_;
     out.time = radio.time;
-    out.flags = radio.flags;
+    // The radio API's own bits above Yantra's (YR_RECORD_LEVEL_DBM, radio
+    // API 1.1) stay on the radio side: the level below is dBm either way.
+    out.flags = radio.flags & YANTRA_RECORD_ALL_MASK;
     out.values.resize(tech_field_count_);
     for (std::size_t i = 0; i < target_.size() && i < radio.values.size(); ++i) {
         plugin::Value v = radio.values[i];
         if (level_[i]) {
             if (const double* d = std::get_if<double>(&v)) {
                 double dbm = *d + calibration.correction_db;
-                if (dbfs_level_[i]) {
+                if (dbfs_level_[i] && !calibration.level_dbm) {
                     dbm += calibration.offset_db;
                     if (!calibration.calibrated) out.flags |= YANTRA_RECORD_UNCALIBRATED;
                 }

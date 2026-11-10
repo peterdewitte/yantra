@@ -411,6 +411,7 @@ std::string flags_text(std::uint32_t flags) {
     add(YR_DEVICE_IN_USE, tr("in use"));
     add(YR_DEVICE_NO_PERMISSION, tr("no permission"));
     add(YR_DEVICE_SIMULATED, "simulated");
+    add(YR_DEVICE_LEVEL_DBM, "dBm");  // radio API 1.1: levels in dBm (HW-01b)
     return t.empty() ? std::string("none") : t;
 }
 
@@ -726,7 +727,15 @@ struct RadioWindows::Impl {
     }
 
     std::shared_ptr<const calibration::Key> key() const { return device ? device->calibration_key() : nullptr; }
-    bool self_calibrated() const { return (caps & YR_CAP_SELF_CALIBRATED) != 0; }
+    // The radio delivers dBm itself (HW-01b): a SELF_CALIBRATED plugin, or
+    // a device whose entry has LEVEL_DBM (radio API 1.1, e.g. the
+    // simulator's "Levels: dBm"); no calibration applies to its levels.
+    bool self_calibrated() const {
+        if ((caps & YR_CAP_SELF_CALIBRATED) != 0) return true;
+        if (!device) return false;
+        const auto i = device->info();
+        return i && (i->flags & YR_DEVICE_LEVEL_DBM) != 0;
+    }
     bool simulated() const { return (caps & YR_CAP_SIMULATED) != 0; }
 
     std::string measure_reason() const {

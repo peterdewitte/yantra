@@ -110,6 +110,9 @@ std::optional<Sample> sample(const ym::RadioRecord& r) {
     return Sample{*level, *x, *y, *floor};
 }
 
+// The simulator's "level_unit" item dbfs (yantra-radios RAD-61).
+constexpr std::int64_t kLevelUnitDbfs = 1;
+
 struct Sim {
     std::shared_ptr<ym::RecordQueue> queue = std::make_shared<ym::RecordQueue>();
     std::shared_ptr<yantra::plugin::MemoryStateStore> state = std::make_shared<yantra::plugin::MemoryStateStore>();
@@ -141,6 +144,9 @@ struct Sim {
         const std::string key = en.devices.front().key;
         state->set_device_setting(e.id, key, "record_rate_hz", 10.0);
         state->set_device_setting(e.id, key, "playback_speed", 10.0);
+        // The levels these cases model are dBFS (kDbfsOffset): the
+        // simulator's "Levels" setting dBFS (RAD-61; its default is dBm).
+        state->set_device_setting(e.id, key, "level_unit", yantra::plugin::EnumValue{kLevelUnitDbfs});
         std::string error;
         device = host->open(e.id, key, error);
         REQUIRE_MESSAGE(device, error);

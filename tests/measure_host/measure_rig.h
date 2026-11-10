@@ -195,6 +195,13 @@ struct Rig {
     }
 };
 
+// The simulator's "Levels" setting at dBFS (yantra-radios RAD-61, item
+// dbfs = 1; its default is dBm): for the cases that test the dBFS path
+// with a calibration table entry (RF-02, HW-01b).
+inline void sim_levels_dbfs(yp::MemoryStateStore& state, const std::string& id, const std::string& key) {
+    state.set_device_setting(id, key, "level_unit", yp::EnumValue{1});
+}
+
 inline yr::Plan serving(std::uint64_t hz = kHz) {
     yr::Plan p;
     p.type = YR_PLAN_SERVING;

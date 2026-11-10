@@ -86,6 +86,7 @@ TEST_CASE("TST-36 ray tracer with no reflections gives the simulator's multi-wal
     REQUIRE(!en.devices.empty());
     rig.state->set_device_setting(e.id, en.devices.front().key, "record_rate_hz", 10.0);
     rig.state->set_device_setting(e.id, en.devices.front().key, "gain_db", 0.0);
+    sim_levels_dbfs(*rig.state, e.id, en.devices.front().key);  // calibrated below (-20 dB)
     std::string error;
     auto dev = rig.host->open(e.id, en.devices.front().key, error);
     REQUIRE_MESSAGE(dev, error);
@@ -178,6 +179,7 @@ TEST_CASE("TST-36 fit recovery: the fit gives back the simulator's wall losses a
     REQUIRE(!en.devices.empty());
     rig.state->set_device_setting(e.id, en.devices.front().key, "record_rate_hz", 10.0);
     rig.state->set_device_setting(e.id, en.devices.front().key, "gain_db", 0.0);
+    sim_levels_dbfs(*rig.state, e.id, en.devices.front().key);  // calibrated below (-20 dB)
     std::string error;
     auto dev = rig.host->open(e.id, en.devices.front().key, error);
     REQUIRE_MESSAGE(dev, error);

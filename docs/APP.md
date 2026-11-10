@@ -408,7 +408,9 @@ debug|calibration|info`:
   `cal.measure`, `cal.skip`, `cal.cancel`, `cal.save`; readings are the
   radio's own dBFS records within 12.5 kHz of the target, so the radio
   must measure; a simulated radio makes a `practice` entry; a
-  self-calibrated radio needs none), `cal.verify`, `cal.ppm` (frequency
+  self-calibrated radio, or a device whose entry says it reports dBm
+  (radio API 1.1 `YR_DEVICE_LEVEL_DBM`, e.g. the simulator with "Levels:
+  dBm"), needs none), `cal.verify`, `cal.ppm` (frequency
   error from a known carrier's `freq_error_hz`), `cal.file` +
   `cal.import|export` (merge: the newer entry wins). Saving writes
   `RadioPaths::calibration_table` and sets the pipeline's corrector.

@@ -36,6 +36,10 @@ struct Calibration {
     bool calibrated = false;  // false: a dBFS level is flagged UNCALIBRATED
     double offset_db = 0.0;
     double correction_db = 0.0;
+    // The record's level is dBm whatever its schema's unit says (radio API
+    // 1.1 YR_RECORD_LEVEL_DBM, yr_record_level_is_dbm(); HW-01b): no
+    // offset_db, never UNCALIBRATED.
+    bool level_dbm = false;
 };
 
 // A technology schema derived from a radio schema for a radio whose

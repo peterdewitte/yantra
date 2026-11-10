@@ -97,6 +97,7 @@ struct SimRun {
         }
         rig.state->set_device_setting(id, key, "record_rate_hz", record_rate_hz);
         rig.state->set_device_setting(id, key, "gain_db", 0.0);
+        sim_levels_dbfs(*rig.state, id, key);  // the cases calibrate dBFS levels (calibrate())
         std::string error;
         dev = rig.host->open(id, key, error);
         REQUIRE_MESSAGE(dev, error);

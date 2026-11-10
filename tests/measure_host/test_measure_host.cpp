@@ -160,9 +160,13 @@ TEST_CASE("measurement host: the simulator end to end gives a serving sample eve
         for (std::size_t i = first; i < cs.size(); ++i) {
             const ym::CarrierSample* s = cs[i].serving(key);
             if (s == nullptr) continue;
-            CHECK((s->flags & (sf::kSimulated | sf::kUncalibrated)) == (sf::kSimulated | sf::kUncalibrated));
+            // The simulator reports dBm by default (radio API 1.1 LEVEL_DBM,
+            // RAD-61): simulated, never uncalibrated, no table (HW-01b).
+            CHECK((s->flags & (sf::kSimulated | sf::kUncalibrated)) == sf::kSimulated);
             CHECK((s->flags & sf::kDeviceLost) == 0);
             CHECK(std::isfinite(s->latest.level));
+            CHECK_FALSE(s->latest.radio_dbfs);
+            CHECK_FALSE(s->latest.correction.calibrated);
             CHECK(s->latest.provenance.technology_id == "tetra");
             CHECK(s->latest.radio_plugin_id == e.id);
             CHECK(s->latest.generic);  // no TETRA technology plugin loaded here
@@ -336,6 +340,7 @@ TEST_CASE("measurement host: the simulator's practice calibration gives the gene
     rig.state->set_device_setting(e.id, key, "calibration_generator", true);
     rig.state->set_device_setting(e.id, key, "calibration_level_dbm", -60.0);
     rig.state->set_device_setting(e.id, key, "gain_db", 0.0);
+    sim_levels_dbfs(*rig.state, e.id, key);  // a practice calibration needs dBFS levels
     std::string error;
     auto dev = rig.host->open(e.id, key, error);
     REQUIRE_MESSAGE(dev, error);
@@ -426,6 +431,93 @@ TEST_CASE("measurement host: the simulator's practice calibration gives the gene
 }
 
 
+// Radio API 1.1 (RAD-21, RAD-61, HW-01b): the simulator's "Levels" setting.
+// dBm (the default): the device entry and every record say LEVEL_DBM and
+// no calibration table applies, even with an entry for its key; dBFS:
+// the table path as for an SDR, from the next record on.
+TEST_CASE("measurement host: the simulator in both level modes: dBm needs no calibration, dBFS takes the table (HW-01b, RAD-61)") {
+    const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator.so";
+    if (!fs::exists(path)) {
+        MESSAGE("no simulator plugin built: skipped");
+        return;
+    }
+    Rig rig(true);
+    const yr::RadioPluginEntry e = rig.host->load_file(path);
+    INFO(e.message);
+    REQUIRE(e.status == yr::RadioPluginStatus::Enabled);
+    CHECK(e.api_version.minor >= 1u);
+    const yr::EnumerateResult en = rig.host->enumerate(e.id);
+    REQUIRE(en.status == YR_OK);
+    REQUIRE(!en.devices.empty());
+    const std::string key = en.devices.front().key;
+    CHECK((en.devices.front().flags & YR_DEVICE_LEVEL_DBM) != 0);
+    rig.state->set_device_setting(e.id, key, "record_rate_hz", 10.0);
+    rig.state->set_device_setting(e.id, key, "calibration_generator", true);
+    rig.state->set_device_setting(e.id, key, "calibration_level_dbm", -60.0);
+    rig.state->set_device_setting(e.id, key, "gain_db", 0.0);
+    std::string error;
+    auto dev = rig.host->open(e.id, key, error);
+    REQUIRE_MESSAGE(dev, error);
+    REQUIRE(dev->info());
+    CHECK((dev->info()->flags & YR_DEVICE_LEVEL_DBM) != 0);
+    // A table entry for the dBm mode's key: never used for dBm levels.
+    auto table = std::make_shared<ycal::Table>();
+    table->put(flat_entry(*dev->calibration_key(), -20.0, true));
+    rig.pipeline->set_corrector(std::make_shared<ycal::TableCorrector>(table));
+
+    auto serving_of = [&](std::size_t from, std::size_t count, bool dbfs) {
+        std::vector<ym::MappedRecord> got;
+        REQUIRE(rig.out->wait([&] {
+            got.clear();
+            for (std::size_t i = from; i < rig.out->records.size(); ++i) {
+                const ym::MappedRecord& r = rig.out->records[i];
+                if (r.device_key == key && r.role == ym::CarrierRole::Serving && std::isfinite(r.radio_level) &&
+                    r.radio_dbfs == dbfs)
+                    got.push_back(r);
+            }
+            return got.size() >= count;
+        }));
+        return got;
+    };
+    auto mark = [&] {
+        const std::lock_guard lock(rig.out->m);
+        return rig.out->records.size();
+    };
+    auto mean = [](const std::vector<ym::MappedRecord>& rs) {
+        double sum = 0.0;
+        for (std::size_t i = 2; i < rs.size(); ++i) sum += rs[i].level;  // the first readings settle
+        return sum / static_cast<double>(rs.size() - 2);
+    };
+
+    REQUIRE(dev->start(serving(0)) == YR_OK);
+    const std::vector<ym::MappedRecord> dbm = serving_of(0, 10, false);
+    for (const ym::MappedRecord& r : dbm) {
+        CHECK((r.flags & sf::kUncalibrated) == 0);
+        CHECK((r.flags & sf::kSimulated) != 0);
+        CHECK_FALSE(r.correction.calibrated);
+        CHECK(r.correction.source == "radio");
+        CHECK(r.level == doctest::Approx(r.radio_level));
+    }
+    CHECK(std::fabs(mean(dbm) - -60.0) <= 0.5);  // the generator's level, no calibration
+
+    // dBFS from the next record on, without a restart; the entry follows.
+    REQUIRE(dev->set_setting("level_unit", yp::EnumValue{1}) == YR_OK);
+    REQUIRE(dev->info());
+    CHECK((dev->info()->flags & YR_DEVICE_LEVEL_DBM) == 0);
+    table->put(flat_entry(*dev->calibration_key(), -20.0, true));  // the true offset at gain 0
+    rig.pipeline->set_corrector(std::make_shared<ycal::TableCorrector>(table));
+    const std::vector<ym::MappedRecord> dbfs = serving_of(mark(), 10, true);
+    for (const ym::MappedRecord& r : dbfs) {
+        CHECK(r.correction.calibrated);
+        CHECK(r.correction.source == "table");
+        CHECK((r.flags & sf::kUncalibrated) == 0);
+        CHECK(r.level == doctest::Approx(r.radio_level - 20.0));
+    }
+    CHECK(std::fabs(mean(dbfs) - -60.0) <= 0.5);
+    CHECK(dev->stop() == YR_OK);
+    dev->close();
+}
+
 TEST_CASE("measurement host: simulator records map onto the TETRA plugin with the radio's C1 (PLG-11, RF-06)") {
     const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator.so";
     if (!fs::exists(path)) {
@@ -441,6 +533,7 @@ TEST_CASE("measurement host: simulator records map onto the TETRA plugin with th
     const std::string key = en.devices.front().key;
     rig.state->set_device_setting(e.id, key, "record_rate_hz", 10.0);
     rig.state->set_device_setting(e.id, key, "gain_db", 0.0);
+    sim_levels_dbfs(*rig.state, e.id, key);  // uncalibrated dBFS levels (the true offset -20 dB below)
     std::string error;
     auto dev = rig.host->open(e.id, key, error);
     REQUIRE_MESSAGE(dev, error);

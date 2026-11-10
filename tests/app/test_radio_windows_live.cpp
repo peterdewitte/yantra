@@ -403,9 +403,22 @@ TEST_CASE("RF-02, HW-01b, NFR-07: a practice calibration with the simulator's si
     RadioWindows rw(live);
     connect(rw);
     REQUIRE(rw.open(RadioWindow::Calibration).ok);
+    // HW-01b, radio API 1.1: the simulator's default "Levels: dBm" device
+    // (entry flag LEVEL_DBM) delivers dBm itself and needs no calibration.
     CalibrationView c = rw.calibration_view();
     CHECK(c.simulated);
+    CHECK(c.self_calibrated);
+    CHECK(c.start_reason.find("measures dBm itself") != std::string::npos);
+    CHECK(rw.info_view().device_flags.find("dBm") != std::string::npos);
+    // The practice calibration works on dBFS levels: "Levels: dBFS" (RAD-61);
+    // the device entry follows the setting.
+    REQUIRE(rw.request("level_unit", Value{EnumValue{1}}).ok);
+    if (rw.confirmation()) REQUIRE(rw.confirm().ok);
+    REQUIRE(rw.wait_idle(kIdleMs));
+    c = rw.calibration_view();
+    CHECK(c.simulated);
     CHECK_FALSE(c.self_calibrated);
+    CHECK(rw.info_view().device_flags.find("dBm") == std::string::npos);
     CHECK_FALSE(c.key_text.empty());
     CHECK(c.key_status.find("Uncalibrated") == 0);
     CHECK(c.entries.empty());
