@@ -18,7 +18,7 @@ if(WIN32)
   set(_platform windows-x86_64)
 endif()
 add_test(NAME release_package
-         COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/test_package.sh ${PROJECT_SOURCE_DIR}
+         COMMAND ${YANTRA_BUILD_HOST_TEST} sh ${CMAKE_CURRENT_SOURCE_DIR}/test_package.sh ${PROJECT_SOURCE_DIR}
                  ${PROJECT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/package ${_platform})
 add_test(NAME licence_bundle
          COMMAND Python3::Interpreter -B ${PROJECT_SOURCE_DIR}/tools/ci/licence_bundle.py check
@@ -27,3 +27,5 @@ set_tests_properties(release_notes release_package licence_bundle PROPERTIES LAB
 # The package installs the build tree; the install test does too.
 set_tests_properties(release_package PROPERTIES RESOURCE_LOCK install_tree)
 set_tests_properties(release_package PROPERTIES TIMEOUT 600)
+# Packaging runs on the build machine (the Windows .zip too).
+yantra_build_host_tests(release_package)

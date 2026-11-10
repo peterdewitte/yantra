@@ -13,7 +13,7 @@ target_compile_definitions(test_decode_iq PRIVATE
 
 # The command line: yantra-gen -> yantra-radio-host decode-iq -> read.
 add_test(NAME host_cli_decode_iq_sigmf
-  COMMAND sh -c "rm -rf \"$2\" && mkdir -p \"$2\" && \"$0\" --cell carrier=3600 --duration 3 --format cu8 --full-scale-dbm -50 --quiet --out \"$2/x.sigmf-data\" && \"$1\" decode-iq --iq \"$2/x.sigmf-meta\" --format sigmf --out \"$2/x.dec.jsonl\" && \"$1\" read \"$2/x.dec.jsonl\"; rc=$?; rm -rf \"$2\"; exit $rc"
+  COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/decode_iq_sigmf.py
           $<TARGET_FILE:yantra-gen> $<TARGET_FILE:yantra-radio-host> ${CMAKE_BINARY_DIR}/host_cli_decode_iq_sigmf)
 set_tests_properties(host_cli_decode_iq_sigmf PROPERTIES LABELS fast TIMEOUT 120
   PASS_REGULAR_EXPRESSION "synchronised 1, segments 1, clipped blocks 0, level dBm.*plugin: tetra-decode-iq.*tetra_cell: 3")

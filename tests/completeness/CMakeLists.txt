@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # RAD-133 completeness checks under ctest:
-#   completeness_selftest  the readelf/objdump parsers (Linux and Windows)
+#   completeness_selftest  the readelf/objdump parsers and the PE reader (Linux and Windows)
 #   completeness_fixture   a C++ plugin built with yantra_add_radio_plugin()
 #                          passes (only allowed NEEDED, one export)
 #   completeness_negative  a plugin linked the ordinary way is caught
@@ -15,8 +15,9 @@
 #   completeness_surprises thread-local data in the initial-exec model is
 #                          caught; the version script hides a GNU unique
 #                          symbol (ELF only: skipped on Windows)
-# On Windows (preset "windows") every check reads the PE files with the
-# toolchain's llvm-objdump (YANTRA_COMPLETENESS_PLATFORM), and
+# On Windows (preset "windows") every check reads the PE files itself
+# (YANTRA_COMPLETENESS_PLATFORM; Python only, so it runs in the Windows
+# test VM as well), and
 # completeness_programs checks every .exe: only Windows system DLLs and the
 # UCRT imported (RAD-132); completeness_programs_shipped also that the
 # shipped programs hold no build folder.

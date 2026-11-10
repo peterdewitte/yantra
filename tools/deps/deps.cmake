@@ -38,6 +38,17 @@ add_compile_options(-ffile-prefix-map=${YANTRA_DEPS_ROOT}=.
 if(YANTRA_DEPS_PREFIX)
   add_compile_options(-ffile-prefix-map=${YANTRA_DEPS_PREFIX}=deps)
 endif()
+# The cross SDK (toolchain files, RAD-139) may lie outside the tree
+# (YANTRA_SDK_DIR, or sdk/ a link to another folder; BUILD.md): its headers'
+# paths (clang's resource folder, the sysroot) become sdk/..., under the
+# name given and the real one.
+if(YANTRA_SDK_DIR)
+  get_filename_component(_yantra_sdk_real ${YANTRA_SDK_DIR} REALPATH)
+  foreach(_d IN LISTS YANTRA_SDK_DIR _yantra_sdk_real)
+    add_compile_options(-ffile-prefix-map=${_d}=sdk)
+  endforeach()
+  unset(_yantra_sdk_real)
+endif()
 
 # The manifest as a CMake list of "name|version|licence" (RAD-136): the
 # bundled libraries, shown by the plugins' build info.

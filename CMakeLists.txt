@@ -30,6 +30,48 @@ set_property(CACHE YANTRA_SANITIZER PROPERTY STRINGS "" asan-ubsan tsan)
 set(YANTRA_RADIOS_SOURCE_URL "https://github.com/peterdewitte/yantra-radio-plugins"
   CACHE STRING "Public source repository (RAD-12 descriptor, RAD-137)")
 
+# Windows tree (cross-compiled, RAD-131): its ctest runs natively on
+# Windows (the test VM, BUILD.md), so the test commands are the .exe,
+# cmake -P or python3, and the doctest cases are listed when ctest runs
+# there. YANTRA_WINDOWS_TEST_RUNNER=wsl instead runs every .exe from Linux
+# through WSL interop (tools/sdk/wsl_run.sh --in-place; WSL2 only).
+set(YANTRA_WINDOWS_TEST_RUNNER "" CACHE STRING
+  "Cross-compiled Windows tree: '' (ctest runs on Windows) or 'wsl' (ctest on WSL2 runs the .exe through interop)")
+set_property(CACHE YANTRA_WINDOWS_TEST_RUNNER PROPERTY STRINGS "" wsl)
+if(NOT YANTRA_WINDOWS_TEST_RUNNER STREQUAL "" AND NOT YANTRA_WINDOWS_TEST_RUNNER STREQUAL "wsl")
+  message(FATAL_ERROR "YANTRA_WINDOWS_TEST_RUNNER must be '' or 'wsl'")
+endif()
+if(CMAKE_CROSSCOMPILING AND WIN32 AND YANTRA_WINDOWS_TEST_RUNNER STREQUAL "wsl"
+   AND NOT CMAKE_CROSSCOMPILING_EMULATOR)
+  execute_process(COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/tools/sdk/wsl_run.sh --check
+                  RESULT_VARIABLE _yantra_wsl OUTPUT_QUIET ERROR_QUIET)
+  if(_yantra_wsl EQUAL 0)
+    set(CMAKE_CROSSCOMPILING_EMULATOR ${CMAKE_CURRENT_SOURCE_DIR}/tools/sdk/wsl_run.sh --in-place)
+  else()
+    message(WARNING "YANTRA_WINDOWS_TEST_RUNNER=wsl: no WSL interop here; "
+                    "the tree's ctest is for a Windows machine (the test VM, BUILD.md)")
+  endif()
+  unset(_yantra_wsl)
+endif()
+
+# Tests that check the build machine or run its tools (SDK compilers,
+# cargo, Doxygen, reuse, the dependency and release scripts) run in a
+# cross-compiled tree through cmake/build_host_test.py: skipped (77) when
+# its ctest runs on Windows, run on the build machine (ctest -L build_host).
+# add_test(NAME x COMMAND ${YANTRA_BUILD_HOST_TEST} prog args...), then
+# yantra_build_host_tests(x ...). Both are no-ops in a native tree.
+set(YANTRA_BUILD_HOST_TEST "")
+if(CMAKE_CROSSCOMPILING AND NOT CMAKE_CROSSCOMPILING_EMULATOR)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  set(YANTRA_BUILD_HOST_TEST ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/cmake/build_host_test.py)
+endif()
+function(yantra_build_host_tests)
+  if(YANTRA_BUILD_HOST_TEST)
+    set_tests_properties(${ARGN} PROPERTIES SKIP_RETURN_CODE 77)
+    set_property(TEST ${ARGN} APPEND PROPERTY LABELS build_host)
+  endif()
+endfunction()
+
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 include(YantraWarnings)
 include(YantraSanitizers)

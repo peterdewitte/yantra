@@ -22,10 +22,19 @@
 set(YANTRA_RADIO_PLUGIN_MAP ${CMAKE_CURRENT_LIST_DIR}/radio_plugin.map)
 set(YANTRA_RADIO_PLUGIN_DEF ${CMAKE_CURRENT_LIST_DIR}/radio_plugin.def)
 # Arguments of tools/ci/check_completeness.py for this platform: on
-# Windows the PE checks with the toolchain's (llvm-)objdump.
+# Windows the PE checks (the script reads the PE files itself, so the
+# Windows tree's ctest runs it on Windows too). A cross-compiled tree also
+# names the build machine's folders: on the test VM the script cannot know
+# them (the build_paths check).
 set(YANTRA_COMPLETENESS_PLATFORM "")
 if(WIN32)
-  set(YANTRA_COMPLETENESS_PLATFORM --platform windows --objdump ${CMAKE_OBJDUMP})
+  set(YANTRA_COMPLETENESS_PLATFORM --platform windows)
+  if(CMAKE_CROSSCOMPILING)
+    list(APPEND YANTRA_COMPLETENESS_PLATFORM --build-folder ${PROJECT_SOURCE_DIR})
+    if(DEFINED ENV{HOME} AND NOT "$ENV{HOME}" STREQUAL "")
+      list(APPEND YANTRA_COMPLETENESS_PLATFORM --build-folder $ENV{HOME})
+    endif()
+  endif()
 endif()
 
 function(yantra_add_radio_plugin name)

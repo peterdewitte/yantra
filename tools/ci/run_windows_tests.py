@@ -3,16 +3,19 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Runs the Windows tree's tests natively on Windows (RAD-131, RAD-134).
 
-The Windows tree is cross-compiled on Linux (preset "windows"); there ctest
-runs every .exe through tools/sdk/wsl_run.sh --in-place. A Windows machine
-without the build tools (the CI's Windows runner) has no ctest of that
-tree, so this script reads the tree's test list (`ctest --show-only=json-v1`,
-written on Linux, --tests) and runs every test whose command is a Windows
-program: the emulator is dropped, the .exe runs with its arguments, its
+The Windows tree is cross-compiled on Linux (preset "windows"); its ctest
+runs natively on a Windows machine that mirrors the tree to the same paths
+and has cmake and python3 there (the test VM, BUILD.md), or on WSL2 through
+tools/sdk/wsl_run.sh (YANTRA_WINDOWS_TEST_RUNNER=wsl). A Windows machine
+without those (the CI's Windows runner) runs the tree's test list with this
+script instead (`ctest --show-only=json-v1`, written on Linux, --tests):
+every test whose command is a Windows program runs (an emulator in the
+command is dropped), the .exe with its arguments, its
 working folder, its ENVIRONMENT, its TIMEOUT, PASS/FAIL_REGULAR_EXPRESSION,
 WILL_FAIL and SKIP_RETURN_CODE, RUN_SERIAL tests after the others. Tests
-that run a Linux tool (Python checks, sh scripts) ran in the cross job and
-are counted as "not here".
+that run a tool (Python or CMake scripts) ran in the cross job and are
+counted as "not here". A doctest binary listed on Linux is one test for
+its group (<group>/all, cmake/doctest_discover.py).
 
 The paths in the list and inside the test programs are the Linux paths of
 the cross job (/home/runner/work/...). Windows reads a rooted path on the

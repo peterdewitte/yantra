@@ -36,14 +36,16 @@ if(DOXYGEN_FOUND)
   configure_file(api/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile.radio-api-check @ONLY)
   if(YANTRA_RADIOS_BUILD_TESTS)
     add_test(NAME radio_api_doxygen
-             COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile.radio-api-check)
+             COMMAND ${YANTRA_BUILD_HOST_TEST} ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile.radio-api-check)
     set_tests_properties(radio_api_doxygen PROPERTIES LABELS "fast;lint;docs" TIMEOUT 300)
+    yantra_build_host_tests(radio_api_doxygen)
   endif()
 elseif(YANTRA_RADIOS_BUILD_TESTS)
   add_test(NAME radio_api_doxygen
-           COMMAND sh -c "echo 'SKIPPED: Doxygen was not found (RAD-97)'; exit 77")
+           COMMAND ${YANTRA_BUILD_HOST_TEST} sh -c "echo 'SKIPPED: Doxygen was not found (RAD-97)'; exit 77")
   set_tests_properties(radio_api_doxygen PROPERTIES
     LABELS "fast;lint;docs" SKIP_RETURN_CODE 77)
+  yantra_build_host_tests(radio_api_doxygen)
 endif()
 
 # Code quoted in the tutorial must be the real, compiled code (RAD-97).

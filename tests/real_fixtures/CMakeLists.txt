@@ -18,6 +18,6 @@ add_test(NAME real_fixtures
 set_tests_properties(real_fixtures PROPERTIES LABELS fast TIMEOUT 600)
 set(_st ${CMAKE_BINARY_DIR}/real_fixtures_selftest)
 add_test(NAME real_fixtures_selftest
-  COMMAND sh -c "rm -rf \"$2\" && mkdir -p \"$2/root/gen\" && \"$0\" --cell id=A,carrier=3600,la=77,cc=5 --cell id=B,carrier=3604,la=78,cc=6,level=-75 --mcc 901 --mnc 4 --rate 500000 --duration 4 --format cu8 --quiet --out \"$2/root/gen/two.sigmf-data\" && printf '%s' '{\"format\":\"yantra-radios-fixture\",\"version\":1,\"radio\":\"yantra-gen\",\"complete\":true,\"cells\":[{\"downlink_hz\":390000000,\"mcc\":901,\"mnc\":4,\"colour_code\":5,\"location_area\":77,\"air_encryption\":false},{\"downlink_hz\":390100000,\"mcc\":901,\"mnc\":4,\"colour_code\":6,\"location_area\":78}]}' > \"$2/root/gen/two.expected.json\" && \"$1\" \"$2/root\" \"$2/work\" && printf '%s' '{\"format\":\"yantra-radios-fixture\",\"version\":1,\"radio\":\"yantra-gen\",\"complete\":true,\"cells\":[{\"downlink_hz\":390000000,\"mcc\":901,\"mnc\":4,\"colour_code\":5,\"location_area\":77}]}' > \"$2/root/gen/two.expected.json\" && ! \"$1\" \"$2/root\" \"$2/work\"; rc=$?; rm -rf \"$2\"; exit $rc"
+  COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/fixtures_selftest.py
           $<TARGET_FILE:yantra-gen> $<TARGET_FILE:yantra-check-fixtures> ${_st})
 set_tests_properties(real_fixtures_selftest PROPERTIES LABELS fast TIMEOUT 300)

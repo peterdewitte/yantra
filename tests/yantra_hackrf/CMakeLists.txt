@@ -20,5 +20,6 @@ yantra_doctest_tests(test_yantra_hackrf GROUP test_yantra_hackrf LABELS fast TIM
 add_test(NAME yantra_hackrf_usage COMMAND yantra-hackrf)
 set_tests_properties(yantra_hackrf_usage PROPERTIES LABELS fast
   PASS_REGULAR_EXPRESSION "exit codes: 0 pass, 1 fail, 2 no device, 3 usage error")
-add_test(NAME yantra_hackrf_usage_code COMMAND sh -c "$<TARGET_FILE:yantra-hackrf> 2>/dev/null; test $? -eq 3")
+add_test(NAME yantra_hackrf_usage_code
+  COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_command.py --exit-code 3 --quiet-stderr -- $<TARGET_FILE:yantra-hackrf>)
 set_tests_properties(yantra_hackrf_usage_code PROPERTIES LABELS fast)

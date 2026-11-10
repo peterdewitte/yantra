@@ -36,11 +36,10 @@ set(_ctl ${CMAKE_BINARY_DIR}/tests/soapysdr_control/conformance)
 set(_serial 0000000000000000a1b2c3d4e5f60001)
 set(_fake "{\"control\":\"${_ctl}\",\"devices\":[{\"serial\":\"${_serial}\",\"scenario\":\"${PROJECT_SOURCE_DIR}/tests/fixtures/soapy/fake_two_cells.json\"}]}")
 add_test(NAME conformance_soapysdr_fake
-         COMMAND sh -c "mkdir -p \"$1\" && rm -f \"$1/$2.unplugged\" && shift 2 && exec \"$@\""
-                 conformance ${_ctl} ${_serial}
+         COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_command.py --mkdir ${_ctl} --remove ${_ctl}/${_serial}.unplugged --
                  $<TARGET_FILE:yantra-radio-host> conformance --plugin $<TARGET_FILE:soapysdr_fake>
                  --report ${CMAKE_BINARY_DIR}/conformance/soapysdr_fake.json
-                 --unplug "touch ${_ctl}/${_serial}.unplugged"
-                 --replug "rm -f ${_ctl}/${_serial}.unplugged")
+                 --unplug "\"${CMAKE_COMMAND}\" -E touch \"${_ctl}/${_serial}.unplugged\""
+                 --replug "\"${CMAKE_COMMAND}\" -E rm -f \"${_ctl}/${_serial}.unplugged\"")
 set_tests_properties(conformance_soapysdr_fake PROPERTIES LABELS "fast;timing" TIMEOUT 300
   ENVIRONMENT "YANTRA_FAKE_SOAPY=${_fake}")

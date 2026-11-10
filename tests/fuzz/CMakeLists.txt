@@ -81,7 +81,13 @@ endforeach()
 
 # The Rust crate's fuzz entry points on stable Rust (receiver/rust/tests/
 # fuzz_smoke.rs) over the generated tetra_pdu corpus.
-if(YANTRA_CARGO_EXECUTABLE)
+if(YANTRA_CARGO_EXECUTABLE AND YANTRA_BUILD_HOST_TEST)
+  # The Windows tree (ctest on Windows): cargo runs on the build machine,
+  # the corpus comes from the Windows yantra-fuzz-seeds.exe; no machine
+  # has both. The Linux trees run it with the same crate and seed code.
+  yantra_skip_test(fuzz_proto_rust LABELS "fast;fuzz;rust"
+    REASON "cargo test runs on the build machine, its corpus comes from the Windows yantra-fuzz-seeds.exe (the Linux trees run it)")
+elseif(YANTRA_CARGO_EXECUTABLE)
   add_test(NAME fuzz_proto_rust
            COMMAND ${CMAKE_COMMAND} -E env ${YANTRA_CARGO_ENV}
                    ${YANTRA_CARGO_EXECUTABLE} test --offline --locked --quiet

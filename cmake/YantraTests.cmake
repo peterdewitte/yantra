@@ -77,11 +77,21 @@ function(yantra_doctest_tests target)
   if(ARG_WORKING_DIRECTORY)
     list(APPEND _opts --workdir ${ARG_WORKING_DIRECTORY})
   endif()
-  # The Windows tree lists and runs its .exe through the emulator
-  # (tools/sdk/wsl_run.sh --in-place, preset "windows").
+  # A tree with CMAKE_CROSSCOMPILING_EMULATOR (YANTRA_WINDOWS_TEST_RUNNER
+  # wsl) lists and runs its .exe through it.
   foreach(_e ${CMAKE_CROSSCOMPILING_EMULATOR})
     list(APPEND _opts --emulator=${_e})
   endforeach()
+  # A cross-compiled tree without one (the Windows tree, run in the test
+  # VM) cannot run its binaries here: the build writes one ctest for the
+  # group (<group>/all), and ctest on the target lists the cases when it
+  # reads the tests (--at-test-time, <group>_cases.cmake), so there every
+  # case is its own ctest as on Linux.
+  set(_at_test_time OFF)
+  if(CMAKE_CROSSCOMPILING AND NOT CMAKE_CROSSCOMPILING_EMULATOR)
+    set(_at_test_time ON)
+    list(APPEND _opts --group-only)
+  endif()
   add_custom_command(TARGET ${target} POST_BUILD
     COMMAND ${Python3_EXECUTABLE} ${YANTRA_DOCTEST_DISCOVER} --exe $<TARGET_FILE:${target}>
             --group ${ARG_GROUP} --out ${_gen} --labels ${_labels_arg} --costs ${YANTRA_TEST_COSTS}
@@ -93,11 +103,39 @@ function(yantra_doctest_tests target)
   # Before the first build the binary and its list do not exist: one
   # failing placeholder says so instead of silently running nothing.
   set(_body "if(EXISTS \"${_gen}\")\n  include(\"${_gen}\")\nelse()\n  add_test(${ARG_GROUP}_NOT_BUILT ${ARG_GROUP}_NOT_BUILT)\nendif()\n")
+  if(_at_test_time)
+    set(_cases ${CMAKE_CURRENT_BINARY_DIR}/${ARG_GROUP}_cases.cmake)
+    set(_list_args --exe $<TARGET_FILE:${target}> --group ${ARG_GROUP} --out ${_cases}
+                   --labels ${_labels_arg} --costs ${YANTRA_TEST_COSTS} ${_opts} --at-test-time -- ${ARG_FILTERS})
+    list(REMOVE_ITEM _list_args --group-only)
+    set(_list_cmd "")
+    foreach(_a ${Python3_EXECUTABLE} ${YANTRA_DOCTEST_DISCOVER} ${_list_args})
+      string(APPEND _list_cmd " [==[${_a}]==]")
+    endforeach()
+    # Listed again when the binary is newer than the list; the script
+    # writes nothing where it cannot run the binary (Linux), and a failed
+    # listing leaves the group test, which then fails with the reason.
+    set(_body "if(EXISTS [==[$<TARGET_FILE:${target}>]==] AND (NOT EXISTS [==[${_cases}]==] OR [==[$<TARGET_FILE:${target}>]==] IS_NEWER_THAN [==[${_cases}]==]))
+  execute_process(COMMAND${_list_cmd} RESULT_VARIABLE _yantra_rc OUTPUT_VARIABLE _yantra_out ERROR_VARIABLE _yantra_out)
+  if(NOT _yantra_rc EQUAL 0 AND NOT _yantra_rc EQUAL 77)
+    message(WARNING \"${ARG_GROUP}: listing the doctest cases failed (\${_yantra_rc}): \${_yantra_out}\")
+  endif()
+endif()
+if(EXISTS [==[${_cases}]==])
+  include([==[${_cases}]==])
+else()
+${_body}endif()
+")
+  endif()
   if(ARG_OPT_IN)
     set(_body "${_yantra_opt_in_if}${_body}endif()\n")
   endif()
   set(_inc ${CMAKE_CURRENT_BINARY_DIR}/${ARG_GROUP}_include.cmake)
-  file(WRITE ${_inc} "${_body}")
+  if(_at_test_time)
+    file(GENERATE OUTPUT ${_inc} CONTENT "${_body}")
+  else()
+    file(WRITE ${_inc} "${_body}")
+  endif()
   set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES ${_inc})
 endfunction()
 

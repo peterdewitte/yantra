@@ -130,13 +130,12 @@
     },
     {
       "name": "windows",
-      "displayName": "Windows x64, cross-compiled with the SDK's clang; ctest runs the .exe through WSL interop (RAD-131, RAD-139)",
+      "displayName": "Windows x64, cross-compiled with the SDK's clang; ctest runs natively on Windows (test VM, BUILD.md; RAD-131, RAD-139)",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build-win",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/tools/sdk/toolchain-x86_64-w64-mingw32-clang.cmake",
-        "CMAKE_CROSSCOMPILING_EMULATOR": "${sourceDir}/tools/sdk/wsl_run.sh;--in-place"
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/tools/sdk/toolchain-x86_64-w64-mingw32-clang.cmake"
       }
     },
     {

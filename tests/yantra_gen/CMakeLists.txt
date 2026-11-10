@@ -42,19 +42,22 @@ add_test(NAME yantra_gen_list COMMAND yantra-gen --list)
 set_tests_properties(yantra_gen_list PROPERTIES LABELS fast
   PASS_REGULAR_EXPRESSION "indoor_good_das\tIndoor, good DAS coverage\t\\(default\\)")
 # Streaming to stdout: exact byte count of a finite run, and an endless
-# run cut by the reader.
+# run cut by the reader (tests/test_command.py, Linux and Windows; the
+# writer's message about the closed pipe is dropped: on Linux SIGPIPE ends
+# it silently, on Windows it reports the failed write and exits).
 add_test(NAME yantra_gen_stdout
-  COMMAND sh -c "\"$0\" --cell carrier=3600 --duration 0.1 --format cs8 --full-scale-dbm -50 --quiet --out - | wc -c"
-          $<TARGET_FILE:yantra-gen>)
+  COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_command.py --count-stdout --
+          $<TARGET_FILE:yantra-gen> --cell carrier=3600 --duration 0.1 --format cs8 --full-scale-dbm -50 --quiet --out -)
 set_tests_properties(yantra_gen_stdout PROPERTIES LABELS fast PASS_REGULAR_EXPRESSION "^ *100000\n$")
 add_test(NAME yantra_gen_stdout_endless
-  COMMAND sh -c "\"$0\" --cell carrier=3600 --duration 0 --format cu8 --full-scale-dbm -50 --quiet --out - | head -c 3000000 | wc -c"
-          $<TARGET_FILE:yantra-gen>)
+  COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_command.py --count-stdout --limit 3000000 --quiet-stderr --
+          $<TARGET_FILE:yantra-gen> --cell carrier=3600 --duration 0 --format cu8 --full-scale-dbm -50 --quiet --out -)
 set_tests_properties(yantra_gen_stdout_endless PROPERTIES LABELS fast TIMEOUT 60
   PASS_REGULAR_EXPRESSION "^ *3000000\n$")
 # Install rules: yantra-gen and the scenarios in a scratch prefix; the
 # installed binary lists and runs a scenario by id.
 add_test(NAME yantra_gen_install
-  COMMAND sh -c "rm -rf \"$1\" && \"$0\" --install \"$2\" --prefix \"$1\" >/dev/null && \"$1/bin/$<TARGET_FILE_NAME:yantra-gen>\" --list | grep -q '^fraunces' && \"$1/bin/$<TARGET_FILE_NAME:yantra-gen>\" --scenario fraunces --duration 0.05 --quiet --out \"$1/run.cs8\" --format cs8 && test -s \"$1/run.records.jsonl\" && test -f \"$1/share/yantra-radios/scenarios/scenes/demo_office_f0.json\"; rc=$?; rm -rf \"$1\"; exit $rc"
-          ${CMAKE_COMMAND} ${CMAKE_BINARY_DIR}/yantra_gen_install_test ${CMAKE_BINARY_DIR})
+  COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/install_check.py
+          ${CMAKE_COMMAND} ${CMAKE_BINARY_DIR}/yantra_gen_install_test ${CMAKE_BINARY_DIR}
+          $<TARGET_FILE_NAME:yantra-gen>)
 set_tests_properties(yantra_gen_install PROPERTIES LABELS fast TIMEOUT 120)

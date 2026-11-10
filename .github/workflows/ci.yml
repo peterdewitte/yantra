@@ -9,7 +9,7 @@
 # run natively on a Windows runner (RAD-131), and the completeness checks
 # (RAD-133). Locally the same Linux steps run with tools/ci/run_linux.sh
 # (YANTRA_CI_COMPILER=clang|gcc); the Windows tree with the preset
-# "windows" and ctest through WSL interop (BUILD.md). The native MSYS2
+# "windows" and its ctest in a Windows test VM (BUILD.md). The native MSYS2
 # UCRT64 build is windows-check.yml.
 # Copied from yantra 68ea20a: .github/workflows/ci.yml, adapted for RAD-134.
 
@@ -193,10 +193,11 @@ jobs:
 
   # Windows x64 (RAD-131, RAD-139): cross-compiled on Linux with the
   # SDK's clang, lld and Rust (target x86_64-pc-windows-gnu), bundled
-  # libraries cross-built statically (RAD-136). Here no Windows runs the
-  # .exe (tools/sdk/wsl_run.sh exits 77), so every doctest binary is one
-  # ctest; the completeness checks (imports, exports, build paths) and the
-  # release package run here, the tests on the Windows runner below.
+  # libraries cross-built statically (RAD-136). The .exe cannot run here,
+  # so every doctest binary is one ctest (<group>/all; ctest on Windows
+  # lists the cases); the completeness checks (imports, exports, build
+  # paths) and the release package run here, the tests on the Windows
+  # runner below.
   windows-cross:
     runs-on: ubuntu-24.04
     steps:

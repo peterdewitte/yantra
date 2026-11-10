@@ -10,7 +10,8 @@ checks only):
 
   needed   Linux: the NEEDED entries (readelf -d) name only the allowed
            system libraries of RAD-132 (glibc and its parts, libudev).
-           Windows: the DLL imports (objdump -p, GNU or llvm-objdump) name
+           Windows: the DLL imports (read from the PE file by this script,
+           or with --objdump from `objdump -p`, GNU or llvm-objdump) name
            only Windows system DLLs and the UCRT, never the GCC runtime
            (libstdc++-6, libgcc_s_seh-1, libwinpthread-1), anything of
            MSYS2 or msvcrt.dll (a second C runtime next to the UCRT).
@@ -46,13 +47,16 @@ Exit codes: 0 clean, 1 findings, 2 usage or tool error.
 With --expect KIND[,KIND...] the check inverts for negative tests: exit 0
 only if the findings are exactly of these kinds.
 The Windows part runs on the cross-compiled .dll and .exe of the Windows
-tree (cross SDK, RAD-131/139), with the SDK's llvm-objdump.
+tree (cross SDK, RAD-131/139) on Linux or on Windows itself (the Windows
+tree's ctest in the test VM): it needs Python only. --build-folder names
+the folders of the build machine when the check runs on another one.
 """
 from __future__ import annotations
 
 import argparse
 import os
 import re
+import struct
 import subprocess
 import sys
 
@@ -184,6 +188,78 @@ def parse_objdump_pe(text: str) -> tuple[list[str], list[str]]:
     return imports, sorted(set(exports))
 
 
+def read_pe(data: bytes) -> tuple[list[str], list[str]]:
+    """DLL imports (import and delay-import tables) and exported names of a
+    PE file (PE32 or PE32+), read directly: the same lists as
+    parse_objdump_pe(), without objdump. An export without a name counts as
+    "#<ordinal>". Raises ValueError on a file that is not PE."""
+    def u16(o): return struct.unpack_from("<H", data, o)[0]
+    def u32(o): return struct.unpack_from("<I", data, o)[0]
+    try:
+        if data[:2] != b"MZ":
+            raise ValueError("no MZ header")
+        pe = u32(0x3C)
+        if data[pe:pe + 4] != b"PE\0\0":
+            raise ValueError("no PE signature")
+        nsec, opt_size = u16(pe + 6), u16(pe + 20)
+        opt = pe + 24
+        magic = u16(opt)
+        if magic == 0x20B:
+            ndirs, dirs = u32(opt + 108), opt + 112
+        elif magic == 0x10B:
+            ndirs, dirs = u32(opt + 92), opt + 96
+        else:
+            raise ValueError(f"unknown optional header magic {magic:#x}")
+        sections = []
+        for i in range(nsec):
+            h = opt + opt_size + 40 * i
+            vsize, va, rsize, raw = struct.unpack_from("<IIII", data, h + 8)
+            sections.append((va, max(vsize, rsize), raw))
+
+        def off(rva):
+            for va, size, raw in sections:
+                if va <= rva < va + size:
+                    return raw + rva - va
+            raise ValueError(f"RVA {rva:#x} is in no section")
+
+        def cstr(rva):
+            o = off(rva)
+            return data[o:data.index(b"\0", o)].decode("ascii", "replace")
+
+        def directory(i):
+            return struct.unpack_from("<II", data, dirs + 8 * i) if i < ndirs else (0, 0)
+
+        imports, exports = [], []
+        rva, size = directory(1)
+        if rva and size:
+            o = off(rva)
+            while True:
+                name = u32(o + 12)
+                if not any(struct.unpack_from("<5I", data, o)):
+                    break
+                imports.append(cstr(name))
+                o += 20
+        rva, size = directory(13)  # delay-load imports
+        if rva and size:
+            o = off(rva)
+            while any(struct.unpack_from("<8I", data, o)):
+                imports.append(cstr(u32(o + 4)))
+                o += 32
+        rva, size = directory(0)
+        if rva and size:
+            o = off(rva)
+            base, nfun, nnames, afun, anames, aords = struct.unpack_from("<6I", data, o + 16)
+            named = {}
+            for i in range(nnames):
+                named[u16(off(aords) + 2 * i)] = cstr(u32(off(anames) + 4 * i))
+            for i in range(nfun):
+                if u32(off(afun) + 4 * i):
+                    exports.append(named.get(i, f"#{base + i}"))
+        return imports, sorted(set(exports))
+    except (struct.error, IndexError) as e:
+        raise ValueError(f"truncated or malformed PE file ({e})") from None
+
+
 # ---- checks --------------------------------------------------------------
 
 def _run(cmd: list[str]) -> str:
@@ -199,10 +275,14 @@ def build_folders() -> list[str]:
     source tree, and the home folder when it is a person's (at least two
     levels deep: not "/" or "/tmp", which other texts may hold)."""
     out = [os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))]
-    home = os.path.normpath(os.environ.get("HOME") or "/")
-    if len([c for c in home.split("/") if c]) >= 2:
+    home = os.path.normpath(os.environ.get("HOME") or os.environ.get("USERPROFILE") or "/")
+    if len([c for c in re.split(r"[\\/]", home) if c]) >= 2:
         out.append(home)
-    return out
+    if os.name == "nt":
+        # A Windows path also as the build machine wrote it into the file
+        # when the tree is mirrored to the same path (C:\home\... = /home/...).
+        out += [os.path.splitdrive(p)[1].replace("\\", "/") for p in out]
+    return list(dict.fromkeys(out))
 
 
 def texts_in(data: bytes, texts: list[str]) -> list[str]:
@@ -247,7 +327,15 @@ def check_windows(path: str, extra: list[str], tools: dict) -> list[tuple[str, s
     with open(path, "rb") as f:
         for t in texts_in(f.read(), tools["forbid"]):
             findings.append(("build_paths", f"the file holds {t}: a folder of the machine it was built on"))
-    imports, exports = parse_objdump_pe(_run([tools["objdump"], "-p", path]))
+    if tools["objdump"]:
+        imports, exports = parse_objdump_pe(_run([tools["objdump"], "-p", path]))
+    else:
+        try:
+            with open(path, "rb") as f:
+                imports, exports = read_pe(f.read())
+        except ValueError as e:
+            print(f"check_completeness: {path}: {e}", file=sys.stderr)
+            sys.exit(2)
     for n in imports:
         if not _matches(n, WINDOWS_ALLOWED, extra, True):
             findings.append(("needed", f"imports {n}, not a Windows system DLL or the UCRT (RAD-132)"))
@@ -269,6 +357,37 @@ def collect(paths: list[str], suffix: str) -> list[str]:
             print(f"check_completeness: no such file or folder: {p}", file=sys.stderr)
             sys.exit(2)
     return out
+
+
+def _tiny_pe() -> bytes:
+    """A minimal PE32+ image for the self-test: one section at RVA 0x1000
+    (file offset 0x200) with two imports, one delay import and the exports
+    yantra_radio_entry (named) and ordinal 8 (no name)."""
+    sec = bytearray(0x200)
+    def put(o, b): sec[o:o + len(b)] = b
+    put(0x100, b"KERNEL32.dll\0"); put(0x110, b"libstdc++-6.dll\0"); put(0x120, b"DELAY.dll\0")
+    put(0x130, b"x.dll\0"); put(0x140, ENTRY.encode() + b"\0")
+    struct.pack_into("<5I", sec, 0x00, 0, 0, 0, 0x1100, 0)       # import descriptors
+    struct.pack_into("<5I", sec, 0x14, 0, 0, 0, 0x1110, 0)       # (+ one all-zero)
+    struct.pack_into("<8I", sec, 0x40, 1, 0x1120, 0, 0, 0, 0, 0, 0)  # delay import (+ zero)
+    struct.pack_into("<10I", sec, 0x80, 0, 0, 0, 0x1130, 7, 2, 1, 0x10B0, 0x10B8, 0x10BC)
+    struct.pack_into("<2I", sec, 0xB0, 0x1500, 0x1600)           # functions: ordinals 7, 8
+    struct.pack_into("<I", sec, 0xB8, 0x1140)                    # names
+    struct.pack_into("<H", sec, 0xBC, 0)                         # name 0 -> function 0
+    hdr = bytearray(0x200)
+    hdr[0:2] = b"MZ"
+    struct.pack_into("<I", hdr, 0x3C, 0x40)
+    hdr[0x40:0x44] = b"PE\0\0"
+    struct.pack_into("<HHIIIHH", hdr, 0x44, 0x8664, 1, 0, 0, 0, 240, 0x2022)
+    opt = 0x58
+    struct.pack_into("<H", hdr, opt, 0x20B)
+    struct.pack_into("<I", hdr, opt + 108, 16)
+    dirs = opt + 112
+    struct.pack_into("<II", hdr, dirs + 0, 0x1080, 0x28)         # exports
+    struct.pack_into("<II", hdr, dirs + 8, 0x1000, 0x28)         # imports
+    struct.pack_into("<II", hdr, dirs + 13 * 8, 0x1040, 0x40)    # delay imports
+    struct.pack_into("<8sIIII", hdr, opt + 240, b".data", 0x200, 0x1000, 0x200, 0x200)
+    return bytes(hdr) + bytes(sec)
 
 
 def self_test() -> int:
@@ -348,6 +467,15 @@ Export Table:
     assert parse_readelf_stack(seg.replace(" RW  0x10", " RWE 0x10")) == "RWE"
     assert parse_readelf_stack("  LOAD 0x0 0x0 0x0 0x5 0x5 R 0x1000\n") is None
     assert texts_in(b"x/home/a/b.c\0", ["/home/a", "/home/c"]) == ["/home/a"]
+    imports, exports = read_pe(_tiny_pe())
+    assert imports == ["KERNEL32.dll", "libstdc++-6.dll", "DELAY.dll"], imports
+    assert exports == ["#8", ENTRY], exports
+    for bad in (b"", b"MZ" + bytes(100), _tiny_pe()[:300]):
+        try:
+            read_pe(bad)
+            raise AssertionError("read_pe accepted a broken file")
+        except ValueError:
+            pass
     print("check_completeness: self-test OK")
     return 0
 
@@ -368,7 +496,11 @@ def main() -> int:
     ap.add_argument("--allow-build-paths", action="store_true",
                     help="do not look for this machine's folders (asan-ubsan trees)")
     ap.add_argument("--readelf", default=os.environ.get("READELF", "readelf"))
-    ap.add_argument("--objdump", default=os.environ.get("OBJDUMP", "objdump"))
+    ap.add_argument("--objdump", default=os.environ.get("OBJDUMP", ""),
+                    help="read the PE imports and exports with this objdump instead of directly")
+    ap.add_argument("--build-folder", action="append", default=[], metavar="DIR",
+                    help="also a build_paths finding when a file holds this folder (the build "
+                         "machine's source tree and home when the check runs on another machine)")
     ap.add_argument("--programs", action="store_true",
                     help="check programs (.exe, Windows only) instead of plugins: imports and build paths")
     ap.add_argument("--self-test", action="store_true", help="test the output parsers and exit")
@@ -379,7 +511,9 @@ def main() -> int:
         ap.error("--programs needs --platform windows")
 
     tools = {"readelf": a.readelf, "objdump": a.objdump, "program": a.programs,
-             "forbid": ([] if a.allow_build_paths else build_folders()) + a.forbid}
+             "forbid": ([] if a.allow_build_paths else build_folders()
+                        + [d for d in a.build_folder if len([c for c in re.split(r"[\\/]", d) if c]) >= 2])
+                       + a.forbid}
     suffix = ".so" if a.platform == "linux" else (".exe" if a.programs else ".dll")
     files = collect(a.paths, suffix)
     check = check_linux if a.platform == "linux" else check_windows

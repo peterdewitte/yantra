@@ -811,7 +811,14 @@ int cmd_conformance(const Options& o)
         k.stream_seconds = std::max(1.5, o.duration);
     auto shell = [](const std::string& cmd) {
         return [cmd](std::string& error) {
+#ifdef _WIN32
+            // cmd.exe /c strips the first and the last quote of the line:
+            // enclosed once more, a command with a quoted program path
+            // ("C:/x/cmake.exe" -E touch "f") reaches cmd.exe unchanged.
+            const int rc = std::system(("\"" + cmd + "\"").c_str());
+#else
             const int rc = std::system(cmd.c_str());
+#endif
             if (rc != 0)
                 error = "\"" + cmd + "\" exited with " + std::to_string(rc);
             return rc == 0;

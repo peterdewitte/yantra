@@ -18,13 +18,15 @@ else()
   set(_sdk ${PROJECT_SOURCE_DIR}/sdk)
 endif()
 
-add_test(NAME sdk_check COMMAND sh -c
+add_test(NAME sdk_check COMMAND ${YANTRA_BUILD_HOST_TEST} sh -c
   "if [ ! -d \"$1/manifest\" ]; then echo \"no cross SDK in $1: skipped\"; exit 77; fi; exec \"$2\" -B \"$3\" check --sdk-dir \"$1\""
   sh ${_sdk} ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/sdk/yantra_sdk.py)
 set_tests_properties(sdk_check PROPERTIES LABELS fast TIMEOUT 300 SKIP_RETURN_CODE 77)
 
-add_test(NAME sdk_windows_smoke COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/win_smoke.sh
+add_test(NAME sdk_windows_smoke COMMAND ${YANTRA_BUILD_HOST_TEST} bash ${CMAKE_CURRENT_SOURCE_DIR}/win_smoke.sh
   ${CMAKE_CURRENT_BINARY_DIR}/win_smoke)
 set_tests_properties(sdk_windows_smoke PROPERTIES LABELS slow TIMEOUT 600 SKIP_RETURN_CODE 77
   ENVIRONMENT "YANTRA_SDK_DIR=${_sdk}")
+# The SDK lives on the build machine: build-host checks in the Windows tree.
+yantra_build_host_tests(sdk_check sdk_windows_smoke)
 unset(_sdk)

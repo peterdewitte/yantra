@@ -14,8 +14,8 @@
 #       statically (-static), so a .dll or .exe imports only Windows
 #       system DLLs and the UCRT (RAD-132; GCC runtime library exception)
 # Sets YANTRA_RUST_TARGET (x86_64-pc-windows-gnu) for the Rust crate.
-# CMAKE_CROSSCOMPILING_EMULATOR (running the .exe tests on Windows from
-# WSL) is left to the build that sets it (-DCMAKE_CROSSCOMPILING_EMULATOR).
+# No CMAKE_CROSSCOMPILING_EMULATOR: the tree's ctest runs on Windows (the
+# test VM); YANTRA_WINDOWS_TEST_RUNNER=wsl sets one on WSL2 (BUILD.md).
 
 include("${CMAKE_CURRENT_LIST_DIR}/yantra-sdk.cmake")
 yantra_sdk_require(llvm rust msys2)

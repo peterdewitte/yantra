@@ -4,9 +4,10 @@
 # Build output (default, scalar, sanitizer, fuzz and gcc trees)
 /build/
 /build-*/
-# The cross SDK and its download cache (tools/sdk/yantra_sdk.py, RAD-139)
-/sdk/
-/sdk-cache/
+# The cross SDK and its download cache (tools/sdk/yantra_sdk.py, RAD-139):
+# folders, or links to folders outside the tree (BUILD.md)
+/sdk
+/sdk-cache
 /out/
 /target/
 **/target/

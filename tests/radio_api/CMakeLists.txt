@@ -11,14 +11,16 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   set(_inc ${CMAKE_SOURCE_DIR}/include)
   set(_dir ${CMAKE_CURRENT_SOURCE_DIR}/syntax)
   add_test(NAME radio_api_header_c99
-    COMMAND ${CMAKE_C_COMPILER} -std=c99 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes
+    COMMAND ${YANTRA_BUILD_HOST_TEST} ${CMAKE_C_COMPILER} -std=c99 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes
             -Wmissing-prototypes -Wundef -fsyntax-only -I${_inc} -x c ${_dir}/radio_h.c)
   add_test(NAME radio_api_header_cxx11
-    COMMAND ${CMAKE_CXX_COMPILER} -std=c++11 -pedantic -Wall -Wextra -Werror -Wundef
+    COMMAND ${YANTRA_BUILD_HOST_TEST} ${CMAKE_CXX_COMPILER} -std=c++11 -pedantic -Wall -Wextra -Werror -Wundef
             -fsyntax-only -I${_inc} -x c++ ${_dir}/radio_h.c)
   add_test(NAME radio_api_header_hpp
-    COMMAND ${CMAKE_CXX_COMPILER} -std=c++20 -pedantic -Wall -Wextra -Werror -Wundef -Wshadow
+    COMMAND ${YANTRA_BUILD_HOST_TEST} ${CMAKE_CXX_COMPILER} -std=c++20 -pedantic -Wall -Wextra -Werror -Wundef -Wshadow
             -Wconversion -fsyntax-only -I${_inc} -x c++ ${_dir}/radio_hpp.cpp)
   set_tests_properties(radio_api_header_c99 radio_api_header_cxx11 radio_api_header_hpp
     PROPERTIES LABELS fast)
+  # The compiler of the build machine (syntax only): a build-host check.
+  yantra_build_host_tests(radio_api_header_c99 radio_api_header_cxx11 radio_api_header_hpp)
 endif()

@@ -14,12 +14,15 @@ set(_env "")
 if(CMAKE_TOOLCHAIN_FILE)
   set(_env ENVIRONMENT "CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
 endif()
-add_test(NAME deps_build COMMAND ${PROJECT_SOURCE_DIR}/tools/deps/build_deps.sh ${_prefix})
+add_test(NAME deps_build COMMAND ${YANTRA_BUILD_HOST_TEST} ${PROJECT_SOURCE_DIR}/tools/deps/build_deps.sh ${_prefix})
 set_tests_properties(deps_build PROPERTIES ${_env} LABELS fast TIMEOUT 600 FIXTURES_SETUP deps_prefix
   PASS_REGULAR_EXPRESSION "(bundled libraries in|is up to date)")
-add_test(NAME deps_build_cached COMMAND ${PROJECT_SOURCE_DIR}/tools/deps/build_deps.sh ${_prefix})
+add_test(NAME deps_build_cached COMMAND ${YANTRA_BUILD_HOST_TEST} ${PROJECT_SOURCE_DIR}/tools/deps/build_deps.sh ${_prefix})
 set_tests_properties(deps_build_cached PROPERTIES ${_env} LABELS fast TIMEOUT 120 FIXTURES_REQUIRED deps_prefix
   PASS_REGULAR_EXPRESSION "is up to date")
-add_test(NAME deps_manifest COMMAND ${CMAKE_COMMAND} -E cat ${_prefix}/deps-manifest.tsv)
+add_test(NAME deps_manifest COMMAND ${YANTRA_BUILD_HOST_TEST} ${CMAKE_COMMAND} -E cat ${_prefix}/deps-manifest.tsv)
 set_tests_properties(deps_manifest PROPERTIES LABELS fast TIMEOUT 60 FIXTURES_REQUIRED deps_prefix
   PASS_REGULAR_EXPRESSION "talloc\t2\\.4\\.3\tLGPL-3\\.0-or-later\nlibosmocore\t1\\.11\\.0\tGPL-2\\.0-or-later\n")
+# Builds with the build machine's compiler: build-host checks in the
+# Windows tree.
+yantra_build_host_tests(deps_build deps_build_cached deps_manifest)

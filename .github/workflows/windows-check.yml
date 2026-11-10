@@ -4,10 +4,10 @@
 # Full Windows run on demand (RAD-134, RAD-131): a native build with
 # MSYS2 UCRT64's gcc (the second Windows compiler next to the cross SDK's
 # clang of ci.yml), every test including slow, the completeness checks of
-# the .dll plugins and .exe programs (RAD-133) with MSYS2's objdump. No
-# toolchain file and no emulator: ctest runs the .exe directly.
-# Checked with PyYAML and tools/ci/lint.sh; not run locally (no Windows
-# runner here; the same tree's tests run through WSL, BUILD.md).
+# the .dll plugins and .exe programs (RAD-133; check_completeness.py reads
+# the PE files itself). No toolchain file: ctest runs the .exe directly.
+# Checked with PyYAML and tools/ci/lint.sh; not run locally (no MSYS2 on
+# the Windows test VM; the cross-compiled tree's tests run there, BUILD.md).
 # Copied from yantra 68ea20a: .github/workflows/windows.yml, adapted.
 
 name: windows-check

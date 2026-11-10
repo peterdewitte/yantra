@@ -33,8 +33,8 @@ set(_ctl ${CMAKE_BINARY_DIR}/tests/soapy_remote_control/conformance)
 set(_serial 0000000000000000a1b2c3d4e5f60001)
 set(_fake "{\"control\":\"${_ctl}\",\"devices\":[{\"serial\":\"${_serial}\",\"scenario\":\"${PROJECT_SOURCE_DIR}/tests/fixtures/soapy/fake_two_cells.json\"}]}")
 add_test(NAME conformance_soapysdr_remote
-         COMMAND sh ${CMAKE_CURRENT_SOURCE_DIR}/with_remote_server.sh ${_ctl}
-                 $<TARGET_FILE:yantra-soapy-remote-test-server>
+         COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tests/test_command.py --server ${_ctl}
+                 $<TARGET_FILE:yantra-soapy-remote-test-server> --
                  $<TARGET_FILE:yantra-radio-host> conformance --plugin $<TARGET_FILE:soapysdr>
                  --device remote:${_serial}
                  --report ${CMAKE_BINARY_DIR}/conformance/soapysdr_remote.json)
