@@ -38,6 +38,7 @@
 
 #include "e2e_helpers.h"
 #include "measure_rig.h"
+#include "test_platform.hpp"
 
 using namespace mh;
 namespace yb = yantra::building;
@@ -818,14 +819,15 @@ TEST_CASE("TST-23 simulator: a burst the pipeline cannot keep up with is dropped
 
 TEST_CASE("TST-31 long replayed walk test: a sample with its position every second, no gaps" * doctest::test_suite("long")) {
     if (!have_records("")) return;
-    const fs::path gen = fs::path(RADIOS_BIN_DIR) / "yantra-gen";
+    const fs::path gen = fs::path(RADIOS_BIN_DIR) / (std::string("yantra-gen") + yantra::test::kExeSuffix);
     REQUIRE(fs::exists(gen));
     const fs::path out = records_dir() / "long_walk.records.jsonl";
     constexpr int kSeconds = 600;
-    // yantra-gen writes the side files next to the records (removed below).
-    const std::string cmd = gen.string() + " --scenario indoor_good_das --duration " + std::to_string(kSeconds) +
-                            " --out - --records " + out.string() + " --quiet > /dev/null";
-    REQUIRE(std::system(cmd.c_str()) == 0);
+    // yantra-gen writes the side files next to the records (removed below);
+    // its signal output (--out -) is thrown away.
+    REQUIRE(yantra::test::run_program({gen.string(), "--scenario", "indoor_good_das", "--duration",
+                                       std::to_string(kSeconds), "--out", "-", "--records", out.string(), "--quiet"},
+                                      yantra::test::kNullDevice) == 0);
     const ym::RecordFile file = load(out.filename().string());
     FileRun run;
     REQUIRE(run.run(file) == file.record_count);

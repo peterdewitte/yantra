@@ -51,6 +51,7 @@
 #include <yantra/core/measure/catalog.h>
 #include <yantra/core/measure/record_file.h>
 #include <yantra/core/celldb/technology.h>
+#include <yantra/core/platform/process.h>
 #include <yantra/core/plugin/loader.h>
 #include <yantra/core/report/compare.h>
 #include <yantra/core/report/coverage.h>
@@ -73,13 +74,6 @@ int usage(std::ostream& out, int code) {
     return code;
 }
 
-// A path for the shell, in single quotes.
-std::string quoted(const fs::path& p) {
-    std::string out = "'";
-    for (char c : p.string()) out += c == '\'' ? std::string("'\\''") : std::string(1, c);
-    return out + "'";
-}
-
 std::string read_text(const fs::path& file) {
     std::ifstream in(file, std::ios::binary);
     if (!in) throw std::runtime_error("cannot read " + file.string());
@@ -87,16 +81,11 @@ std::string read_text(const fs::path& file) {
 }
 
 // yantra-gen on a scenario file: the ground-truth record file only (the
-// samples go to the null device).
+// samples go to the null device). No shell (HW-06: cmd.exe on Windows).
 void run_gen(const fs::path& gen, const fs::path& scenario, const fs::path& records) {
-#ifdef _WIN32
-    const char* null_device = "NUL";
-#else
-    const char* null_device = "/dev/null";
-#endif
-    const std::string cmd = quoted(gen) + " --scenario " + quoted(scenario) + " --format cs8 --out - --records " +
-                            quoted(records) + " --quiet > " + null_device;
-    const int rc = std::system(cmd.c_str());
+    const int rc = yantra::platform::run_program({gen.string(), "--scenario", scenario.string(), "--format", "cs8",
+                                                  "--out", "-", "--records", records.string(), "--quiet"},
+                                                 yantra::platform::null_device());
     if (rc != 0) throw std::runtime_error("yantra-gen failed (" + std::to_string(rc) + ") on " + scenario.string());
 }
 

@@ -15,6 +15,7 @@
 #include <iterator>
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <unistd.h>
 
@@ -26,6 +27,8 @@
 #include <yantra/core/survey/interpolation.h>
 #include <yantra/core/survey/points.h>
 #include <yantra/core/util/sha256.h>
+
+#include "test_platform.hpp"
 
 namespace demo_test {
 
@@ -76,16 +79,15 @@ inline yantra::raytrace::RunControl demo_run() {
     return run;
 }
 
-/// Runs yantra-demo on `description` into `out` (extra options appended);
-/// true when it succeeded.
+/// Runs yantra-demo on `description` into `out` (one extra option
+/// appended); true when it succeeded. Its output goes to out/log.txt.
 inline bool run_yantra_demo(const fs::path& description, const fs::path& out, const std::string& extra = {}) {
     fs::create_directories(out);
-    const std::string cmd = std::string("'") + YANTRA_DEMO_PATH + "' --description '" + description.string() +
-                            "' --out '" + out.string() + "' --gen '" + DEMO_GEN + "' --scenario-dir '" +
-                            DEMO_SCENARIO_DIR + "' --tetra-plugin '" + TETRA_PLUGIN_PATH + "' --threads " +
-                            std::to_string(kDemoThreads) + " " + extra + " > '" +
-                            (out / "log.txt").string() + "' 2>&1";
-    const bool ok = std::system(cmd.c_str()) == 0;
+    std::vector<std::string> argv = {YANTRA_DEMO_PATH, "--description", description.string(), "--out", out.string(),
+                                     "--gen", DEMO_GEN, "--scenario-dir", DEMO_SCENARIO_DIR, "--tetra-plugin",
+                                     TETRA_PLUGIN_PATH, "--threads", std::to_string(kDemoThreads)};
+    if (!extra.empty()) argv.push_back(extra);
+    const bool ok = yantra::test::run_program(argv, out / "log.txt") == 0;
     if (!ok) MESSAGE(file_bytes(out / "log.txt"));
     return ok;
 }
