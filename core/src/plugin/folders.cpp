@@ -31,7 +31,8 @@ FolderInputs folder_inputs_from_environment() {
 
 PluginFolders plugin_folders(const FolderInputs& in) {
     PluginFolders out;
-    auto add = [&](const std::filesystem::path& p) {
+    auto add = [&](const std::filesystem::path& given) {
+        const std::filesystem::path p = platform::complete_path(given);  // Windows: "/x" on the current drive
         if (p.empty() || !p.is_absolute()) return std::filesystem::path{};
         const std::filesystem::path n = p.lexically_normal();
         if (std::find(out.plugins.begin(), out.plugins.end(), n) == out.plugins.end())
@@ -49,7 +50,7 @@ PluginFolders plugin_folders(const FolderInputs& in) {
     }
     if (!in.user_plugin_dir.empty()) {
         out.user = add(in.user_plugin_dir);
-    } else if (!in.xdg_data_home.empty() && std::filesystem::path(in.xdg_data_home).is_absolute()) {
+    } else if (!in.xdg_data_home.empty() && platform::complete_path(in.xdg_data_home).is_absolute()) {
         out.user = add(std::filesystem::path(in.xdg_data_home) / "yantra" / "plugins");
     } else if (!in.home.empty()) {
         out.user = add(std::filesystem::path(in.home) / ".local" / "share" / "yantra" / "plugins");

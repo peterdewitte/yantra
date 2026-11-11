@@ -19,7 +19,9 @@ using namespace yantra::app;
 namespace {
 
 fs::path scratch(const std::string& name) {
-    const fs::path d = fs::path(YANTRA_TEST_SCRATCH_DIR) / "browser" / name;
+    // Absolute with its drive on Windows (the build tree names "/home/..."),
+    // as the folders the code under test gives back.
+    const fs::path d = fs::absolute(fs::path(YANTRA_TEST_SCRATCH_DIR) / "browser" / name);
     fs::remove_all(d);
     fs::create_directories(d);
     return d;

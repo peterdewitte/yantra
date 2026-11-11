@@ -57,6 +57,10 @@ endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
+# A program started from the build tree finds the sources' data/ through
+# this file (app/model data_paths.h); unlike CMakeCache.txt it is copied
+# with the tree to the Windows test machine.
+file(CONFIGURE OUTPUT ${PROJECT_BINARY_DIR}/yantra-source-dir.txt CONTENT "${PROJECT_SOURCE_DIR}\n")
 
 # NFR-09 (no personal data): binaries name no folder of the machine they
 # were built on, in debug information or in __FILE__ (a home folder is

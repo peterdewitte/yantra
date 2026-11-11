@@ -16,6 +16,7 @@
 #include <nlohmann/json.hpp>
 
 #include "yantra/app/window_system.h"
+#include "yantra/core/platform/dynlib.h"
 
 namespace yantra::app {
 
@@ -346,7 +347,9 @@ fs::path config_folder() {
     const char* x = std::getenv("XDG_CONFIG_HOME");
     const char* h = std::getenv("HOME");
 #endif
-    return config_folder(x != nullptr ? x : "", h != nullptr ? h : "");
+    // On Windows a folder without a drive is on the current drive.
+    const auto folder = [](const char* v) { return v != nullptr ? platform::complete_path(v).string() : std::string(); };
+    return config_folder(folder(x), folder(h));
 }
 
 AppSettings load_settings(const fs::path& file, std::string& error) {

@@ -36,6 +36,7 @@
 #include "yantra/app/cli.h"
 #include "yantra/app/data_paths.h"
 #include "yantra/core/calibration/table.h"
+#include "yantra/core/platform/dynlib.h"
 #include "yantra/core/plugin/folders.h"
 #include "yantra/app/settings.h"
 #include "yantra/app/settings_reset.h"
@@ -187,14 +188,15 @@ int main(int argc, char** argv) {
             const char* cache = std::getenv("XDG_CACHE_HOME");
 #endif
             fs::path user_cache;
-            if (cache != nullptr && fs::path(cache).is_absolute()) user_cache = fs::path(cache) / "yantra";
+            if (cache != nullptr && yantra::platform::complete_path(cache).is_absolute())
+                user_cache = yantra::platform::complete_path(cache) / "yantra";
             else if (!paths.home.empty()) user_cache = paths.home / ".cache" / "yantra";
             if (!user_cache.empty()) {
                 paths.radios.ring_folder = user_cache / "ring";
                 paths.sheet_cache = user_cache / "mak";
             }
             const char* mak = std::getenv("YANTRA_MAK_CACHE");
-            if (mak != nullptr && fs::path(mak).is_absolute()) paths.sheet_cache = mak;
+            if (mak != nullptr && yantra::platform::complete_path(mak).is_absolute()) paths.sheet_cache = yantra::platform::complete_path(mak);
         }
     }
 
@@ -202,7 +204,11 @@ int main(int argc, char** argv) {
     // without the UI, and exits.
     if (cli.reset_settings) {
         if (config.empty()) {
+#if defined(_WIN32)
+            std::fprintf(stderr, "yantra: no settings folder (set APPDATA)\n");
+#else
             std::fprintf(stderr, "yantra: no settings folder (set HOME or XDG_CONFIG_HOME)\n");
+#endif
             return 1;
         }
         const app::ResetOutcome o = app::reset_settings_files(

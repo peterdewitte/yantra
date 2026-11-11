@@ -10,9 +10,9 @@
 //   logo/png/yantra_logo_<n>.png          (data/logo of the sources)
 //   demo/fraunces/fraunces.yantra + recordings/   (target demo_fraunces)
 // Search order: YANTRA_DATA_DIR (absolute), <executable>/../share/yantra,
-// then, for a program started from a build tree (CMakeCache.txt next to
-// its bin/ folder), the build folder (generated demo data) and the
-// source tree's data/ folder. Nothing is compiled in, so a package holds
+// then, for a program started from a build tree (yantra-source-dir.txt or
+// CMakeCache.txt next to its bin/ folder), the build folder (generated
+// demo data) and the source tree's data/ folder. Nothing is compiled in, so a package holds
 // no build-machine path.
 #pragma once
 
@@ -36,8 +36,11 @@ DataPathInputs data_path_inputs_from_environment();
 /// The data folders in search order (existing folders only, no duplicates).
 std::vector<std::filesystem::path> data_folders(const DataPathInputs& in);
 
-/// The source folder of a build tree: `build_dir`/CMakeCache.txt names it
-/// (Yantra_SOURCE_DIR); empty when `build_dir` is not a Yantra build tree.
+/// The source folder of a build tree: `build_dir`/yantra-source-dir.txt
+/// (written by CMake, copied with the tree to another machine) or
+/// `build_dir`/CMakeCache.txt (Yantra_SOURCE_DIR) names it; empty when
+/// `build_dir` is not a Yantra build tree. A source folder named without
+/// a drive on Windows (a tree made on Linux) is on the build tree's drive.
 std::filesystem::path build_tree_source_dir(const std::filesystem::path& build_dir);
 
 /// The first folder's `relative` file that exists.

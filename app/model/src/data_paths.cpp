@@ -22,9 +22,11 @@ namespace fs = std::filesystem;
 
 namespace {
 
+// A folder from the environment ("" when unset), with its drive on Windows
+// when it names none (platform::complete_path).
 std::string env(const char* name) {
     const char* v = std::getenv(name);
-    return v != nullptr ? std::string(v) : std::string();
+    return v != nullptr && *v != '\0' ? platform::complete_path(v).string() : std::string();
 }
 
 void add_folder(std::vector<fs::path>& out, const fs::path& p) {
@@ -83,19 +85,22 @@ DataPathInputs data_path_inputs_from_environment() {
 }
 
 fs::path build_tree_source_dir(const fs::path& build_dir) {
+    // A tree made on another machine for Windows (the test VM) names the
+    // source as /home/...: on the build tree's drive.
+    const auto on_drive = [&](fs::path p) {
+        if (!p.is_absolute() && p.has_root_directory()) p = build_dir.root_name() / p;
+        return p.is_absolute() ? p : fs::path{};
+    };
+    std::string line;
+    if (std::ifstream marker(build_dir / "yantra-source-dir.txt"); marker && std::getline(marker, line)) {
+        if (!line.empty() && line.back() == '\r') line.pop_back();
+        return on_drive(line);
+    }
     std::ifstream in(build_dir / "CMakeCache.txt");
     if (!in) return {};
     constexpr std::string_view key = "Yantra_SOURCE_DIR:STATIC=";
-    std::string line;
-    while (std::getline(in, line)) {
-        if (line.rfind(key, 0) == 0) {
-            fs::path p = line.substr(key.size());
-            // A tree made on another machine for Windows (the test VM)
-            // names the source as /home/...: on the build tree's drive.
-            if (!p.is_absolute() && p.has_root_directory()) p = build_dir.root_name() / p;
-            return p.is_absolute() ? p : fs::path{};
-        }
-    }
+    while (std::getline(in, line))
+        if (line.rfind(key, 0) == 0) return on_drive(line.substr(key.size()));
     return {};
 }
 

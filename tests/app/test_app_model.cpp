@@ -31,7 +31,9 @@ using namespace yantra::app;
 namespace {
 
 fs::path scratch(const std::string& name) {
-    const fs::path d = fs::path(YANTRA_TEST_SCRATCH_DIR) / "model" / name;
+    // Absolute with its drive on Windows (the build tree names "/home/..."),
+    // as the folders the code under test gives back.
+    const fs::path d = fs::absolute(fs::path(YANTRA_TEST_SCRATCH_DIR) / "model" / name);
     fs::remove_all(d);
     fs::create_directories(d);
     return d;
@@ -236,6 +238,11 @@ TEST_CASE("data folders: environment, installed share/yantra, build tree; user f
                                                     << "\nOTHER:STRING=x\n";
     CHECK(build_tree_source_dir(dir / "build") == dir / "src");
     CHECK(build_tree_source_dir(dir / "prefix").empty());
+    // The file CMake writes for the same (copied with the tree to the
+    // Windows test machine, unlike the cache).
+    fs::create_directories(dir / "tree" / "bin");
+    std::ofstream(dir / "tree" / "yantra-source-dir.txt") << (dir / "src").string() << "\n";
+    CHECK(build_tree_source_dir(dir / "tree") == dir / "src");
     DataPathInputs b;
     b.executable_dir = dir / "build" / "bin";
     folders = data_folders(b);

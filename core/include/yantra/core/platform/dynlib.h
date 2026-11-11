@@ -51,4 +51,10 @@ std::string environment(const char* name);
 // Separator of path lists in environment variables (':'; ';' on Windows).
 char path_list_separator() noexcept;
 
+// `path` with what the platform itself adds to make it absolute: on
+// Windows a path with a root folder but no drive ("\x", "/x") is on the
+// current drive, so it gets that drive. Anything else is returned as it
+// is (on Linux always). For folders taken from environment variables.
+std::filesystem::path complete_path(const std::filesystem::path& path);
+
 }  // namespace yantra::platform

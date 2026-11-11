@@ -5,6 +5,7 @@
 // for RF-02/HW-01b (see table.h).
 
 #include "yantra/core/calibration/table.h"
+#include "yantra/core/platform/dynlib.h"
 
 #include <algorithm>
 #include <charconv>
@@ -450,7 +451,8 @@ std::filesystem::path default_table_path(const std::string& xdg_data_home, const
 std::filesystem::path default_table_path() {
 #if defined(_WIN32)
     const char* appdata = std::getenv("APPDATA");  // %APPDATA%/Yantra with the other user data
-    if (appdata != nullptr && *appdata != '\0') return std::filesystem::path(appdata) / "yantra" / "calibration.json";
+    if (appdata != nullptr && *appdata != '\0')
+        return platform::complete_path(appdata) / "yantra" / "calibration.json";
     return {};
 #else
     const char* xdg = std::getenv("XDG_DATA_HOME");

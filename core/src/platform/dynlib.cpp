@@ -63,6 +63,13 @@ std::filesystem::path executable_dir() {
 
 char path_list_separator() noexcept { return ';'; }
 
+std::filesystem::path complete_path(const std::filesystem::path& path) {
+    if (path.has_root_name() || !path.has_root_directory()) return path;
+    std::error_code ec;
+    const std::filesystem::path full = std::filesystem::absolute(path, ec);
+    return ec ? path : full;
+}
+
 #else
 
 namespace {
@@ -105,6 +112,8 @@ std::filesystem::path executable_dir() {
 }
 
 char path_list_separator() noexcept { return ':'; }
+
+std::filesystem::path complete_path(const std::filesystem::path& path) { return path; }
 
 #endif
 
