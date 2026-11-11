@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstdio>
 #include <ctime>
+#include "yantra/core/platform/time.h"
 
 namespace yantra::recording {
 
@@ -40,8 +41,7 @@ std::string file_name(const std::string& session, std::uint32_t index, Compressi
 
 std::string quick_name(std::int64_t utc_ns) {
     std::time_t secs = static_cast<std::time_t>(utc_ns / 1'000'000'000);
-    std::tm tm{};
-    gmtime_r(&secs, &tm);
+    const std::tm tm = platform::utc_tm(secs);
     char b[32];
     std::strftime(b, sizeof b, "rec_%Y%m%d_%H%M%S", &tm);
     return b;

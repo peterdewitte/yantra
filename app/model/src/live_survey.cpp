@@ -32,6 +32,7 @@
 #include "yantra/core/recording/cut.h"
 #include "yantra/core/survey/recordings.h"
 #include "yantra/core/survey/walk_test.h"
+#include "yantra/core/platform/time.h"
 
 namespace yantra::app {
 
@@ -55,8 +56,7 @@ std::string session_name_of(const std::string& walk) {
 
 std::string default_name(WalkKind k) {
     const std::time_t t = std::time(nullptr);
-    std::tm tm{};
-    localtime_r(&t, &tm);
+    const std::tm tm = platform::local_tm(t);
     char buf[32];
     std::strftime(buf, sizeof buf, "%Y-%m-%d %H:%M", &tm);
     return std::string(k == WalkKind::MouseSurvey ? tr("Mouse survey ") : k == WalkKind::Manual ? tr("Manual points ") : tr("Walk ")) + buf;

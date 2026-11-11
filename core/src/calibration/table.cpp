@@ -449,8 +449,8 @@ std::filesystem::path default_table_path(const std::string& xdg_data_home, const
 
 std::filesystem::path default_table_path() {
 #if defined(_WIN32)
-    const char* local = std::getenv("LOCALAPPDATA");
-    if (local != nullptr && *local != '\0') return std::filesystem::path(local) / "Yantra" / "calibration.json";
+    const char* appdata = std::getenv("APPDATA");  // %APPDATA%/Yantra with the other user data
+    if (appdata != nullptr && *appdata != '\0') return std::filesystem::path(appdata) / "yantra" / "calibration.json";
     return {};
 #else
     const char* xdg = std::getenv("XDG_DATA_HOME");

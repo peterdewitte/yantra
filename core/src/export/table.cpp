@@ -15,6 +15,7 @@
 #include "yantra/core/calibration/antenna.h"
 #include "yantra/core/recording/reader.h"
 #include "yantra/core/survey/views.h"
+#include "yantra/core/platform/time.h"
 
 namespace yantra::exports {
 
@@ -247,15 +248,13 @@ std::string format_time(std::int64_t utc_ns, bool local) {
         --secs;
     }
     const std::time_t t = static_cast<std::time_t>(secs);
-    std::tm tm{};
-    if (local) localtime_r(&t, &tm);
-    else gmtime_r(&t, &tm);
+    const std::tm tm = local ? platform::local_tm(t) : platform::utc_tm(t);
     char buf[64];
     std::snprintf(buf, sizeof buf, "%04d-%02d-%02dT%02d:%02d:%02d.%03d", tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
                   tm.tm_hour, tm.tm_min, tm.tm_sec, static_cast<int>(ms));
     std::string out = buf;
     if (!local) return out + "Z";
-    const long off = tm.tm_gmtoff / 60;
+    const long off = platform::utc_offset_seconds(t) / 60;
     const long a = off < 0 ? -off : off;
     std::snprintf(buf, sizeof buf, "%c%02ld:%02ld", off < 0 ? '-' : '+', a / 60, a % 60);
     return out + buf;

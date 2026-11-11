@@ -10,11 +10,22 @@
 #include <fstream>
 #include <iterator>
 
+#if defined(_WIN32)
+#include <fcntl.h>
+#include <io.h>
+#include <sys/stat.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
+// winsock2.h before windows.h (for bcrypt.h)
+#include <windows.h>
+#include <bcrypt.h>
+#else
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include <sys/random.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#endif
 
 #include <nlohmann/json.hpp>
 
@@ -53,6 +64,10 @@ const char* access_name(Access a)
 std::string generate_token()
 {
     uint8_t b[32];
+#if defined(_WIN32)
+    if (BCryptGenRandom(nullptr, b, sizeof b, BCRYPT_USE_SYSTEM_PREFERRED_RNG) != 0)
+        throw std::runtime_error("BCryptGenRandom failed");
+#else
     size_t got = 0;
     while (got < sizeof b) {
         const ssize_t n = getrandom(b + got, sizeof b - got, 0);
@@ -63,6 +78,7 @@ std::string generate_token()
         }
         got += static_cast<size_t>(n);
     }
+#endif
     static const char* hex = "0123456789abcdef";
     std::string s;
     s.reserve(64);
@@ -173,16 +189,18 @@ bool is_lan_address(const std::string& ip)
 bool TokenStore::load_locked(std::string* error)
 {
     struct stat st{};
-    if (::stat(file_.c_str(), &st) != 0) {
+    if (::stat(file_.string().c_str(), &st) != 0) {
         if (error)
             *error = "cannot read " + file_.string() + ": " + std::strerror(errno);
         return false;
     }
+#if !defined(_WIN32)  // Windows: no mode bits; the profile folder's permissions apply
     if (st.st_mode & 077) {
         if (error)
             *error = file_.string() + " can be read by other users: chmod 600 it (or delete it for new tokens)";
         return false;
     }
+#endif
     std::string text;
     if (!read_file(file_, text, 64 * 1024)) {
         if (error)
@@ -224,13 +242,44 @@ bool TokenStore::save_locked(std::string* error)
                 *error = "cannot create " + dir.string() + ": " + ec.message();
             return false;
         }
+#if !defined(_WIN32)
         ::chmod(dir.c_str(), 0700);
+#endif
     }
     nlohmann::json j = {{"format", kTokenFormat},
                         {"version", kTokenVersion},
                         {"token", token_},
                         {"lan_token", lan_.empty() ? nlohmann::json(nullptr) : nlohmann::json(lan_)}};
     const std::string data = j.dump(2) + "\n";
+#if defined(_WIN32)
+    // Windows: the file lies in the user's own profile folder
+    // (%APPDATA%), whose permissions keep other users out (no mode bits).
+    fs::path tmp = file_;
+    tmp += ".tmp";
+    fs::remove(tmp, ec);
+    const int fd = ::_wopen(tmp.c_str(), _O_WRONLY | _O_CREAT | _O_EXCL | _O_BINARY | _O_NOINHERIT,
+                            _S_IREAD | _S_IWRITE);
+    if (fd < 0)
+        return fail("cannot write " + tmp.string());
+    size_t off = 0;
+    while (off < data.size()) {
+        const int n = ::_write(fd, data.data() + off, static_cast<unsigned>(data.size() - off));
+        if (n < 0) {
+            ::_close(fd);
+            fs::remove(tmp, ec);
+            return fail("cannot write " + tmp.string());
+        }
+        off += static_cast<size_t>(n);
+    }
+    ::_commit(fd);
+    ::_close(fd);
+    if (MoveFileExW(tmp.c_str(), file_.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_WRITE_THROUGH) == 0) {
+        fs::remove(tmp, ec);
+        if (error)
+            *error = "cannot replace " + file_.string();
+        return false;
+    }
+#else
     const fs::path tmp = file_.string() + ".tmp";
     ::unlink(tmp.c_str());
     const int fd = ::open(tmp.c_str(), O_WRONLY | O_CREAT | O_EXCL | O_CLOEXEC, 0600);
@@ -255,6 +304,7 @@ bool TokenStore::save_locked(std::string* error)
         ::unlink(tmp.c_str());
         return fail("cannot replace " + file_.string());
     }
+#endif
     mtime_ = fs::last_write_time(file_, ec);
     return true;
 }

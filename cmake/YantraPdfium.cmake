@@ -15,7 +15,8 @@
 # neither works, PDF support is left out with a warning (YANTRA_PDFIUM_FOUND
 # OFF): PDF sources then give a clear "built without PDF support" error and
 # everything else keeps working. -DYANTRA_PDFIUM=OFF leaves it out on
-# purpose. Linux x86-64 only for now (Windows is deferred).
+# purpose. Linux x86-64 and Windows x64 (OA-02: pdfium-win-x64.tgz, the
+# DLL with its import library pdfium.dll.lib, which lld links as it is).
 #
 # Result: target yantra::pdfium (the imported shared library
 # yantra_pdfium_lib behind the C++ runtime, see below) and
@@ -30,24 +31,32 @@ set(YANTRA_PDFIUM_FOUND OFF)
 set(YANTRA_PDFIUM_VERSION "")
 
 # The pin: pdfium-binaries release chromium/8125 (PDFium 158.0.8125.0,
-# 2026-10-26), asset pdfium-linux-x64.tgz.
+# 2026-10-26), assets pdfium-linux-x64.tgz and pdfium-win-x64.tgz.
 set(_pdfium_release "chromium/8125")
 set(_pdfium_version "158.0.8125.0")
-set(_pdfium_url "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F8125/pdfium-linux-x64.tgz")
-set(_pdfium_sha256 "e1c3ce6e270cb5e0c20816b379ad9f2c1309972697c505f508de92bf5e7d6659")
+if(WIN32)
+  set(_pdfium_asset pdfium-win-x64)
+  set(_pdfium_sha256 "9a964261760cff52570aabf038ab346d3a5034dd8b30d0d5fe8861235d356b8b")
+  set(_pdfium_lib_rel bin/pdfium.dll)
+else()
+  set(_pdfium_asset pdfium-linux-x64)
+  set(_pdfium_sha256 "e1c3ce6e270cb5e0c20816b379ad9f2c1309972697c505f508de92bf5e7d6659")
+  set(_pdfium_lib_rel lib/libpdfium.so)
+endif()
+set(_pdfium_url "https://github.com/bblanchon/pdfium-binaries/releases/download/chromium%2F8125/${_pdfium_asset}.tgz")
 
 function(_yantra_pdfium_fetch)
   if(NOT YANTRA_PDFIUM)
     message(STATUS "PDFium: off (YANTRA_PDFIUM=OFF); PDF floor plans are not supported")
     return()
   endif()
-  if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$")
-    message(WARNING "PDFium: only the Linux x86-64 release is pinned; PDF floor plans are not supported in this build")
+  if(NOT CMAKE_SYSTEM_NAME MATCHES "^(Linux|Windows)$" OR NOT CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|AMD64|amd64)$")
+    message(WARNING "PDFium: only the Linux x86-64 and Windows x64 releases are pinned; PDF floor plans are not supported in this build")
     return()
   endif()
 
   set(_root ${PROJECT_BINARY_DIR}/_deps/pdfium-${_pdfium_version})
-  set(_lib ${_root}/lib/libpdfium.so)
+  set(_lib ${_root}/${_pdfium_lib_rel})
   set(_stamp ${_root}/.yantra-sha256)
   set(_have OFF)
   if(EXISTS ${_lib} AND EXISTS ${_stamp})
@@ -62,9 +71,9 @@ function(_yantra_pdfium_fetch)
     if(YANTRA_PDFIUM_ARCHIVE)
       set(_archive ${YANTRA_PDFIUM_ARCHIVE})
     else()
-      set(_archive ${PROJECT_BINARY_DIR}/_deps/pdfium-linux-x64-${_pdfium_version}.tgz)
+      set(_archive ${PROJECT_BINARY_DIR}/_deps/${_pdfium_asset}-${_pdfium_version}.tgz)
       if(NOT EXISTS ${_archive})
-        message(STATUS "PDFium: fetching ${_pdfium_release} (pdfium-linux-x64.tgz)")
+        message(STATUS "PDFium: fetching ${_pdfium_release} (${_pdfium_asset}.tgz)")
         # A plain request: CMake's default user agent, no other headers.
         file(DOWNLOAD ${_pdfium_url} ${_archive}.part STATUS _status TLS_VERIFY ON TIMEOUT 300)
         list(GET _status 0 _code)
@@ -72,7 +81,7 @@ function(_yantra_pdfium_fetch)
           list(GET _status 1 _msg)
           file(REMOVE ${_archive}.part)
           message(WARNING "PDFium: download failed (${_msg}). PDF floor plans are BLOCKED in this "
-                          "build; pass -DYANTRA_PDFIUM_ARCHIVE=<pdfium-linux-x64.tgz of ${_pdfium_release}> "
+                          "build; pass -DYANTRA_PDFIUM_ARCHIVE=<${_pdfium_asset}.tgz of ${_pdfium_release}> "
                           "to build them offline.")
           return()
         endif()
@@ -86,7 +95,7 @@ function(_yantra_pdfium_fetch)
     file(SHA256 ${_archive} _got)
     if(NOT _got STREQUAL _pdfium_sha256)
       message(WARNING "PDFium: ${_archive} has SHA-256 ${_got}, expected ${_pdfium_sha256} "
-                      "(pdfium-linux-x64.tgz of ${_pdfium_release}); PDF floor plans are not supported "
+                      "(${_pdfium_asset}.tgz of ${_pdfium_release}); PDF floor plans are not supported "
                       "in this build")
       if(NOT YANTRA_PDFIUM_ARCHIVE)
         file(REMOVE ${_archive})
@@ -96,7 +105,7 @@ function(_yantra_pdfium_fetch)
     file(REMOVE_RECURSE ${_root})
     file(ARCHIVE_EXTRACT INPUT ${_archive} DESTINATION ${_root})
     if(NOT EXISTS ${_lib} OR NOT EXISTS ${_root}/include/fpdfview.h)
-      message(WARNING "PDFium: ${_archive} does not hold lib/libpdfium.so and include/fpdfview.h; "
+      message(WARNING "PDFium: ${_archive} does not hold ${_pdfium_lib_rel} and include/fpdfview.h; "
                       "PDF floor plans are not supported in this build")
       return()
     endif()
@@ -106,15 +115,19 @@ function(_yantra_pdfium_fetch)
   add_library(yantra_pdfium_lib SHARED IMPORTED GLOBAL)
   set_target_properties(yantra_pdfium_lib PROPERTIES
     IMPORTED_LOCATION ${_lib}
-    IMPORTED_SONAME libpdfium.so
     INTERFACE_INCLUDE_DIRECTORIES ${_root}/include)
+  if(WIN32)
+    set_target_properties(yantra_pdfium_lib PROPERTIES IMPORTED_IMPLIB ${_root}/lib/pdfium.dll.lib)
+  else()
+    set_target_properties(yantra_pdfium_lib PROPERTIES IMPORTED_SONAME libpdfium.so)
+  endif()
   # libpdfium.so (built with its own libc++) exports operator new and
   # delete. Linked before the C++ runtime, they would replace the global
   # operator new of the whole program, and its std::bad_alloc is not the
   # libstdc++ one (not caught as std::exception). The C++ runtime is
   # therefore named first, so the dynamic linker finds its operators first.
   add_library(yantra_pdfium INTERFACE)
-  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+  if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" AND NOT WIN32)
     target_link_libraries(yantra_pdfium INTERFACE stdc++)
   endif()
   target_link_libraries(yantra_pdfium INTERFACE yantra_pdfium_lib)

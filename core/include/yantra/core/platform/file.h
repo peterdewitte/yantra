@@ -3,8 +3,8 @@
 //
 // Durable file operations for atomic saves (project file, IND-01): flush a
 // file or a folder entry to disk, and rename without replacing an
-// existing file. Linux implementation: file_posix.cpp. Windows is
-// DEFERRED. Copied from yantra-v2 8c7a3e1: core/include/yantra/core/platform/file.h,
+// existing file. Linux: file_posix.cpp; Windows: file_win32.cpp.
+// Copied from yantra-v2 8c7a3e1: core/include/yantra/core/platform/file.h,
 // adapted (rename_replace for save_as over an existing file); AppendFile
 // copied from yantra-v2 68ea20a: the same files (recordings, REC-10).
 #pragma once

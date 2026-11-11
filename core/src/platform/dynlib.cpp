@@ -24,9 +24,19 @@ namespace yantra::platform {
 
 std::unique_ptr<DynamicLibrary> DynamicLibrary::open(const std::filesystem::path& path,
                                                      std::string& error) {
-    HMODULE h = LoadLibraryW(path.c_str());
+    // The DLLs a plugin imports are searched in its own folder, then in the
+    // program's folder (the shipped runtime DLLs) and System32 (HW-06).
+    // These flags need an absolute path.
+    const std::filesystem::path full = std::filesystem::absolute(path);
+    const UINT old_mode = SetErrorMode(SEM_FAILCRITICALERRORS | SEM_NOOPENFILEERRORBOX);
+    HMODULE h = LoadLibraryExW(full.c_str(), nullptr,
+                               LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+    const DWORD code = GetLastError();
+    SetErrorMode(old_mode);
     if (h == nullptr) {
-        error = "LoadLibrary failed with error " + std::to_string(GetLastError());
+        error = "LoadLibrary failed with error " + std::to_string(code);
+        if (code == ERROR_MOD_NOT_FOUND) error += " (the file or a DLL it needs was not found)";
+        else if (code == ERROR_BAD_EXE_FORMAT) error += " (not a 64-bit Windows DLL)";
         return nullptr;
     }
     return std::unique_ptr<DynamicLibrary>(new DynamicLibrary(reinterpret_cast<void*>(h), path));

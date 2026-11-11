@@ -142,6 +142,26 @@
         "CMAKE_CXX_COMPILER": "g++",
         "YANTRA_WERROR": "ON"
       }
+    },
+    {
+      "name": "windows",
+      "displayName": "Windows x64 (UCRT), cross-compiled with the SDK's clang and Yantra's MSYS2 packages; ctest runs on Windows (test VM, BUILD.md; OA-02, HW-06)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-win",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/third_party/yantra-radios/tools/sdk/toolchain-x86_64-w64-mingw32-clang.cmake",
+        "YANTRA_SDK_DIR": "$env{YANTRA_SDK_DIR}",
+        "YANTRA_WIN_STATIC_RUNTIME": "OFF"
+      }
+    },
+    {
+      "name": "ci-windows",
+      "displayName": "CI Windows x64 cross build: warnings are errors (OA-02, TST-02)",
+      "inherits": "windows",
+      "cacheVariables": {
+        "YANTRA_WERROR": "ON"
+      }
     }
   ],
   "buildPresets": [
@@ -188,6 +208,14 @@
     {
       "name": "ci-gcc",
       "configurePreset": "ci-gcc"
+    },
+    {
+      "name": "windows",
+      "configurePreset": "windows"
+    },
+    {
+      "name": "ci-windows",
+      "configurePreset": "ci-windows"
     }
   ],
   "testPresets": [
@@ -215,6 +243,14 @@
     {
       "name": "gcc",
       "configurePreset": "gcc",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "windows",
+      "displayName": "Windows tree: run on Windows (test VM: wintest.sh test build-win, BUILD.md)",
+      "configurePreset": "windows",
       "output": {
         "outputOnFailure": true
       }

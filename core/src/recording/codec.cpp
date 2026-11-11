@@ -13,6 +13,7 @@
 #include <yantra/radio.h>
 
 #include "../measure/record_json.h"
+#include "yantra/core/platform/time.h"
 
 namespace yantra::recording::codec {
 
@@ -247,8 +248,7 @@ std::string dump(const json& j) { return j.dump(-1, ' ', false, json::error_hand
 std::string iso_utc(std::int64_t utc_ns) {
     std::time_t secs = static_cast<std::time_t>(utc_ns / 1'000'000'000);
     if (utc_ns < 0 && utc_ns % 1'000'000'000 != 0) --secs;
-    std::tm tm{};
-    gmtime_r(&secs, &tm);
+    const std::tm tm = platform::utc_tm(secs);
     char b[32];
     std::strftime(b, sizeof b, "%Y-%m-%dT%H:%M:%SZ", &tm);
     return b;
@@ -266,7 +266,7 @@ std::int64_t parse_iso_utc(const std::string& text) {
     tm.tm_hour = h;
     tm.tm_min = mi;
     tm.tm_sec = s;
-    return static_cast<std::int64_t>(timegm(&tm)) * 1'000'000'000;
+    return static_cast<std::int64_t>(platform::utc_time(tm)) * 1'000'000'000;
 }
 
 std::string source_key(const ym::RadioRecord& r) {

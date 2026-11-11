@@ -339,8 +339,13 @@ fs::path config_folder(const std::string& xdg_config_home, const std::string& ho
 }
 
 fs::path config_folder() {
+#if defined(_WIN32)
+    const char* x = std::getenv("APPDATA");  // %APPDATA%/Yantra
+    const char* h = std::getenv("USERPROFILE");
+#else
     const char* x = std::getenv("XDG_CONFIG_HOME");
     const char* h = std::getenv("HOME");
+#endif
     return config_folder(x != nullptr ? x : "", h != nullptr ? h : "");
 }
 

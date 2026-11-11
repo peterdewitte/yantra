@@ -12,6 +12,7 @@
 
 #include "yantra/core/celldb/reselection.h"
 #include "yantra/core/project/project.h"
+#include "yantra/core/platform/time.h"
 
 namespace fs = std::filesystem;
 
@@ -21,8 +22,7 @@ namespace {
 
 std::string now_utc() {
     const std::time_t t = std::time(nullptr);
-    std::tm tm{};
-    gmtime_r(&t, &tm);
+    const std::tm tm = platform::utc_tm(t);
     char b[32];
     std::strftime(b, sizeof b, "%Y-%m-%dT%H:%M:%SZ", &tm);
     return b;

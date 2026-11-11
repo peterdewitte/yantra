@@ -38,6 +38,7 @@
 #include "yantra/core/plan/trim.h"
 #include "yantra/core/platform/file.h"
 #include "yantra/core/util/sha256.h"
+#include "yantra/core/platform/time.h"
 
 namespace yantra::project {
 
@@ -56,8 +57,7 @@ constexpr int kLevelOffset = 1'000'000;
 
 std::string system_now_utc() {
     const std::time_t t = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
-    std::tm tm{};
-    gmtime_r(&t, &tm);
+    const std::tm tm = platform::utc_tm(t);
     char buf[32];
     std::strftime(buf, sizeof buf, "%Y-%m-%dT%H:%M:%SZ", &tm);
     return buf;
@@ -351,7 +351,7 @@ Opened open_db(const fs::path& p, const ProjectOptions& options, const std::stri
             if (!fs::exists(backup, ec)) {
                 const fs::path tmp = temp_name(backup);
                 try {
-                    sql::Stmt s(db, "VACUUM INTO ?1");
+                    sql::Stmt s(db, "VACUUM INTO ?1");  // finalized before the move (Windows)
                     s.bind(1, tmp.string()).run();
                 } catch (...) {
                     remove_quietly(tmp);
@@ -1160,14 +1160,19 @@ std::unique_ptr<Project> Project::create(const fs::path& path, const ProjectInfo
         db.exec("PRAGMA application_id = " + std::to_string(kApplicationId), "create");
         const std::string now = impl->now();
         schema::migrate(db, 0, kSchemaVersion, now, impl->tool());
-        sql::Transaction tx(db);
-        sql::Stmt s(db, "INSERT INTO project (id, name, site, operator, notes, created_utc, modified_utc, "
-                        "created_with, modified_with) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?5, ?6, ?6)");
-        s.bind(1, info.name).bind(2, info.site).bind(3, info.operator_name).bind(4, info.notes);
-        s.bind(5, now).bind(6, impl->tool()).run();
-        sql::Stmt b(db, "UPDATE building SET name = ?1 WHERE id = 1");
-        b.bind(1, info.site.empty() ? info.name : info.site).run();
-        tx.commit();
+        {
+            // The statements end before the close: an unfinished one keeps
+            // the file open (sqlite3_close_v2), and Windows cannot move an
+            // open file (HW-06).
+            sql::Transaction tx(db);
+            sql::Stmt s(db, "INSERT INTO project (id, name, site, operator, notes, created_utc, modified_utc, "
+                            "created_with, modified_with) VALUES (1, ?1, ?2, ?3, ?4, ?5, ?5, ?6, ?6)");
+            s.bind(1, info.name).bind(2, info.site).bind(3, info.operator_name).bind(4, info.notes);
+            s.bind(5, now).bind(6, impl->tool()).run();
+            sql::Stmt b(db, "UPDATE building SET name = ?1 WHERE id = 1");
+            b.bind(1, info.site.empty() ? info.name : info.site).run();
+            tx.commit();
+        }
         db.close();
         impl->fault("create:written");
         publish(tmp, path, false);
@@ -2417,8 +2422,10 @@ void Project::save_as(const fs::path& path, bool replace) {
         if (exists && locked_elsewhere(path)) throw ProjectError(Code::Locked, locked_message(path));
         const fs::path tmp = temp_name(path);
         try {
-            sql::Stmt s(impl_->db, "VACUUM INTO ?1");
-            s.bind(1, tmp.string()).run();
+            {
+                sql::Stmt s(impl_->db, "VACUUM INTO ?1");  // finalized before the move (Windows)
+                s.bind(1, tmp.string()).run();
+            }
             rebase_paths(tmp, fs::absolute(impl_->path, ec).parent_path(), fs::absolute(path, ec).parent_path());
             impl_->fault("save_as:written");
             // A log of the replaced file must never be applied to the new
@@ -2449,8 +2456,10 @@ void Project::write_copy(const fs::path& path, bool replace) const {
     if (exists && locked_elsewhere(path)) throw ProjectError(Code::Locked, locked_message(path));
     const fs::path tmp = temp_name(path);
     try {
-        sql::Stmt s(impl_->db, "VACUUM INTO ?1");
-        s.bind(1, tmp.string()).run();
+        {
+            sql::Stmt s(impl_->db, "VACUUM INTO ?1");  // finalized before the move (Windows)
+            s.bind(1, tmp.string()).run();
+        }
         rebase_paths(tmp, fs::absolute(impl_->path, ec).parent_path(), fs::absolute(path, ec).parent_path());
         if (exists) remove_side_files(path);
         publish(tmp, path, replace);

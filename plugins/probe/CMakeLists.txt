@@ -23,12 +23,19 @@ target_compile_definitions(yantra_civetweb PRIVATE NO_CGI NO_FILES NO_CACHING NO
 target_compile_options(yantra_civetweb PRIVATE -w)
 set_target_properties(yantra_civetweb PROPERTIES POSITION_INDEPENDENT_CODE ON C_VISIBILITY_PRESET hidden)
 target_link_libraries(yantra_civetweb PRIVATE Threads::Threads ${CMAKE_DL_LIBS})
+if(WIN32)
+  # Winsock for CivetWeb and the client (HW-06); bcrypt: the tokens' random bytes.
+  target_link_libraries(yantra_civetweb PUBLIC ws2_32)
+endif()
 
 # The probe's parts without the plugin tables, for the unit tests.
 add_library(yantra_probe_api STATIC api_auth.cpp api_routes.cpp api_server.cpp http_client.cpp live.cpp)
 target_include_directories(yantra_probe_api PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(yantra_probe_api PUBLIC yantra::plugin_api yantra::json PRIVATE yantra::warnings yantra_civetweb
                       Threads::Threads)
+if(WIN32)
+  target_link_libraries(yantra_probe_api PRIVATE ws2_32 bcrypt)
+endif()
 set_target_properties(yantra_probe_api PROPERTIES POSITION_INDEPENDENT_CODE ON CXX_VISIBILITY_PRESET hidden
                                                   VISIBILITY_INLINES_HIDDEN ON)
 

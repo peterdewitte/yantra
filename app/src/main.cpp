@@ -62,6 +62,8 @@ const char* platform_name(int p) {
     switch (p) {
     case GLFW_PLATFORM_X11: return "x11";
     case GLFW_PLATFORM_WAYLAND: return "wayland";
+    case GLFW_PLATFORM_WIN32: return "win32";
+    case GLFW_PLATFORM_COCOA: return "cocoa";
     case GLFW_PLATFORM_NULL: return "null";
     default: return "other";
     }
@@ -77,7 +79,7 @@ bool save_png(const fs::path& file, int width, int height) {
     std::error_code ec;
     if (file.has_parent_path()) fs::create_directories(file.parent_path(), ec);
     stbi_flip_vertically_on_write(1);
-    return stbi_write_png(file.c_str(), width, height, 4, pixels.data(), width * 4) != 0;
+    return stbi_write_png(file.string().c_str(), width, height, 4, pixels.data(), width * 4) != 0;
 }
 
 /// BRD-06: the Yantra logo as the window icon. Wayland has no window
@@ -155,7 +157,7 @@ int main(int argc, char** argv) {
         paths.settings_file = config / "app.json";
         std::string error;
         settings = app::load_settings(paths.settings_file, error);
-        if (!error.empty()) std::fprintf(stderr, "yantra: %s: %s\n", paths.settings_file.c_str(), error.c_str());
+        if (!error.empty()) std::fprintf(stderr, "yantra: %s: %s\n", paths.settings_file.string().c_str(), error.c_str());
     }
     // SCR-01: the run's look from the command line (never saved).
     if (cli.theme) settings.theme = *cli.theme;
@@ -179,7 +181,11 @@ int main(int argc, char** argv) {
         // REC-09: the ring buffer's temporary files in the user's cache folder;
         // DEMO-12: the tour's MAK sheets there too (YANTRA_MAK_CACHE overrides).
         if (!screenshot) {
+#if defined(_WIN32)
+            const char* cache = std::getenv("LOCALAPPDATA");  // %LOCALAPPDATA%/yantra: not roamed
+#else
             const char* cache = std::getenv("XDG_CACHE_HOME");
+#endif
             fs::path user_cache;
             if (cache != nullptr && fs::path(cache).is_absolute()) user_cache = fs::path(cache) / "yantra";
             else if (!paths.home.empty()) user_cache = paths.home / ".cache" / "yantra";
@@ -337,10 +343,10 @@ int main(int argc, char** argv) {
             const bool capture = runner ? runner->ready() : frame == capture_frame;
             if (screenshot && capture) {
                 if (!save_png(*cli.screenshot, fw, fh)) {
-                    std::fprintf(stderr, "yantra: cannot write %s\n", cli.screenshot->c_str());
+                    std::fprintf(stderr, "yantra: cannot write %s\n", cli.screenshot->string().c_str());
                     rc = 1;
                 } else {
-                    std::printf("yantra: screenshot %s (%dx%d)\n", cli.screenshot->c_str(), fw, fh);
+                    std::printf("yantra: screenshot %s (%dx%d)\n", cli.screenshot->string().c_str(), fw, fh);
                 }
             }
             glfwSwapBuffers(window);

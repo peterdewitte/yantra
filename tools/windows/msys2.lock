@@ -1,0 +1,47 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Yantra's own MSYS2 UCRT64 package lock (OA-02, HW-06): the Windows x64
+# binary packages of the spec 16.2 libraries the application links
+# (GLFW, SQLite, zstd, libcurl with Windows' own TLS, libharu) and their
+# dependencies, from https://repo.msys2.org/mingw/ucrt64, pinned by
+# SHA-256. The cross SDK unpacks them into its sysroot next to the
+# packages of yantra-radios' tools/sdk/msys2.lock:
+# python3 third_party/yantra-radios/tools/sdk/yantra_sdk.py make --msys2-lock tools/windows/msys2.lock
+# The app ships only the DLLs its programs import (tools/windows/
+# copy_dlls.py, NFR-09). 'mesa' is a test tool, never shipped (16.2:
+# Mesa llvmpipe for CI rendering): its opengl32.dll renders the app
+# off-screen in the Windows test VM (build tree only).
+# 'skip': the GCC runtime and mingw-w64 packages that yantra-radios'
+# lock already pins (one version of each in the sysroot), and tcl (only
+# the sqlite3 shell uses it; the library does not import it).
+# Update: python3 tools/windows/update_msys2_lock.py
+asked glfw sqlite zstd curl-winssl libharu mesa
+skip binutils cc-libs crt gcc gmp headers isl libgcc libstdc++ libwinpthread mpc mpfr tcl tzdata windows-default-manifest winpthreads
+keyring msys2-keyring-1~20260814-1-any.pkg.tar.zst a9a02c41bc14eb0965fb23b7e7d43a1d0eb20d9e70cbfeb193fcbf68bb0dc5d0
+file mingw-w64-ucrt-x86_64-brotli 1.2.1-1 mingw-w64-ucrt-x86_64-brotli-1.2.1-1-any.pkg.tar.zst e3257d4303fc0aca4c64f702d4c8cd766a321351c5e61927631c30bfdf2e7536
+file mingw-w64-ucrt-x86_64-c-ares 1.34.9-1 mingw-w64-ucrt-x86_64-c-ares-1.34.9-1-any.pkg.tar.zst a95c349e1a838a825d4c6723c0fc497ae62d7ca9fe68b517552fd80afa5cd5f1
+file mingw-w64-ucrt-x86_64-clang-libs 23.1.5-1 mingw-w64-ucrt-x86_64-clang-libs-23.1.5-1-any.pkg.tar.zst a55cd05e47ba0e2a5c1161cddb7129477c2fd2fd73cf97eb879a42f81f895b60
+file mingw-w64-ucrt-x86_64-curl-winssl 8.23.0-1 mingw-w64-ucrt-x86_64-curl-winssl-8.23.0-1-any.pkg.tar.zst d96afb79b32b3831f98929762a2b2eb4177e6859db0b348e10551893f755de76
+file mingw-w64-ucrt-x86_64-gettext-runtime 1.0-1 mingw-w64-ucrt-x86_64-gettext-runtime-1.0-1-any.pkg.tar.zst ba693dda4ac375af76ce481ff3a6e7481286546cc7dc6d56c7021dae34084157
+file mingw-w64-ucrt-x86_64-glfw 3.5.1-1 mingw-w64-ucrt-x86_64-glfw-3.5.1-1-any.pkg.tar.zst c2963b68c534199bb4cf65e4dc6c7984ae6709b36a946290d93994964cd2ec30
+file mingw-w64-ucrt-x86_64-libffi 3.8.0-1 mingw-w64-ucrt-x86_64-libffi-3.8.0-1-any.pkg.tar.zst 99ad12f4ecfa00a889ef9c5c0188592368a5bac109d0c508ce4e04f29ea95a76
+file mingw-w64-ucrt-x86_64-libharu 2.4.6-1 mingw-w64-ucrt-x86_64-libharu-2.4.6-1-any.pkg.tar.zst c9a15b6ef7482782578b7212d20e36bac5e022ac025e17a5a5e721f4c8725093
+file mingw-w64-ucrt-x86_64-libiconv 1.19.1-1 mingw-w64-ucrt-x86_64-libiconv-1.19.1-1-any.pkg.tar.zst 8a45dc317a285a036bddd79e01505d67b79e44ff49fc3f6e7177a5ea98d098cf
+file mingw-w64-ucrt-x86_64-libidn2 2.3.8-4 mingw-w64-ucrt-x86_64-libidn2-2.3.8-4-any.pkg.tar.zst d5f4b5e9d99ff7b2a986d1dc0c73da2bcd93ba68462be7b1debbd6ef76371f57
+file mingw-w64-ucrt-x86_64-libpng 1.6.59-2 mingw-w64-ucrt-x86_64-libpng-1.6.59-2-any.pkg.tar.zst 6cc296f5029220e1a226c4bc50294212b20ab8fcabeb00b5a002667f4a882edc
+file mingw-w64-ucrt-x86_64-libpsl 0.21.5-3 mingw-w64-ucrt-x86_64-libpsl-0.21.5-3-any.pkg.tar.zst d96e0bb50ac3f8b6e44a39ea8de8d186f7b08f6938b0676eb69a7ba1f127bcf4
+file mingw-w64-ucrt-x86_64-libssh2-wincng 1.11.1-2 mingw-w64-ucrt-x86_64-libssh2-wincng-1.11.1-2-any.pkg.tar.zst 26710b6978533c38b60a33762e99128bd74f8520896bb9486656e4aa741bbe5b
+file mingw-w64-ucrt-x86_64-libsystre 1.0.2-3 mingw-w64-ucrt-x86_64-libsystre-1.0.2-3-any.pkg.tar.zst 62f564b1395d4862db1599b77f6588c32de5c80936845751cf369b31eee1560b
+file mingw-w64-ucrt-x86_64-libtre 0.9.0-2 mingw-w64-ucrt-x86_64-libtre-0.9.0-2-any.pkg.tar.zst d50f22545c50d7c0cd584474bba83f0c7a2cd8aab1aed1ad6c1f9c6452f3c4fc
+file mingw-w64-ucrt-x86_64-libunistring 1.4.2-1 mingw-w64-ucrt-x86_64-libunistring-1.4.2-1-any.pkg.tar.zst e784273da19bbdcc91cbb510b5e27c3ac021b026140734eefcce5ccbd878bd97
+file mingw-w64-ucrt-x86_64-libva 2.24.1-1 mingw-w64-ucrt-x86_64-libva-2.24.1-1-any.pkg.tar.zst bd3c2aabe37534f17aaa11a5d846034b56b6890767abcbfb2e8c3fd9153a1a6f
+file mingw-w64-ucrt-x86_64-libxml2 2.15.4-3 mingw-w64-ucrt-x86_64-libxml2-2.15.4-3-any.pkg.tar.zst e774c85139c004ce9b4085474d6b3450526c718d2e8c555a87e47adc11f376b1
+file mingw-w64-ucrt-x86_64-llvm-libs 23.1.5-1 mingw-w64-ucrt-x86_64-llvm-libs-23.1.5-1-any.pkg.tar.zst 1739a965f2c3f8f306dfed2575fc30693d3bd0d17fe6e8d6ad99f71b3636e309
+file mingw-w64-ucrt-x86_64-mesa 26.2.6-1 mingw-w64-ucrt-x86_64-mesa-26.2.6-1-any.pkg.tar.zst a626308cc28b10b94c3a9c7910079c397fe86c7301cd0d9dac99c99e40fcf171
+file mingw-w64-ucrt-x86_64-spirv-llvm-translator 23.1.2-1 mingw-w64-ucrt-x86_64-spirv-llvm-translator-23.1.2-1-any.pkg.tar.zst b0420d0c8b869f3ca67ca392d735fad491fc886b9a955bd37e67967ac30dbe91
+file mingw-w64-ucrt-x86_64-spirv-tools 3~1.4.363.0-1 mingw-w64-ucrt-x86_64-spirv-tools-3~1.4.363.0-1-any.pkg.tar.zst d31d67fe918aeee21d1e930fd96360856a60146d23094e4ae8baf071a4049aaa
+file mingw-w64-ucrt-x86_64-sqlite 3.54.1-2 mingw-w64-ucrt-x86_64-sqlite-3.54.1-2-any.pkg.tar.zst be8941784d708ddd25b8702b32b194704233edb859ba4e6e6e109a51a3836c10
+file mingw-w64-ucrt-x86_64-vulkan-loader 1~1.4.363.0-1 mingw-w64-ucrt-x86_64-vulkan-loader-1~1.4.363.0-1-any.pkg.tar.zst 065076fe13d39ab97eea4740596426d5ae741b5044e48e1c9495d04835c92dbe
+file mingw-w64-ucrt-x86_64-zlib 1.4-2 mingw-w64-ucrt-x86_64-zlib-1.4-2-any.pkg.tar.zst 172541cf5e2391a402f092104988699b0163129d22be1d6b4b201bfb84af6fcf
+file mingw-w64-ucrt-x86_64-zstd 1.5.7-2 mingw-w64-ucrt-x86_64-zstd-1.5.7-2-any.pkg.tar.zst dbdb8427280046a2b41697780aa4c52983b708082b0da4755951dc3bea96ca89

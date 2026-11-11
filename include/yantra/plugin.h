@@ -1078,8 +1078,10 @@ typedef struct yantra_plugin_descriptor {
  *  (PLG-04). */
 typedef const yantra_plugin_descriptor* (*yantra_plugin_entry_fn)(const yantra_host_api* host);
 
-/** The entry point every plugin defines, with #YANTRA_PLUGIN_EXPORT. */
-const yantra_plugin_descriptor* yantra_plugin_entry(const yantra_host_api* host);
+/** The entry point every plugin defines, with #YANTRA_PLUGIN_EXPORT. The
+ *  declaration carries it too: on Windows a dllexport added only on the
+ *  definition would redeclare it (clang -Wdll-attribute-on-redeclaration). */
+YANTRA_PLUGIN_EXPORT const yantra_plugin_descriptor* yantra_plugin_entry(const yantra_host_api* host);
 
 /** @} */
 

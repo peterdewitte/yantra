@@ -28,8 +28,13 @@
 #include <thread>
 #include <vector>
 
+#if defined(_WIN32)
+#include <pthread.h>
+#include <windows.h>
+#else
 #include <poll.h>
 #include <unistd.h>
+#endif
 
 #include <yantra/core/build_info.h>
 #include <yantra/core/control/command.h>
@@ -79,6 +84,9 @@ void usage() {
 }
 
 fs::path default_data() {
+#if defined(_WIN32)
+    if (const char* a = std::getenv("APPDATA"); a != nullptr && *a != '\0') return fs::path(a) / "yantra";
+#endif
     if (const char* x = std::getenv("XDG_DATA_HOME"); x != nullptr && *x == '/') return fs::path(x) / "yantra";
     if (const char* h = std::getenv("HOME"); h != nullptr && *h == '/') return fs::path(h) / ".local/share/yantra";
     return fs::temp_directory_path() / "yantra";
@@ -96,11 +104,18 @@ void read_commands(yantra::headless::Runner& runner, const std::atomic<bool>& st
     std::string pending;
     char buf[4096];
     while (!stop) {
+#if defined(_WIN32)
+        // A blocking read; the main thread cancels it at the end
+        // (CancelSynchronousIo), Windows has no poll on a console or pipe.
+        DWORD got = 0;
+        if (!ReadFile(GetStdHandle(STD_INPUT_HANDLE), buf, sizeof buf, &got, nullptr) || got == 0) return;
+#else
         pollfd p{0, POLLIN, 0};
         const int n = ::poll(&p, 1, 100);
         if (n <= 0) continue;
         const ssize_t got = ::read(0, buf, sizeof buf);
         if (got <= 0) return;  // EOF: keep running until quit or a signal
+#endif
         pending.append(buf, static_cast<std::size_t>(got));
         for (std::size_t nl; (nl = pending.find('\n')) != std::string::npos;) {
             std::string line = pending.substr(0, nl);
@@ -223,7 +238,9 @@ int main(int argc, char** argv) {
 
     std::signal(SIGINT, on_signal);
     std::signal(SIGTERM, on_signal);
+#if !defined(_WIN32)
     std::signal(SIGPIPE, SIG_IGN);
+#endif
 
     yantra::headless::Runner runner(cfg);
     std::string error;
@@ -233,16 +250,26 @@ int main(int argc, char** argv) {
     }
     std::fprintf(stderr, "yantra-probe: ready (%s)\n", cfg.demo ? "demo" : "radio");
     std::atomic<bool> stop_input{false};
+    std::atomic<bool> input_done{false};
     std::thread input;
     if (read_stdin) input = std::thread([&] {
         yantra::platform::set_thread_name("yt-stdin");
         read_commands(runner, stop_input);
+        input_done = true;
     });
     while (!g_stop && !runner.quit_requested()) {
         runner.poll();
         std::this_thread::sleep_for(std::chrono::milliseconds(50));
     }
     stop_input = true;
+#if defined(_WIN32)
+    // Ends a read that is waiting for input (again, until the thread has
+    // left: a cancel before the read starts would be lost).
+    while (input.joinable() && !input_done) {
+        CancelSynchronousIo(pthread_gethandle(input.native_handle()));
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+#endif
     if (input.joinable()) input.join();
     std::fprintf(stderr, "yantra-probe: stopped\n");
     return 0;

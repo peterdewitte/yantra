@@ -30,6 +30,7 @@
 #include "yantra/core/measure/self_interference.h"
 #include "yantra/core/platform/clock.h"
 #include "yantra/core/plugin/state_store.h"
+#include "yantra/core/platform/time.h"
 
 namespace yantra::app {
 
@@ -365,8 +366,7 @@ struct Tap final : measure::MeasurementObserver {
 
 std::string date_text(std::int64_t unix_s) {
     const std::time_t t = static_cast<std::time_t>(unix_s);
-    std::tm tm{};
-    gmtime_r(&t, &tm);
+    const std::tm tm = platform::utc_tm(t);
     char b[32];
     std::strftime(b, sizeof b, "%Y-%m-%d", &tm);
     return b;

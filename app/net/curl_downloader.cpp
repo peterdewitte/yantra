@@ -49,7 +49,7 @@ public:
     std::string fetch(const std::string& url, const fs::path& file, Progress& progress) override {
         CURL* curl = curl_easy_init();
         if (curl == nullptr) return "libcurl could not start";
-        std::FILE* out = std::fopen(file.c_str(), "wb");
+        std::FILE* out = std::fopen(file.string().c_str(), "wb");
         if (out == nullptr) {
             curl_easy_cleanup(curl);
             return "cannot write " + file.string();

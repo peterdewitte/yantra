@@ -62,7 +62,11 @@ std::vector<FileEntry> list_recordings(const fs::path& dir) {
 std::string utc_iso(std::int64_t s) {
     const std::time_t t = static_cast<std::time_t>(s);
     std::tm tm{};
+#if defined(_WIN32)
+    gmtime_s(&tm, &t);
+#else
     gmtime_r(&t, &tm);
+#endif
     char buf[32];
     std::strftime(buf, sizeof buf, "%Y-%m-%dT%H:%M:%SZ", &tm);
     return buf;

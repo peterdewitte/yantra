@@ -27,10 +27,95 @@
 
 #include "report_internal.h"
 #include "yantra/core/report/document.h"
+#include "yantra/core/platform/time.h"
 
 namespace yantra::report {
 
 namespace {
+
+// The ToUnicode map of a Type0 font of libharu's UTF-8 encoder: its
+// character codes are the Unicode code points (Identity-H), so the map is
+// the identity over the BMP without the surrogates, in 256-code ranges
+// (bfrange).
+std::string identity_cmap() {
+    std::string t =
+        "/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n"
+        "/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n"
+        "/CMapName /Adobe-Identity-UCS def\n/CMapType 2 def\n"
+        "1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n";
+    std::vector<unsigned> blocks;
+    for (unsigned hi = 0; hi < 256; ++hi)
+        if (hi < 0xD8 || hi > 0xDF) blocks.push_back(hi);
+    for (std::size_t i = 0; i < blocks.size(); i += 100) {
+        const std::size_t n = std::min<std::size_t>(100, blocks.size() - i);
+        t += std::to_string(n) + " beginbfrange\n";
+        char b[40];
+        for (std::size_t k = i; k < i + n; ++k) {
+            std::snprintf(b, sizeof b, "<%02X00> <%02XFF> <%02X00>\n", blocks[k], blocks[k], blocks[k]);
+            t += b;
+        }
+        t += "endbfrange\n";
+    }
+    t += "endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n";
+    return t;
+}
+
+#if defined(_WIN32)
+// The MSYS2 libharu DLL exports only the public API, so the font's
+// ToUnicode stream cannot be replaced while the document is built (as
+// on Linux). The saved PDF is patched instead: every object a
+// /ToUnicode entry names gets identity_cmap(), then the cross-reference
+// table and startxref are written again (libharu writes a classic table
+// of 20-byte entries).
+void patch_to_unicode(std::vector<std::uint8_t>& pdf) {
+    std::string s(pdf.begin(), pdf.end());
+    std::vector<long> targets;
+    for (std::size_t at = s.find("/ToUnicode "); at != std::string::npos; at = s.find("/ToUnicode ", at + 1)) {
+        long n = 0;
+        int gen = -1;
+        if (std::sscanf(s.c_str() + at + 11, "%ld %d R", &n, &gen) == 2 && gen == 0) targets.push_back(n);
+    }
+    if (targets.empty()) return;
+    const std::string cmap = identity_cmap();
+    for (const long n : targets) {
+        const std::string head = "\n" + std::to_string(n) + " 0 obj";
+        const std::size_t start = s.find(head);
+        if (start == std::string::npos) continue;
+        const std::size_t stream_end = s.find("endstream", start);
+        if (stream_end == std::string::npos) continue;
+        const std::size_t end = s.find("endobj", stream_end);
+        if (end == std::string::npos) continue;
+        const std::string obj = std::to_string(n) + " 0 obj\n<</Length " + std::to_string(cmap.size()) +
+                                ">>\nstream\n" + cmap + "\nendstream\n";
+        s.replace(start + 1, end - start - 1, obj);
+    }
+    // The cross-reference table: every in-use entry gets its object's new offset.
+    const std::size_t xref = s.rfind("\nxref\n");
+    if (xref == std::string::npos) return;
+    long first = 0, count = 0;
+    std::size_t line = xref + 6;
+    if (std::sscanf(s.c_str() + line, "%ld %ld", &first, &count) != 2) return;
+    std::size_t entry = s.find('\n', line) + 1;
+    for (long k = 0; k < count; ++k, entry += 20) {
+        if (entry + 20 > s.size()) return;
+        if (s[entry + 17] != 'n') continue;
+        const std::string head = "\n" + std::to_string(first + k) + " 0 obj";
+        const std::size_t at = s.find(head);
+        if (at == std::string::npos || at + 1 > xref) continue;
+        char digits[16];
+        std::snprintf(digits, sizeof digits, "%010zu", at + 1);
+        s.replace(entry, 10, digits);
+    }
+    const std::size_t sx = s.rfind("startxref");
+    if (sx != std::string::npos) {
+        const std::size_t num = s.find('\n', sx) + 1;
+        const std::size_t num_end = s.find('\n', num);
+        s.replace(num, num_end - num, std::to_string(xref + 1));
+    }
+    pdf.assign(s.begin(), s.end());
+}
+#endif
+
 
 using detail::clean_utf8;
 
@@ -111,6 +196,9 @@ public:
         }
         check();
         if (out.empty()) throw ReportError("libharu: saving the PDF failed");
+#if defined(_WIN32)
+        patch_to_unicode(out);
+#endif
         return out;
     }
 
@@ -145,30 +233,19 @@ private:
     // (Identity-H), so the correct map is the identity over the BMP
     // without the surrogates, in 256-code ranges (bfrange).
     void to_unicode(HPDF_Font font) {
+#if defined(_WIN32)
+        // The MSYS2 libharu DLL exports only the public API (no
+        // HPDF_DictStream_New/HPDF_Dict_Add): patch_to_unicode() replaces
+        // the map in the saved file.
+        (void)font;
+#else
         HPDF_Dict cmap = HPDF_DictStream_New(pdf_->mmgr, pdf_->xref);
         if (cmap == nullptr) return;
         if (compress_) cmap->filter = HPDF_STREAM_FILTER_FLATE_DECODE;
-        std::string t =
-            "/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n"
-            "/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n"
-            "/CMapName /Adobe-Identity-UCS def\n/CMapType 2 def\n"
-            "1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n";
-        std::vector<unsigned> blocks;
-        for (unsigned hi = 0; hi < 256; ++hi)
-            if (hi < 0xD8 || hi > 0xDF) blocks.push_back(hi);
-        for (std::size_t i = 0; i < blocks.size(); i += 100) {
-            const std::size_t n = std::min<std::size_t>(100, blocks.size() - i);
-            t += std::to_string(n) + " beginbfrange\n";
-            char b[40];
-            for (std::size_t k = i; k < i + n; ++k) {
-                std::snprintf(b, sizeof b, "<%02X00> <%02XFF> <%02X00>\n", blocks[k], blocks[k], blocks[k]);
-                t += b;
-            }
-            t += "endbfrange\n";
-        }
-        t += "endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n";
+        const std::string t = identity_cmap();
         HPDF_Stream_WriteStr(cmap->stream, t.c_str());
         HPDF_Dict_Add(font, "ToUnicode", cmap);
+#endif
     }
     HPDF_Font font(Face f) {
         if (f == Face::Mono && mono_ == nullptr) mono_ = load_font(a_.font_mono);  // only when a table needs it
@@ -208,8 +285,7 @@ private:
         }
         if (d_.created_utc_ns > 0) {
             const auto t = static_cast<std::time_t>(d_.created_utc_ns / 1000000000);
-            std::tm tm{};
-            gmtime_r(&t, &tm);
+            const std::tm tm = platform::utc_tm(t);
             HPDF_Date dt{tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday, tm.tm_hour, tm.tm_min, tm.tm_sec, 'Z', 0, 0};
             HPDF_SetInfoDateAttr(pdf_, HPDF_INFO_CREATION_DATE, dt);
         }
@@ -576,7 +652,12 @@ private:
         }
         if (c.has_marker && c.marker_x >= c.x_min && c.marker_x <= c.x_max) {
             const float x = X(c.marker_x);
+            // libharu 2.4 takes the pattern as HPDF_REAL, 2.3 as HPDF_UINT16.
+#if HPDF_MAJOR_VERSION > 2 || (HPDF_MAJOR_VERSION == 2 && HPDF_MINOR_VERSION >= 4)
+            const HPDF_REAL dash[] = {3, 2};
+#else
             const HPDF_UINT16 dash[] = {3, 2};
+#endif
             HPDF_Page_SetDash(page_, dash, 2, 0);
             line(x, oy, x, oy + ph, 0.8f, {0, 0, 0});
             HPDF_Page_SetDash(page_, nullptr, 0, 0);

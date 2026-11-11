@@ -68,9 +68,17 @@ DataPathInputs data_path_inputs_from_environment() {
     DataPathInputs in;
     in.data_dir_env = env("YANTRA_DATA_DIR");
     in.executable_dir = platform::executable_dir();
+#if defined(_WIN32)
+    // %APPDATA%/Yantra for data and settings (spec 0; Windows folder names
+    // ignore case).
+    in.xdg_data_home = env("APPDATA");
+    in.xdg_config_home = env("APPDATA");
+    in.home = env("USERPROFILE");
+#else
     in.xdg_data_home = env("XDG_DATA_HOME");
     in.xdg_config_home = env("XDG_CONFIG_HOME");
     in.home = env("HOME");
+#endif
     return in;
 }
 
@@ -81,7 +89,10 @@ fs::path build_tree_source_dir(const fs::path& build_dir) {
     std::string line;
     while (std::getline(in, line)) {
         if (line.rfind(key, 0) == 0) {
-            const fs::path p = line.substr(key.size());
+            fs::path p = line.substr(key.size());
+            // A tree made on another machine for Windows (the test VM)
+            // names the source as /home/...: on the build tree's drive.
+            if (!p.is_absolute() && p.has_root_directory()) p = build_dir.root_name() / p;
             return p.is_absolute() ? p : fs::path{};
         }
     }

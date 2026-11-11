@@ -29,6 +29,7 @@
 #include "yantra/core/recording/replay.h"
 #include "yantra/core/report/figure.h"
 #include "yantra/core/survey/acceptance.h"
+#include "yantra/core/platform/time.h"
 
 namespace fs = std::filesystem;
 
@@ -84,8 +85,7 @@ std::string iso_text(const std::string& iso) {
 
 std::string utc_text(std::int64_t utc_ns) {
     const std::time_t t = static_cast<std::time_t>(utc_ns / 1000000000LL);
-    std::tm tm{};
-    gmtime_r(&t, &tm);
+    const std::tm tm = platform::utc_tm(t);
     char b[40];
     std::strftime(b, sizeof b, "%Y-%m-%d %H:%M UTC", &tm);
     return b;

@@ -8,11 +8,18 @@
 #include <chrono>
 #include <cstring>
 
+#if defined(_WIN32)
+#include <mutex>
+
+#include <winsock2.h>
+#include <ws2tcpip.h>
+#else
 #include <fcntl.h>
 #include <netdb.h>
 #include <poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#endif
 
 namespace yantra::probe {
 
@@ -20,21 +27,64 @@ namespace {
 
 constexpr std::size_t kMaxReply = 4 * 1024 * 1024;
 
+// Sockets on Linux and Windows (HW-06): Winsock needs WSAStartup before
+// getaddrinfo, reports its errors through WSAGetLastError and polls with
+// WSAPoll.
+#if defined(_WIN32)
+using sock_t = SOCKET;
+constexpr sock_t kNoSocket = INVALID_SOCKET;
+constexpr int kNoSignal = 0;
+void close_socket(sock_t s) { ::closesocket(s); }
+int socket_error() { return ::WSAGetLastError(); }
+bool connect_pending(int e) { return e == WSAEWOULDBLOCK || e == WSAEINPROGRESS; }
+bool retry_later(int e) { return e == WSAEWOULDBLOCK || e == WSAEINTR; }
+std::string socket_error_text(int e) { return "socket error " + std::to_string(e); }
+void set_nonblocking(sock_t s) {
+    u_long on = 1;
+    ::ioctlsocket(s, FIONBIO, &on);
+}
+int poll_one(sock_t s, short events, int ms) {
+    WSAPOLLFD p{s, events, 0};
+    return ::WSAPoll(&p, 1, ms);
+}
+void start_sockets() {
+    static std::once_flag once;
+    std::call_once(once, [] {
+        WSADATA data;
+        ::WSAStartup(MAKEWORD(2, 2), &data);
+    });
+}
+#else
+using sock_t = int;
+constexpr sock_t kNoSocket = -1;
+constexpr int kNoSignal = MSG_NOSIGNAL;
+void close_socket(sock_t s) { ::close(s); }
+int socket_error() { return errno; }
+bool connect_pending(int e) { return e == EINPROGRESS; }
+bool retry_later(int e) { return e == EAGAIN || e == EINTR; }
+std::string socket_error_text(int e) { return std::strerror(e); }
+void set_nonblocking(sock_t s) { ::fcntl(s, F_SETFL, ::fcntl(s, F_GETFL) | O_NONBLOCK); }
+int poll_one(sock_t s, short events, int ms) {
+    pollfd p{s, events, 0};
+    return ::poll(&p, 1, ms);
+}
+void start_sockets() {}
+#endif
+
 struct Fd {
-    int fd = -1;
+    sock_t fd = kNoSocket;
     ~Fd() {
-        if (fd >= 0) ::close(fd);
+        if (fd != kNoSocket) close_socket(fd);
     }
 };
 
-bool wait_fd(int fd, short events, std::chrono::steady_clock::time_point end) {
+bool wait_fd(sock_t fd, short events, std::chrono::steady_clock::time_point end) {
     for (;;) {
         const auto left = std::chrono::duration_cast<std::chrono::milliseconds>(end - std::chrono::steady_clock::now());
         if (left.count() <= 0) return false;
-        pollfd p{fd, events, 0};
-        const int n = ::poll(&p, 1, static_cast<int>(left.count()));
+        const int n = poll_one(fd, events, static_cast<int>(left.count()));
         if (n > 0) return true;
-        if (n < 0 && errno != EINTR) return false;
+        if (n < 0 && !retry_later(socket_error())) return false;
     }
 }
 
@@ -78,33 +128,43 @@ HttpReply http_get(const std::string& base_url, const std::string& path, const s
     hints.ai_family = AF_UNSPEC;
     hints.ai_socktype = SOCK_STREAM;
     addrinfo* res = nullptr;
+    start_sockets();
     if (const int e = ::getaddrinfo(host.c_str(), port.c_str(), &hints, &res); e != 0) {
         r.error = std::string("address not found: ") + gai_strerror(e);
         return r;
     }
     Fd s;
     std::string why = "no address";
-    for (addrinfo* a = res; a != nullptr && s.fd < 0; a = a->ai_next) {
-        const int fd = ::socket(a->ai_family, a->ai_socktype | SOCK_CLOEXEC, a->ai_protocol);
-        if (fd < 0) continue;
-        ::fcntl(fd, F_SETFL, ::fcntl(fd, F_GETFL) | O_NONBLOCK);
-        int rc = ::connect(fd, a->ai_addr, a->ai_addrlen);
-        if (rc != 0 && errno == EINPROGRESS && wait_fd(fd, POLLOUT, end)) {
-            int err = 0;
-            socklen_t len = sizeof err;
-            ::getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &len);
-            rc = err == 0 ? 0 : -1;
-            errno = err;
+    for (addrinfo* a = res; a != nullptr && s.fd == kNoSocket; a = a->ai_next) {
+#if defined(_WIN32)
+        const sock_t fd = ::WSASocketW(a->ai_family, a->ai_socktype, a->ai_protocol, nullptr, 0,
+                                       WSA_FLAG_OVERLAPPED | WSA_FLAG_NO_HANDLE_INHERIT);
+#else
+        const sock_t fd = ::socket(a->ai_family, a->ai_socktype | SOCK_CLOEXEC, a->ai_protocol);
+#endif
+        if (fd == kNoSocket) continue;
+        set_nonblocking(fd);
+        int rc = ::connect(fd, a->ai_addr, static_cast<socklen_t>(a->ai_addrlen));
+        int err = rc == 0 ? 0 : socket_error();
+        if (rc != 0 && connect_pending(err)) {
+            err = ETIMEDOUT;
+            if (wait_fd(fd, POLLOUT, end)) {
+                int so = 0;
+                socklen_t len = sizeof so;
+                ::getsockopt(fd, SOL_SOCKET, SO_ERROR, reinterpret_cast<char*>(&so), &len);
+                rc = so == 0 ? 0 : -1;
+                err = so;
+            }
         }
         if (rc == 0) {
             s.fd = fd;
         } else {
-            why = errno != 0 ? std::strerror(errno) : "timed out";
-            ::close(fd);
+            why = err == ETIMEDOUT ? "timed out" : socket_error_text(err);
+            close_socket(fd);
         }
     }
     ::freeaddrinfo(res);
-    if (s.fd < 0) {
+    if (s.fd == kNoSocket) {
         r.error = "cannot connect: " + why;
         return r;
     }
@@ -116,9 +176,9 @@ HttpReply http_get(const std::string& base_url, const std::string& path, const s
             r.error = "timed out";
             return r;
         }
-        const ssize_t n = ::send(s.fd, req.data() + sent, req.size() - sent, MSG_NOSIGNAL);
-        if (n < 0 && errno != EAGAIN && errno != EINTR) {
-            r.error = std::string("send failed: ") + std::strerror(errno);
+        const auto n = ::send(s.fd, req.data() + sent, static_cast<int>(req.size() - sent), kNoSignal);
+        if (n < 0 && !retry_later(socket_error())) {
+            r.error = "send failed: " + socket_error_text(socket_error());
             return r;
         }
         if (n > 0) sent += static_cast<std::size_t>(n);
@@ -130,11 +190,12 @@ HttpReply http_get(const std::string& base_url, const std::string& path, const s
             r.error = "timed out";
             return r;
         }
-        const ssize_t n = ::recv(s.fd, buf, sizeof buf, 0);
+        const auto n = ::recv(s.fd, buf, static_cast<int>(sizeof buf), 0);
         if (n == 0) break;
         if (n < 0) {
-            if (errno == EAGAIN || errno == EINTR) continue;
-            r.error = std::string("receive failed: ") + std::strerror(errno);
+            const int e = socket_error();
+            if (retry_later(e)) continue;
+            r.error = "receive failed: " + socket_error_text(e);
             return r;
         }
         in.append(buf, static_cast<std::size_t>(n));

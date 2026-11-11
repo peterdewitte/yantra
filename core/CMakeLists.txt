@@ -48,7 +48,6 @@ add_library(yantra_core STATIC
   src/measure/self_interference.cpp
   src/measure/technology_map.cpp
   src/platform/dynlib.cpp
-  src/platform/file_posix.cpp
   src/platform/thread_name.cpp
   src/plan/image_meta.cpp
   src/plan/import.cpp
@@ -101,6 +100,12 @@ add_library(yantra_core STATIC
   src/util/job.cpp
   src/util/sha256.cpp)
 add_library(yantra::core ALIAS yantra_core)
+# Durable file operations (yantra/core/platform/file.h) per platform (HW-06).
+if(WIN32)
+  target_sources(yantra_core PRIVATE src/platform/file_win32.cpp)
+else()
+  target_sources(yantra_core PRIVATE src/platform/file_posix.cpp)
+endif()
 
 # SQLite 3 (spec 16.2): the project file (IND-01, docs/formats/PROJECT.md),
 # a system library. 3.37 or newer (SQLITE_OPEN_EXRESCODE; VACUUM INTO,
@@ -115,8 +120,8 @@ target_include_directories(yantra_core
   PUBLIC include
   PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/generated)
 target_link_libraries(yantra_core
-  PUBLIC yantra::plugin_api yantra::radio_api Threads::Threads ${CMAKE_DL_LIBS}
-  PRIVATE yantra::warnings yantra::json SQLite::SQLite3 PkgConfig::ZSTD)
+  PUBLIC yantra::plugin_api yantra::radio_api yantra::json Threads::Threads ${CMAKE_DL_LIBS}
+  PRIVATE yantra::warnings SQLite::SQLite3 PkgConfig::ZSTD)
 
 # libharu (spec 16.2, zlib/libpng licence): the PDF reports (EXP-05,
 # core/src/report/pdf.cpp), a system library (libhpdf-dev 2.3.0; MSYS2

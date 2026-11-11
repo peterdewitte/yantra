@@ -72,6 +72,38 @@ add_compile_options(-ffile-prefix-map=${PROJECT_SOURCE_DIR}=.
 # (PDFium in <prefix>/lib/yantra), wherever the prefix is (.deb, DESTDIR).
 set(CMAKE_INSTALL_RPATH "$ORIGIN/../lib/yantra")
 
+# Windows cross build (OA-02, HW-06): the libraries come from Yantra's
+# MSYS2 UCRT64 packages in the SDK's sysroot (tools/windows/msys2.lock).
+# pkg-config reads only their .pc files, with the prefix taken from where
+# each file lies (MSYS2 writes /ucrt64); curl's CMake package file wants
+# its curl.exe, which the SDK leaves out, so FindCURL looks for the
+# library itself.
+if(WIN32 AND CMAKE_CROSSCOMPILING)
+  set(ENV{PKG_CONFIG_LIBDIR} "${CMAKE_SYSROOT}/lib/pkgconfig")
+  set(ENV{PKG_CONFIG_PATH} "")
+  set(PKG_CONFIG_ARGN --define-prefix)
+  set(CURL_NO_CURL_CMAKE ON)
+endif()
+
+# Build-machine checks of a cross-compiled tree (the Windows tree, whose
+# ctest runs on Windows): tests that check the sources or run the build
+# machine's tools (Doxygen, reuse, pandoc, the lints, the SDK's compilers)
+# put ${YANTRA_BUILD_HOST_TEST} before their command and are listed in
+# yantra_build_host_tests(): label build_host, skipped on Windows (exit
+# 77), run on Linux with `ctest --test-dir build-win -L build_host`.
+# Copied from yantra-radios 6fac3ee: CMakeLists.txt. No-ops in a native tree.
+set(YANTRA_BUILD_HOST_TEST "")
+if(CMAKE_CROSSCOMPILING AND NOT CMAKE_CROSSCOMPILING_EMULATOR)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  set(YANTRA_BUILD_HOST_TEST ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/cmake/build_host_test.py)
+endif()
+function(yantra_build_host_tests)
+  if(YANTRA_BUILD_HOST_TEST)
+    set_tests_properties(${ARGN} PROPERTIES SKIP_RETURN_CODE 77)
+    set_property(TEST ${ARGN} APPEND PROPERTY LABELS build_host)
+  endif()
+endfunction()
+
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(YantraWarnings)
 include(YantraSanitizers)
@@ -100,6 +132,27 @@ if(YANTRA_BUILD_TESTS)
   enable_testing()
 endif()
 
+# Build-time data of a cross-compiled tree (the Windows tree, OA-02): the
+# demo projects (DEMO-05, DEMO-12) and the TST-10 record files are made by
+# programs (yantra-demo, the TETRA plugin, yantra-gen, yantra-radio-host)
+# that cannot run on the build machine as .exe. They come from a Linux
+# tree of the same sources, YANTRA_HOST_BUILD_DIR (default: the default
+# tree, <source>/build), built first; the data files are the same on both
+# platforms. The tests themselves run the tree's own programs.
+if(CMAKE_CROSSCOMPILING)
+  set(YANTRA_HOST_BUILD_DIR ${PROJECT_SOURCE_DIR}/build CACHE PATH
+      "Linux build tree whose programs make the build-time data of this cross-compiled tree")
+  if(NOT EXISTS ${YANTRA_HOST_BUILD_DIR}/CMakeCache.txt)
+    message(FATAL_ERROR "Cross build: no Linux tree in YANTRA_HOST_BUILD_DIR (${YANTRA_HOST_BUILD_DIR}): "
+                        "configure and build it first (cmake --preset default; ninja -C build), "
+                        "it makes the demo projects and record files of this tree (BUILD.md \"Windows\")")
+  endif()
+  set(YANTRA_HOST_DEMO ${YANTRA_HOST_BUILD_DIR}/bin/yantra-demo)
+  set(YANTRA_HOST_TETRA_PLUGIN ${YANTRA_HOST_BUILD_DIR}/lib/yantra/plugins/tetra.so)
+  set(YANTRA_HOST_RADIOS_BIN ${YANTRA_HOST_BUILD_DIR}/radios/install/bin)
+  set(YANTRA_HOST_SCENARIO_DIR ${YANTRA_HOST_BUILD_DIR}/radios/install/share/yantra-radios/scenarios)
+endif()
+
 find_package(Threads REQUIRED)
 add_subdirectory(core)
 if(YANTRA_BUILD_APP)
@@ -120,7 +173,7 @@ endif()
 # bundle, udev rules and RTL-SDR blacklist. Packaging: phase 12.
 if(NOT YANTRA_RADIOS_KIND STREQUAL "none")
   install(DIRECTORY ${YANTRA_RADIO_PLUGIN_DIR}/ DESTINATION lib/yantra/plugins/radios
-          FILES_MATCHING PATTERN "*.so")
+          FILES_MATCHING PATTERN "*${YANTRA_RADIO_PLUGIN_SUFFIX}")
   install(DIRECTORY ${YANTRA_RADIOS_STAGE}/share/licenses/yantra-radios
           DESTINATION share/licenses OPTIONAL)
   install(DIRECTORY ${YANTRA_RADIOS_STAGE}/lib/udev ${YANTRA_RADIOS_STAGE}/lib/modprobe.d
@@ -133,6 +186,39 @@ endif()
 if(YANTRA_PDFIUM_FOUND)
   install(FILES $<TARGET_FILE:yantra_pdfium_lib> DESTINATION lib/yantra)
   install(DIRECTORY ${YANTRA_PDFIUM_LICENSES}/ DESTINATION share/licenses/pdfium)
+endif()
+
+# Windows (OA-02): the DLLs of the MSYS2 UCRT64 packages and PDFium that
+# the programs import, with what they import in turn, next to the programs
+# in <build>/bin (tools/windows/copy_dlls.py; list in yantra-dlls.txt).
+# The build tree also gets Mesa's opengl32.dll (llvmpipe, 16.2 test tool):
+# the tests render off-screen in the test VM, whose display adapter has no
+# OpenGL 3 (BUILD.md "Windows"). Never packaged.
+if(WIN32 AND CMAKE_CROSSCOMPILING)
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  set(_dll_search --search ${CMAKE_SYSROOT}/bin)
+  if(YANTRA_PDFIUM_FOUND)
+    get_target_property(_pdfium_dll yantra_pdfium_lib IMPORTED_LOCATION)
+    get_filename_component(_pdfium_bin ${_pdfium_dll} DIRECTORY)
+    list(APPEND _dll_search --search ${_pdfium_bin})
+  endif()
+  set(_dll_direct glfw3.dll libsqlite3-0.dll libzstd.dll libcurl-4.dll libhpdf.dll
+                  libstdc++-6.dll libgcc_s_seh-1.dll libwinpthread-1.dll)
+  if(YANTRA_PDFIUM_FOUND)
+    list(APPEND _dll_direct pdfium.dll)
+  endif()
+  if(YANTRA_BUILD_TESTS)
+    list(APPEND _dll_direct opengl32.dll)
+  endif()
+  list(TRANSFORM _dll_direct PREPEND "--extra=")
+  # The fuzz targets (TST-12) have their own folder.
+  add_custom_target(yantra_runtime_dlls ALL
+    COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/windows/copy_dlls.py
+            --dest ${PROJECT_BINARY_DIR}/bin ${_dll_search} ${_dll_direct}
+    COMMAND ${Python3_EXECUTABLE} ${PROJECT_SOURCE_DIR}/tools/windows/copy_dlls.py
+            --dest ${PROJECT_BINARY_DIR}/fuzz ${_dll_search} ${_dll_direct}
+    COMMENT "Runtime DLLs into ${PROJECT_BINARY_DIR}/bin (OA-02)"
+    VERBATIM)
 endif()
 
 message(STATUS "Yantra ${PROJECT_VERSION}: SIMD=${YANTRA_SIMD} "

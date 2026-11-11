@@ -71,7 +71,7 @@ private:
             char* name = curl_easy_escape(curl, f.filename().string().c_str(), 0);
             const std::string url = base + (name != nullptr ? name : "");
             curl_free(name);
-            std::FILE* in = std::fopen(f.c_str(), "rb");
+            std::FILE* in = std::fopen(f.string().c_str(), "rb");
             if (in == nullptr) {
                 curl_easy_cleanup(curl);
                 return "cannot read " + f.string();
@@ -131,7 +131,7 @@ private:
         curl_mime_type(part, "text/plain; charset=utf-8");
         for (const fs::path& f : job.files) {
             part = curl_mime_addpart(mime);
-            curl_mime_filedata(part, f.c_str());
+            curl_mime_filedata(part, f.string().c_str());
             curl_mime_filename(part, f.filename().string().c_str());
             curl_mime_type(part, content_type(f).c_str());
             curl_mime_encoder(part, "base64");

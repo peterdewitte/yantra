@@ -7,7 +7,8 @@
 # plugin folder (PLG-09, PLG-25):
 #
 #   <build>/lib/yantra/plugins/radios/  hackrf.so, simulator.so,
-#                                       soapysdr.so, pei.so (shipped)
+#                                       soapysdr.so, pei.so (shipped;
+#                                       .dll on Windows)
 #   <build>/tests/radio-plugins/        beacon.so, the radio API example
 #                                       (RAD-64), and soapysdr_fake.so,
 #                                       the generic SoapySDR plugin with
@@ -58,6 +59,12 @@ set(YANTRA_RADIOS_CACHE_DIR ${PROJECT_BINARY_DIR}/radios-cache CACHE PATH
 option(YANTRA_RADIOS_FAKE_SDR
   "Build yantra-radios' test plugin soapysdr_fake (fake SoapySDR module) for the unplug/replug test (NFR-04)" ON)
 
+# Plugin files: .so on Linux, .dll on Windows (RAD-131); programs .exe.
+if(WIN32)
+  set(YANTRA_RADIO_PLUGIN_SUFFIX .dll)
+else()
+  set(YANTRA_RADIO_PLUGIN_SUFFIX .so)
+endif()
 set(YANTRA_RADIO_PLUGIN_DIR ${PROJECT_BINARY_DIR}/lib/yantra/plugins/radios)
 set(YANTRA_RADIO_TEST_PLUGIN_DIR ${PROJECT_BINARY_DIR}/tests/radio-plugins)
 set(_yr_shipped hackrf simulator soapysdr pei)
@@ -106,9 +113,10 @@ if(YANTRA_RADIOS_PREBUILT)
   set(YANTRA_RADIOS_STAGE ${_root})
   set(_copies)
   foreach(_p IN LISTS _yr_shipped)
-    if(EXISTS ${_root}/lib/yantra-radios/plugins/${_p}.so)
+    if(EXISTS ${_root}/lib/yantra-radios/plugins/${_p}${YANTRA_RADIO_PLUGIN_SUFFIX})
       list(APPEND _copies COMMAND ${CMAKE_COMMAND} -E copy_if_different
-           ${_root}/lib/yantra-radios/plugins/${_p}.so ${YANTRA_RADIO_PLUGIN_DIR}/${_p}.so)
+           ${_root}/lib/yantra-radios/plugins/${_p}${YANTRA_RADIO_PLUGIN_SUFFIX}
+           ${YANTRA_RADIO_PLUGIN_DIR}/${_p}${YANTRA_RADIO_PLUGIN_SUFFIX})
     endif()
   endforeach()
   add_custom_target(yantra_radio_plugins ALL ${_copies}
@@ -164,6 +172,11 @@ else()
   set(_yr_deps_env CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER})
 endif()
 string(TOLOWER "${CMAKE_CXX_COMPILER_ID}-${CMAKE_CXX_COMPILER_VERSION}" _yr_compiler_tag)
+# The same clang builds for Linux and Windows: the target is part of the
+# key (deps-<commit>-clang-<version>-windows).
+if(CMAKE_CROSSCOMPILING)
+  string(TOLOWER "${_yr_compiler_tag}-${CMAKE_SYSTEM_NAME}" _yr_compiler_tag)
+endif()
 
 set(_yr_args
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
@@ -198,10 +211,12 @@ set(YANTRA_RADIOS_STAGE ${PROJECT_BINARY_DIR}/radios/install)
 set(_copies)
 foreach(_p IN LISTS _yr_shipped)
   list(APPEND _copies COMMAND ${CMAKE_COMMAND} -E copy_if_different
-       ${YANTRA_RADIOS_STAGE}/lib/yantra-radios/plugins/${_p}.so ${YANTRA_RADIO_PLUGIN_DIR}/${_p}.so)
+       ${YANTRA_RADIOS_STAGE}/lib/yantra-radios/plugins/${_p}${YANTRA_RADIO_PLUGIN_SUFFIX}
+       ${YANTRA_RADIO_PLUGIN_DIR}/${_p}${YANTRA_RADIO_PLUGIN_SUFFIX})
 endforeach()
 list(APPEND _copies COMMAND ${CMAKE_COMMAND} -E copy_if_different
-     ${YANTRA_RADIOS_BINARY_DIR}/bin/plugins/beacon.so ${YANTRA_RADIO_TEST_PLUGIN_DIR}/beacon.so)
+     ${YANTRA_RADIOS_BINARY_DIR}/bin/plugins/beacon${YANTRA_RADIO_PLUGIN_SUFFIX}
+     ${YANTRA_RADIO_TEST_PLUGIN_DIR}/beacon${YANTRA_RADIO_PLUGIN_SUFFIX})
 
 ExternalProject_Add(yantra_radios
   SOURCE_DIR ${YANTRA_RADIOS_DIR}
@@ -243,11 +258,11 @@ if(YANTRA_RADIOS_FAKE_SDR)
     CMAKE_ARGS ${_yr_fake_args}
     BUILD_COMMAND ${CMAKE_COMMAND} --build <BINARY_DIR> --target soapysdr_fake hackrf_fake
     INSTALL_COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    <BINARY_DIR>/tests/plugins/soapysdr_fake.so
-                    ${YANTRA_RADIO_TEST_PLUGIN_DIR}/soapysdr_fake.so
+                    <BINARY_DIR>/tests/plugins/soapysdr_fake${YANTRA_RADIO_PLUGIN_SUFFIX}
+                    ${YANTRA_RADIO_TEST_PLUGIN_DIR}/soapysdr_fake${YANTRA_RADIO_PLUGIN_SUFFIX}
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                    <BINARY_DIR>/tests/plugins/hackrf_fake.so
-                    ${YANTRA_RADIO_TEST_PLUGIN_DIR}/hackrf_fake.so
+                    <BINARY_DIR>/tests/plugins/hackrf_fake${YANTRA_RADIO_PLUGIN_SUFFIX}
+                    ${YANTRA_RADIO_TEST_PLUGIN_DIR}/hackrf_fake${YANTRA_RADIO_PLUGIN_SUFFIX}
     DEPENDS yantra_radios
     BUILD_ALWAYS ON
     LOG_CONFIGURE ON
@@ -260,7 +275,7 @@ endif()
 # Test only: the simulated TETRA terminal behind a pseudo-terminal for the
 # PEI plugin (the radio windows' tests, step 9.6); built by the radios build.
 if(YANTRA_RADIOS_PEI)
-  set(YANTRA_RADIOS_PEI_SIM ${YANTRA_RADIOS_BINARY_DIR}/bin/yantra-pei-sim)
+  set(YANTRA_RADIOS_PEI_SIM ${YANTRA_RADIOS_BINARY_DIR}/bin/yantra-pei-sim${CMAKE_EXECUTABLE_SUFFIX})
   set(YANTRA_RADIOS_PEI_SCENARIO ${YANTRA_RADIOS_DIR}/tests/fixtures/pei/terminal_cells.json)
 endif()
 add_custom_target(yantra_radio_plugins ALL DEPENDS yantra_radios ${_yr_fake_target})

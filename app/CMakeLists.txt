@@ -107,8 +107,8 @@ string(TIMESTAMP YANTRA_BUILD_DATE "%Y-%m-%d" UTC)
 target_compile_definitions(yantra_app_model PRIVATE YANTRA_SOURCE_URL="${YANTRA_SOURCE_URL}"
                                                     YANTRA_BUILD_DATE="${YANTRA_BUILD_DATE}")
 target_link_libraries(yantra_app_model
-  PUBLIC yantra::core
-  PRIVATE yantra::json yantra::warnings yantra_stb_image)  # stb: the logos with transparency (UI-15)
+  PUBLIC yantra::core yantra::json
+  PRIVATE yantra::warnings yantra_stb_image)  # stb: the logos with transparency (UI-15)
 
 set(_imgui ${PROJECT_SOURCE_DIR}/third_party/imgui)
 add_library(yantra_ui_probe OBJECT gui/ui_probe.cpp)

@@ -17,8 +17,14 @@ FolderInputs folder_inputs_from_environment() {
     FolderInputs in;
     in.plugin_path_env = platform::environment("YANTRA_PLUGIN_PATH");
     in.user_plugin_dir = platform::environment("YANTRA_USER_PLUGIN_DIR");
+#if defined(_WIN32)
+    // %APPDATA%/Yantra/plugins (PLG-09; Windows folder names ignore case).
+    in.xdg_data_home = platform::environment("APPDATA");
+    in.home = platform::environment("USERPROFILE");
+#else
     in.xdg_data_home = platform::environment("XDG_DATA_HOME");
     in.home = platform::environment("HOME");
+#endif
     in.executable_dir = platform::executable_dir();
     return in;
 }

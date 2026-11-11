@@ -18,11 +18,25 @@ target_link_libraries(yantra-demo PRIVATE yantra::core yantra::warnings)
 # demo tests (tests/demo) read it and make it again for the determinism
 # check. Installed to share/yantra/demo/fraunces.
 if(YANTRA_RADIOS_KIND STREQUAL "build" OR
-   (YANTRA_RADIOS_KIND STREQUAL "prebuilt" AND EXISTS ${YANTRA_RADIOS_STAGE}/bin/yantra-gen))
+   (YANTRA_RADIOS_KIND STREQUAL "prebuilt" AND EXISTS ${YANTRA_RADIOS_STAGE}/bin/yantra-gen${CMAKE_EXECUTABLE_SUFFIX}))
   set(_data ${PROJECT_SOURCE_DIR}/data/demo/fraunces)
   set(YANTRA_DEMO_FRAUNCES_DIR ${PROJECT_BINARY_DIR}/demo/fraunces CACHE INTERNAL "")
-  set(YANTRA_DEMO_GEN ${YANTRA_RADIOS_STAGE}/bin/yantra-gen CACHE INTERNAL "")
+  set(YANTRA_DEMO_GEN ${YANTRA_RADIOS_STAGE}/bin/yantra-gen${CMAKE_EXECUTABLE_SUFFIX} CACHE INTERNAL "")
   set(YANTRA_DEMO_SCENARIO_DIR ${YANTRA_RADIOS_STAGE}/share/yantra-radios/scenarios CACHE INTERNAL "")
+  # The programs that make the projects: this tree's, or in a
+  # cross-compiled tree the Linux tree's (YANTRA_HOST_BUILD_DIR).
+  set(_demo_cmd yantra-demo)
+  set(_demo_tetra $<TARGET_FILE:yantra_tetra>)
+  set(_demo_gen ${YANTRA_DEMO_GEN})
+  set(_demo_scenarios ${YANTRA_DEMO_SCENARIO_DIR})
+  set(_demo_deps yantra-demo yantra_tetra)
+  if(CMAKE_CROSSCOMPILING)
+    set(_demo_cmd ${YANTRA_HOST_DEMO})
+    set(_demo_tetra ${YANTRA_HOST_TETRA_PLUGIN})
+    set(_demo_gen ${YANTRA_HOST_RADIOS_BIN}/yantra-gen)
+    set(_demo_scenarios ${YANTRA_HOST_SCENARIO_DIR})
+    set(_demo_deps ${YANTRA_HOST_DEMO} ${YANTRA_HOST_TETRA_PLUGIN} ${_demo_gen})
+  endif()
   set(_out ${YANTRA_DEMO_FRAUNCES_DIR})
   set(_outputs ${_out}/fraunces.yantra ${_out}/recordings/first-floor_walk_0000.yrec
                ${_out}/recordings/second-floor_walk_0000.yrec)
@@ -35,10 +49,10 @@ if(YANTRA_RADIOS_KIND STREQUAL "build" OR
     list(APPEND _scenarios ${YANTRA_DEMO_GEN})
   endif()
   add_custom_command(OUTPUT ${_outputs}
-    COMMAND yantra-demo --description ${_data}/fraunces.json --out ${_out}
-            --gen ${YANTRA_DEMO_GEN} --scenario-dir ${YANTRA_DEMO_SCENARIO_DIR}
-            --tetra-plugin $<TARGET_FILE:yantra_tetra>
-    DEPENDS yantra-demo yantra_tetra ${_data}/fraunces.json ${_data}/cells.csv
+    COMMAND ${_demo_cmd} --description ${_data}/fraunces.json --out ${_out}
+            --gen ${_demo_gen} --scenario-dir ${_demo_scenarios}
+            --tetra-plugin ${_demo_tetra}
+    DEPENDS ${_demo_deps} ${_data}/fraunces.json ${_data}/cells.csv
             ${_data}/fraunces_tavern_first_floor.png ${_data}/fraunces_tavern_second_floor.png ${_scenarios}
     COMMENT "The Fraunces demo project (yantra-demo: yantra-gen walks, replay, interpolation)"
     VERBATIM)
@@ -73,10 +87,10 @@ if(YANTRA_RADIOS_KIND STREQUAL "build" OR
   foreach(_id IN LISTS YANTRA_DEMO_MAK_IDS)
     set(_o ${YANTRA_DEMO_MAK_DIR}/${_id})
     add_custom_command(OUTPUT ${_o}/${_id}.yantra
-      COMMAND yantra-demo --description ${_mak}/${_id}.json --out ${_o} --reference-sheets
-              --gen ${YANTRA_DEMO_GEN} --scenario-dir ${YANTRA_DEMO_SCENARIO_DIR}
-              --tetra-plugin $<TARGET_FILE:yantra_tetra>
-      DEPENDS yantra-demo yantra_tetra ${_mak}/${_id}.json ${_mak}/cells.csv ${_scenarios}
+      COMMAND ${_demo_cmd} --description ${_mak}/${_id}.json --out ${_o} --reference-sheets
+              --gen ${_demo_gen} --scenario-dir ${_demo_scenarios}
+              --tetra-plugin ${_demo_tetra}
+      DEPENDS ${_demo_deps} ${_mak}/${_id}.json ${_mak}/cells.csv ${_scenarios}
       COMMENT "MAK example project ${_id} (yantra-demo: yantra-gen walks, replay, interpolation; no plan image)"
       VERBATIM)
     list(APPEND _mak_outputs ${_o}/${_id}.yantra)
