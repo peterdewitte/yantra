@@ -215,6 +215,13 @@ void TextLint::tooltips(const std::string& where, const app::gui_detail::HelpRec
         ui_.mouse_move(e.rect.GetCenter().x, e.rect.GetCenter().y);
         app::gui_detail::help_record() = &rec;
         bool ok = ui_.frame();  // the tooltip window takes its size
+        // An item under another window (e.g. scrolled under the status bar)
+        // cannot be pointed at there.
+        const ImGuiWindow* hovered = ImGui::GetCurrentContext()->HoveredWindow;
+        if (hovered != nullptr && hovered->RootWindow != w->RootWindow) {
+            app::gui_detail::help_record() = nullptr;
+            continue;
+        }
         rec.entries.clear();
         text_probe_start();
         ok = ui_.frame() && ok;
