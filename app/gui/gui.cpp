@@ -677,8 +677,13 @@ void Gui::draw_browser() {
     const float list_h = ImGui::GetTextLineHeightWithSpacing() * 14.0F;
     ImGui::BeginChild("###fb.places", ImVec2(180.0F, list_h), ImGuiChildFlags_Borders);
     ImGui::TextDisabled(tr("Places"));
-    for (const BrowserPlace& p : b->places()) {
-        if (ImGui::Selectable((p.label + "###fb.place." + p.path.string()).c_str(), p.path == b->folder()))
+    // Ids by position (a path's separators would make it a window path);
+    // a touch target's height in the touch layout (UI-13).
+    const std::vector<BrowserPlace> places = b->places();
+    for (std::size_t i = 0; i < places.size(); ++i) {
+        const BrowserPlace& p = places[i];
+        if (ImGui::Selectable((p.label + "###fb.place." + std::to_string(i)).c_str(), p.path == b->folder(), 0,
+                              ImVec2(0.0F, row_h())))
             (void)b->navigate(p.path);
         text_tooltip(p.path.string().c_str());
     }
