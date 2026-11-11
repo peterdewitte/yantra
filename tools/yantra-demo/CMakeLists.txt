@@ -73,7 +73,9 @@ if(YANTRA_RADIOS_KIND STREQUAL "build" OR
     DEPENDS demo_fraunces yantra-demo yantra_tetra
     COMMENT "The sample report of the Fraunces demo in docs/samples (DEMO-06)"
     VERBATIM)
-  install(FILES ${_out}/fraunces.yantra DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra/demo/fraunces)
+  # With the plan sheets' source and licence (public domain, HABS).
+  install(FILES ${_out}/fraunces.yantra ${PROJECT_SOURCE_DIR}/data/demo/fraunces/README.md
+          DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra/demo/fraunces)
   install(DIRECTORY ${_out}/recordings DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra/demo/fraunces)
 
   # The MAK example buildings of the tour (DEMO-12, DEMO-13): projects and

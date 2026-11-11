@@ -33,7 +33,7 @@ found at configure time and linked dynamically.
 
 | Component | Version | Licence | Source | Used for |
 |---|---|---|---|---|
-| yantra-radios | v0.2.7 (commit 26c05ff), git submodule `third_party/yantra-radios` | GPL-3.0-or-later; its plugins contain AGPL-3.0 parts (osmo-tetra) and the libraries of its own THIRD_PARTY.md | The yantra-radios project (its README names the public source) | Radio API header `yantra/radio.h` and the radio plugins with their SDR processing and TETRA decoder (PLG-26); its components and licence bundle are listed in its own THIRD_PARTY.md |
+| yantra-radios | v0.3.0 (commit 6fac3ee), git submodule `third_party/yantra-radios` | GPL-3.0-or-later; its plugins contain AGPL-3.0 parts (osmo-tetra) and the libraries of its own THIRD_PARTY.md | The yantra-radios project (its README names the public source) | Radio API header `yantra/radio.h` and the radio plugins with their SDR processing and TETRA decoder (PLG-26); its components and licence bundle are listed in its own THIRD_PARTY.md |
 | nlohmann/json | 3.12.0 (single header, vendored unchanged in `third_party/nlohmann_json/`, SHA-256 in its README) | MIT | https://github.com/nlohmann/json | All of Yantra's JSON: the building model and scene export (`yantra-building`, RAD-36), record files of yantra-radios (RAD-65, TST-10), recordings in JSON Lines (REC-03), the calibration table, settings, configuration profiles, plugin state, acceptance profiles, demo descriptions, the remote API and its WebSocket messages (API-01/02), the plugin test kit's reports and golden files (PLG-13); header-only, compiled into Yantra |
 | CivetWeb | 1.16 (release tarball `v1.16.tar.gz`, sha256 `f0e471c1bf4e7804a6cfb41ea9d13e7d623b2bcc7bc1e2a4dd54951a24d60285`; only `civetweb.c`, `civetweb.h`, the `.inl` files it includes and its `LICENSE.md`, vendored in `third_party/civetweb/`, unchanged but for one marked line in `STOP_FLAG_ASSIGN` that reads the stop flag atomically) | MIT; its `md5.inl` Zlib, its `sha1.inl` public domain | https://github.com/civetweb/civetweb (tag `v1.16`) | HTTP + WebSocket server of the remote API (API-02, spec 16.2) in the probe feature plugin `probe.so` (PLG-24), built with `NO_CGI`, `NO_FILES`, `NO_CACHING`, `USE_WEBSOCKET`, `USE_IPV6`, `STOP_FLAG_NEEDS_LOCK` and `NO_SSL` (no Lua, Duktape, HTTP/2, zlib, file serving or TLS; HTTPS through a reverse proxy, docs/API.md) |
 | SQLite | 3.37 or newer, system library (`libsqlite3-dev`; tested with 3.46.1), linked into the core | Public domain (blessing) | https://sqlite.org | The indoor project file `*.yantra` (IND-01, IND-03, IND-04; docs/formats/PROJECT.md), which also holds the cell database (DB-01), the walk tests and measured points, stored interpolation maps and acceptance profiles |
@@ -46,11 +46,11 @@ found at configure time and linked dynamically.
 | GLFW | 3.3 or newer, system library (`libglfw3-dev`; tested with 3.4.0) | Zlib | https://www.glfw.org | Window, OpenGL context, input and window icon of the desktop app (`app/src/main.cpp`); X11 or Wayland (NFR-10) |
 | libcurl | 7.85 or newer, system library (`libcurl4-openssl-dev`; tested with 8.18.0) | curl (MIT-style, `curl` licence) | https://curl.se/libcurl/ | Two uses, both only on the user's request (spec 16.2): the guided tour's one-time download of a MAK plan sheet after the user agrees (DEMO-12): one plain GET with the client name "Yantra/<version>" and nothing else (`app/net/curl_downloader.cpp`); and the optional sending of exports and reports (EXP-07): HTTP(S) PUT per file or one SMTP(S) mail to a server the user enters (`app/net/curl_sender.cpp`). Library `yantra_app_net`, linked into the `yantra` executable and its tests only; the tests use file:// and loopback servers, no network. TLS comes from the system's libcurl (with its own TLS library); Yantra does not link OpenSSL itself |
 | OpenGL 3 | system library (e.g. Mesa `libgl1`, `libgl1-mesa-dri`); no separate loader library (Dear ImGui's bundled loader) | - (API) | https://www.khronos.org/opengl/ | Rendering of the desktop app; Mesa llvmpipe software rendering in the launch tests (TST-04) |
-| PDFium (prebuilt by pdfium-binaries) | 158.0.8125.0, release `chromium/8125` of https://github.com/bblanchon/pdfium-binaries, asset `pdfium-linux-x64.tgz`, SHA-256 `e1c3ce6e270cb5e0c20816b379ad9f2c1309972697c505f508de92bf5e7d6659`; built without V8 and XFA. Not in git: configure fetches the pinned archive into `<build>/_deps/` and checks the hash (`cmake/YantraPdfium.cmake`; offline: `-DYANTRA_PDFIUM_ARCHIVE=<file>`) | PDFium BSD-3-Clause (`licenses/pdfium.txt` in the archive); the pdfium-binaries build scripts MIT; bundled in `libpdfium.so` under their own licences, all in the archive's `licenses/`: FreeType (FTL), libjpeg-turbo (IJG, BSD-3-Clause, zlib), libpng, zlib, lcms (MIT), OpenJPEG (BSD-2-Clause), AGG 2.3, abseil (Apache-2.0), ICU (Unicode), HarfBuzz (MIT), Highway (Apache-2.0), fast_float (MIT), simdutf (MIT), dragonbox (Apache-2.0 with LLVM exception, or BSL-1.0), LLVM libc++ and libc (Apache-2.0 with LLVM exception). All are compatible with GPL-3.0-or-later; `install` puts the library in `lib/yantra/` and the archive's `licenses/` in `share/licenses/pdfium/`. | https://pdfium.googlesource.com/pdfium (prebuilt: https://github.com/bblanchon/pdfium-binaries) | PDF floor plans (IND-02): page list, page sizes, thumbnails and rendering of any page or part of a page at a chosen resolution (`core/src/plan/pdf_source.cpp`). Linked as a shared library after the C++ runtime (it exports its own `operator new`); every PDFium call holds one process-wide lock (PDFium is not thread-safe). Linux x86-64 only for now (Windows DEFERRED). |
+| PDFium (prebuilt by pdfium-binaries) | 158.0.8125.0, release `chromium/8125` of https://github.com/bblanchon/pdfium-binaries, asset `pdfium-linux-x64.tgz`, SHA-256 `e1c3ce6e270cb5e0c20816b379ad9f2c1309972697c505f508de92bf5e7d6659`; built without V8 and XFA. Not in git: configure fetches the pinned archive into `<build>/_deps/` and checks the hash (`cmake/YantraPdfium.cmake`; offline: `-DYANTRA_PDFIUM_ARCHIVE=<file>`) | PDFium BSD-3-Clause (`licenses/pdfium.txt` in the archive); the pdfium-binaries build scripts MIT; bundled in `libpdfium.so` under their own licences, all in the archive's `licenses/`: FreeType (FTL), libjpeg-turbo (IJG, BSD-3-Clause, zlib), libpng, zlib, lcms (MIT), OpenJPEG (BSD-2-Clause), AGG 2.3, abseil (Apache-2.0), ICU (Unicode), HarfBuzz (MIT), Highway (Apache-2.0), fast_float (MIT), simdutf (MIT), dragonbox (Apache-2.0 with LLVM exception, or BSL-1.0), LLVM libc++ and libc (Apache-2.0 with LLVM exception). All are compatible with GPL-3.0-or-later; `install` puts the library in `lib/yantra/` and the archive's `licenses/` in `share/licenses/pdfium/`. | https://pdfium.googlesource.com/pdfium (prebuilt: https://github.com/bblanchon/pdfium-binaries) | PDF floor plans (IND-02): page list, page sizes, thumbnails and rendering of any page or part of a page at a chosen resolution (`core/src/plan/pdf_source.cpp`). Linked as a shared library after the C++ runtime (it exports its own `operator new`); every PDFium call holds one process-wide lock (PDFium is not thread-safe). On Windows the asset `pdfium-win-x64.tgz` of the same release (`pdfium.dll` next to the programs, OA-02). |
 | OpenSSL | not used | (Apache-2.0) | https://www.openssl.org | Optional in spec 16.2 for HTTPS/wss of the remote API; not linked: the probe plugin's CivetWeb is built with `NO_SSL` (HTTPS through a reverse proxy, docs/API.md). Only the system libcurl may use it internally for its own TLS. |
 | Rust standard library | the toolchain's (through yantra-radios) | MIT OR Apache-2.0 | https://www.rust-lang.org | Linked statically into the TETRA radio plugins of yantra-radios (its protocol crate `yantra-proto`); nothing of Rust is linked into Yantra's own binaries |
 
-### Inside the shipped radio plugins (yantra-radios v0.2.7)
+### Inside the shipped radio plugins (yantra-radios v0.3.0)
 
 The radio plugins Yantra ships (`lib/yantra/plugins/radios/*.so`, PLG-26)
 are self-contained: yantra-radios builds these libraries into them
@@ -74,6 +74,36 @@ yantra-radios' `THIRD_PARTY.md` and `tools/deps/manifest.tsv`.
 | nlohmann/json | 3.12.0 | MIT | record files and scene JSON |
 | Rust standard library | the toolchain's | MIT OR Apache-2.0 | the protocol crate `yantra-proto` |
 
+## Windows packages (NFR-09)
+
+On Windows the app links the libraries above as the DLLs of pinned MSYS2
+UCRT64 binary packages (`tools/windows/msys2.lock`; the GCC runtime from
+yantra-radios' `tools/sdk/msys2.lock`, OA-02). The Windows zip and setup
+.exe ship exactly the DLLs the programs and plugins import, next to the
+programs in `bin\`, with each package's licence texts in
+`share\licenses\msys2\<package>\` and the list in
+`share\licenses\msys2\PACKAGES.txt`
+(`packaging/windows/package_windows.py`); `SOURCE.txt` names the
+corresponding source (https://github.com/msys2/MINGW-packages).
+
+| DLL | MSYS2 package | Licence | Brought in by |
+|---|---|---|---|
+| `libstdc++-6.dll`, `libgcc_s_seh-1.dll` | libstdc++, libgcc 16.2.0 | GPL-3.0-or-later WITH GCC-exception-3.1 | the C++ runtime of every program and plugin |
+| `libwinpthread-1.dll` | libwinpthread 14.0.0 | MIT AND BSD-3-Clause | the C++ runtime (threads) |
+| `glfw3.dll` | glfw 3.5.1 | Zlib | window and input |
+| `libsqlite3-0.dll` | sqlite 3.54.1 | blessing (public domain) | project file |
+| `libzstd.dll` | zstd 1.5.7 | BSD-3-Clause OR GPL-2.0-or-later | recording compression |
+| `libhpdf.dll`, `libpng16-16.dll`, `zlib1.dll` | libharu 2.4.6, libpng 1.6.59, zlib 1.4 | Zlib, libpng-2.0, Zlib | PDF reports |
+| `libcurl-4.dll` | curl-winssl 8.23.0 (TLS by Windows' own Schannel) | curl | download and sending (EXP-07, DEMO-12) |
+| `libbrotlicommon.dll`, `libbrotlidec.dll`, `libidn2-0.dll`, `libpsl-5.dll`, `libssh2-1.dll`, `libunistring-5.dll`, `libiconv-2.dll`, `libintl-8.dll` | brotli 1.2.1, libidn2 2.3.8, libpsl 0.21.5, libssh2-wincng 1.11.1, libunistring 1.4.2, libiconv 1.19.1, gettext-runtime 1.0 | MIT, GPL-2.0-or-later OR LGPL-3.0-or-later, MIT, BSD-3-Clause, LGPL-3.0-or-later OR GPL-2.0-or-later, LGPL-2.1-or-later, LGPL-2.1-or-later | libcurl's own dependencies |
+| `pdfium.dll` | (not MSYS2) PDFium 158.0.8125.0 for Windows, see Libraries | BSD-3-Clause and the licences in `share\licenses\pdfium` | PDF floor plans |
+
+The libidn2 package carries no licence file; the packages add the GNU
+licence texts it names (GPL-2.0, LGPL-3.0, GPL-3.0). Mesa's
+`opengl32.dll` (llvmpipe), which the Windows test tree uses to render
+off-screen in the test machine, is a test tool and never shipped: the
+installed app uses the system's OpenGL driver.
+
 ## Build, test and packaging tools
 
 These tools are never linked into Yantra and do not affect its licence.
@@ -91,10 +121,12 @@ These tools are never linked into Yantra and do not affect its licence.
 | ffmpeg (program only) | GPL-2.0-or-later / LGPL-2.1-or-later | short animated captures (SCR-06); no FFmpeg library is linked |
 | binutils (readelf, objdump), `strings` | GPL-3.0-or-later | completeness and build-folder checks of the installed binaries and plugins (RAD-133, NFR-09) |
 | dpkg | GPL-2.0-or-later | the Linux package (NFR-09) |
+| NSIS (makensis) | Zlib; its LZMA decompressor in the setup .exe CPL-1.0 with the special exception for NSIS installers | the Windows setup .exe, made on Linux (NFR-09; `packaging/windows/yantra.nsi`) |
+| the cross SDK of yantra-radios (LLVM clang, lld, llvm-rc, llvm-strip; MSYS2 UCRT64 packages) | Apache-2.0 WITH LLVM-exception; the packages' own | the Windows cross build, the icon and version resources and the stripped programs of the packages (OA-02, RAD-139) |
 | reuse | Apache-2.0, CC0-1.0, CC-BY-SA-4.0, GPL-3.0-or-later | REUSE compliance check (NFR-01) |
 | PyYAML | MIT | YAML syntax check of the CI workflows in `tools/ci/lint.sh` (TST-02); CI only, as in yantra-radios |
 | Xvfb (X.Org) | MIT/X11 | Private off-screen X display of the app launch tests and screenshots (NFR-10, TST-04, SCR-01); `tests/app/with_xvfb.sh` |
-| Mesa (llvmpipe) | MIT | OpenGL 3.1 software rendering in the app launch tests (TST-04) |
+| Mesa (llvmpipe) | MIT | OpenGL 3.1 software rendering in the app launch tests (TST-04); on Windows its `opengl32.dll` from the MSYS2 package `mesa` in the test tree only (never packaged) |
 
 ## Fonts
 

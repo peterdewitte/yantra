@@ -80,7 +80,23 @@ come from the yantra-radios repository as a git submodule; its URL in
 plugin build (or a prebuilt yantra-radios package), the USB permissions
 for the radios and the plugin folders.
 
-**Windows**: not yet available.
+**Windows** (10 or 11, x64): two packages of the same files, made from
+the cross build on Linux ([BUILD.md](BUILD.md#windows-packages-nfr-09)):
+
+- `yantra-<version>-windows-x86_64.zip`, the portable zip: unpack it
+  anywhere and start `bin\yantra.exe`; nothing is installed;
+- `yantra-<version>-windows-x86_64-setup.exe`, the setup: installs for
+  the current user (no administrator rights) into
+  `%LOCALAPPDATA%\Programs\Yantra`, with a Start menu entry and an
+  uninstaller (Settings > Apps); silent: `setup.exe /S`.
+
+Both hold the app, `yantra-probe`, the plugin test kit, the plugins with
+the self-contained radio plugins of yantra-radios, every DLL they need,
+the demo project and the licence texts (`SOURCE.txt` names the source).
+Yantra needs a graphics driver with OpenGL 3.3. USB radios (HackRF One,
+RTL-SDR, Airspy) need the WinUSB driver, installed once per device with
+[Zadig](https://zadig.akeo.ie). User settings and data are in
+`%APPDATA%\yantra`, caches in `%LOCALAPPDATA%\yantra`.
 
 ## First steps
 

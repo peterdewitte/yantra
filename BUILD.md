@@ -253,6 +253,13 @@ build tree and checks that layout (nothing outside the prefix, no test
 plugin, the licence bundle complete, the installed plugins self-contained
 and loadable). Sanitizer trees are never installed.
 
+On Windows (the cross-compiled tree, `cmake --install build-win --prefix
+<folder>`) the layout is the same but for: PDFium and the DLLs the
+programs and plugins import are installed next to the programs in `bin`
+(`tools/windows/copy_dlls.py`; Mesa never), so are the radio tools
+`yantra-hackrf.exe` and `yantra-radio-host.exe`; no desktop entry, udev
+rules or hicolor icons (the icon is in `yantra.exe`).
+
 ## Linux package (NFR-09)
 
 `ninja -C build deb` builds the documentation (`ninja docs`) and then
@@ -277,8 +284,8 @@ installing it (control fields, contents, icons 16..512 equal to
 app finding its PDFium, no build-machine folder, home folder or git
 identity of the builder, no MAK plan); the ctest `package_deb` builds the
 package from the default tree with the documentation of `docs_build` and
-runs that check (offline). The Windows zip and NSIS installer follow in
-step 13.9 of the build (section "Windows").
+runs that check (offline). The Windows packages: section
+[Windows packages](#windows-packages-nfr-09).
 
 ## Plugin folders (PLG-09)
 
@@ -312,9 +319,14 @@ retried once; a second job with gcc (`ci-gcc`); the docs job builds `ninja
 docs` and keeps the site as an artifact, DOC-20), `nightly.yml` (default,
 scalar, plugins-off, asan and tsan trees with clang from the SDK, the gcc
 tree, and arm64 with gcc (the SDK is x86-64), with all tests including slow
-and opt-in), `screenshots.yml` (the screenshot set as an artifact, SCR-04)
-and `windows.yml` (native MSYS2 UCRT64 with gcc, the second Windows check;
-written but not run). The workflows are YAML-linted locally; they have
+and opt-in), `screenshots.yml` (the screenshot set as an artifact, SCR-04),
+`windows.yml` (native MSYS2 UCRT64 with gcc, the second Windows check;
+written but not run), and in `ci.yml` the Windows jobs: `windows-cross`
+(the Linux tree for the build-time data, the Windows tree with clang from
+the SDK and Yantra's MSYS2 lock, warnings as errors, the `build_host`
+tests, `ninja package-windows`; the packages and the tree as artifacts)
+and `windows-x64-tests` on a Windows runner (the tree's ctest natively,
+with the package tests). The workflows are YAML-linted locally; they have
 never run (no remote).
 
 ## Windows (OA-02, HW-06)
@@ -347,8 +359,13 @@ so build that first:
 `build-win/bin` gets the programs, the tests and the DLLs they import
 (`tools/windows/copy_dlls.py`, list in `bin/yantra-dlls.txt`), plus Mesa's
 `opengl32.dll` (llvmpipe) so the tests render off-screen on a machine
-without OpenGL 3 (the test VM's display adapter); the packages (step 13.9)
-use the system's OpenGL. The radio plugins are the submodule's
+without OpenGL 3 (the test VM's display adapter); the packages never ship
+Mesa and use the system's OpenGL. `yantra.exe` carries the Yantra icon
+(`packaging/windows/make_ico.py` makes `build-win/packaging/yantra.ico`
+from the PNGs of `data/logo/png` as supplied, BRD-06) and version
+information (`packaging/windows/version.rc.in`, llvm-rc); it is a
+windowed program (no console window) that prints to the console it was
+started from. The radio plugins are the submodule's
 self-contained `.dll` in `lib/yantra/plugins/radios`. User folders on
 Windows: `%APPDATA%/Yantra` (settings, data, calibration table, plugins in
 `%APPDATA%/Yantra/plugins`), `%LOCALAPPDATA%/Yantra` (caches).
@@ -401,6 +418,64 @@ compiler and the kit on one machine). The crash cases of the project file
 and the recordings (a writer killed with SIGKILL, fork) and PDFium's
 operator new check are compiled out on Windows. File names with
 characters outside the system code page are not yet checked on Windows.
+
+## Windows packages (NFR-09)
+
+The portable zip and the NSIS setup .exe are made on Linux from the
+Windows tree with Yantra's own script
+`packaging/windows/package_windows.py` (makensis from NSIS; nothing is
+installed on the build machine):
+
+    ninja -C build-win package-windows
+
+writes into `build-win/package/`:
+
+- `yantra-<version>-windows-x86_64.zip`: one folder with `bin\` (the
+  programs `yantra.exe`, `yantra-probe.exe`, `yantra-plugin-test.exe`, the
+  radio tools `yantra-hackrf.exe` and `yantra-radio-host.exe`, PDFium and
+  the MSYS2 UCRT64 DLLs they import), `lib\yantra\plugins` (TETRA, probe
+  and the self-contained radio plugins of yantra-radios, PLG-26),
+  `share\yantra` (data, fonts with their OFL texts, logo, the Fraunces
+  demo, the in-app manual, quick starts, THIRD_PARTY.md), `include\`
+  (the plugin headers), the licence texts (`LICENSE.txt`,
+  `share\doc\yantra\LICENSES`, `share\licenses\{yantra-radios,pdfium,msys2}`
+  with `msys2\PACKAGES.txt`), `README.txt` and `SOURCE.txt` (the
+  corresponding source of the GPL, AGPL and LGPL parts, from
+  `YANTRA_SOURCE_URL`; the script refuses an empty one). Yantra's own
+  programs and plugins are stripped of debug information. The zip is
+  reproducible (sorted, dated `SOURCE_DATE_EPOCH` or the last commit).
+- `yantra-<version>-windows-x86_64-setup.exe` (`packaging/windows/yantra.nsi`):
+  the same files for the current user (no administrator rights) in
+  `%LOCALAPPDATA%\Programs\Yantra`, a Start menu entry, the entry in
+  Settings > Apps (publisher Curtat BV, homepage https://curtat.be, the
+  source URL) and an uninstaller that removes exactly the installed
+  files; silent: `setup.exe /S [/D=<folder>]`, `uninstall.exe /S`.
+- `SHA256SUMS`.
+
+Mesa is a test tool and never in a package; a machine without an OpenGL
+3.3 driver cannot show the app. Checks:
+
+- `package_windows_check` (label `build_host`, run on Linux with
+  `ctest --test-dir build-win -L build_host`): the DLL import check of
+  `packaging/windows/check_windows_package.py` on the zip (every `.exe`
+  and `.dll` imports only DLLs in the package or Windows system DLLs and
+  the UCRT; no Mesa or other system DLL, no unused DLL, no test program),
+  the contents and licence texts, the icon resource, no MAK plan
+  (DEMO-12), no build-machine folder or builder identity, a package newer
+  than the tree's programs; then a self-test with faults it must find.
+- On Windows (the test VM, after `ninja -C build-win package-windows`):
+
+      ~/onair/OnAir.Claude/.claude/skills/onair-wintest/wintest.sh test ~/yantra/build-win -R package_windows
+
+  `package_windows_zip` unpacks the zip and `package_windows_setup`
+  installs the setup .exe silently into a scratch folder
+  (`packaging/windows/smoke_test.py`, Python only); both start the
+  packaged `yantra.exe --version`, `yantra-probe.exe` (every plugin
+  loaded from the package), `yantra-radio-host.exe info` and an
+  off-screen `yantra.exe --demo --screenshot` (with the test tree's Mesa
+  copied next to it for that run only, as the VM has no OpenGL 3 driver);
+  the setup test checks the uninstall entry and the Start menu shortcut
+  and uninstalls silently. They are part of the full VM run (`--all`).
 
 The native MSYS2 UCRT64 build (gcc, `windows.yml` in CI) stays a second
 check; MSYS2 is not installed on the test machine, so it has not been run

@@ -14,6 +14,23 @@ own changes are in its CHANGELOG.md.
 
 ## [Unreleased]
 
+### Windows
+
+- 2026-11-11: Windows x64 packages (NFR-09): the portable zip
+  `yantra-<version>-windows-x86_64.zip` and the setup
+  `yantra-<version>-windows-x86_64-setup.exe` (per-user install, Start
+  menu entry, uninstaller, silent with `/S`), made on Linux from the cross
+  build. They hold the app, the probe, the plugin test kit, Yantra's and
+  the radio plugins, the radio tools `yantra-hackrf` and
+  `yantra-radio-host`, every DLL the programs import (the MSYS2 UCRT64
+  runtime and libraries, PDFium), the data and the licence texts, with a
+  note on the corresponding source. Every program and DLL in them imports
+  only packaged DLLs and Windows system DLLs (checked by the build).
+- `yantra.exe` carries the Yantra icon (BRD-06) and version information,
+  and opens no console window; started from a console it prints there.
+- The Fraunces demo's plan-sheet notes (source and licence) are installed
+  with the demo project.
+
 ### Radio plugins
 
 - 2026-11-11: pinned to yantra-radios **v0.3.0** (commit 6fac3ee): radio

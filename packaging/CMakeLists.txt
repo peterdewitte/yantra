@@ -18,6 +18,60 @@ if(WIN32 AND YANTRA_BUILD_TESTS)
   set_tests_properties(windows_icon PROPERTIES LABELS "fast;package")
   yantra_build_host_tests(windows_icon)
 endif()
+
+# Windows packages (NFR-09, OA-02), made on Linux from the cross-compiled
+# tree: `ninja -C build-win package-windows` writes the portable zip, the
+# NSIS setup .exe and SHA256SUMS into <build>/package
+# (packaging/windows/package_windows.py; not part of the default build).
+# Tests: package_windows_check (build_host: the DLL import check and the
+# contents of the zip, check_windows_package.py) and, on Windows (the test
+# VM), package_windows_zip (the unpacked zip's programs) and
+# package_windows_setup (a silent install, the installed programs, a
+# silent uninstall), packaging/windows/smoke_test.py.
+if(WIN32 AND CMAKE_CROSSCOMPILING AND YANTRA_BUILD_APP AND YANTRA_SANITIZER STREQUAL ""
+   AND NOT YANTRA_RADIOS_KIND STREQUAL "none" AND YANTRA_PLUGIN_PROBE AND YANTRA_RADIOS_PEI)
+  find_program(YANTRA_MAKENSIS makensis)
+  file(STRINGS ${PROJECT_SOURCE_DIR}/.gitmodules _radios_url REGEX "url = .*yantra-radio")
+  string(REGEX REPLACE ".*url = " "" _radios_url "${_radios_url}")
+  set(_win_package ${PROJECT_BINARY_DIR}/package/yantra-${PROJECT_VERSION}-windows-x86_64)
+  add_custom_target(package-windows
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/windows/package_windows.py
+            --build ${PROJECT_BINARY_DIR} --out ${PROJECT_BINARY_DIR}/package --source ${PROJECT_SOURCE_DIR}
+            --version ${PROJECT_VERSION} --source-url "${YANTRA_SOURCE_URL}" --sysroot ${CMAKE_SYSROOT}
+            --strip ${CMAKE_STRIP} --cmake ${CMAKE_COMMAND} --makensis ${YANTRA_MAKENSIS} --ico ${YANTRA_ICO}
+            --pdfium-version "${YANTRA_PDFIUM_VERSION}" --radios-url "${_radios_url}"
+            --msys2-lock ${PROJECT_SOURCE_DIR}/tools/windows/msys2.lock
+            --msys2-lock ${PROJECT_SOURCE_DIR}/third_party/yantra-radios/tools/sdk/msys2.lock
+    COMMENT "Windows zip and setup .exe in ${PROJECT_BINARY_DIR}/package (NFR-09)"
+    VERBATIM)
+  add_dependencies(package-windows yantra_ico)
+  if(YANTRA_BUILD_TESTS)
+    set(_win_check ${CMAKE_CURRENT_SOURCE_DIR}/windows/check_windows_package.py)
+    add_test(NAME package_windows_check
+             COMMAND ${YANTRA_BUILD_HOST_TEST} ${Python3_EXECUTABLE} ${_win_check} ${_win_package}.zip
+                     --source ${PROJECT_SOURCE_DIR} --self-test
+                     --newer-than $<TARGET_FILE:yantra> --newer-than $<TARGET_FILE:yantra-probe>
+                     --newer-than ${PROJECT_BINARY_DIR}/lib/yantra/plugins/tetra.dll
+                     --newer-than ${PROJECT_BINARY_DIR}/lib/yantra/plugins/probe.dll
+                     --newer-than ${YANTRA_RADIO_PLUGIN_DIR}/simulator.dll)
+    set_tests_properties(package_windows_check PROPERTIES LABELS "package" TIMEOUT 300)
+    yantra_build_host_tests(package_windows_check)
+    # On Windows: the packaged programs run (Mesa from the test tree next
+    # to the unpacked app for the off-screen screenshot only: the test
+    # VM has no OpenGL 3 driver; the package itself has none).
+    set(_smoke ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/windows/smoke_test.py
+               --version ${PROJECT_VERSION} --mesa-from ${PROJECT_BINARY_DIR}/bin)
+    add_test(NAME package_windows_zip
+             COMMAND ${_smoke} --zip ${_win_package}.zip --scratch ${CMAKE_CURRENT_BINARY_DIR}/scratch/zip)
+    add_test(NAME package_windows_setup
+             COMMAND ${_smoke} --setup ${_win_package}-setup.exe --scratch ${CMAKE_CURRENT_BINARY_DIR}/scratch/setup)
+    # The setup test writes the current user's uninstall entry and Start
+    # menu shortcut (removed again): one at a time.
+    set_tests_properties(package_windows_zip package_windows_setup PROPERTIES
+                         LABELS "package" TIMEOUT 600 SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
+  endif()
+endif()
+
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR NOT YANTRA_BUILD_APP OR NOT YANTRA_SANITIZER STREQUAL ""
    OR YANTRA_RADIOS_KIND STREQUAL "none" OR NOT YANTRA_PLUGIN_PROBE OR NOT YANTRA_RADIOS_PEI)
   return()

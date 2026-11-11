@@ -191,11 +191,13 @@ install(DIRECTORY ${PROJECT_SOURCE_DIR}/data/logo/png DESTINATION ${CMAKE_INSTAL
 install(FILES ${PROJECT_SOURCE_DIR}/data/logo/yantra_logo.svg ${PROJECT_SOURCE_DIR}/data/logo/yantra_logo_square.svg
               ${PROJECT_SOURCE_DIR}/data/logo/yantra_glyph.svg
         DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra/logo)
-foreach(_size 16 24 32 48 64 128 256 512)
-  install(FILES ${PROJECT_SOURCE_DIR}/data/logo/png/yantra_logo_${_size}.png
-          DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${_size}x${_size}/apps RENAME yantra.png)
-endforeach()
-install(FILES ${PROJECT_SOURCE_DIR}/data/yantra.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+if(NOT WIN32)  # Windows: the icon is in yantra.exe, the setup .exe makes the Start menu entry
+  foreach(_size 16 24 32 48 64 128 256 512)
+    install(FILES ${PROJECT_SOURCE_DIR}/data/logo/png/yantra_logo_${_size}.png
+            DESTINATION ${CMAKE_INSTALL_DATADIR}/icons/hicolor/${_size}x${_size}/apps RENAME yantra.png)
+  endforeach()
+  install(FILES ${PROJECT_SOURCE_DIR}/data/yantra.desktop DESTINATION ${CMAKE_INSTALL_DATADIR}/applications)
+endif()
 # DOC-07 e: the user manual for the help window, so help works offline.
 install(DIRECTORY ${PROJECT_SOURCE_DIR}/docs/manual/ DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra/manual
         FILES_MATCHING PATTERN "*.md")

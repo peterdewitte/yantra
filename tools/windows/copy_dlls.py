@@ -10,11 +10,14 @@
 # folder) are left to the system. Also lists what it copied, so the
 # packaging step (13.9) and its DLL import check can reuse it.
 #
-#   copy_dlls.py --dest <folder> --search <folder>... [--extra <dll name>...] <pe file|folder>...
+#   copy_dlls.py --dest <folder> --search <folder>... [--extra <dll name>...]
+#                [--list <file>] <pe file|folder>...
 #
 # A folder argument stands for every .exe and .dll in it. --extra copies
 # named DLLs (and what they import) even when no program imports them (the
 # test tree's Mesa opengl32.dll for off-screen rendering in the test VM).
+# --list: where the list of copied DLLs goes (default <dest>/yantra-dlls.txt;
+# the install rule keeps it out of the package).
 import argparse
 import pathlib
 import shutil
@@ -79,6 +82,7 @@ def main():
     ap.add_argument("--dest", type=pathlib.Path, required=True)
     ap.add_argument("--search", type=pathlib.Path, action="append", default=[])
     ap.add_argument("--extra", action="append", default=[])
+    ap.add_argument("--list", type=pathlib.Path)
     ap.add_argument("files", type=pathlib.Path, nargs="*")
     a = ap.parse_args()
     available = {}
@@ -119,7 +123,9 @@ def main():
         if not dst.exists() or dst.stat().st_size != src.stat().st_size:
             shutil.copy2(src, dst)
         copied.append(src.name)
-    (a.dest / "yantra-dlls.txt").write_text("".join(sorted(f"{n}\n" for n in set(copied))))
+    listing = a.list or a.dest / "yantra-dlls.txt"
+    listing.parent.mkdir(parents=True, exist_ok=True)
+    listing.write_text("".join(sorted(f"{n}\n" for n in set(copied))))
     return 0
 
 

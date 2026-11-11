@@ -194,13 +194,26 @@ if(NOT YANTRA_RADIOS_KIND STREQUAL "none")
           DESTINATION share/licenses OPTIONAL)
   install(DIRECTORY ${YANTRA_RADIOS_STAGE}/lib/udev ${YANTRA_RADIOS_STAGE}/lib/modprobe.d
           DESTINATION lib OPTIONAL)
+  # Windows (NFR-09): the radio tools next to yantra.exe (self-contained
+  # .exe): the device check yantra-hackrf and the plugin host
+  # yantra-radio-host. Not yantra-gen: it needs yantra-radios' scenario
+  # files, which Yantra does not ship.
+  if(WIN32)
+    install(PROGRAMS ${YANTRA_RADIOS_STAGE}/bin/yantra-hackrf.exe ${YANTRA_RADIOS_STAGE}/bin/yantra-radio-host.exe
+            DESTINATION bin)
+  endif()
 endif()
 
 # PDFium (IND-02): the prebuilt library next to Yantra's own libraries
 # with its licence texts (THIRD_PARTY.md). The installed programs find it
-# through their run path $ORIGIN/../lib/yantra (CMAKE_INSTALL_RPATH).
+# through their run path $ORIGIN/../lib/yantra (CMAKE_INSTALL_RPATH); on
+# Windows a DLL is found next to the program (bin).
 if(YANTRA_PDFIUM_FOUND)
-  install(FILES $<TARGET_FILE:yantra_pdfium_lib> DESTINATION lib/yantra)
+  if(WIN32)
+    install(FILES $<TARGET_FILE:yantra_pdfium_lib> DESTINATION bin)
+  else()
+    install(FILES $<TARGET_FILE:yantra_pdfium_lib> DESTINATION lib/yantra)
+  endif()
   install(DIRECTORY ${YANTRA_PDFIUM_LICENSES}/ DESTINATION share/licenses/pdfium)
 endif()
 
@@ -235,6 +248,21 @@ if(WIN32 AND CMAKE_CROSSCOMPILING)
             --dest ${PROJECT_BINARY_DIR}/fuzz ${_dll_search} ${_dll_direct}
     COMMENT "Runtime DLLs into ${PROJECT_BINARY_DIR}/bin (OA-02)"
     VERBATIM)
+  # The installed programs and plugins get the DLLs they import next to
+  # yantra.exe (NFR-09; a plugin's imports are searched in the program's
+  # folder too, platform::DynamicLibrary), never Mesa: the installed app
+  # uses the system's OpenGL driver. Runs after every other install rule
+  # (the subfolders' rules come first). List: <build>/packaging/installed-dlls.txt.
+  install(CODE "
+    set(_prefix \"\$ENV{DESTDIR}\${CMAKE_INSTALL_PREFIX}\")
+    execute_process(COMMAND \"${Python3_EXECUTABLE}\" \"${PROJECT_SOURCE_DIR}/tools/windows/copy_dlls.py\"
+                            --dest \"\${_prefix}/bin\" --list \"${PROJECT_BINARY_DIR}/packaging/installed-dlls.txt\"
+                            ${_dll_search}
+                            \"\${_prefix}/bin\" \"\${_prefix}/lib/yantra/plugins\" \"\${_prefix}/lib/yantra/plugins/radios\"
+                    RESULT_VARIABLE _rc)
+    if(NOT _rc EQUAL 0)
+      message(FATAL_ERROR \"copy_dlls.py failed (\${_rc})\")
+    endif()")
 endif()
 
 message(STATUS "Yantra ${PROJECT_VERSION}: SIMD=${YANTRA_SIMD} "
