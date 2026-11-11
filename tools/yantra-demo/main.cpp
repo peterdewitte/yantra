@@ -51,6 +51,7 @@
 #include <yantra/core/measure/catalog.h>
 #include <yantra/core/measure/record_file.h>
 #include <yantra/core/celldb/technology.h>
+#include <yantra/core/platform/portable_math.h>
 #include <yantra/core/platform/process.h>
 #include <yantra/core/plugin/loader.h>
 #include <yantra/core/report/compare.h>
@@ -165,6 +166,8 @@ int sample_report(std::map<std::string, std::string>& opt) {
 }  // namespace
 
 int main(int argc, char** argv) {
+    // The same project, byte for byte, on Linux and Windows (DEMO-06).
+    yantra::platform::use_portable_math();
     std::map<std::string, std::string> opt;
     bool keep_work = false;
     bool reference_sheets = false;

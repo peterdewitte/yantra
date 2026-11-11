@@ -216,11 +216,17 @@ TEST_CASE("DEMO-06 making the demo project again gives the same recordings and p
     const yd::DemoDescription d = yd::read_description(kDescription);
     const fs::path dir = scratch("again");
     REQUIRE(run_yantra_demo(kDescription, dir));
-    for (const auto& e : fs::directory_iterator(fs::path(DEMO_FRAUNCES_DIR) / "recordings")) {
+    // The reference: the build's project, or a second run (kDemoMadeHere).
+    fs::path reference = DEMO_FRAUNCES_DIR;
+    if (!kDemoMadeHere) {
+        reference = scratch("again-reference");
+        REQUIRE(run_yantra_demo(kDescription, reference));
+    }
+    for (const auto& e : fs::directory_iterator(reference / "recordings")) {
         CAPTURE(e.path().filename().string());
         CHECK(file_sha256(e.path()) == file_sha256(dir / "recordings" / e.path().filename()));
     }
-    const fs::path built = demo_copy("again-built");
+    const fs::path built = kDemoMadeHere ? demo_copy("again-built") : reference;
     auto a = yj::Project::open(built / "fraunces.yantra");
     auto b = yj::Project::open(dir / "fraunces.yantra");
     check_same_content(*a, *b, d);

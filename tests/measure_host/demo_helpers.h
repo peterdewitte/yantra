@@ -79,6 +79,18 @@ inline yantra::raytrace::RunControl demo_run() {
     return run;
 }
 
+/// Whether the build's demo projects were made by this platform's
+/// programs. Not on Windows: the Windows tree takes them from the Linux
+/// tree (YANTRA_HOST_BUILD_DIR), and the C runtimes' math functions differ
+/// there in the last bit (yantra-radios keeps per-platform generator
+/// goldens for the same reason), so "made again gives the same project"
+/// compares two runs on Windows instead.
+#ifdef _WIN32
+inline constexpr bool kDemoMadeHere = false;
+#else
+inline constexpr bool kDemoMadeHere = true;
+#endif
+
 /// Runs yantra-demo on `description` into `out` (one extra option
 /// appended); true when it succeeded. Its output goes to out/log.txt.
 inline bool run_yantra_demo(const fs::path& description, const fs::path& out, const std::string& extra = {}) {

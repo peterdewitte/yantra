@@ -472,11 +472,17 @@ TEST_CASE("DEMO-13 making the MAK example projects again gives the same recordin
         const yd::DemoDescription d = yd::read_description(description_file(id));
         const fs::path dir = scratch("mak-again-" + id);
         REQUIRE(run_yantra_demo(description_file(id), dir, "--reference-sheets"));
-        for (const auto& e : fs::directory_iterator(fs::path(DEMO_MAK_DIR) / id / "recordings")) {
+        // The reference: the build's project, or a second run (kDemoMadeHere).
+        fs::path reference = fs::path(DEMO_MAK_DIR) / id;
+        if (!kDemoMadeHere) {
+            reference = scratch("mak-again-reference-" + id);
+            REQUIRE(run_yantra_demo(description_file(id), reference, "--reference-sheets"));
+        }
+        for (const auto& e : fs::directory_iterator(reference / "recordings")) {
             CAPTURE(e.path().filename().string());
             CHECK(file_sha256(e.path()) == file_sha256(dir / "recordings" / e.path().filename()));
         }
-        const fs::path b = built_copy(id, "again-built");
+        const fs::path b = kDemoMadeHere ? built_copy(id, "again-built") : reference;
         auto x = yj::Project::open(b / (id + ".yantra"));
         auto y = yj::Project::open(dir / (id + ".yantra"));
         check_same_content(*x, *y, d);
