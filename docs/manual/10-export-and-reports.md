@@ -29,7 +29,7 @@ File > Report makes the indoor coverage and acceptance report as PDF, HTML or bo
 What the report holds, in order:
 
 - The cover: project, site, network operator, the surveyor, the measurement dates, floors, points and equipment, and the curtat.be reference with its logo (also in the footer of every page).
-- The measurement metadata: the radios with driver, serial number and plugin, their calibration status (valid, expired, uncalibrated, or "simulated (practice)" for a mouse survey with the practice calibration, 7.1), the cell database, the plugins and the walk tests per floor. Uncalibrated (dBFS) levels are noted.
+- The measurement metadata: the radios with driver, serial number and plugin, their calibration status (valid, expired, uncalibrated, or "simulated (practice)" for the simulator calibrated with the wizard, 3.1), the cell database, the plugins and the walk tests per floor. Uncalibrated (dBFS) levels are noted.
 - The building summary: every floor's points together and the acceptance profiles over the building with PASS or FAIL.
 - One section per floor, as listed above. The share of measured points and the share of the floor area (interpolated) are always given side by side, never mixed.
 - The network verification: the cells received in the walks against the cell database, and the neighbour cross-check (chapter 8).

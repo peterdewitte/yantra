@@ -25,6 +25,14 @@ own changes are in its CHANGELOG.md.
   (HW-01b). The device information names dBm devices.
 - Record files with the flag `level_dbm` (radio API 1.1) are read.
 
+### Surveying
+
+- The mouse survey with the simulator no longer applies an automatic
+  practice calibration (DEMO-14): the simulator's dBm levels need none.
+  With the simulator set to dBFS the points are uncalibrated until you
+  calibrate it with the calibration wizard (practice calibration); the
+  Walk page names the unit.
+
 ### Plugins
 
 - Plugin API 1.2 (compatible): a neighbour entry names its cell by its

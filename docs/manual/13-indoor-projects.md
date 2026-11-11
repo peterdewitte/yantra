@@ -59,7 +59,7 @@ The Layers page shows or hides the plan, the interpolation, the binned squares, 
 
 ## 13.5 Interpolation
 
-The Map page fits the propagation model to the measured points of the floor and computes a coverage map: Run starts it in the background (with a progress bar; Cancel stops it), and the map is stored in the project. A floor needs a scale and measured points in dBm (calibrated, or the practice calibration of the mouse survey, 7.1). In a mouse survey, a click on the plan runs it too.
+The Map page fits the propagation model to the measured points of the floor and computes a coverage map: Run starts it in the background (with a progress bar; Cancel stops it), and the map is stored in the project. A floor needs a scale and measured points in dBm (from a calibrated radio or one that reports dBm, such as the simulator, 7.1). In a mouse survey, a click on the plan runs it too.
 
 How it works, in short: a ray tracer predicts the level of every antenna over the floor through the walls drawn (with reflections), the model is fitted to the measured points (antenna power, wall losses), the differences that remain at the points are spread over the floor (limited by walls), and every spot gets a confidence that fades from 1 within 2 m of a measured point to 0 beyond 10 m. Unmeasured areas therefore fade out on the plan. When no antenna of the building reaches the floor, Yantra estimates sources from the points and draws them dashed with their fitted power, labelled "estimated sources". The [measurement method note](../METHOD.md) gives the details and the limits of the model.
 

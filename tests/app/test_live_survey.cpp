@@ -21,6 +21,7 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <vector>
 
 #include "yantra/app/audio.h"
 #include "yantra/app/interpolation_runner.h"
@@ -28,6 +29,8 @@
 #include "yantra/app/replay_session.h"
 #include "yantra/core/calibration/table.h"
 #include "yantra/core/project/project.h"
+#include "yantra/core/radio/radio_host.h"
+#include "yantra/core/survey/points.h"
 
 namespace fs = std::filesystem;
 namespace pj = yantra::project;
@@ -194,30 +197,77 @@ TEST_CASE("DEMO-14: the mouse survey stores points where the simulator measured,
     CHECK(r.project->point_count(r.floor) >= before + 6);
 }
 
-TEST_CASE("DEMO-14, HW-01b: a calibration of the user's is not overwritten by the mouse survey's practice calibration") {
-    Rig r("mouse_user_table");
+namespace {
+
+/// The units of a mouse survey session's points from `from` on (index).
+std::vector<std::string> units_of(const pj::Project& project, const std::string& floor, std::int64_t session, std::size_t from = 0) {
+    yantra::survey::PointQuery q;
+    q.floor_id = floor;
+    q.sessions = {session};
+    const yantra::survey::PointList list = yantra::survey::point_list(project, q);
+    std::vector<std::string> out;
+    for (std::size_t i = from; i < list.points.size(); ++i)
+        if (list.points[i].value) out.push_back(list.points[i].unit);
+    return out;
+}
+
+}  // namespace
+
+TEST_CASE("DEMO-14, HW-01b: the mouse survey applies no calibration: dBm from the simulator, dBFS uncalibrated until the user calibrates") {
+    Rig r("mouse_units");
     if (!r.ok) return;
     r.paths.calibration_table = r.project->path().parent_path() / "calibration.json";
     const bm::Floor f = r.data();
     LiveSurvey live(r.project, r.paths);
     REQUIRE(live.find_radios().ok);
     live.form().kind = WalkKind::MouseSurvey;
+    double t = 0.0;
+    const auto clock0 = std::chrono::steady_clock::now();
+    auto step = [&] {
+        t = std::chrono::duration<double>(std::chrono::steady_clock::now() - clock0).count();
+        const double u = std::fmod(0.02 * t, 0.8);
+        live.cursor(at(f, 0.30 + (u < 0.4 ? u : 0.8 - u), 0.5), t);
+    };
+    auto valued = [&](std::size_t from = 0) { return units_of(*r.project, r.floor, live.view().session, from); };
 
-    // No table: the practice entry, in memory only, gone after the survey.
+    // dBm (the simulator's default, radio API 1.1 LEVEL_DBM): no entry made,
+    // the points carry the simulator's dBm levels, nothing is written.
     REQUIRE(live.start(r.floor).ok);
-    const auto practice = live.practice_calibration();
-    REQUIRE(practice);
-    CHECK(practice->simulated);
-    CHECK(practice->method == cal::kMethodPractice);
-    CHECK_FALSE(live.view().calibration_note.empty());
+    REQUIRE(wait_for([&] { return valued().size() >= 3; }, kDeadline, step));
+    for (const std::string& u : valued()) CHECK(u == "dBm");
+    CHECK(live.view().calibration_note.find("Levels: dBm") == 0);
     CHECK((live.calibration_table() == nullptr || live.calibration_table()->empty()));
     REQUIRE(live.stop().ok);
-    CHECK_FALSE(live.practice_calibration());
     CHECK_FALSE(fs::exists(r.paths.calibration_table));
 
-    // The user's own entry for that key, with another offset, is the one used.
-    cal::Entry mine = *practice;
-    for (cal::Point& p : mine.points) p.offset_db = -33.0;
+    // dBFS (the simulator's "Levels" setting): uncalibrated, said on the page.
+    REQUIRE(live.start(r.floor).ok);
+    REQUIRE(live.device());
+    REQUIRE(live.device()->set_setting("level_unit", yantra::plugin::Value{yantra::plugin::EnumValue{1}}) == YR_OK);
+    std::size_t mark = valued().size();
+    REQUIRE(wait_for([&] { return valued().size() >= mark + 3; }, kDeadline, step));
+    mark = valued().size();  // the change takes effect with the next record
+    REQUIRE(wait_for([&] { return valued(mark).size() >= 3; }, kDeadline, step));
+    for (const std::string& u : valued(mark)) CHECK(u == "dBFS");
+    CHECK(live.view().calibration_note.find("Levels: dBFS, uncalibrated") == 0);
+    const auto key = live.device()->calibration_key();
+    REQUIRE(key);
+    REQUIRE(live.stop().ok);
+    CHECK_FALSE(fs::exists(r.paths.calibration_table));
+
+    // The user's own (practice) entry for that key calibrates the dBFS levels.
+    cal::Entry mine;
+    mine.key = *key;
+    mine.created_unix = cal::now_unix();
+    mine.method = cal::kMethodPractice;
+    mine.simulated = true;
+    mine.radio_plugin_id = live.chosen()->plugin_id;
+    for (const double hz : {1e6, 6e9}) {
+        cal::Point p;
+        p.frequency_hz = hz;
+        p.offset_db = -33.0;
+        mine.points.push_back(p);
+    }
     cal::Table table;
     table.put(mine);
     REQUIRE(live.set_calibration_table(table).ok);
@@ -227,17 +277,13 @@ TEST_CASE("DEMO-14, HW-01b: a calibration of the user's is not overwritten by th
     }();
     REQUIRE_FALSE(saved.empty());
     REQUIRE(live.start(r.floor).ok);
-    CHECK_FALSE(live.practice_calibration());
+    REQUIRE(live.device()->set_setting("level_unit", yantra::plugin::Value{yantra::plugin::EnumValue{1}}) == YR_OK);
+    mark = valued().size();
+    REQUIRE(wait_for([&] { return valued().size() >= mark + 3; }, kDeadline, step));
+    mark = valued().size();
+    REQUIRE(wait_for([&] { return valued(mark).size() >= 3; }, kDeadline, step));
+    for (const std::string& u : valued(mark)) CHECK(u == "dBm");
     CHECK(live.view().calibration_note.empty());
-    double t = 0.0;
-    const auto clock0 = std::chrono::steady_clock::now();
-    auto step = [&] {
-        t = std::chrono::duration<double>(std::chrono::steady_clock::now() - clock0).count();
-        const double u = std::fmod(0.02 * t, 0.8);
-        live.cursor(at(f, 0.30 + (u < 0.4 ? u : 0.8 - u), 0.5), t);
-    };
-    REQUIRE(wait_for([&] { return live.view().points >= 2; }, kDeadline, step));
-    CHECK_FALSE(live.practice_calibration());
     REQUIRE(live.stop().ok);
     const auto kept = live.calibration_table();
     REQUIRE(kept);

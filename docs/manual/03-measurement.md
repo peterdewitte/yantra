@@ -40,9 +40,9 @@ Verify measures a known level at a known frequency and shows how far the calibra
 
 ### Practising with the simulator
 
-The simulator has a simulated signal generator: switch on "Simulated signal generator" in its settings and set the generator level; then run the wizard as with a real generator. The result is a practice entry, marked "simulated (practice)": it applies only to the simulator, never to a real radio, and the offset found matches the simulator's "True calibration offset" sensor.
+The simulator reports its levels in dBm by default ("Levels: dBm (calibrated)" in its settings), so it needs no calibration. To practise the wizard, set its Levels to "dBFS (like an SDR)": its levels are then uncalibrated, as a real SDR's. It has a simulated signal generator: switch on "Simulated signal generator" in its settings and set the generator level; then run the wizard as with a real generator. The result is a practice entry, marked "simulated (practice)": it applies only to the simulator, never to a real radio, and the offset found matches the simulator's "True calibration offset" sensor.
 
-The mouse survey (7.1) does this by itself: when your table has no entry for the simulator's key, a simulated practice calibration is used while the survey runs, so its levels are in dBm and can be interpolated. It is never written to your table, a calibration of your own for that key is used instead, and a real radio never gets one. The Walk page, the calibration window and the report say "simulated (practice)".
+Yantra never makes a calibration by itself: the mouse survey (7.1) uses the simulator's dBm levels as they come, or, with the simulator set to dBFS, your practice entry when you made one; without it the points are uncalibrated.
 
 ### Reference noise and self-interference
 

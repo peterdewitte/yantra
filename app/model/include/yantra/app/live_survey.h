@@ -40,11 +40,11 @@
 // mouse survey, so a slowly moved mouse gives a dense trail; the radio
 // host is rebuilt when the period changes (the devices keep their keys).
 // Levels are corrected with the user's calibration table when it exists
-// (RF-02), else they stay dBFS and are flagged uncalibrated. A mouse survey
-// with a simulated radio and no entry of the user's for its key gets a
-// simulated practice calibration (kMethodPractice) in memory while it runs,
-// so its points are in dBm and a click can interpolate; the recording holds
-// the correction and names the entry, so replay and report stay consistent.
+// (RF-02), else they stay dBFS and are flagged uncalibrated. A radio that
+// reports dBm (SELF_CALIBRATED, or LEVEL_DBM such as the simulator's
+// default) needs no entry (HW-01b). The mouse survey applies no automatic
+// calibration (DEMO-14): the simulator set to dBFS gives uncalibrated points
+// until the user calibrates it with the wizard (practice calibration).
 //
 // Threading: the UI thread calls everything; the cycle thread stores the
 // points (the project's change notification marks the windows dirty).
@@ -171,7 +171,8 @@ struct WalkView {
     std::optional<Point2> last_click;
     std::size_t segments = 0;
     std::optional<Point2> manual_point;  ///< manual: the point being measured
-    /// DEMO-14: says the levels use the simulated practice calibration ("" none).
+    /// DEMO-14: the unit of the mouse survey's levels: dBm from the radio, or
+    /// dBFS uncalibrated with what to do ("" calibrated, or not a mouse survey).
     std::string calibration_note;
 };
 
@@ -300,9 +301,6 @@ public:
     void remove_observer(const std::shared_ptr<measure::MeasurementObserver>& observer);
     /// The calibration table that corrects the levels (RF-02; nullptr none).
     std::shared_ptr<const calibration::Table> calibration_table() const;
-    /// The simulated practice calibration of the running mouse survey
-    /// (DEMO-14; nullopt none): not part of calibration_table().
-    std::optional<calibration::Entry> practice_calibration() const;
     /// Uses `table` from now on and saves it as the user's table
     /// (RadioPaths::calibration_table; in memory only when that is "").
     Result set_calibration_table(const calibration::Table& table);

@@ -58,7 +58,7 @@ Sources of uncertainty, per radio type:
 - **HackRF One and RTL-SDR**: 8-bit samples give a small dynamic range at one gain setting. Near a strong site the radio clips (flag `overload`; the Clipping sensor); far from it weak carriers sink into the noise. Choose the gain for the building and calibrate at that gain.
 - **Airspy and other SoapySDR radios**: more bits and so more dynamic range, the same calibration rules.
 - **TETRA terminal**: the terminal reports its own levels in dBm; Yantra applies no calibration to them. Their accuracy is the terminal maker's, typically coarser than a calibrated SDR; compare once with a calibrated SDR before mixing their results.
-- **Simulator**: its levels come from a simulated network. A practice calibration (marked "simulated (practice)") applies only to the simulator, never to a real radio; the simulator's mouse survey makes one by itself when your table has none, holds it only while the survey runs and never writes it to your table.
+- **Simulator**: its levels come from a simulated network, in dBm by default (no calibration needed). Set to dBFS, it is calibrated like an SDR; such a practice calibration (marked "simulated (practice)") applies only to the simulator, never to a real radio. Yantra never makes a calibration by itself.
 
 **Hardware status.** None of the radios has been measured with Yantra on real hardware yet. The figures above come from tests on generated signals and simulated devices; the measured hardware results will be listed in DEVICES.md of the yantra-radios project. Until a radio is listed there, verify it against a known signal before a survey (calibration window, Verify).
 

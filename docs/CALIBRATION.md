@@ -166,22 +166,20 @@ frequency, with the spread kept as `spread_db`. `verify_error_db` checks an
 existing entry against a known level, and `ppm_from_carrier` gives the
 frequency correction from a known carrier.
 
-To practise, use the simulator's signal generator (RAD-61):
+To practise, set the simulator's `level_unit` to `dbfs` (its default
+`dbm` reports dBm, device flag `YR_DEVICE_LEVEL_DBM`, and needs no
+calibration, HW-01b) and use its signal generator (RAD-61):
 `calibration_generator` on, `calibration_level_dbm` as the known level.
 Use a plan with method `practice` and `simulated` set. The offset found
 matches the simulator's `true_offset_db` sensor. A practice entry is
 marked simulated and never applies to a real radio.
 
-The mouse survey (DEMO-14) applies a practice calibration by itself when
-the radio is simulated and your table has no entry for its calibration
-key: an entry with method `practice`, `simulated` set and the
-`true_offset_db` sensor's value at every carrier. It exists in memory while
-the survey runs, so the points are in dBm and a click can interpolate. It
-is never written to your table, a calibration you made for that key is used
-instead, and a real radio never gets one (no mouse survey runs on it). The
-recording's `calibration` header names the entry and every input holds the
-correction applied, so replay and the report show the same levels; the Walk
-page, the Calibration window and the report say "simulated (practice)".
+The mouse survey (DEMO-14) applies no automatic or simulated
+calibration: the simulator's default dBm levels need none, and with
+`level_unit` `dbfs` the points stay uncalibrated until the user's table has
+an entry for the simulator's key (made with the wizard as above). A device
+that reports dBm uses no entry even when the table has one for its key, and
+its recordings name none in their `calibration` header.
 
 ## Antenna correction (HW-09)
 

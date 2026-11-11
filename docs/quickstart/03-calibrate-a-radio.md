@@ -23,6 +23,6 @@ An SDR measures levels relative to its own full scale (dBFS). A calibration turn
 
 8. **Keep it.** Export saves the table to a file for another PC (Import merges, the newer entry wins); a configuration profile (File > Settings > General > Save profile...) carries it too. When the calibration expires, Yantra marks the levels as expired: calibrate again.
 
-To practise without a generator: choose the simulator, switch on "Simulated signal generator" in its settings, and run the same steps with its generator level. The entry is marked "simulated (practice)" and never applies to a real radio. The mouse survey makes such a practice calibration by itself when your table has none for the simulator.
+To practise without a generator: choose the simulator, set its Levels to "dBFS (like an SDR)" (by default it reports dBm and needs no calibration), switch on "Simulated signal generator" in its settings, and run the same steps with its generator level. The entry is marked "simulated (practice)" and never applies to a real radio. Yantra never makes a calibration by itself.
 
 Manual: chapter 3 (measurement and calibration). The method and its uncertainty: [measurement method note](../METHOD.md).

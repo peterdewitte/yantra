@@ -28,7 +28,7 @@ The points are drawn as they come, coloured by the serving level with the legend
 
 With the simulator as the radio, the Mouse survey kind lets the mouse stand in for you: move it slowly over the plan and the simulator measures where the mouse is, with the walls and antennas of the floor. A point is stored at most every Point spacing (0.25 m by default); above the Speed warning (2 m/s on the plan's scale) the page asks you to move slower. The cycles run five times a second. A click on the plan runs the interpolation of the floor (13.5); Esc or Stop ends the survey.
 
-When your calibration table has no entry for the simulator, the survey uses a simulated practice calibration, so its levels are in dBm and can be interpolated: the simulator's own calibration offset, held only while the survey runs. The Walk page says "Levels: simulated practice calibration (dBm), for this mouse survey only", and the calibration window and the report show it as "simulated (practice)". It applies only to the simulator: it is never written to your calibration table, your own calibration for the simulator is used instead when you made one (3.1), and a real radio never gets one.
+The simulator reports its levels in dBm by default, so the points are in dBm without any calibration and can be interpolated; the Walk page says "Levels: dBm, as the radio reports them". Yantra applies no automatic or simulated calibration. When you set the simulator's Levels to "dBFS (like an SDR)" (Radio > Settings...), the points are uncalibrated (dBFS) and the Walk page says so, until you calibrate the simulator with the calibration wizard and its simulated signal generator (a practice calibration, 3.1).
 
 ## 7.2 Manual points
 

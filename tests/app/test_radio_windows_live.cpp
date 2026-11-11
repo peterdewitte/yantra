@@ -601,7 +601,7 @@ TEST_CASE("PLG-16: the SoapySDR plugin's windows with the fake SoapySDR module (
     generic_windows(rw, live);
 }
 
-TEST_CASE("DEMO-14, HW-01b: a real radio never gets a practice calibration") {
+TEST_CASE("DEMO-14, HW-01b: a real radio never uses a simulated (practice) calibration entry") {
     Rig r("practice_real", {test_plugin("soapysdr_fake.so")});
     if (!r.ok || std::string(YANTRA_TEST_FAKE_SDR_SCENARIO).empty()) return;
     FakeSoapy fake("practice_real");
@@ -616,10 +616,9 @@ TEST_CASE("DEMO-14, HW-01b: a real radio never gets a practice calibration") {
     live.form().kind = WalkKind::MouseSurvey;
     CHECK(live.start_reason(floor).find("needs the simulator") != std::string::npos);
     CHECK_FALSE(live.start(floor).ok);
-    CHECK_FALSE(live.practice_calibration());
 
-    // A walk with it: no practice entry and the levels stay uncalibrated
-    // dBFS, even with a simulated entry for its key in the table.
+    // A walk with it: the levels stay uncalibrated dBFS, even with a
+    // simulated (practice) entry for its key in the table.
     struct Levels final : yantra::measure::MeasurementObserver {
         std::mutex m;
         std::size_t measured = 0, calibrated = 0;
@@ -652,7 +651,6 @@ TEST_CASE("DEMO-14, HW-01b: a real radio never gets a practice calibration") {
     REQUIRE(live.stop_radio().ok);
     live.form().kind = WalkKind::Continuous;
     REQUIRE(live.start(floor).ok);
-    CHECK_FALSE(live.practice_calibration());
     CHECK(live.view().calibration_note.empty());
     const auto end = std::chrono::steady_clock::now() + std::chrono::duration<double>(kDeadline);
     for (;;) {
@@ -664,7 +662,6 @@ TEST_CASE("DEMO-14, HW-01b: a real radio never gets a practice calibration") {
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
     }
     REQUIRE(live.stop().ok);
-    CHECK_FALSE(live.practice_calibration());
     live.remove_observer(levels);
     const std::lock_guard lock(levels->m);
     CHECK(levels->calibrated == 0);

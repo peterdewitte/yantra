@@ -298,7 +298,7 @@ TEST_CASE("PLG-16 in the app: typing a setting, a refused value, an action, Adva
     // signal generator at its default -60 dBm), then the NFR-07 reference
     // noise, which needs dBm. A practice calibration needs dBFS levels:
     // the simulator's "Levels" setting dBFS (RAD-61; its default dBm needs
-    // no calibration, HW-01b). Step 13.7 reworks the practice.
+    // no calibration, HW-01b; DEMO-14: the wizard's practice is in dBFS).
     REQUIRE(a.rw().request("level_unit", yantra::plugin::Value{yantra::plugin::EnumValue{1}}).ok);
     REQUIRE(a.until([&] {
         for (const SettingSection& s : a.rw().settings_view().sections)

@@ -321,11 +321,6 @@ TEST_CASE("DEMO-11 DEMO-14 the guided tour's mouse survey: Show me starts the si
     REQUIRE_MESSAGE(r.ok, r.message);
     REQUIRE(state.live()->running());
     REQUIRE(state.live()->chosen()->simulated);  // "Demo (simulated network)"
-    // The practice calibration of the mouse survey works on dBFS levels:
-    // the simulator's "Levels" setting dBFS (yantra-radios RAD-61; its
-    // default is dBm since radio API 1.1). Step 13.7 reworks DEMO-14.
-    REQUIRE(state.live()->device());
-    REQUIRE(state.live()->device()->set_setting("level_unit", yantra::plugin::Value{yantra::plugin::EnumValue{1}}) == YR_OK);
     REQUIRE(ui.frames(3));
     CHECK(gui.tour_overlay().target == "walk.stop");
     CHECK(gui.tour_overlay().window);
@@ -357,12 +352,10 @@ TEST_CASE("DEMO-11 DEMO-14 the guided tour's mouse survey: Show me starts the si
     REQUIRE(state.live()->view().points >= 5);
     REQUIRE(with_level() >= 3);
     CHECK(t.view().progress.find("points measured") != std::string::npos);
-    // No calibration of the user's: the simulated practice calibration, said in the UI.
-    const auto practice = state.live()->practice_calibration();
-    REQUIRE(practice);
-    CHECK(practice->simulated);
-    CHECK(practice->method == yantra::calibration::kMethodPractice);
-    CHECK(state.live()->view().calibration_note.find("simulated practice calibration") != std::string::npos);
+    // The simulator reports dBm (radio API 1.1 LEVEL_DBM, its default): no
+    // calibration is made or needed (DEMO-14), said in the UI.
+    CHECK(state.live()->view().calibration_note.find("Levels: dBm") == 0);
+    CHECK((state.live()->calibration_table() == nullptr || state.live()->calibration_table()->empty()));
     CHECK_FALSE(t.view().done);  // the step asks for the interpolation too
     const ImVec2 c = gui.canvas().screen_of({f.plan_width * 0.5, f.plan_height * 0.5});
     ui.click_at(c.x, c.y);
@@ -376,7 +369,6 @@ TEST_CASE("DEMO-11 DEMO-14 the guided tour's mouse survey: Show me starts the si
     ui.key(ImGuiKey_Escape);
     REQUIRE(ui.frames(2));
     CHECK_FALSE(state.live()->running());
-    CHECK_FALSE(state.live()->practice_calibration());  // only while the survey runs
     CHECK_FALSE(fs::exists(paths.radios.calibration_table));  // the user's table is not touched
 
     // The points: at the simulated positions on the cursor's path, flagged
@@ -412,7 +404,7 @@ TEST_CASE("DEMO-11 DEMO-14 the guided tour's mouse survey: Show me starts the si
         if (std::abs(levels[i] - want.best_dbm[i]) <= 3.0) ++close;
     CHECK(close * 10 >= where.size() * 8);
 
-    // The report shows the same points (TST-34) and says the calibration is simulated.
+    // The report shows the same points (TST-34) with no calibration recorded.
     yantra::report::CoverageOptions ro;
     ro.data_folders = paths.data_folders;
     ro.created_utc_ns = 1793000000LL * 1000000000LL;
@@ -434,7 +426,9 @@ TEST_CASE("DEMO-11 DEMO-14 the guided tour's mouse survey: Show me starts the si
     CHECK(floor_found);
     std::ifstream in(html);
     const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
-    CHECK(text.find("simulated (practice)") != std::string::npos);
+    CHECK(text.find("simulated (practice)") == std::string::npos);
+    CHECK(text.find("none recorded (levels as the radio gives them)") != std::string::npos);
+    CHECK(text.find("Some levels are uncalibrated") == std::string::npos);
 
     // The recording says the same, and its replay gives the same dBm cycles.
     std::vector<fs::path> files;
@@ -445,16 +439,16 @@ TEST_CASE("DEMO-11 DEMO-14 the guided tour's mouse survey: Show me starts the si
     std::string replay_error;
     auto replay = yantra::recording::Replay::open(files, replay_options, replay_error);
     REQUIRE_MESSAGE(replay, replay_error);
-    REQUIRE_FALSE(replay->files().front().header.info.calibration.empty());
-    CHECK(replay->files().front().header.info.calibration.front().simulated);
-    CHECK(replay->files().front().header.info.calibration.front().method == yantra::calibration::kMethodPractice);
+    CHECK(replay->files().front().header.info.calibration.empty());
     (void)replay->advance_to(replay->duration_ns());
     CHECK(replay->mismatches() == 0);
     const auto last = replay->last_cycle();
     REQUIRE(last);
-    bool calibrated = false;
-    for (const auto& sample : last->samples) calibrated = calibrated || sample.latest.correction.calibrated;
-    CHECK(calibrated);
+    REQUIRE_FALSE(last->samples.empty());
+    for (const auto& sample : last->samples) {
+        CHECK_FALSE(sample.latest.correction.calibrated);  // dBm from the radio: no entry applied
+        CHECK_FALSE(sample.latest.radio_dbfs);
+    }
 
     // The results, then another floor.
     REQUIRE(t.next().ok);

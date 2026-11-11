@@ -754,10 +754,10 @@ Help > Tour, the first-start offer on the start screen (`start.tour_offer.yes/no
   (descriptions must use https; the tests map it to file:// or a loopback server), redirects to https only (5).
 - Dialogs block windows behind them, so inside an open dialog the tour shows as a strip at its top
   (`Gui::tour_overlay().strip`).
-- The mouse survey on a new project: without a calibration of the user's for the simulator's key, `LiveSurvey`
-  applies a simulated practice calibration in memory while the survey runs (`practice_calibration()`,
-  `WalkView::calibration_note`; docs/CALIBRATION.md "Making an entry"), so a click interpolates. The tour's step is done
-  when the survey's points are stored and interpolated.
+- The mouse survey on a new project: the simulator reports dBm by default (radio API 1.1 `YR_DEVICE_LEVEL_DBM`), so
+  the points are in dBm without a calibration and a click interpolates; `LiveSurvey` makes no calibration
+  (`WalkView::calibration_note` names the unit: dBm, or dBFS uncalibrated with what to do; DEMO-14). The tour's step is
+  done when the survey's points are stored and interpolated.
 - Tests: `tests/app/test_tour.cpp` (steps and settings, first-start offer, Fraunces by Show me with progress,
   Leave, Back, reset; MAK with a synthetic stand-in through file:// and a loopback HTTP server checking the
   request; refused, Esc, no downloader, offline, wrong hash/size/pixel size, a wrong cached file),
