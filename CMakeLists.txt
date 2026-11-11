@@ -67,6 +67,17 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 # As yantra-radios tools/deps/deps.cmake.
 add_compile_options(-ffile-prefix-map=${PROJECT_SOURCE_DIR}=.
                     -ffile-prefix-map=${PROJECT_BINARY_DIR}=build)
+# The cross SDK (YANTRA_SDK_DIR, outside the tree) holds the compiler's,
+# libstdc++'s and the MSYS2 packages' headers: "sdk/...". Its folder name
+# may start with the source folder's (~/yantra-sdk next to ~/yantra), so
+# it comes after that map. As yantra-radios tools/deps/deps.cmake 6fac3ee.
+if(YANTRA_SDK_DIR)
+  get_filename_component(_yantra_sdk_real ${YANTRA_SDK_DIR} REALPATH)
+  foreach(_d IN LISTS YANTRA_SDK_DIR _yantra_sdk_real)
+    add_compile_options(-ffile-prefix-map=${_d}=sdk)
+  endforeach()
+  unset(_yantra_sdk_real)
+endif()
 
 # NFR-09: installed programs find the libraries Yantra ships next to them
 # (PDFium in <prefix>/lib/yantra), wherever the prefix is (.deb, DESTDIR).
