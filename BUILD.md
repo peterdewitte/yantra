@@ -222,8 +222,9 @@ binaries instead.
 
 ## Build paths in binaries (NFR-09)
 
-Every target is compiled with `-ffile-prefix-map=<source>=.` and
-`-ffile-prefix-map=<build>=build` (top-level `CMakeLists.txt`), so the
+Every target is compiled with `-ffile-prefix-map=<source>=.`,
+`-ffile-prefix-map=<build>=build` and, with the cross SDK,
+`-ffile-prefix-map=<YANTRA_SDK_DIR>=sdk` (top-level `CMakeLists.txt`), so the
 debug information and `__FILE__` of the binaries name no folder of the
 machine they were built on (a home folder is personal data). The ctest
 `install_build_paths` installs into a DESTDIR in the build tree and fails
@@ -328,6 +329,11 @@ SHA-256 and signature, nothing installed in the system):
     export YANTRA_SDK_DIR=~/yantra-sdk
     python3 third_party/yantra-radios/tools/sdk/yantra_sdk.py make --msys2-lock tools/windows/msys2.lock
 
+To check an SDK made that way, give the same lock (it checks the
+radios' locks and Yantra's packages):
+
+    python3 third_party/yantra-radios/tools/sdk/yantra_sdk.py check --msys2-lock tools/windows/msys2.lock
+
 (`python3 tools/windows/update_msys2_lock.py` pins today's packages; then
 make the SDK again.) PDFium comes from its pinned Windows release
 (`pdfium-win-x64.tgz`, cmake/YantraPdfium.cmake). The Windows tree takes
@@ -363,7 +369,31 @@ every program with `--all`:
     ~/onair/OnAir.Claude/.claude/skills/onair-wintest/wintest.sh test ~/yantra/build-win --all -L timing -j 1
 
 Results land in `build-win/wintest-results/<time>/` (junit.xml,
-LastTest.log). Tests that check Linux-only things are registered as
+LastTest.log). What the tree needs on the test machine:
+
+- The build tree finds the sources through `yantra-source-dir.txt` (CMake
+  writes it; CMakeCache.txt is not copied), so the app started from
+  `build-win/bin` finds `data/` and the demo project.
+- Paths compiled into the tests name `/home/...`: Windows reads them on
+  the current drive (`C:`), where the VM mirrors the trees. Folders from
+  environment variables without a drive (`APPDATA=/home/...`) are on the
+  current drive too (`platform::complete_path`).
+- The app tests set `GALLIUM_DRIVER=llvmpipe`: Mesa's first choice, its
+  d3d12 driver, ends the program (exit code 0x80070057) where there is no
+  Direct3D 12 device. A screenshot renders into an off-screen frame
+  buffer of the requested size (the VM's screen is 1024 x 768, and
+  Windows keeps a window within the screen).
+- Programs are started without a shell (`platform::run_program`, tests:
+  `yantra::test::run_program`); files compared byte for byte are written
+  in binary mode (text mode writes CRLF on Windows).
+- The demo projects of the Windows tree come from the Linux tree; the
+  Windows C runtime's math functions round differently in the last bit,
+  so DEMO-06/DEMO-13 "made again" compare two runs made in the VM there.
+- Timing (`-L timing -j 1`): `bench_interpolation` (source search) and
+  `bench_pipeline` exceed their limits, which were set on Linux. In the
+  VM the runtime's malloc, `std::mutex` (winpthreads) and math functions
+  cost 2 to 10 times what they cost on Linux; per-platform limits are not
+  decided yet. Tests that check Linux-only things are registered as
 skipped with the reason (label `skipped`): the X11/Wayland/WSL launch
 checks (`app_launch_win32` and `app_screenshot_start` check the Windows
 start and an off-screen screenshot), the plugin template build (needs the
