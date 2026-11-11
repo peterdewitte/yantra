@@ -25,9 +25,9 @@ checks and post-processing"); the DB-07 calculator (channel <->
 frequency with band, offset, duplex and reverse operation, and the
 subscriber-class bitmask) is a window of the technology plugin (for
 TETRA: docs/plugins/TETRA.md "Tools window"), built on its raster
-(`Technology::channel_of_frequency`, `frequency_of_channel`). DB-06 (alias
-database of SSI/GSSI) is out of Yantra's scope (no subscriber addresses)
-and is not built.
+(`Technology::channel_of_frequency`, `frequency_of_channel`). An alias
+database of subscriber addresses is out of Yantra's scope (no subscriber
+addresses, spec 16.5) and is not built.
 
 ## The model (DB-01)
 
