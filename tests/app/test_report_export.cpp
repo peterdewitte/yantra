@@ -234,7 +234,7 @@ TEST_CASE("EXP-07 sharing: the settings are checked, a folder copy, refusals; no
     s.mail_to = "a@example.org, not an address";
     CHECK_FALSE(check_sharing(s).empty());
 
-    std::ofstream(dir / "a.csv") << "x\n1\n";
+    std::ofstream(dir / "a.csv", std::ios::binary) << "x\n1\n";  // the bytes compared below
     ShareJob job;
     job.settings.method = SharingSettings::Method::Folder;
     job.settings.folder = dir / "shared";

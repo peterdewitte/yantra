@@ -51,7 +51,8 @@ static yantra_status exp_begin(yantra_plugin_instance* instance, const yantra_ex
         return YANTRA_ERR_FAILED;
     }
     strcpy(job->path, r->path);
-    job->file = fopen(r->path, "w");
+    /* Binary mode: LF line ends on Windows too (text mode writes CRLF). */
+    job->file = fopen(r->path, "wb");
     if (job->file == NULL) {
         free(job->path);
         free(job);
