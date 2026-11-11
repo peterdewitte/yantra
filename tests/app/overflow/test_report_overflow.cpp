@@ -66,14 +66,12 @@ TEST_CASE("TST-52 the reports: no text past its box, the page or another text, i
 TEST_CASE("TST-52 the PDF layout check notes a text past its cell and a cut word") {
     rp::Document d;
     d.title = "Layout";
-    rp::TableBlock t;
-    t.header = {"A", "B"};
-    t.numeric = {false, true};
-    t.rows = {{"Averyveryveryveryveryveryveryveryveryveryveryveryveryverylongword", "1"}};
-    t.widths = {1, 9};
     rp::Block b;
     b.type = rp::Block::Type::Table;
-    b.table = t;
+    b.table.header = {"A", "B"};
+    b.table.numeric.assign({false, true});
+    b.table.rows = {{"Averyveryveryveryveryveryveryveryveryveryveryveryveryverylongword", "1"}};
+    b.table.widths = {1, 9};
     d.blocks.push_back(b);
     std::vector<std::string> issues;
     rp::PdfOptions po;
