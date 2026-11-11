@@ -67,7 +67,7 @@ std::string data_uri(const char* type, const std::vector<std::uint8_t>& bytes) {
     return std::string("data:") + type + ";base64," + detail::base64(bytes);
 }
 
-const char* kCss = R"(body{font-family:Inter,"Helvetica Neue",Arial,sans-serif;color:#222;margin:0;background:#fff;line-height:1.4}
+const char* kCss = R"(body{font-family:Inter,"Helvetica Neue",Arial,sans-serif;color:#222;margin:0;background:#fff;line-height:1.4;overflow-wrap:anywhere}
 main,header,footer{max-width:60em;margin:0 auto;padding:0 1.2em}
 header.cover{padding-top:1.2em;padding-bottom:1em;border-bottom:1px solid #ccc;margin-bottom:1em}
 .brand{display:flex;align-items:center;gap:.9em;margin-bottom:1.4em}

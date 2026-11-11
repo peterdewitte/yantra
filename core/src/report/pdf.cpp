@@ -141,6 +141,7 @@ public:
         if (!pdf_) return;
         HPDF_SetCompressionMode(pdf_, o.compress ? HPDF_COMP_ALL : HPDF_COMP_NONE);
         compress_ = o.compress;
+        issues_ = o.layout_issues;
         HPDF_UseUTFEncodings(pdf_);
         HPDF_SetCurrentEncoder(pdf_, "UTF-8");
     }
@@ -185,6 +186,7 @@ public:
         }
         credits();
         footers();
+        overlaps();
         check();
         std::vector<std::uint8_t> out;
         if (HPDF_SaveToStream(pdf_) == HPDF_OK) {
@@ -299,8 +301,40 @@ private:
         return HPDF_Page_TextWidth(page_, t.c_str());
     }
 
+    // TST-52: the box the next texts must stay in (x0..x1), see PdfOptions.
+    struct Box {
+        Writer& w;
+        float x0, x1;
+        Box(Writer& wr, float a, float b) : w(wr), x0(wr.box0_), x1(wr.box1_) {
+            w.box0_ = a;
+            w.box1_ = b;
+        }
+        ~Box() {
+            w.box0_ = x0;
+            w.box1_ = x1;
+        }
+        Box(const Box&) = delete;
+        Box& operator=(const Box&) = delete;
+    };
+    void issue(const std::string& what) {
+        if (issues_ != nullptr) issues_->push_back("page " + std::to_string(page_no_) + ": " + what);
+    }
+    static std::string pt(float v) {
+        char b[32];
+        std::snprintf(b, sizeof b, "%.1f", static_cast<double>(v));
+        return b;
+    }
+
     void text(float x, float y, const std::string& t, Face f, float size, Rgb c) {
         if (t.empty()) return;
+        if (issues_ != nullptr) {
+            const float w = text_w(t, f, size);
+            const float x1 = x + w;
+            if (x < box0_ - 0.5f || x1 > box1_ + 0.5f)
+                issue("\"" + t + "\" runs past its box by " + pt(std::max(box0_ - x, x1 - box1_)) + " pt");
+            if (x < 0 || x1 > kW || y - 0.25f * size < 0 || y + size > kH) issue("\"" + t + "\" runs off the page");
+            placed_.push_back({page_no_, x, y - 0.2f * size, x1, y + 0.75f * size, t});
+        }
         fill_colour(c);
         HPDF_Page_BeginText(page_);
         HPDF_Page_SetFontAndSize(page_, font(f), size);
@@ -354,6 +388,8 @@ private:
                     --k;
                 }
                 if (k == 0) k = 1;
+                if (issues_ != nullptr)
+                    issue("\"" + cur + "\" is too wide for its line of " + pt(w) + " pt: cut between characters");
                 lines.push_back(cur.substr(0, k));
                 cur = cur.substr(k);
             }
@@ -367,11 +403,13 @@ private:
         page_ = HPDF_AddPage(pdf_);
         HPDF_Page_SetSize(page_, HPDF_PAGE_SIZE_A4, HPDF_PAGE_PORTRAIT);
         pages_.push_back(page_);
+        page_no_ = pages_.size();
     }
 
     float demo_band() {
         if (d_.demo_label.empty()) return kH;
         rect(0, kH - 24, kW, 24, kDemo);
+        const Box band(*this, 0, kW);
         const std::string l = clean_utf8(d_.demo_label);
         text((kW - text_w(l, Face::Bold, 11)) / 2, kH - 16, l, Face::Bold, 11, {1, 1, 1});
         return kH - 24;
@@ -477,11 +515,13 @@ private:
             const float h = lead * static_cast<float>(std::max(kl.size(), vl.size())) + 4;
             ensure(h);
             float y = y_;
+            const Box key(*this, kL, kL + kw - 8);
             for (const auto& l : kl) {
                 text(kL, y - 10, l, Face::Bold, size, kText);
                 y -= lead;
             }
             y = y_;
+            const Box value(*this, kL + kw, kW - kR);
             for (const auto& l : vl) {
                 text(kL + kw, y - 10, l, Face::Regular, size, kText);
                 y -= lead;
@@ -521,6 +561,7 @@ private:
             float x = kL;
             for (std::size_t j = 0; j < n; ++j) {
                 float y = y_;
+                const Box cell(*this, x + pad, x + w[j] - pad);
                 for (const auto& l : lines[j]) {
                     const Face f = face(j, head);
                     const float s = fsize(j, head);
@@ -602,6 +643,7 @@ private:
             const auto& e = lb.entries[i];
             const float x = kL + (i < rows ? 0 : width() / 2);
             const float y = top - lead * static_cast<float>(i < rows ? i : i - rows);
+            const Box column(*this, x + 14, i < rows ? kL + width() / 2 - 6 : kW - kR);
             rect(x, y - 10, 9, 9, rgb_of(e.rgb));
             stroke_colour(kGrey);
             HPDF_Page_SetLineWidth(page_, 0.4f);
@@ -626,6 +668,7 @@ private:
             const float y = Y(c.y_min + static_cast<double>(k) * c.y_tick);
             line(ox, y, ox + pw, y, 0.3f, {0.89f, 0.89f, 0.89f});
             const std::string l = clean_utf8(c.y_tick_labels[k]);
+            const Box axis(*this, kL + 12, ox);
             text(ox - 4 - text_w(l, Face::Regular, 7.5f), y - 2.5f, l, Face::Regular, 7.5f, kText);
         }
         for (std::size_t k = 0; k < c.x_tick_labels.size(); ++k) {
@@ -661,6 +704,7 @@ private:
             HPDF_Page_SetDash(page_, dash, 2, 0);
             line(x, oy, x, oy + ph, 0.8f, {0, 0, 0});
             HPDF_Page_SetDash(page_, nullptr, 0, 0);
+            const Box marker(*this, ox, ox + pw);
             text(x + 3, oy + ph - 9, clean_utf8(c.marker_label), Face::Regular, 7.5f, kText);
         }
         line(ox, oy, ox + pw, oy, 0.6f, kGrey);
@@ -670,10 +714,13 @@ private:
         // The y label turned by 90 degrees.
         const std::string yl = clean_utf8(c.y_label);
         if (!yl.empty()) {
-            const float yw = text_w(yl, Face::Regular, 8);
+            // A label longer than the axis is set smaller to fit it (TST-52).
+            const float ysize = std::min(8.0f, 8.0f * ph / text_w(yl, Face::Regular, 8));
+            const float yw = text_w(yl, Face::Regular, ysize);
+            if (yw > ph + 0.5f) issue("\"" + yl + "\" (the y axis) is longer than its axis by " + pt(yw - ph) + " pt");
             fill_colour(kText);
             HPDF_Page_BeginText(page_);
-            HPDF_Page_SetFontAndSize(page_, font(Face::Regular), 8);
+            HPDF_Page_SetFontAndSize(page_, font(Face::Regular), ysize);
             HPDF_Page_SetTextMatrix(page_, 0, 1, -1, 0, kL + 10, oy + (ph - yw) / 2);
             HPDF_Page_ShowText(page_, yl.c_str());
             HPDF_Page_EndText(page_);
@@ -704,6 +751,7 @@ private:
         const std::string ref = kReference;
         for (std::size_t i = 0; i < n; ++i) {
             page_ = pages_[i];
+            page_no_ = i + 1;
             line(kL, 48, kW - kR, 48, 0.5f, kRule);
             const float logo = 14;
             HPDF_Page_DrawImage(page_, logo_small_, kL, 29, logo, logo);
@@ -720,6 +768,31 @@ private:
             if (!d_.footer.empty()) text(kL, 18, clean_utf8(d_.footer), Face::Regular, 7, kGrey);
         }
     }
+
+    // TST-52: the texts placed on each page and the overlaps among them.
+    struct Placed {
+        std::size_t page;
+        float x0, y0, x1, y1;
+        std::string text;
+    };
+    void overlaps() {
+        if (issues_ == nullptr) return;
+        for (std::size_t i = 0; i < placed_.size(); ++i)
+            for (std::size_t j = i + 1; j < placed_.size(); ++j) {
+                const Placed& a = placed_[i];
+                const Placed& b = placed_[j];
+                if (a.page != b.page) continue;
+                const float ox = std::min(a.x1, b.x1) - std::max(a.x0, b.x0);
+                const float oy = std::min(a.y1, b.y1) - std::max(a.y0, b.y0);
+                if (ox > 0.5f && oy > 0.5f)
+                    issues_->push_back("page " + std::to_string(a.page) + ": \"" + a.text + "\" and \"" + b.text +
+                                       "\" overlap");
+            }
+    }
+    std::vector<std::string>* issues_ = nullptr;
+    std::vector<Placed> placed_;
+    std::size_t page_no_ = 0;
+    float box0_ = kL, box1_ = kW - kR;
 
     const Document& d_;
     const Assets& a_;

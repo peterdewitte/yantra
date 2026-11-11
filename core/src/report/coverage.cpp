@@ -636,7 +636,7 @@ CoverageReport coverage_report(const project::Project& project, const CoverageOp
         t.header = {c.tr("Floor"), c.tr("Points"), c.tr("Median"), c.fill("Points >= {}", {num(o.threshold, 1)}),
                     c.fill("Area >= {} (interpolated)", {num(o.threshold, 1)}), c.tr("Map fit (rms)"), c.tr("Changes")};
         t.numeric = {false, true, true, true, true, true, true};
-        t.widths = {1.6, 0.8, 1.0, 1.1, 1.4, 1.0, 0.8};
+        t.widths = {1.3, 0.8, 1.0, 1.1, 1.3, 1.2, 1.0};
         for (const FloorSection& s : rep.floors) {
             const std::string area = s.summary && !s.summary->interpolated.thresholds.empty()
                                          ? pct(s.summary->interpolated.thresholds.front().percent)

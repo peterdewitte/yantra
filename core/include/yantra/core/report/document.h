@@ -202,6 +202,11 @@ std::string render_html(const Document& d, const Assets& assets, const HtmlOptio
 
 struct PdfOptions {
     bool compress = true;  ///< deflate the streams (false: readable content for tests)
+    /// TST-52: when set, every text that runs past its box (its table cell,
+    /// key or value column, legend column, chart axis or the page's text
+    /// area), off the page, over another text, and every word too wide for
+    /// its line (cut between characters) is noted here, one line each.
+    std::vector<std::string>* layout_issues = nullptr;
 };
 /// A4 portrait PDF via libharu. ReportError when an asset cannot be read
 /// or libharu fails.
