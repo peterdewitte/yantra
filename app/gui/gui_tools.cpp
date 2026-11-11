@@ -38,8 +38,8 @@ bool tool_button(const std::string& label, bool enabled, const std::string& tip,
     const bool pressed = ImGui::Button(label.c_str());
     if (active) ImGui::PopStyleColor();
     ImGui::EndDisabled();
-    note_help(!enabled && !reason.empty());
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) {
+    const bool shown = note_help(!enabled && !reason.empty(), tip.c_str(), enabled ? nullptr : reason.c_str());
+    if (shown || ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) {
         ImGui::BeginTooltip();
         ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
         ImGui::TextUnformatted(tip.c_str());
@@ -97,7 +97,7 @@ void Gui::draw_wall_proposals(bool walking) {
                    "you can edit them like any other. Reject the rest. Dimension lines and furniture can be proposed "
                    "too, so check each one against the plan."));
     double shortest = wp->min_length_m();
-    ImGui::SetNextItemWidth(ImGui::GetFontSize() * 7.0F);
+    ImGui::SetNextItemWidth(std::min(ImGui::GetFontSize() * 7.0F, ImGui::GetContentRegionAvail().x * 0.55F));
     if (ImGui::InputDouble(tr("Shortest wall (m)###edit.propose_min"), &shortest, 0.5, 1.0, "%.1f")) wp->set_min_length_m(shortest);
     text_tooltip(tr("Shorter lines are not proposed (0.2 to 100 m). The next run uses it."));
     wrapped(v.note);
@@ -155,7 +155,7 @@ void Gui::draw_edit_section() {
         ImGui::EndCombo();
     }
     text_tooltip(tr("The wall class (material) new walls get; its attenuation is in the wall-class table."));
-    ImGui::SameLine();
+    same_line_if(label_w(tr("Classes...###edit.materials")));
     if (ImGui::Button(tr("Classes...###edit.materials"))) (void)state_.edit_materials();
     text_tooltip(tr("The wall-class table: attenuation per material and frequency band; add or change classes."));
     draw_wall_proposals(walking);
@@ -251,7 +251,8 @@ void Gui::draw_walk_section(const FloorContent* c) {
 
     WalkForm& f = live->form();
     ImGui::BeginDisabled(running);
-    ImGui::SetNextItemWidth(ImGui::GetFontSize() * 10.0F);
+    ImGui::SetNextItemWidth(combo_w({walk_kind_label(WalkKind::PointAndClick), walk_kind_label(WalkKind::Continuous),
+                                     walk_kind_label(WalkKind::Manual), walk_kind_label(WalkKind::MouseSurvey)}));
     if (ImGui::BeginCombo(tr("Kind###walk.kind"), walk_kind_label(f.kind))) {
         for (WalkKind k : {WalkKind::PointAndClick, WalkKind::Continuous, WalkKind::Manual, WalkKind::MouseSurvey})
             if (ImGui::Selectable((std::string(walk_kind_label(k)) + "###walk.kind." + walk_kind_key(k)).c_str(), f.kind == k))
@@ -566,7 +567,7 @@ void Gui::draw_materials_dialog() {
         const float buttons_w = ImGui::CalcTextSize(tr("Edit")).x + ImGui::CalcTextSize(tr("Remove")).x +
                                 st.FramePadding.x * 4.0F + st.ItemSpacing.x + 2.0F;
         ImGui::TableSetupColumn("", ImGuiTableColumnFlags_WidthFixed, buttons_w);
-        ImGui::TableHeadersRow();
+        headers_row();
         for (const MaterialRow& m : ed->materials()) {
             ImGui::PushID(m.id.c_str());
             ImGui::TableNextRow();

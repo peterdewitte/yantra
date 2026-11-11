@@ -33,8 +33,8 @@ constexpr ImU32 kScaleColour = IM_COL32(200, 30, 160, 255);
 
 void tooltip(const char* text) {
     // A disabled control's text says why (DOC-07 c).
-    gui_detail::note_help((ImGui::GetItemFlags() & ImGuiItemFlags_Disabled) != 0);
-    if (!ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) return;
+    const bool shown = gui_detail::note_help((ImGui::GetItemFlags() & ImGuiItemFlags_Disabled) != 0, text);
+    if (!shown && !ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) return;
     ImGui::BeginTooltip();
     ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
     ImGui::TextUnformatted(text);
@@ -45,9 +45,9 @@ void tooltip(const std::string& text) { tooltip(text.c_str()); }
 
 /// A dimmed "(?)" marker with an explanation on hover (DOC-07 a).
 void help(const char* text) {
-    ImGui::SameLine();
+    gui_detail::same_line_if(ImGui::CalcTextSize("(?)").x);
     ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+    if (gui_detail::note_help(false, text) || ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
         ImGui::BeginTooltip();
         ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
         ImGui::TextUnformatted(text);
@@ -157,7 +157,8 @@ bool PlanImportView::draw(AppState& state, PlanImportWindow& w) {
     w.refresh();
     bool open = true;
     const float bottom = ImGui::GetFrameHeightWithSpacing() * 1.8F;
-    ImGui::BeginChild("###pi.panel", ImVec2(kPanelWidth, -bottom), ImGuiChildFlags_None);
+    ImGui::BeginChild("###pi.panel", ImVec2(std::min(gui_detail::em(kPanelWidth), ImGui::GetContentRegionAvail().x * 0.45F), -bottom), ImGuiChildFlags_None);
+    gui_detail::wrap_texts();
     draw_panel(w);
     ImGui::EndChild();
     ImGui::SameLine();
@@ -176,8 +177,13 @@ bool PlanImportView::draw(AppState& state, PlanImportWindow& w) {
     } else {
         ImGui::TextDisabled("%s", w.hint().c_str());
     }
-    ImGui::SameLine(std::max(right - 140.0F, 0.0F));
-    if (ImGui::Button(tr("Close###dlg.cancel"), ImVec2(gui_detail::button_w(tr("Close###dlg.cancel"), 140.0F), gui_detail::target_h()))) open = false;
+    {
+        // Close at the right end of the line, or on a line of its own.
+        const float cw = gui_detail::button_w(tr("Close###dlg.cancel"), 140.0F);
+        if (ImGui::GetItemRectMax().x - ImGui::GetWindowPos().x + ImGui::GetStyle().ItemSpacing.x <= right - cw)
+            ImGui::SameLine(std::max(right - cw, 0.0F));
+        if (ImGui::Button(tr("Close###dlg.cancel"), ImVec2(cw, gui_detail::target_h()))) open = false;
+    }
     tooltip(tr("Close the plan import window. The floors added are kept; the project window shows the last one."));
     if (!open) (void)state.show(Result{true, tr("Plan import closed.")});
     return open;
@@ -357,7 +363,14 @@ void PlanImportView::draw_panel(PlanImportWindow& w) {
     for (const ToolView& t : w.tools()) {
         if (t.tool == ImportTool::ScaleLine || t.tool == ImportTool::ScaleBar || t.tool == ImportTool::Reference)
             continue;  // in the Scale section
-        if (n++ % 2 == 1) ImGui::SameLine(kPanelWidth * 0.5F);
+        // Two columns when both fit, else one tool per line (TST-52).
+        if (n++ % 2 == 1) {
+            const float half = ImGui::GetContentRegionAvail().x * 0.5F;
+            const float x = ImGui::GetItemRectMax().x - ImGui::GetWindowPos().x + ImGui::GetScrollX();
+            if (x + ImGui::GetStyle().ItemSpacing.x <= half &&
+                gui_detail::switch_w((t.label + "###pi." + t.id).c_str()) <= ImGui::GetContentRegionAvail().x - half)
+                ImGui::SameLine(half);
+        }
         if (tool_radio(w, t, r)) report(r);
     }
     if (w.tool() == ImportTool::Polygon && w.drafting()) {
@@ -372,14 +385,14 @@ void PlanImportView::draw_panel(PlanImportWindow& w) {
     }
     if (ImGui::Button(tr("Turn left###pi.rot_left"))) report(w.rotate(-1));
     tooltip(tr("Turn the plan 90 degrees anticlockwise."));
-    ImGui::SameLine();
+    gui_detail::same_line_if(gui_detail::label_w(tr("Turn right###pi.rot_right")));
     if (ImGui::Button(tr("Turn right###pi.rot_right"))) report(w.rotate(+1));
     tooltip(tr("Turn the plan 90 degrees clockwise."));
-    ImGui::SameLine();
+    gui_detail::same_line_if(gui_detail::label_w(tr("Whole page###pi.reset")));
     if (ImGui::Button(tr("Whole page###pi.reset"))) report(w.reset_trim());
     tooltip(tr("Make the trim the whole page again (the rotation stays)."));
     float deskew = static_cast<float>(w.deskew());
-    ImGui::SetNextItemWidth(-90.0F);
+    ImGui::SetNextItemWidth(-(ImGui::CalcTextSize(tr("Deskew###pi.deskew"), nullptr, true).x + ImGui::GetStyle().ItemInnerSpacing.x));
     if (ImGui::SliderFloat(tr("Deskew###pi.deskew"), &deskew, -10.0F, 10.0F, "%.2f deg"))
         report(w.set_deskew(static_cast<double>(deskew)));
     tooltip(tr("Fine rotation for a scan that is slightly skewed (Ctrl+click to type up to 45 degrees). The \"Deskew "
@@ -424,11 +437,14 @@ void PlanImportView::draw_panel(PlanImportWindow& w) {
     for (const PlacedView& p : placed) {
         const float row_right = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
         // The row's name up to its buttons (they do not overlap it).
-        const float name_w = std::max(gui_detail::px(40.0F), row_right - gui_detail::px(130.0F) - ImGui::GetCursorPosX());
+        // The Edit and Remove buttons at the right, as wide as their labels.
+        const float buttons = gui_detail::label_w(tr("Edit###pi.edit.x")) + gui_detail::label_w(tr("Remove###pi.remove.x")) +
+                              ImGui::GetStyle().ItemSpacing.x * 2.0F;
+        const float name_w = std::max(gui_detail::px(40.0F), row_right - buttons - ImGui::GetCursorPosX());
         if (ImGui::Selectable((p.label + "###pi.floor." + p.floor_id).c_str(), p.selected, 0, ImVec2(name_w, gui_detail::row_h())))
             report(w.select_floor(p.floor_id));
         tooltip(tr("Select this floor for its scale and reference point."));
-        ImGui::SameLine(std::max(row_right - gui_detail::px(120.0F), 0.0F));
+        ImGui::SameLine(std::max(row_right - buttons + ImGui::GetStyle().ItemSpacing.x, 0.0F));
         ImGui::BeginDisabled(w.editing().has_value());
         if (gui_detail::small_button((tr("Edit###pi.edit.") + p.floor_id).c_str())) report(w.edit_floor(p.floor_id));
         tooltip(w.editing() ? tr("Apply or cancel the trim you are editing first.") : tr("Adjust this floor's trim."));

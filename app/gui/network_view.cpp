@@ -39,10 +39,14 @@ bool multiline_text(const char* label, std::string& s, float height, std::size_t
 bool begin_window(const char* title, const char* id, bool& open, float x, float y, float w, float h) {
     const ImGuiViewport* vp = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + x, vp->WorkPos.y + y), ImGuiCond_FirstUseEver);
-    ImGui::SetNextWindowSize(ImVec2(w, std::max(320.0F, std::min(h, vp->WorkSize.y - y - 20.0F))),
+    w = std::min(em(w), vp->WorkSize.x * 0.95F);
+    h = em(h);
+    ImGui::SetNextWindowSize(ImVec2(w, std::max(std::min(em(320.0F), vp->WorkSize.y * 0.6F), std::min(h, vp->WorkSize.y - y - 20.0F))),
                              ImGuiCond_FirstUseEver);
     const std::string name = std::string(title) + "###" + id;
-    return ImGui::Begin(name.c_str(), &open, ImGuiWindowFlags_NoSavedSettings);
+    const bool shown = ImGui::Begin(name.c_str(), &open, ImGuiWindowFlags_NoSavedSettings);
+    if (shown) wrap_texts();
+    return shown;
 }
 
 }  // namespace
@@ -96,7 +100,7 @@ void Gui::draw_cell_db(CellDbEditor& ed) {
         ImGui::TableSetupScrollFreeze(0, 1);
         for (const char* h : {tr("Cell"), tr("Technology"), tr("Site / sector"), tr("Carrier"), tr("Channel"), tr("Identity"), tr("Neighbours")})
             ImGui::TableSetupColumn(h);
-        ImGui::TableHeadersRow();
+        headers_row();
         for (std::size_t i : shown) {
             const CellRowView& r = rows[i];
             ImGui::TableNextRow();
@@ -151,7 +155,7 @@ void Gui::draw_cell_db(CellDbEditor& ed) {
             ImGui::SameLine();
             if (ImGui::Button(tr("Cancel###cells.cancel"))) ed.cancel();
             text_tooltip(tr("Forget the changes in the form."));
-            ImGui::PushItemWidth(260.0F);
+            ImGui::PushItemWidth(em(260.0F));
             if (f.is_new) {
                 input_text(tr("Id###cells.form.id"), f.id, 64);
                 text_tooltip(tr("Leave empty to number it (cell-<n>)."));
@@ -210,7 +214,7 @@ void Gui::draw_cell_db(CellDbEditor& ed) {
         for (const std::string& t : ed.technologies()) {
             auto it = network_.match_text.find(t);
             if (it == network_.match_text.end()) it = network_.match_text.emplace(t, ed.match_fields_text(t)).first;
-            ImGui::PushItemWidth(300.0F);
+            ImGui::PushItemWidth(em(300.0F));
             input_text((t + "###cells.match." + t).c_str(), it->second, 256);
             ImGui::PopItemWidth();
             ImGui::SameLine();
@@ -243,10 +247,10 @@ void Gui::draw_verification(NetworkChecks& nc) {
     if (ImGui::BeginTable("###verify.table", 5,
                           ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_ScrollY |
                               ImGuiTableFlags_SizingStretchProp,
-                          ImVec2(0.0F, std::max(140.0F, ImGui::GetContentRegionAvail().y * 0.45F)))) {
+                          ImVec2(0.0F, std::max(em(140.0F), ImGui::GetContentRegionAvail().y * 0.45F)))) {
         ImGui::TableSetupScrollFreeze(0, 1);
         for (const char* h : {tr("Cell"), tr("Item"), tr("State"), tr("Database"), tr("Received")}) ImGui::TableSetupColumn(h);
-        ImGui::TableHeadersRow();
+        headers_row();
         for (const VerificationRow& r : v.rows) {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
@@ -266,14 +270,21 @@ void Gui::draw_verification(NetworkChecks& nc) {
     text_tooltip(tr("Add the received cells that are not in the database and fill fields entries lack (stored values "
                  "are never overwritten)."));
     if (network_.log_file.empty()) network_.log_file = nc.default_log_file().string();
-    ImGui::PushItemWidth(-260.0F);
+    {
+        // The field takes the room the label, the switch and the button leave.
+        const ImGuiStyle& st = ImGui::GetStyle();
+        const float rest = ImGui::CalcTextSize(tr("Log file###verify.log_file"), nullptr, true).x + st.ItemInnerSpacing.x +
+                           switch_w(tr("Not seen###verify.not_seen")) + label_w(tr("Write log###verify.log")) +
+                           2.0F * st.ItemSpacing.x;
+        ImGui::PushItemWidth(std::max(em(120.0F), ImGui::GetContentRegionAvail().x - rest));
+    }
     input_text(tr("Log file###verify.log_file"), network_.log_file, 1024);
     text_tooltip(tr("The file Write log writes the verification to."));
     ImGui::PopItemWidth();
-    ImGui::SameLine();
+    same_line_if(switch_w(tr("Not seen###verify.not_seen")));
     ImGui::Checkbox(tr("Not seen###verify.not_seen"), &network_.log_not_seen);
     text_tooltip(tr("Also log the entries no received cell paired with."));
-    ImGui::SameLine();
+    same_line_if(label_w(tr("Write log###verify.log")));
     if (ImGui::Button(tr("Write log###verify.log"))) (void)state_.show(nc.write_log(network_.log_file, network_.log_not_seen));
     text_tooltip(tr("Add the differences to the CSV log; a difference already in it is not written again."));
 
@@ -296,25 +307,26 @@ void Gui::draw_reselection(NetworkChecks& nc) {
         return;
     }
     ImGui::TextUnformatted(tr("Serving cell"));
+    bool first = true;
     for (const auto& [id, name] : choices) {
-        if (ImGui::RadioButton((name + "###resel.serving." + id).c_str(), f.serving == id))
-            (void)state_.show(nc.choose_serving(id));
+        const std::string label = name + "###resel.serving." + id;
+        if (!first) same_line_if(switch_w(label.c_str()));
+        first = false;
+        if (ImGui::RadioButton(label.c_str(), f.serving == id)) (void)state_.show(nc.choose_serving(id));
         text_tooltip(tr("Simulate with this cell as the serving cell."));
-        ImGui::SameLine();
     }
-    ImGui::NewLine();
-    ImGui::PushItemWidth(140.0F);
+    ImGui::PushItemWidth(em(140.0F));
     ImGui::InputDouble(tr("MS power (dBm)###resel.ms_power"), &f.ms_power_dbm, 1.0, 5.0, "%.1f");
     ImGui::PopItemWidth();
     text_tooltip(tr("The radio's maximum transmit power, used by the C1 of the rule."));
-    ImGui::SameLine();
+    same_line_if(label_w(tr("Received levels###resel.received")));
     if (ImGui::Button(tr("Received levels###resel.received"))) (void)state_.show(nc.use_received_levels());
     text_tooltip(tr("Take the levels of the cells received (radio or replay) as they are now."));
     const ReselectionView v = nc.reselection();
     if (ImGui::BeginTable("###resel.table", 4, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH |
                                                    ImGuiTableFlags_SizingStretchProp)) {
         for (const char* h : {tr("Cell"), tr("Level (dBm)"), tr("C1 (dB)"), ""}) ImGui::TableSetupColumn(h);
-        ImGui::TableHeadersRow();
+        headers_row();
         for (const ReselectionRow& r : v.rows) {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();

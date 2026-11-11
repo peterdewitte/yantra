@@ -1,12 +1,13 @@
 // SPDX-FileCopyrightText: 2026 The Yantra contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The run-time half of the UI lint (DOC-20, TST-50; tools/lint_ui is the
+// The run-time half of the UI lint (DOC-20; tools/lint_ui is the
 // source half): for one drawn frame it reports
 //   - a control without a hover text (DOC-07 b),
 //   - a disabled control without the reason (DOC-07 c),
 //   - controls that overlap, are cut off at their window's edge, are
-//     squashed or show only part of their label (TST-50 layout check),
+//     squashed or show only part of their label (also run by the GUI
+//     text-overflow test TST-52 at every size, scale and theme),
 //   - in the touch layout, controls lower than 48 px (UI-13),
 //   - texts tr() found no translation for in the language (UI-12, DOC-07 f).
 // A control is every item the probe saw with a label (buttons, fields,
@@ -19,6 +20,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <iterator>
 #include <set>
 #include <sstream>
@@ -43,6 +45,10 @@ struct UiLint {
     std::set<std::string> seen;  // each issue once
     int frames_checked = 0;
     int items_checked = 0;
+    /// TST-52 (tests/app/overflow): called just before the checked frame is
+    /// drawn, and after it with the frame's hover texts.
+    std::function<void()> before_frame;
+    std::function<void(const std::string&, const app::gui_detail::HelpRecord&)> after_frame;
 
     void add(const std::string& where, const std::string& what) {
         if (seen.insert(where + ": " + what).second) issues.push_back(where + ": " + what);
@@ -54,6 +60,7 @@ struct UiLint {
         app::record_missing_translations(app::language() != app::Language::En);
         (void)app::take_missing_translations();
         app::gui_detail::help_record() = &rec;
+        if (before_frame) before_frame();
         const bool ok = ui.frame();
         app::gui_detail::help_record() = nullptr;
         app::record_missing_translations(false);
@@ -65,6 +72,7 @@ struct UiLint {
         for (const std::string& m : app::take_missing_translations())
             add(where, std::string("no ") + app::language_key(app::language()) + " translation: \"" + m + "\"");
         analyse(where, rec);
+        if (after_frame) after_frame(where, rec);
     }
 
 private:

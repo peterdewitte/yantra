@@ -185,7 +185,8 @@ its own controller (`app/model/app_control.h`) over the same command set.
   desktop app without drawing (AppState, project window, live survey,
   plan import, editors, settings, translations, help texts, report and
   export dialogs, tour). The UI tests drive this model and the real GUI
-  headless (TST-50, [docs/APP.md](docs/APP.md)).
+  headless (TST-50; the GUI text-overflow test TST-52 draws every
+  window and text, [docs/APP.md](docs/APP.md)).
 - `app/gui` (`yantra_app_gui`): the Dear ImGui views; they show what the
   model returns and call its commands; also the screenshot mode
   (SCR-01, `screenshot.cpp`).

@@ -312,8 +312,8 @@ void api_table(yantra_ui* ui, const yantra_ui_control* c, const yantra_ui_table*
     ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
     for (int i = 0; i < cols; ++i) {
         ImGui::TableSetColumnIndex(i);
-        ImGui::TableHeader(tr(ui, t->headers[i]).c_str());
-        if (t->header_tooltips != nullptr && t->header_tooltips[i] != nullptr) text_tooltip(tr(ui, t->header_tooltips[i]).c_str());
+        const std::string tip = t->header_tooltips != nullptr && t->header_tooltips[i] != nullptr ? tr(ui, t->header_tooltips[i]) : "";
+        table_header(tr(ui, t->headers[i]).c_str(), tip.empty() ? nullptr : tip.c_str());
     }
     ImGuiListClipper clip;
     clip.Begin(static_cast<int>(std::min<uint64_t>(t->row_count, 1000000)));
@@ -416,8 +416,8 @@ void Gui::draw_plugin_windows() {
         ui.state = &st;
         const yantra_ui_api api = make_api(&ui, model.language());
         const std::string title = w.title + "###" + w.id;
-        const float width = w.width > 0.0 ? static_cast<float>(w.width) : 420.0F;
-        const float height = w.height > 0.0 ? static_cast<float>(w.height) : 0.0F;
+        const float width = std::min(em(w.width > 0.0 ? static_cast<float>(w.width) : 420.0F), vp->WorkSize.x * 0.95F);
+        const float height = w.height > 0.0 ? std::min(em(static_cast<float>(w.height)), vp->WorkSize.y * 0.9F) : 0.0F;
         bool open = true;
         bool drawn = false;
         if (w.kind == YANTRA_UI_DIALOG) {
@@ -426,6 +426,7 @@ void Gui::draw_plugin_windows() {
             ImGui::SetNextWindowSize(ImVec2(std::min(width, vp->WorkSize.x * 0.95F), height), ImGuiCond_Appearing);
             ImGui::SetNextWindowPos(vp->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5F, 0.5F));
             if (ImGui::BeginPopupModal(title.c_str(), nullptr, ImGuiWindowFlags_NoSavedSettings)) {
+                wrap_texts();
                 help_marker(w.help.c_str());
                 model.draw(w, api);
                 if (ImGui::IsKeyPressed(ImGuiKey_Escape)) ui.close = true;
@@ -447,6 +448,7 @@ void Gui::draw_plugin_windows() {
                                         ImGuiCond_Appearing);
             ImGui::SetNextWindowSize(ImVec2(width, height), ImGuiCond_Appearing);
             if (ImGui::Begin(title.c_str(), &open, ImGuiWindowFlags_NoSavedSettings)) {
+                wrap_texts();
                 help_button("14.2");
                 ImGui::TextDisabled("(?)");
                 text_tooltip(w.help.c_str());

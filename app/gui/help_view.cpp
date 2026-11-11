@@ -131,7 +131,7 @@ void Gui::draw_help_window() {
     if (!state_.help_view().open || state_.dialog() != Dialog::None) return;
     const ImGuiViewport* vp = ImGui::GetMainViewport();
     ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + vp->WorkSize.x * 0.45F, vp->WorkPos.y + 40.0F), ImGuiCond_Appearing);
-    ImGui::SetNextWindowSize(ImVec2(std::min(px(560.0F), vp->WorkSize.x * 0.5F), vp->WorkSize.y * 0.8F),
+    ImGui::SetNextWindowSize(ImVec2(std::min(em(560.0F), vp->WorkSize.x * 0.5F), vp->WorkSize.y * 0.8F),
                              ImGuiCond_Appearing);
     bool open = true;
     const std::string name = std::string(tr("Help")) + "###win.help";
@@ -146,7 +146,7 @@ void Gui::draw_help_popup() {
     if (!state_.help_view().open) return;
     if (!ImGui::IsPopupOpen(id)) ImGui::OpenPopup(id);
     const ImGuiViewport* vp = ImGui::GetMainViewport();
-    ImGui::SetNextWindowSize(ImVec2(std::min(px(560.0F), vp->WorkSize.x * 0.9F), vp->WorkSize.y * 0.8F),
+    ImGui::SetNextWindowSize(ImVec2(std::min(em(560.0F), vp->WorkSize.x * 0.9F), vp->WorkSize.y * 0.8F),
                              ImGuiCond_Appearing);
     ImGui::SetNextWindowPos(vp->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5F, 0.5F));
     const std::string name = std::string(tr("Help")) + id;

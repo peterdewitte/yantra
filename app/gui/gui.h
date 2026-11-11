@@ -36,6 +36,12 @@ struct GuiStyle {
     bool operator==(const GuiStyle&) const = default;
 };
 
+/// A piece of the status bar: the message or an item (Gui::status_pieces).
+struct StatusPiece {
+    std::string text;
+    std::uint32_t colour = 0;  ///< ImU32; 0: the text colour
+};
+
 class Gui {
 public:
     explicit Gui(AppState& state);
@@ -150,7 +156,11 @@ private:
     void draw_layer_panel(ProjectWindow& w, const FloorContent* c);
     void draw_floor_properties();
     void draw_remove_floor();
-    void draw_status_bar();
+    // The status bar: the message, then the items (radio, recording, ...)
+    // on as many lines as they need (TST-52: nothing cut at the window edge).
+    std::vector<StatusPiece> status_pieces();
+    static float status_height(const std::vector<StatusPiece>& pieces, float width);
+    void draw_status_bar(const std::vector<StatusPiece>& pieces, float height);
     void draw_dialogs();
     void draw_dialog_body(Dialog d);
     void draw_new_project();
@@ -202,7 +212,6 @@ private:
     void draw_scanner_panel(const SurveyFrame& f);
     void draw_events_panel();
     void draw_stats_panel();
-    void draw_status_items();
     void run(Action a);
     // Radio windows (step 9.6, radio_view.cpp).
     void draw_radio_menu();

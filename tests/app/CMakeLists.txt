@@ -9,7 +9,7 @@
 #   UI tests of every app step link;
 # - test_app_ui: the ImGui layer driven through the harness (ui/*.cpp):
 #   clicks, dialogs, disabled items, as a user does, without a window;
-#   the UI lint and the TST-50 layout check (ui/test_ui_lint.cpp);
+#   the UI lint (ui/test_ui_lint.cpp; ui/ui_visit.h walks every window);
 # - test_app_live: the walk-test view and radio windows with the simulator,
 #   and the screenshot scenes (test_screenshots.cpp, SCR-01..03);
 # - launch tests (NFR-10, TST-04): the app on a private Xvfb display shows
@@ -84,9 +84,9 @@ if(TARGET demo_fraunces)
   add_dependencies(test_app_ui demo_fraunces)
   target_compile_definitions(test_app_ui PRIVATE YANTRA_TEST_DEMO_DATA_DIR="${PROJECT_BINARY_DIR}")
 endif()
-# One ctest per case (step 9.11): the UI lint and the TST-50 layout check
-# visit every window several times, so in the TSan tree the whole binary
-# came close to its limit; each case has its own guard now.
+# One ctest per case (step 9.11): the UI lint visits every window several
+# times, so in the TSan tree the whole binary came close to its limit;
+# each case has its own guard now.
 yantra_doctest_tests(test_app_ui GROUP test_app_ui LABELS "fast;app" TIMEOUT 300)
 
 # The walk-test view with the simulator (step 9.4): real time, one ctest
@@ -120,6 +120,47 @@ else()
   target_compile_definitions(test_app_live PRIVATE YANTRA_TEST_DEMO_PROJECT="")
 endif()
 yantra_doctest_tests(test_app_live GROUP test_app_live LABELS "fast;app" TIMEOUT ${_app_timeout} PROCESSORS 2)
+# TST-52: the GUI text-overflow test (overflow/): every window, scene,
+# tooltip and report text in every language, the pseudo-language, both
+# layouts and themes, at the supported sizes and UI scales. Linked with
+# --wrap on Dear ImGui's text drawing (overflow/text_probe.h); only this
+# test binary. One ctest per language and layout, label slow.
+add_executable(test_app_overflow overflow/test_overflow.cpp overflow/test_report_overflow.cpp overflow/text_probe.cpp
+                                 overflow/text_lint.cpp)
+target_include_directories(test_app_overflow PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/ui ${CMAKE_CURRENT_SOURCE_DIR}/overflow)
+target_link_libraries(test_app_overflow PRIVATE yantra_test_main yantra_warnings yantra_ui_harness yantra::app_gui
+                                                yantra::app_model yantra::core yantra_plan_fixtures yantra::json)
+foreach(_sym _ZN10ImDrawList7AddTextEP6ImFontfRK6ImVec2jPKcS6_fPK6ImVec4 _ZN10ImDrawList7AddTextERK6ImVec2jPKcS4_
+             _ZN6ImFont10RenderCharEP10ImDrawListfRK6ImVec2jtPK6ImVec4)
+  target_link_options(test_app_overflow PRIVATE "LINKER:--wrap=${_sym}")
+endforeach()
+target_compile_definitions(test_app_overflow PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scratch}/test_app_overflow"
+                                                     YANTRA_TEST_OVERFLOW_DIR="${CMAKE_CURRENT_SOURCE_DIR}/overflow"
+                                                     YANTRA_TEST_SOURCE_DATA_DIR="${PROJECT_SOURCE_DIR}/data"
+                                                     YANTRA_TEST_EXAMPLE_PLUGIN_DIR="${PROJECT_BINARY_DIR}/lib/yantra/examples"
+                                                     YANTRA_TEST_TECH_PLUGIN_DIR="${PROJECT_BINARY_DIR}/lib/yantra/plugins"
+                                                     YANTRA_TEST_RADIO_PLUGIN_DIR="${YANTRA_RADIO_PLUGIN_DIR}"
+                                                     YANTRA_TEST_RADIO_TEST_PLUGIN_DIR="${YANTRA_RADIO_TEST_PLUGIN_DIR}"
+                                                     YANTRA_TEST_FAKE_SDR_SCENARIO="${YANTRA_RADIOS_FAKE_SDR_SCENARIO}"
+                                                     YANTRA_TEST_FAKE_SDR_CONTROL_DIR="${_scratch}/fake_sdr_control")
+add_dependencies(test_app_overflow yantra_example_beacon yantra_tetra)
+if(TARGET yantra_probe)
+  add_dependencies(test_app_overflow yantra_probe)
+  target_compile_definitions(test_app_overflow PRIVATE YANTRA_TEST_HAVE_PROBE=1)
+endif()
+if(TARGET yantra_radio_plugins)
+  add_dependencies(test_app_overflow yantra_radio_plugins)
+endif()
+if(TARGET demo_fraunces)
+  add_dependencies(test_app_overflow demo_fraunces)
+  target_compile_definitions(test_app_overflow PRIVATE YANTRA_TEST_DEMO_DATA_DIR="${PROJECT_BINARY_DIR}"
+                                                       YANTRA_TEST_DEMO_PROJECT="${YANTRA_DEMO_FRAUNCES_DIR}/fraunces.yantra")
+else()
+  target_compile_definitions(test_app_overflow PRIVATE YANTRA_TEST_DEMO_PROJECT="")
+endif()
+math(EXPR _overflow_timeout "1800 * ${YANTRA_TEST_TIME_SCALE}")
+yantra_doctest_tests(test_app_overflow GROUP test_app_overflow LABELS "slow;app" TIMEOUT ${_overflow_timeout} PROCESSORS 2)
+
 # The PEI plugin's radio windows against the simulated terminal (step 9.6):
 # yantra-pei-sim serves it on a pseudo-terminal and runs the case with
 # YANTRA_PEI_PORTS set (without it the case skips).

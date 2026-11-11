@@ -253,9 +253,10 @@ void Gui::draw_menu_bar() {
 
 void Gui::draw_start_screen() {
     const StartScreenView v = state_.start_screen();
-    const float column = std::min(ImGui::GetContentRegionAvail().x, 760.0F);
+    const float column = std::min(ImGui::GetContentRegionAvail().x, em(760.0F));
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + std::max(0.0F, (ImGui::GetContentRegionAvail().x - column) * 0.5F));
     ImGui::BeginChild("###start_column", ImVec2(column, 0.0F));
+    wrap_texts();
     help_button("1.1");
     ImGui::PushFont(nullptr, ImGui::GetStyle().FontSizeBase * 1.8F);
     ImGui::TextUnformatted(v.title.c_str());
@@ -319,10 +320,21 @@ void Gui::draw_project_screen() {
     ImGui::PushFont(nullptr, ImGui::GetStyle().FontSizeBase * 1.3F);
     ImGui::TextUnformatted(p->name.c_str());
     ImGui::PopFont();
-    ImGui::TextDisabled("%s", p->path.string().c_str());
-    text_tooltip(p->path.string().c_str());
-    ImGui::SameLine();
-    ImGui::TextDisabled("- %s", p->file_note.c_str());
+    // The path, shortened with "..." when the line is too short for it (its
+    // whole text on hover), then the note.
+    {
+        const std::string path = p->path.string();
+        const std::string note = "- " + p->file_note;
+        const float gap = ImGui::GetStyle().ItemSpacing.x;
+        const float marker = ImGui::CalcTextSize("(?)").x + gap;
+        const float note_w = ImGui::CalcTextSize(note.c_str()).x + gap;
+        const float avail = ImGui::GetContentRegionAvail().x;
+        const bool one_line = avail - note_w - marker >= avail * 0.3F;
+        text_ellipsis(path.c_str(), one_line ? avail - note_w - marker : avail - marker, ImGui::GetColorU32(ImGuiCol_TextDisabled));
+        text_tooltip(path.c_str());
+        if (one_line) ImGui::SameLine();
+        ImGui::TextDisabled("%s", note.c_str());
+    }
     help_marker(tr("A project file is live: every change is written to it at once, so nothing is lost when Yantra "
                 "stops, and there is nothing to discard. File > Save makes the file complete on its own (ready to "
                 "copy); Save as continues with a copy. While it is open here, no other Yantra can open it."));
@@ -344,7 +356,7 @@ void Gui::draw_project_screen() {
     const bool highest = it != tabs.end() && std::next(it) == tabs.end();
     if (ImGui::Button(tr("Properties...###floor.properties"))) (void)state_.edit_floor(id);
     text_tooltip(tr("Rename the floor, or change its level number and floor-to-floor height."));
-    ImGui::SameLine();
+    same_line_if(label_w(tr("Plan and scale...###floor.plan")));
     const std::string no_plan = state_.edit_plan_reason(id);
     ImGui::BeginDisabled(!no_plan.empty());
     if (ImGui::Button(tr("Plan and scale...###floor.plan"))) (void)state_.edit_floor_plan(id);
@@ -352,22 +364,24 @@ void Gui::draw_project_screen() {
     text_tooltip(no_plan.empty() ? tr("Open the floor's plan in the plan import window: adjust its trim, rotation, "
                                    "scale and reference point, or trim more floors from the same sheet.")
                                  : (tr("Adjust the floor's trim and scale. ") + no_plan).c_str());
-    ImGui::SameLine();
+    same_line_if(label_w(tr("Move down###floor.down")));
     ImGui::BeginDisabled(lowest);
     if (ImGui::Button(tr("Move down###floor.down"))) (void)state_.move_floor(id, -1);
     ImGui::EndDisabled();
     text_tooltip(lowest ? tr("Move the floor one place down in the level order. It is already the lowest.")
                         : tr("Move the floor one place down in the level order (the floors swap levels)."));
-    ImGui::SameLine();
+    same_line_if(label_w(tr("Move up###floor.up")));
     ImGui::BeginDisabled(highest);
     if (ImGui::Button(tr("Move up###floor.up"))) (void)state_.move_floor(id, +1);
     ImGui::EndDisabled();
     text_tooltip(highest ? tr("Move the floor one place up in the level order. It is already the highest.")
                          : tr("Move the floor one place up in the level order (the floors swap levels)."));
-    ImGui::SameLine();
+    same_line_if(label_w(tr("Remove...###floor.remove")));
     if (ImGui::Button(tr("Remove...###floor.remove"))) (void)state_.request_remove_floor(id);
     text_tooltip(tr("Remove the floor with its walls, antennas and walk tests (you are asked first)."));
-    ImGui::SameLine();
+    // The view's buttons stay together (the bar, Fit, + and -).
+    same_line_if(ImGui::CalcTextSize("|").x + ImGui::GetStyle().ItemSpacing.x * 4.0F + label_w(tr("Fit###plan.fit")) +
+                 label_w("+") + label_w("-"));
     ImGui::TextDisabled("|");
     ImGui::SameLine();
     if (ImGui::Button(tr("Fit###plan.fit"))) canvas_->fit();
@@ -378,7 +392,7 @@ void Gui::draw_project_screen() {
     ImGui::SameLine();
     if (ImGui::Button("-###plan.zoom_out")) canvas_->zoom(0.8);
     text_tooltip(tr("Zoom out [mouse wheel]"));
-    ImGui::SameLine();
+    same_line_if(switch_w(tr("Panels###survey.panels")));
     // The survey panels under the plan (step 9.5): shown by themselves when
     // a radio or a replay starts, until the user hides them.
     {
@@ -389,15 +403,24 @@ void Gui::draw_project_screen() {
         if (ImGui::Checkbox(tr("Panels###survey.panels"), &panels_)) panels_auto_ = false;
         text_tooltip(tr("Show the survey panels under the plan: cells, graphs, scanner, events, statistics."));
     }
-    ImGui::SameLine();
-    ImGui::TextDisabled("%s", state_.floor_editor() && state_.floor_editor()->wants_left_button()
-                                  ? tr("Middle or right drag pans, wheel zooms")
-                                  : tr("Drag to pan, wheel to zoom"));
+    {
+        // The hint after the buttons when it fits there, else on a line of its own.
+        const char* hint = state_.floor_editor() && state_.floor_editor()->wants_left_button()
+                               ? tr("Middle or right drag pans, wheel zooms")
+                               : tr("Drag to pan, wheel to zoom");
+        same_line_if(ImGui::CalcTextSize(hint).x);
+        ImGui::TextDisabled("%s", hint);
+    }
 
     // Layers on the left, the plan on the right (narrower on small windows).
-    const ImVec2 avail = ImGui::GetContentRegionAvail();
-    const float panel = std::clamp(avail.x * 0.28F, 200.0F, 320.0F);
+    // The plan and the side panel keep a usable height; when the window is
+    // too low for them (touch layout, large UI scale, long translations)
+    // the main window scrolls (TST-52).
+    ImVec2 avail = ImGui::GetContentRegionAvail();
+    avail.y = std::max(avail.y, em(240.0F));
+    const float panel = std::min(std::clamp(avail.x * 0.28F, em(200.0F), em(320.0F)), avail.x * 0.5F);
     ImGui::BeginChild("###layers", ImVec2(panel, avail.y), ImGuiChildFlags_Borders);
+    wrap_texts();
     // The side panel's pages: the layers (9.2) and the tools (9.4).
     overlay_.progress = false;
     // The pages as a row of buttons that wraps on a narrow panel, so every
@@ -470,7 +493,7 @@ void Gui::draw_project_screen() {
     ImGui::EndChild();
     ImGui::SameLine();
     ImGui::BeginGroup();
-    const float panels_h = panels_ ? std::clamp(avail.y * 0.42F, 160.0F, 420.0F) : 0.0F;
+    const float panels_h = panels_ ? std::clamp(avail.y * 0.42F, em(160.0F), em(420.0F)) : 0.0F;
     ImGui::BeginChild("###plan", ImVec2(0.0F, avail.y - panels_h - (panels_ ? ImGui::GetStyle().ItemSpacing.y : 0.0F)),
                       ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     // The layer panel may have changed the content (another map chosen).
@@ -556,7 +579,7 @@ void Gui::draw_layer_panel(ProjectWindow& w, const FloorContent* c) {
         if (r.layer == Layer::Binned && c != nullptr && c->metres_per_unit) {
             ImGui::Indent();
             float size = static_cast<float>(state_.settings().layers.bin_size_m);
-            ImGui::SetNextItemWidth(ImGui::GetFontSize() * 9.0F);
+            ImGui::SetNextItemWidth(std::min(ImGui::GetFontSize() * 9.0F, ImGui::GetContentRegionAvail().x * 0.55F));
             if (ImGui::InputFloat(tr("Square (m)###layer.bin_size"), &size, 0.5F, 1.0F, "%.1f",
                                   ImGuiInputTextFlags_EnterReturnsTrue))
                 (void)state_.set_bin_size(static_cast<double>(size));
@@ -596,28 +619,92 @@ void Gui::draw_layer_panel(ProjectWindow& w, const FloorContent* c) {
     }
 }
 
-void Gui::draw_status_bar() {
+namespace {
+
+// The width of a status item with its separator ("|") before it.
+float separated_width(const std::string& text) {
+    const ImGuiStyle& st = ImGui::GetStyle();
+    return ImGui::CalcTextSize("|").x + 2.0F * st.ItemSpacing.x + ImGui::CalcTextSize(text.c_str()).x;
+}
+
+}  // namespace
+
+namespace {
+
+// The status items (radio, recording, ...) on lines of `avail` width: the
+// number of lines they need when they follow `first` pixels on the first.
+int item_lines(const std::vector<StatusPiece>& pieces, float first, float avail) {
+    int lines = 1;
+    float x = first;
+    for (std::size_t i = 1; i < pieces.size(); ++i) {
+        const float w = separated_width(pieces[i].text);
+        if (x + w > avail && x > 0.0F) {
+            ++lines;
+            x = ImGui::CalcTextSize(pieces[i].text.c_str()).x;
+        } else {
+            x += w;
+        }
+    }
+    return lines;
+}
+
+// The width the status items take on one line.
+float items_width(const std::vector<StatusPiece>& pieces) {
+    float w = 0.0F;
+    for (std::size_t i = 1; i < pieces.size(); ++i) w += separated_width(pieces[i].text);
+    return w;
+}
+
+}  // namespace
+
+// The message on the left, shortened with "..." (its whole text on hover)
+// when the items need the room; the items on the right of it, or on lines
+// of their own when even they do not fit one line (TST-52).
+float Gui::status_height(const std::vector<StatusPiece>& pieces, float width) {
+    const ImGuiStyle& st = ImGui::GetStyle();
+    const float avail = width - 2.0F * st.WindowPadding.x;
+    const float line = ImGui::GetTextLineHeight();
+    const float items = items_width(pieces);
+    // The message keeps at least a quarter of the line next to the items.
+    const int lines = items <= avail * 0.75F ? 1 : 1 + item_lines(pieces, 0.0F, avail);
+    return static_cast<float>(lines - 1) * (line + st.ItemSpacing.y) + ImGui::GetFrameHeight() + 6.0F;
+}
+
+void Gui::draw_status_bar(const std::vector<StatusPiece>& pieces, float h) {
     const ImGuiViewport* vp = ImGui::GetMainViewport();
-    const float h = ImGui::GetFrameHeight() + 6.0F;
     ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x, vp->WorkPos.y + vp->WorkSize.y - h));
     ImGui::SetNextWindowSize(ImVec2(vp->WorkSize.x, h));
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
                                    ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoFocusOnAppearing |
                                    ImGuiWindowFlags_NoNav;
     if (ImGui::Begin("###status_bar", nullptr, flags)) {
-        const std::string& s = state_.status();
-        if (state_.status_is_error())
-            ImGui::TextColored(kErrorColour, "%s", s.c_str());
-        else
-            ImGui::TextUnformatted(s.empty() ? tr("Ready") : s.c_str());
-        draw_status_items();
+        const float avail = ImGui::GetContentRegionAvail().x;
+        const float right = ImGui::GetCursorScreenPos().x + avail;
+        const float items = items_width(pieces);
+        const bool one_line = items <= avail * 0.75F;
+        for (std::size_t i = 0; i < pieces.size(); ++i) {
+            const StatusPiece& p = pieces[i];
+            if (p.colour != 0U) ImGui::PushStyleColor(ImGuiCol_Text, p.colour);
+            if (i == 0) {
+                text_ellipsis(p.text.c_str(), one_line ? avail - items : avail);
+                text_tooltip(p.text.c_str());
+            } else if (ImGui::GetItemRectMax().x + separated_width(p.text) <= right + 0.5F) {
+                ImGui::SameLine();
+                ImGui::TextDisabled("|");
+                ImGui::SameLine();
+                ImGui::TextUnformatted(p.text.c_str());
+            } else {
+                ImGui::TextUnformatted(p.text.c_str());
+            }
+            if (p.colour != 0U) ImGui::PopStyleColor();
+        }
     }
     ImGui::End();
 }
 
 void Gui::draw_new_project() {
     NewProjectForm& f = state_.new_project_form();
-    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 36.0F);
+    ImGui::PushTextWrapPos(0.0F);
     ImGui::TextDisabled(tr("One project file holds one building: its floors, plans, walls, antennas and walk tests."));
     ImGui::PopTextWrapPos();
     if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
@@ -675,7 +762,7 @@ void Gui::draw_browser() {
     text_tooltip(tr("The current folder. Type a folder and press Enter to open it."));
 
     const float list_h = ImGui::GetTextLineHeightWithSpacing() * 14.0F;
-    ImGui::BeginChild("###fb.places", ImVec2(180.0F, list_h), ImGuiChildFlags_Borders);
+    ImGui::BeginChild("###fb.places", ImVec2(em(180.0F), list_h), ImGuiChildFlags_Borders);
     ImGui::TextDisabled(tr("Places"));
     // Ids by position (a path's separators would make it a window path);
     // a touch target's height in the touch layout (UI-13).
@@ -699,7 +786,7 @@ void Gui::draw_browser() {
         ImGui::TextDisabled(tr("No folders or matching files here."));
     if (ImGui::BeginTable("###fb.table", 2, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) {
         ImGui::TableSetupColumn(tr("Name"), ImGuiTableColumnFlags_WidthStretch);
-        ImGui::TableSetupColumn(tr("Size"), ImGuiTableColumnFlags_WidthFixed, 90.0F);
+        ImGui::TableSetupColumn(tr("Size"), ImGuiTableColumnFlags_WidthFixed, em(90.0F));
         std::optional<std::size_t> activate;
         for (std::size_t i = 0; i < b->entries().size(); ++i) {
             const BrowserEntry& e = b->entries()[i];
@@ -781,7 +868,7 @@ void Gui::draw_browser() {
 }
 
 void Gui::draw_add_floor() {
-    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 34.0F);
+    ImGui::PushTextWrapPos(0.0F);
     ImGui::TextUnformatted(tr("Choose the plan of the new floor: a PDF or image file, or a sheet the project already "
                            "has (several floors can be trimmed from one sheet). You then trim the floor in the plan "
                            "import window."));
@@ -874,7 +961,7 @@ void Gui::draw_about() {
     about_.curtat_file = a.curtat_logo.filename().string();
     if (curtat_logo_.valid()) ImGui::SameLine();
     ImGui::BeginGroup();
-    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
+    ImGui::PushTextWrapPos(0.0F);
     ImGui::TextUnformatted(a.statement.c_str());
     ImGui::PopTextWrapPos();
     ImGui::Text(tr("Homepage: %s"), a.homepage.c_str());
@@ -882,6 +969,7 @@ void Gui::draw_about() {
     ImGui::Spacing();
     // Credits and plugins (UI-15, NFR-01, PLG-09), scrolled.
     if (ImGui::BeginChild("###about.credits", ImVec2(0.0F, ImGui::GetFontSize() * 14.0F), ImGuiChildFlags_Borders)) {
+        wrap_texts();
         auto table = [](const char* id, const std::vector<CreditRow>& rows, const char* first) {
             if (rows.empty()) return;
             if (!ImGui::BeginTable(id, 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_SizingStretchProp))
@@ -889,7 +977,7 @@ void Gui::draw_about() {
             ImGui::TableSetupColumn(first);
             ImGui::TableSetupColumn(tr("Licence"));
             ImGui::TableSetupColumn(tr("Source"));
-            ImGui::TableHeadersRow();
+            headers_row();
             for (const CreditRow& r : rows) {
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
@@ -914,7 +1002,7 @@ void Gui::draw_about() {
             ImGui::TableSetupColumn(tr("Version"));
             ImGui::TableSetupColumn(tr("Licence"));
             ImGui::TableSetupColumn(tr("Status"));
-            ImGui::TableHeadersRow();
+            headers_row();
             for (const PluginRowView& p : a.plugins) {
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
@@ -967,7 +1055,7 @@ void Gui::draw_remove_floor() {
         state_.cancel_dialog();
         return;
     }
-    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 34.0F);
+    ImGui::PushTextWrapPos(0.0F);
     ImGui::TextUnformatted(w->pending_remove()->question.c_str());
     ImGui::PopTextWrapPos();
     ImGui::Spacing();
@@ -1059,7 +1147,7 @@ void Gui::draw_dialogs() {
         // Dialogs fit small windows too (UI-13).
         const bool wide = d == Dialog::Browse || d == Dialog::Materials || d == Dialog::Settings || d == Dialog::About ||
                           d == Dialog::Export || d == Dialog::Report;
-        const float width = std::min(wide ? 820.0F : 600.0F, vp->WorkSize.x * 0.95F);
+        const float width = std::min(em(wide ? 820.0F : 600.0F), vp->WorkSize.x * 0.95F);
         // Dialogs whose content grows (the class form, the walls' own
         // value, the settings tabs) fit their height every frame.
         const bool grows = d == Dialog::Materials || d == Dialog::AntennaProperties || d == Dialog::Settings ||
@@ -1076,6 +1164,7 @@ void Gui::draw_dialogs() {
         shown_ = Dialog::None;
         return;
     }
+    wrap_texts();
     draw_dialog_body(d);
     draw_help_popup();  // DOC-07 e: over the dialog
     // A command moved to another dialog (or closed it): close this popup;
@@ -1112,13 +1201,18 @@ void Gui::draw() {
     draw_menu_bar();
     const ImGuiViewport* vp = ImGui::GetMainViewport();
     const float top = vp->WorkPos.y;
-    const float status_h = ImGui::GetFrameHeight() + 6.0F;
+    const std::vector<StatusPiece> status = status_pieces();
+    const float status_h = status_height(status, vp->WorkSize.x);
     ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x, top));
     ImGui::SetNextWindowSize(ImVec2(vp->WorkSize.x, vp->WorkPos.y + vp->WorkSize.y - status_h - top));
-    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoDecoration | ImGuiWindowFlags_NoMove |
-                                   ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus;
+    // No title, frame or resizing; a vertical scroll bar only when the
+    // project screen is taller than the window.
+    const ImGuiWindowFlags flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoCollapse |
+                                   ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoSavedSettings |
+                                   ImGuiWindowFlags_NoBringToFrontOnFocus;
     ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(24.0F, 20.0F));
     if (ImGui::Begin(kMainWindow, nullptr, flags)) {
+        wrap_texts();
         if (state_.screen() == Screen::Start) {
             canvas_->close();
             shown_floor_.clear();
@@ -1129,7 +1223,7 @@ void Gui::draw() {
     }
     ImGui::End();
     ImGui::PopStyleVar();
-    draw_status_bar();
+    draw_status_bar(status, status_h);
     draw_radio_windows();
     draw_network_windows();
     draw_plugin_windows();

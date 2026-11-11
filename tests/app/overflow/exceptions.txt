@@ -1,0 +1,96 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Known exceptions of the GUI text-overflow test (TST-52): one line per
+# exception, "<part of the failure message> | <reason>"; a failure that
+# contains the part is not reported. Empty for a release
+# (YANTRA_RELEASE_CHECK=1, test_overflow.cpp). The entries below are the
+# failures left when step 13.10 stopped; each still needs its fix.
+"+" (+) | open (13.10): clipped by its window in main/###layers; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"-100" and "0" | open (13.10): overlap in main/###survey; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"-100" and "Level (dBm)" | open (13.10): overlap in main/###survey; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"-100" and "Niveau (dBm)" | open (13.10): overlap in main/###survey; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"-100" and "Pegel (dBm)" | open (13.10): overlap in main/###survey; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"-100" and "[Lévél] (dBm)" | open (13.10): overlap in main/###survey; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"100" and "C1 (dB)" | open (13.10): overlap in main/###survey; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"2  [Íñdöör wálk tést wíth áççéptáñçé rép..." (help.quick_start.2) | open (13.10): clipped by its window in win.help/###help.text; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"390.0000 MHz" | open (13.10): clipped by its table column in win.cell_db/###cells.table; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"390.2000 MHz" | open (13.10): clipped by its table column in win.cell_db/###cells.table; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Begin een nieuwe cel van deze technologie; de sleutelveld..." | open (13.10): clipped by its window in ##Tooltip_00; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Buurcellen" | open (13.10): shortened with "..." ("" shown) without the whole text in its tooltip in main/###survey/###cells.neighbours; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Consigner aussi les entrées qu'aucune cellule reçue n'a..." | open (13.10): clipped by its window in ##Tooltip_00; needs room (wrap, wider column or "..." with the whole text on hover)
+"Die Zelldatenbank als CSV-Datei lesen oder schreiben." | open (13.10): clipped by its window in ##Tooltip_00; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Diese Spaltengruppe in die CSV-Datei schreiben, in dieser..." | open (13.10): clipped by its window in ##Tooltip_00; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"E-mail (SMTP)" (sh.smtp) | open (13.10): clipped by its window in dlg.sharing; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Empty: "Indoor coverage report"." | open (13.10): clipped by its window in ##Tooltip_00; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"First floor (niveau 0)" (pi.floor.first-floor) | open (13.10): clipped by its control in dlg.plan_import/###pi.panel; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Fraunces Tavern DAS" | open (13.10): clipped by its table column in win.cell_db/###cells.table; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Gemessener Pegel der versorgenden Zelle" (post.reset) | open (13.10): clipped by its window in main/###layers; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Id T1, manual" | open (13.10): clipped by its window in ##Tooltip_00; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Indoor DAS  ch 3600  390.0000 MHz" | open (13.10): clipped by its window in main/###survey/###cells.serving; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Indoor DAS" (cells.row.T1) | open (13.10): clipped by its table column in win.cell_db/###cells.table; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Les chiffres de couverture comptent les points au niveau ..." | open (13.10): clipped by its window in ##Tooltip_00; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Macro site" (cells.row.M1) | open (13.10): clipped by its table column in win.cell_db/###cells.table; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Nachbarzellen" | open (13.10): shortened with "..." ("" shown) without the whole text in its tooltip in main/###survey/###cells.neighbours; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Nederlands" | open (13.10): clipped by its clipping rectangle in dlg.settings/###settings.body; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Neighbours" | open (13.10): shortened with "..." ("Neighbo" shown) without the whole text in its tooltip in main/###survey/###cells.neighbours; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Ook de vermeldingen loggen waaraan geen ontvangen cel is ..." | open (13.10): clipped by its window in ##Tooltip_00; needs room (wrap, wider column or "..." with the whole text on hover)
+"Perte de synchronisation" (settings.sound_sync) | open (13.10): overlaps the control settings.test.sync_lost in dlg.settings/###settings.body; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Perte de synchronisation" and "Test" | open (13.10): overlap in dlg.settings/###settings.body; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Qui a mesuré, tel qu'imprimé dans le rapport. Saisi pou..." | open (13.10): clipped by its window in ##Tooltip_00; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Reference point" (pi.tool.reference) | open (13.10): clipped by its window in dlg.plan_import/###pi.panel; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Resélection de cellule" (settings.sound_reselection) | open (13.10): overlaps the control settings.test.reselection in dlg.settings/###settings.body; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Resélection de cellule" and "Test" | open (13.10): overlap in dlg.settings/###settings.body; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Rondleiding, stap 1 van 13" | open (13.10): clipped by its window in tour; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Rundgang, Schritt 1 von 13" | open (13.10): clipped by its window in tour; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Synchronisationsverlust" (settings.sound_sync) | open (13.10): overlaps the control settings.test.sync_lost in dlg.settings/###settings.body; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Synchronisationsverlust" and "Test" | open (13.10): overlap in dlg.settings/###settings.body; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Test" (settings.test.reselection) | open (13.10): overlaps the control settings.sound_reselection in dlg.settings/###settings.body; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Versorgende Zelle" | open (13.10): clipped by its window in main/###survey/###cells.serving; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Voisines" | open (13.10): shortened with "..." ("" shown) without the whole text in its tooltip in main/###survey/###cells.neighbours; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Walk position during a walk test, else the mouse" (set.position_source) | open (13.10): clipped by its clipping rectangle in win.radio.settings/###set.list; needs room (wrap, wider column or "..." with the whole text on hover)
+"Wer gemessen hat, wie im Bericht gedruckt. Nur für diese..." | open (13.10): clipped by its window in ##Tooltip_00; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Who measured, as printed on the report. Typed for this re..." | open (13.10): clipped by its window in ##Tooltip_00; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"Wie gemeten heeft, zoals vermeld in het rapport. Alleen v..." | open (13.10): clipped by its window in ##Tooltip_00; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"[Löád réçördíñgs ~~~]" (post.load) | open (13.10): clipped by its control in main/###layers; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"[Sérvíñg çéll ~~]" | open (13.10): clipped by its window in main/###survey/###cells.serving; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"[Tést]" (settings.test.reselection) | open (13.10): overlaps the control settings.sound_reselection in dlg.settings/###settings.body; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"[Töür, stép 1 öf 13 ~~~~]" | open (13.10): clipped by its window in tour; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"[Whö méásüréd, ás príñtéd öñ thé répört. T..." | open (13.10): clipped by its window in ##Tooltip_00; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"[Álsö lög thé éñtríés ñö réçéívéd çéll p..." | open (13.10): clipped by its window in ##Tooltip_00; needs room (wrap, wider column or "..." with the whole text on hover)
+"[Çéll réséléçtíöñ ~~~~]" (settings.sound_reselection) | open (13.10): overlaps the control settings.test.reselection in dlg.settings/###settings.body; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"[Çéll réséléçtíöñ ~~~~]" and "[Tést]" | open (13.10): overlap in dlg.settings/###settings.body; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"[É-máíl (SMTP) ~~~]" (sh.smtp) | open (13.10): clipped by its window in dlg.sharing; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"[Íd ]T1, manual" | open (13.10): clipped by its window in ##Tooltip_00; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"[Ñéíghböürs ~]" | open (13.10): shortened with "..." ("" shown) without the whole text in its tooltip in main/###survey/###cells.neighbours; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"colour_code=1 la=0x64 mcc=901 mnc=1" | open (13.10): clipped by its table column in win.cell_db/###cells.table; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"colour_code=2 la=0xC8 mcc=901 mnc=1" | open (13.10): clipped by its table column in win.cell_db/###cells.table; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"empfangen, nicht aufgeführt" | open (13.10): clipped by its window in main/###survey/###cells.neighbours; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"frequency_hz=390000000;mcc=901;mnc=1;la=100" | open (13.10): clipped by its window in main/###survey/###cells.serving; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"frequency_hz=430025000;mnc=7;la=101  ch 1  430.0250 MHz" | open (13.10): clipped by its window in main/###survey/###cells.serving; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+"frequency_hz=430025000;mnc=7;la=101" | open (13.10): clipped by its window in main/###survey/###cells.serving; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
+: cal.entries | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.calibration, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: cal.files | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.calibration, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: cal.method.generator | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.calibration, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: cal.method.reference | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.calibration, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: cal.noise | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.calibration, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: cal.verify_section | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.calibration, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: cal.wizard | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.calibration, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: dbg.context | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.debug, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: dbg.events | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.debug, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: dbg.log | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.debug, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: dbg.records | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.debug, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: dbg.sensors | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.debug, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: graph.c1 | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in main/###survey, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: graph.level | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in main/###survey, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: graph.quality | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in main/###survey, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: replay.close | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in main/###layers, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: set.group.Gain | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.settings/###set.list, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: set.group.Position | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.settings/###set.list, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: set.group.RF | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.settings/###set.list, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: set.group.Receiver | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.settings/###set.list, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: set.group.Scenario | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.settings/###set.list, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: set.group.Signal | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.settings/###set.list, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: settings.sound_reselection | open (13.10): overlap (UI lint, DOC-07/UI-13) in settings.test.reselection in dlg.settings/###settings.body, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: settings.sound_sync | open (13.10): overlap (UI lint, DOC-07/UI-13) in settings.test.sync_lost in dlg.settings/###settings.body, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
+: settings.ui_scale | open (13.10): squashed (UI lint, DOC-07/UI-13) in dlg.settings/###settings.body, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room

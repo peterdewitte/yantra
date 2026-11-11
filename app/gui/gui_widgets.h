@@ -11,6 +11,7 @@
 #include <imgui_internal.h>
 
 #include <algorithm>
+#include <initializer_list>
 #include <string>
 #include <vector>
 
@@ -33,11 +34,65 @@ inline Layout& layout() {
 inline void set_layout(bool touch, float scale, Theme theme) { layout() = Layout{touch, scale, theme}; }
 /// A size in pixels at the UI scale.
 inline float px(float v) { return v * layout().scale; }
+/// A size given for the 13 px font, at the font size in use: the UI scale
+/// and the touch layout's larger font (window and panel widths that must
+/// hold text, TST-52).
+inline float em(float v) { return v * ImGui::GetFontSize() / 13.0F; }
 /// The height of a large button: `desktop` x kTouchTarget on the desktop,
 /// at least kTouchTarget in the touch layout (UI-13), at the UI scale.
 inline float target_h(float desktop = 0.8F) {
     const float h = kTouchTarget * (layout().touch ? std::max(1.0F, desktop) : desktop) * layout().scale;
     return std::max(h, ImGui::GetFrameHeight());
+}
+/// TST-52: the plain texts of the current window wrap at its right edge
+/// (in a table at their column's) instead of running past it. Called right
+/// after Begin/BeginChild; Dear ImGui clears the window's wrap stack at its
+/// next Begin, so there is no matching pop. Not for auto-resizing windows
+/// (menus, tooltips), whose width the texts make.
+inline void wrap_texts() { ImGui::PushTextWrapPos(0.0F); }
+
+/// A one-line text shortened with "..." to `width` when it is longer, with
+/// its whole text on hover then (TST-52); `colour` 0 = the text colour.
+inline void text_ellipsis(const char* text, float width, ImU32 colour = 0) {
+    const ImVec2 ts = ImGui::CalcTextSize(text);
+    const float w = std::max(1.0F, std::min(width, ts.x));
+    const float h = ImGui::GetTextLineHeight();
+    const ImVec2 p = ImGui::GetCursorScreenPos();
+    ImGui::Dummy(ImVec2(w, h));
+    if (colour != 0) ImGui::PushStyleColor(ImGuiCol_Text, colour);
+    ImGui::RenderTextEllipsis(ImGui::GetWindowDrawList(), p, ImVec2(p.x + w, p.y + h), p.x + w, text, nullptr, &ts);
+    if (colour != 0) ImGui::PopStyleColor();
+}
+
+/// The value of a "label  value" row at `x` (window coordinates), or just
+/// after a label that is longer than that (TST-52: never over the label).
+inline void value_column(float x) {
+    const float label_end = ImGui::GetItemRectMax().x - ImGui::GetWindowPos().x + ImGui::GetScrollX();
+    ImGui::SameLine(std::max(x, label_end + ImGui::GetStyle().ItemSpacing.x));
+}
+
+/// UI-13, TST-52: puts the next item on the same line when `width` still
+/// fits there, else on a new line (rows of buttons and switches that wrap
+/// in narrow panels, long translations and large UI scales).
+inline void same_line_if(float width) {
+    const ImVec2 last = ImGui::GetItemRectMax();
+    const float right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+    if (last.x + ImGui::GetStyle().ItemSpacing.x + width <= right) ImGui::SameLine();
+}
+/// The width of a radio button or checkbox with its label.
+inline float switch_w(const char* label) {
+    return ImGui::GetFrameHeight() + ImGui::GetStyle().ItemInnerSpacing.x + ImGui::CalcTextSize(label, nullptr, true).x;
+}
+/// The width of a combo box whose preview shows the longest of `items`
+/// (at most the room left on the line).
+inline float combo_w(std::initializer_list<const char*> items) {
+    float w = 0.0F;
+    for (const char* i : items) w = std::max(w, ImGui::CalcTextSize(i, nullptr, true).x);
+    return std::min(w + ImGui::GetStyle().FramePadding.x * 2.0F + ImGui::GetFrameHeight(), ImGui::GetContentRegionAvail().x);
+}
+/// The width of a button that fits its label.
+inline float label_w(const char* label) {
+    return ImGui::CalcTextSize(label, nullptr, true).x + ImGui::GetStyle().FramePadding.x * 2.0F;
 }
 /// A button width of at least `min_w` (at the UI scale) that fits its
 /// (translated) label.
@@ -48,26 +103,35 @@ inline float button_w(const char* label, float min_w) {
 inline const ImVec4 kBannerColour{0.95F, 0.62F, 0.07F, 1.0F};
 inline const ImVec4 kErrorColour{1.0F, 0.45F, 0.40F, 1.0F};
 
-/// UI lint (DOC-20, TST-50): when a test sets a record, every hover text
-/// notes the rectangle of the item it belongs to (and whether it says why
-/// the item is disabled), so the lint can find controls without one.
+/// UI lint (DOC-20) and the GUI text-overflow test (TST-52): when a test
+/// sets a record, every hover text notes the rectangle of the item it
+/// belongs to, its text and whether it says why the item is disabled, so
+/// the lint can find controls without one; with `show` set, the hover text
+/// of entry number `show` is drawn as if hovered (the test draws every
+/// tooltip and "(?)" text in turn).
 struct HelpRecord {
     struct Entry {
         ImRect rect;
         ImGuiID window = 0;
         bool reason = false;
+        std::string text;
     };
     std::vector<Entry> entries;
+    int show = -1;
 };
 inline HelpRecord*& help_record() {
     static HelpRecord* r = nullptr;
     return r;
 }
-inline void note_help(bool reason) {
+/// Notes the last item's hover text; true when the test shows it now.
+inline bool note_help(bool reason, const char* text = nullptr, const char* text2 = nullptr) {
     HelpRecord* r = help_record();
-    if (r == nullptr) return;
+    if (r == nullptr) return false;
     const ImGuiContext& g = *ImGui::GetCurrentContext();
-    r->entries.push_back({g.LastItemData.Rect, g.CurrentWindow != nullptr ? g.CurrentWindow->ID : 0, reason});
+    std::string t = text != nullptr ? text : "";
+    if (text2 != nullptr && *text2 != '\0') t += std::string("\n") + text2;
+    r->entries.push_back({g.LastItemData.Rect, g.CurrentWindow != nullptr ? g.CurrentWindow->ID : 0, reason, std::move(t)});
+    return r->show == static_cast<int>(r->entries.size()) - 1;
 }
 
 /// Tooltips on or off (settings, DOC-07 h). Off hides the hover texts;
@@ -80,9 +144,10 @@ inline void set_tooltips_shown(bool on) { tooltips_shown() = on; }
 
 /// The hover text of the last item, also when it is disabled (DOC-07 b, c).
 inline void item_tooltip(const ActionView& a) {
-    note_help(!a.enabled && !a.disabled_reason.empty());
+    const bool shown = note_help(!a.enabled && !a.disabled_reason.empty(), a.tooltip.c_str(),
+                                 a.enabled ? nullptr : a.disabled_reason.c_str());
     if (!tooltips_shown() && a.enabled) return;
-    if (!ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) return;
+    if (!shown && !ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) return;
     ImGui::BeginTooltip();
     ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
     ImGui::TextUnformatted(a.tooltip.c_str());
@@ -96,14 +161,38 @@ inline void item_tooltip(const ActionView& a) {
 
 inline void text_tooltip(const char* text) {
     // On a disabled item the text is written to say why (DOC-07 c).
-    note_help((ImGui::GetItemFlags() & ImGuiItemFlags_Disabled) != 0);
+    const bool shown = note_help((ImGui::GetItemFlags() & ImGuiItemFlags_Disabled) != 0, text);
     if (!tooltips_shown()) return;
-    if (!ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) return;
+    if (!shown && !ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) return;
     ImGui::BeginTooltip();
     ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
     ImGui::TextUnformatted(text);
     ImGui::PopTextWrapPos();
     ImGui::EndTooltip();
+}
+
+/// A table header with its hover text. When the column is narrower than
+/// the name, Dear ImGui shortens it with "..." and the hover text starts
+/// with the whole name (TST-52).
+inline void table_header(const char* label, const char* tooltip = nullptr) {
+    const char* end = ImGui::FindRenderedTextEnd(label);
+    const bool cut = ImGui::CalcTextSize(label, end).x > ImGui::GetContentRegionAvail().x;
+    ImGui::TableHeader(label);
+    std::string tip = tooltip != nullptr ? tooltip : "";
+    if (cut) tip = std::string(label, end) + (tip.empty() ? "" : "\n" + tip);
+    if (!tip.empty()) text_tooltip(tip.c_str());
+}
+/// ImGui::TableHeadersRow() with table_header(): the whole name of a
+/// shortened column header on hover.
+inline void headers_row() {
+    ImGui::TableNextRow(ImGuiTableRowFlags_Headers);
+    const int n = ImGui::TableGetColumnCount();
+    for (int i = 0; i < n; ++i) {
+        if (!ImGui::TableSetColumnIndex(i)) continue;
+        ImGui::PushID(i);
+        table_header(ImGui::TableGetColumnName(i));
+        ImGui::PopID();
+    }
 }
 
 /// The height of a list row or menu entry in the touch layout (48 px
@@ -143,9 +232,10 @@ inline void disabled_tooltip(const char* tooltip, bool enabled, const std::strin
 
 /// A dimmed "(?)" marker with an explanation on hover (DOC-07 a).
 inline void help_marker(const char* text) {
-    ImGui::SameLine();
+    same_line_if(ImGui::CalcTextSize("(?)").x);
     ImGui::TextDisabled("(?)");
-    if (ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+    const bool shown = note_help(false, text);
+    if (shown || ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
         ImGui::BeginTooltip();
         ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
         ImGui::TextUnformatted(text);

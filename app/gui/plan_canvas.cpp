@@ -125,15 +125,17 @@ void PlanCanvas::draw_interpolation(ImDrawList* dl, ImVec2 origin, const FloorCo
     // IND-42: estimated sources, hollow and dashed (they are not placed antennas).
     for (const PlanAntenna& a : in.sources) {
         const ImVec2 p = to_screen(origin, a.position);
+        const float k = ImGui::GetFontSize() / 13.0F;
+        const float th = ImGui::GetTextLineHeight();
         constexpr int kDashes = 12;
         for (int i = 0; i < kDashes; i += 2) {
             const float a0 = 6.2831853F * static_cast<float>(i) / kDashes;
             const float a1 = 6.2831853F * static_cast<float>(i + 1) / kDashes;
-            dl->PathArcTo(p, 11.0F, a0, a1, 6);
+            dl->PathArcTo(p, 11.0F * k, a0, a1, 6);
             dl->PathStroke(IM_COL32(150, 40, 170, 255), 2.5F);
         }
-        dl->AddText(ImVec2(p.x - 3.5F, p.y - 7.0F), IM_COL32(150, 40, 170, 255), "?");
-        dl->AddText(ImVec2(p.x + 14.0F, p.y - 7.0F), IM_COL32(110, 20, 130, 255), a.label.c_str());
+        dl->AddText(ImVec2(p.x - ImGui::CalcTextSize("?").x * 0.5F, p.y - th * 0.5F), IM_COL32(150, 40, 170, 255), "?");
+        dl->AddText(ImVec2(p.x + 14.0F * k, p.y - th * 0.5F), IM_COL32(110, 20, 130, 255), a.label.c_str());
         ++stats_.estimated_sources;
     }
 }
@@ -161,7 +163,9 @@ void PlanCanvas::draw_walls(ImDrawList* dl, ImVec2 origin, const FloorContent& c
 }
 
 void PlanCanvas::draw_antennas(ImDrawList* dl, ImVec2 origin, const FloorContent& c) {
-    const float r = 9.0F;
+    const float k = ImGui::GetFontSize() / 13.0F;  // marks grow with the font (UI scale, touch)
+    const float r = 9.0F * k;
+    const float th = ImGui::GetTextLineHeight();
     for (const PlanAntenna& a : c.antennas) {
         const ImVec2 p = to_screen(origin, a.position);
         if (a.outdoor) {
@@ -179,9 +183,9 @@ void PlanCanvas::draw_antennas(ImDrawList* dl, ImVec2 origin, const FloorContent
         } else {
             dl->AddCircleFilled(p, r, IM_COL32(30, 110, 230, 255));
             dl->AddCircle(p, r, IM_COL32(255, 255, 255, 255), 0, 2.0F);
-            dl->AddText(ImVec2(p.x - 4.0F, p.y - 7.0F), IM_COL32(255, 255, 255, 255), "A");
+            dl->AddText(ImVec2(p.x - ImGui::CalcTextSize("A").x * 0.5F, p.y - th * 0.5F), IM_COL32(255, 255, 255, 255), "A");
         }
-        dl->AddText(ImVec2(p.x + r + 3.0F, p.y - 7.0F), IM_COL32(20, 40, 120, 255), a.label.c_str());
+        dl->AddText(ImVec2(p.x + r + 3.0F * k, p.y - th * 0.5F), IM_COL32(20, 40, 120, 255), a.label.c_str());
         ++stats_.antennas;
     }
 }
@@ -246,18 +250,20 @@ void PlanCanvas::draw_overlay(ImDrawList* dl, ImVec2 origin, ImVec2 size, const 
 
     // Scale bar, bottom left (IND-08).
     stats_.scale = scale_bar(c.metres_per_unit, view_.zoom());
+    const float th = ImGui::GetTextLineHeight();
     const ImVec2 base(origin.x + 12.0F, origin.y + size.y - 16.0F);
     if (stats_.scale.pixels > 0.0) {
         const float px = static_cast<float>(stats_.scale.pixels);
-        dl->AddRectFilled(ImVec2(base.x - 6.0F, base.y - 22.0F), ImVec2(base.x + px + 6.0F, base.y + 8.0F),
+        const float tw = ImGui::CalcTextSize(stats_.scale.label.c_str()).x;
+        dl->AddRectFilled(ImVec2(base.x - 6.0F, base.y - th - 9.0F), ImVec2(base.x + std::max(px, tw) + 6.0F, base.y + 8.0F),
                           IM_COL32(255, 255, 255, 200), 3.0F);
         dl->AddLine(base, ImVec2(base.x + px, base.y), IM_COL32(0, 0, 0, 255), 3.0F);
         dl->AddLine(ImVec2(base.x, base.y - 6.0F), ImVec2(base.x, base.y + 4.0F), IM_COL32(0, 0, 0, 255), 2.0F);
         dl->AddLine(ImVec2(base.x + px, base.y - 6.0F), ImVec2(base.x + px, base.y + 4.0F), IM_COL32(0, 0, 0, 255),
                     2.0F);
-        dl->AddText(ImVec2(base.x, base.y - 20.0F), IM_COL32(0, 0, 0, 255), stats_.scale.label.c_str());
+        dl->AddText(ImVec2(base.x, base.y - th - 7.0F), IM_COL32(0, 0, 0, 255), stats_.scale.label.c_str());
     } else {
-        badge(dl, ImVec2(base.x - 4.0F, base.y - 22.0F), tr("Not to scale: set a scale for distances and areas"),
+        badge(dl, ImVec2(base.x - 4.0F, base.y - th - 9.0F), tr("Not to scale: set a scale for distances and areas"),
               IM_COL32(120, 90, 20, 230), IM_COL32(255, 255, 255, 255));
     }
 

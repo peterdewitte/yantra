@@ -74,7 +74,7 @@ void Gui::draw_settings_general(AppSettings& f) {
     int ws = 0;
     for (int i = 0; i < 3; ++i)
         if (f.window_system == systems[i]) ws = i;
-    ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
+    ImGui::SetNextItemWidth(combo_w({tr("Automatic"), "X11", "Wayland"}));
     if (ImGui::Combo(tr("Window system###settings.window_system"), &ws, (std::string(tr("Automatic")) + '\0' + "X11" + '\0' + "Wayland" + '\0').c_str()))
         f.window_system = systems[ws];
     text_tooltip(tr("Which window system Yantra uses on Linux (NFR-10). Applies at the next start."));
@@ -223,7 +223,7 @@ void Gui::draw_plugin_manager() {
         ImGui::TableSetupColumn(tr("Author"));
         ImGui::TableSetupColumn(tr("Licence"));
         ImGui::TableSetupColumn(tr("Status"));
-        ImGui::TableHeadersRow();
+        headers_row();
         for (std::size_t i = 0; i < v.plugins.size(); ++i) {
             const PluginRowView& p = v.plugins[i];
             ImGui::TableNextRow();
@@ -279,7 +279,10 @@ void Gui::draw_settings() {
         const float footer = target_h() + ImGui::GetFrameHeightWithSpacing() * 3.0F;
         const float max_h = std::max(px(120.0F), vp->WorkSize.y * 0.94F - used - footer);
         ImGui::SetNextWindowSizeConstraints(ImVec2(0.0F, 0.0F), ImVec2(FLT_MAX, max_h));
-        if (ImGui::BeginChild("###settings.body", ImVec2(0.0F, 0.0F), ImGuiChildFlags_AutoResizeY)) body();
+        if (ImGui::BeginChild("###settings.body", ImVec2(0.0F, 0.0F), ImGuiChildFlags_AutoResizeY)) {
+            wrap_texts();
+            body();
+        }
         ImGui::EndChild();
         ImGui::EndTabItem();
     };
@@ -316,7 +319,7 @@ void Gui::draw_settings() {
 
 void Gui::draw_reset_settings() {
     ResetForm& f = state_.reset_form();
-    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 34.0F);
+    ImGui::PushTextWrapPos(0.0F);
     ImGui::TextUnformatted(tr("All settings go back to their defaults and the UI restarts as on the first start."));
     ImGui::PopTextWrapPos();
     ImGui::Checkbox(tr("Also reset the calibration tables###reset.calibration"), &f.also_calibration);
@@ -325,16 +328,22 @@ void Gui::draw_reset_settings() {
     if (ImGui::BeginTable("###reset.lists", 2, ImGuiTableFlags_BordersInnerV)) {
         ImGui::TableSetupColumn(tr("Reset"));
         ImGui::TableSetupColumn(tr("Kept"));
-        ImGui::TableHeadersRow();
+        headers_row();
         ImGui::TableNextRow();
         ImGui::TableSetColumnIndex(0);
-        for (const std::string& r : s.reset) ImGui::BulletText("%s", r.c_str());
+        for (const std::string& r : s.reset) {
+            ImGui::Bullet();
+            ImGui::TextUnformatted(r.c_str());  // wraps in its column (TST-52)
+        }
         ImGui::TableSetColumnIndex(1);
-        for (const std::string& k : s.kept) ImGui::BulletText("%s", k.c_str());
+        for (const std::string& k : s.kept) {
+            ImGui::Bullet();
+            ImGui::TextUnformatted(k.c_str());
+        }
         ImGui::EndTable();
     }
     const std::filesystem::path root = state_.reset_backup_root();
-    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 34.0F);
+    ImGui::PushTextWrapPos(0.0F);
     if (!root.empty())
         ImGui::TextDisabled(tr("A time-stamped backup of the current settings is made in %s first."), root.string().c_str());
     else

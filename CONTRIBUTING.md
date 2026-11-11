@@ -90,6 +90,20 @@ tree (PLG-01).
   Real-time checks carry `timing`; the sanitizer test presets leave them
   out (`ctest --preset asan-ubsan` = `-LE timing`), the default and scalar
   trees run them.
+- GUI layout (TST-52): `test_app_overflow` (label `slow`, one ctest per
+  UI language and layout, about 7 minutes each) draws every window,
+  tooltip and report in EN/NL/FR/DE and the pseudo-language
+  (`--language pseudo`: every text 40 % longer) at the supported sizes and
+  UI scales and fails on any text that is clipped, runs past its window,
+  column or control, or overlaps another. Its list of failures is also
+  written to `build/tests/app/scratch/test_app_overflow/tst52_<lang>_<layout>.txt`
+  with a picture per failing frame in `tst52_shots/`. A new dialog or page
+  goes into `tests/app/ui/ui_visit.h` (the UI lint walks it too); a new
+  text needs room in every language: let rows wrap
+  (`gui_detail::same_line_if`), size by the font (`gui_detail::em`), or
+  shorten with "..." and the whole text on hover (`gui_detail::text_ellipsis`).
+  Known exceptions go in `tests/app/overflow/exceptions.txt` with a reason;
+  a release needs it empty (`YANTRA_RELEASE_CHECK=1`).
 - Long doctest binaries get one ctest per test case
   (`yantra_doctest_tests()` in `cmake/YantraTests.cmake`, named
   `<group>/<case>`), so `ctest -j` runs their cases in parallel.

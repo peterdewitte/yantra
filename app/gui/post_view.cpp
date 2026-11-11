@@ -60,9 +60,9 @@ void Gui::draw_post_section() {
         text_tooltip(tip);
     };
     carrier(tr("Serving###post.carrier.serving"), C::Serving, tr("The value of the serving cell at each point."));
-    ImGui::SameLine();
+    same_line_if(switch_w(tr("Strongest###post.carrier.strongest")));
     carrier(tr("Strongest###post.carrier.strongest"), C::Strongest, tr("The value of the strongest cell at each point."));
-    ImGui::SameLine();
+    same_line_if(switch_w(tr("Carrier###post.carrier.frequency")));
     carrier(tr("Carrier###post.carrier.frequency"), C::Frequency, tr("The value of one carrier, chosen by its frequency."));
     if (s.metric.carrier == C::Frequency) {
         double mhz = static_cast<double>(s.metric.frequency_hz) / 1e6;
@@ -76,9 +76,9 @@ void Gui::draw_post_section() {
         text_tooltip(tip);
     };
     value(tr("Level###post.value.level"), V::Level, tr("The received level in dBm."));
-    ImGui::SameLine();
+    same_line_if(switch_w("C1###post.value.c1"));
     value("C1###post.value.c1", V::C1, tr("The path loss criterion C1 in dB."));
-    ImGui::SameLine();
+    same_line_if(switch_w(tr("Quality###post.value.quality")));
     value(tr("Quality###post.value.quality"), V::Quality, tr("A quality value of the technology plugin (MER, BER, ...)."));
     if (s.metric.value == V::Quality) {
         if (s.metric.quality_field.empty()) s.metric.quality_field = "mer_pct";
@@ -92,13 +92,13 @@ void Gui::draw_post_section() {
     ImGui::SeparatorText(tr("View"));
     if (ImGui::RadioButton(tr("Values###post.mode.values"), s.mode == M::Values)) s.mode = M::Values;
     text_tooltip(tr("Colour the points by their value."));
-    ImGui::SameLine();
+    same_line_if(switch_w(tr("Good/bad###post.mode.goodbad")));
     if (ImGui::RadioButton(tr("Good/bad###post.mode.goodbad"), s.mode == M::GoodBad)) s.mode = M::GoodBad;
     text_tooltip(tr("Two colours: at or above the threshold, or below it."));
-    ImGui::SameLine();
+    same_line_if(switch_w(tr("Offset###post.mode.offset")));
     if (ImGui::RadioButton(tr("Offset###post.mode.offset"), s.mode == M::Offset)) s.mode = M::Offset;
     text_tooltip(tr("The values with an offset added, to simulate an extra loss."));
-    ImGui::PushItemWidth(120.0F);
+    ImGui::PushItemWidth(std::min(em(120.0F), ImGui::GetContentRegionAvail().x * 0.55F));
     if (s.mode == M::GoodBad) {
         ImGui::InputDouble(tr("Threshold###post.threshold"), &s.threshold, 1.0, 5.0, "%.1f");
         text_tooltip(tr("Good: at or above (for error rates: at or below) this value."));
@@ -158,19 +158,26 @@ void Gui::draw_post_section() {
     }
 
     // EXP-06: an acceptance profile on one of the three bases.
-    if (ImGui::CollapsingHeader(tr("Acceptance###post.acceptance"), ImGuiTreeNodeFlags_DefaultOpen)) {
+    const bool acceptance = ImGui::CollapsingHeader(tr("Acceptance###post.acceptance"), ImGuiTreeNodeFlags_DefaultOpen);
+    text_tooltip(tr("Whether the floor passes an acceptance profile: the share at or above a level."));
+    if (acceptance) {
         AcceptanceForm& a = pp->acceptance();
         using B = survey::AcceptanceProfile::Basis;
+        const char* basis_tip = tr("Points: the measured points; tested area: the binned squares walked; floor area: the "
+                                   "interpolated map (its confident cells).");
         if (ImGui::RadioButton(tr("Points###post.basis.points"), a.basis == B::Points)) a.basis = B::Points;
-        ImGui::SameLine();
+        text_tooltip(basis_tip);
+        same_line_if(switch_w(tr("Tested area###post.basis.tested")));
         if (ImGui::RadioButton(tr("Tested area###post.basis.tested"), a.basis == B::TestedArea)) a.basis = B::TestedArea;
-        ImGui::SameLine();
+        text_tooltip(basis_tip);
+        same_line_if(switch_w(tr("Floor area###post.basis.floor")));
         if (ImGui::RadioButton(tr("Floor area###post.basis.floor"), a.basis == B::FloorArea)) a.basis = B::FloorArea;
-        text_tooltip(tr("Points: the measured points; tested area: the binned squares walked; floor area: the "
-                     "interpolated map (its confident cells)."));
-        ImGui::PushItemWidth(120.0F);
+        text_tooltip(basis_tip);
+        ImGui::PushItemWidth(std::min(em(120.0F), ImGui::GetContentRegionAvail().x * 0.55F));
         ImGui::InputDouble(tr("dBm at or above###post.acc_threshold"), &a.threshold_dbm, 1.0, 5.0, "%.1f");
+        text_tooltip(tr("The level the profile counts from (dBm)."));
         ImGui::InputDouble(tr("% at least###post.acc_percent"), &a.min_percent, 1.0, 5.0, "%.1f");
+        text_tooltip(tr("The share that must be at or above the level for the floor to pass."));
         ImGui::PopItemWidth();
         if (!v.acceptance.note.empty()) ImGui::TextDisabled("%s", v.acceptance.note.c_str());
         if (!v.acceptance_text.empty())

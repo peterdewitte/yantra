@@ -44,10 +44,15 @@ const char* column_label(exports::Column c) {
     return "";
 }
 
-void path_line(const char* label, const std::filesystem::path& p) {
+/// "File: <path>" with room for the `button` after it on the line: a long
+/// path is shortened with "..." (the whole path on hover, TST-52).
+void path_line(const char* label, const std::filesystem::path& p, const char* button) {
     ImGui::TextUnformatted(label);
     ImGui::SameLine();
-    ImGui::TextDisabled("%s", p.empty() ? tr("(none)") : p.string().c_str());
+    const std::string s = p.empty() ? std::string(tr("(none)")) : p.string();
+    const float room = ImGui::GetContentRegionAvail().x - label_w(button) - ImGui::GetStyle().ItemSpacing.x;
+    text_ellipsis(s.c_str(), std::max(room, em(40.0F)), ImGui::GetColorU32(ImGuiCol_TextDisabled));
+    text_tooltip(s.c_str());
 }
 
 void ok_cancel(AppState& state, const char* ok, const char* ok_tip, Result (AppState::*confirm)()) {
@@ -87,7 +92,7 @@ void Gui::draw_export_dialog() {
         return;
     }
     ExportForm& f = out->export_form();
-    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 34.0F);
+    ImGui::PushTextWrapPos(0.0F);
     ImGui::TextUnformatted(tr("The points of the value shown in the project window, as a table, a CAD drawing or a "
                               "picture; or every recording of a folder at once."));
     ImGui::PopTextWrapPos();
@@ -175,7 +180,7 @@ void Gui::draw_export_dialog() {
     }
     ImGui::SeparatorText(tr("File"));
     path_line(f.kind == ExportForm::Kind::Batch ? (f.batch_separate ? tr("Output folder:") : tr("Output file:")) : tr("File:"),
-              f.kind == ExportForm::Kind::Batch ? f.batch_output : f.file);
+              f.kind == ExportForm::Kind::Batch ? f.batch_output : f.file, tr("Browse...###ex.browse"));
     ImGui::SameLine();
     if (small_button(tr("Browse...###ex.browse"))) state_.browse(BrowsePurpose::ExportFile);
     text_tooltip(tr("Choose where the export is written."));
@@ -191,7 +196,7 @@ void Gui::draw_report_dialog() {
         return;
     }
     ReportForm& f = out->report_form();
-    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 34.0F);
+    ImGui::PushTextWrapPos(0.0F);
     ImGui::TextUnformatted(tr("The coverage and acceptance report of the project: per floor the plan with every "
                               "measured point, the coverage map, the statistics and the acceptance profiles."));
     ImGui::PopTextWrapPos();
@@ -246,7 +251,7 @@ void Gui::draw_report_dialog() {
     ImGui::SameLine();
     ImGui::Checkbox(tr("HTML###rp.html"), &f.html);
     text_tooltip(tr("The HTML file is the same report as one page with its pictures inside."));
-    path_line(tr("File:"), f.file);
+    path_line(tr("File:"), f.file, tr("Browse...###rp.browse"));
     ImGui::SameLine();
     if (small_button(tr("Browse...###rp.browse"))) state_.browse(BrowsePurpose::ReportFile);
     text_tooltip(tr("Choose the report's file; the HTML file gets the same name with .html."));
@@ -263,7 +268,7 @@ void Gui::draw_profiles_dialog() {
         return;
     }
     ProfileForm& f = out->profile_form();
-    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 34.0F);
+    ImGui::PushTextWrapPos(0.0F);
     ImGui::TextUnformatted(tr("An acceptance profile passes when enough of the floor reaches each level: of the "
                               "points, of the tested area (squares) or of the interpolated floor area."));
     ImGui::PopTextWrapPos();
@@ -290,7 +295,7 @@ void Gui::draw_profiles_dialog() {
         text_tooltip(tr("The profile's name in the report; each name once."));
         int basis = static_cast<int>(p.basis);
         const char* bases[] = {tr("Points"), tr("Tested area"), tr("Floor area")};
-        ImGui::SetNextItemWidth(ImGui::GetFontSize() * 10.0F);
+        ImGui::SetNextItemWidth(combo_w({bases[0], bases[1], bases[2]}));
         if (ImGui::Combo(tr("Basis###ap.basis"), &basis, bases, 3)) {
             p.basis = static_cast<survey::AcceptanceProfile::Basis>(basis);
             changed = true;
@@ -365,7 +370,7 @@ void Gui::draw_profiles_dialog() {
 
 void Gui::draw_sharing_dialog() {
     SharingSettings& s = state_.sharing_form();
-    ImGui::PushTextWrapPos(ImGui::GetFontSize() * 34.0F);
+    ImGui::PushTextWrapPos(0.0F);
     ImGui::TextUnformatted(tr("Where exports and reports are sent when you ask for it (EXP-07). Only the files, the "
                               "addresses and the login you type here are sent."));
     ImGui::PopTextWrapPos();

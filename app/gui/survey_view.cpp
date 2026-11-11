@@ -116,7 +116,7 @@ void Gui::draw_survey_section() {
 
     ImGui::SeparatorText(tr("Coverage"));
     double th = state_.monitor()->stats().threshold_dbm;
-    ImGui::SetNextItemWidth(gui_detail::px(110.0F));
+    ImGui::SetNextItemWidth(std::min(em(110.0F), ImGui::GetContentRegionAvail().x * 0.55F));
     if (ImGui::InputDouble(tr("dBm###survey.threshold"), &th, 1.0, 5.0, "%.0f") && th >= kMinThresholdDbm && th <= kMaxThresholdDbm)
         (void)state_.show(state_.set_coverage_threshold(th));
     text_tooltip(tr("The serving level that counts as covered in the statistics (UI-11); kept in the settings."));
@@ -169,10 +169,10 @@ void Gui::draw_recording_controls(LiveSurvey& live) {
         ImGui::SetNextItemWidth(-1.0F);
         input_text("###rec.notes", f.notes, 512);
         text_tooltip(tr("Notes for the recording's header (no personal data)."));
-        ImGui::SetNextItemWidth(gui_detail::px(110.0F));
+        ImGui::SetNextItemWidth(std::min(em(110.0F), ImGui::GetContentRegionAvail().x * 0.55F));
         ImGui::InputDouble(tr("min split###rec.split"), &f.split_minutes, 1.0, 5.0, "%.0f");
         text_tooltip(tr("A new file every so many minutes (0 = one file)."));
-        ImGui::SameLine();
+        same_line_if(switch_w(tr("zstd###rec.compress")));
         ImGui::Checkbox(tr("zstd###rec.compress"), &f.compress);
         text_tooltip(tr("Compress the files (zstd)."));
         const std::string why = live.record_reason();
@@ -190,8 +190,12 @@ void Gui::draw_recording_controls(LiveSurvey& live) {
     }
     text_tooltip(tr("Keep the last minutes while the radio runs, without a recording; save them when something "
                  "happened (REC-09)."));
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(gui_detail::px(90.0F));
+    {
+        // The minutes field after the switch when it fits there, else below it.
+        const float label = ImGui::CalcTextSize(tr("min###rec.ring_minutes"), nullptr, true).x + ImGui::GetStyle().ItemInnerSpacing.x;
+        same_line_if(em(90.0F) + label);
+        ImGui::SetNextItemWidth(std::min(em(90.0F), ImGui::GetContentRegionAvail().x - label));
+    }
     ImGui::BeginDisabled(f.ring);
     ImGui::InputDouble(tr("min###rec.ring_minutes"), &f.ring_minutes, 1.0, 5.0, "%.0f");
     ImGui::EndDisabled();
@@ -246,16 +250,19 @@ void Gui::draw_replay_controls() {
     using St = recording::ReplayPlayer::State;
     if (v.state == St::Playing) {
         if (ImGui::Button(tr("Pause###replay.pause"))) (void)state_.show(replay->pause());
-    } else if (ImGui::Button(tr("Play###replay.play"))) {
-        (void)state_.show(replay->play(replay_speed_));
+        text_tooltip(tr("Pause the replay at the cursor."));
+    } else {
+        if (ImGui::Button(tr("Play###replay.play"))) (void)state_.show(replay->play(replay_speed_));
+        text_tooltip(tr("Play the recording from the cursor at the speed set."));
     }
-    ImGui::SameLine();
+    same_line_if(label_w(tr("Stop###replay.stop")));
     if (ImGui::Button(tr("Stop###replay.stop"))) (void)state_.show(replay->stop());
-    ImGui::SameLine();
+    text_tooltip(tr("Stop the replay and go back to the start."));
+    same_line_if(label_w(tr("Again###replay.again")));
     if (ImGui::Button(tr("Again###replay.again"))) (void)state_.show(replay->play_again());
     text_tooltip(tr("Play again from the start."));
-    ImGui::SameLine();
-    ImGui::SetNextItemWidth(gui_detail::px(80.0F));
+    same_line_if(em(80.0F) + ImGui::GetStyle().ItemInnerSpacing.x + ImGui::CalcTextSize("x").x);
+    ImGui::SetNextItemWidth(em(80.0F));
     ImGui::InputDouble("x###replay.speed", &replay_speed_, 0.0, 0.0, "%.1f");
     text_tooltip(tr("The speed: 1 = real time, up to 100; 0 = as fast as possible."));
     std::int64_t pos = v.position_ns;
@@ -275,7 +282,7 @@ void Gui::draw_replay_controls() {
     const std::string why = cut_name_.empty() ? tr("Type a name first.") : "";
     if (tool_button(tr("Cut: start to cursor###replay.cut_head"), why, tr("Save the part before the cursor as a new recording (REC-08).")))
         (void)state_.show(replay->cut(true, cut_name_));
-    ImGui::SameLine();
+    same_line_if(label_w(tr("Cut: cursor to end###replay.cut_tail")));
     if (tool_button(tr("Cut: cursor to end###replay.cut_tail"), why, tr("Save the part after the cursor as a new recording (REC-08).")))
         (void)state_.show(replay->cut(false, cut_name_));
     if (ImGui::Button(tr("Close replay###replay.close"))) (void)state_.close_replay();
@@ -287,6 +294,7 @@ void Gui::draw_survey_panels(float height) {
     survey_.panels = true;
     const auto& monitor = state_.monitor();
     ImGui::BeginChild("###survey", ImVec2(0.0F, height), ImGuiChildFlags_Borders);
+    wrap_texts();
     // NFR-07: the self-interference warning with its advice.
     const measure::SelfInterferenceWarning w = monitor->interference();
     if (w.active) {
@@ -297,27 +305,27 @@ void Gui::draw_survey_panels(float height) {
     }
     const SurveyFrame f = monitor->frame();
     if (ImGui::BeginTabBar("###survey.tabs")) {
-        if (ImGui::BeginTabItem(tr("Cells###survey.cells"))) {
+        if (tab_item(tr("Cells###survey.cells"), tr("The serving cell and its neighbours, with the large values."))) {
             survey_.tab = "cells";
             draw_cells_panel(f);
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem(tr("Graphs###survey.graphs"))) {
+        if (tab_item(tr("Graphs###survey.graphs"), tr("Level, C1 and quality over time."))) {
             survey_.tab = "graphs";
             draw_graphs_panel();
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem(tr("Scanner###survey.scanner"))) {
+        if (tab_item(tr("Scanner###survey.scanner"), tr("Every carrier the radio sees."))) {
             survey_.tab = "scanner";
             draw_scanner_panel(f);
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem(tr("Events###survey.events"))) {
+        if (tab_item(tr("Events###survey.events"), tr("The events of the walk: cell changes, alerts and markers."))) {
             survey_.tab = "events";
             draw_events_panel();
             ImGui::EndTabItem();
         }
-        if (ImGui::BeginTabItem(tr("Statistics###survey.stats"))) {
+        if (tab_item(tr("Statistics###survey.stats"), tr("The statistics of the points measured so far."))) {
             survey_.tab = "stats";
             draw_stats_panel();
             ImGui::EndTabItem();
@@ -382,7 +390,8 @@ void Gui::draw_cells_panel(const SurveyFrame& f) {
     ImGui::SameLine(start.x + std::max(gui_detail::px(260.0F), ImGui::GetItemRectSize().x + gui_detail::px(20.0F)));
 
     // UI-02: the serving cell and its broadcast parameters.
-    ImGui::BeginChild("###cells.serving", ImVec2(std::max(200.0F, ImGui::GetContentRegionAvail().x * 0.4F), 0.0F));
+    ImGui::BeginChild("###cells.serving", ImVec2(std::max(em(200.0F), ImGui::GetContentRegionAvail().x * 0.4F), 0.0F));
+    wrap_texts();
     if (f.serving) {
         survey_.serving = cell_label(*f.serving) + "  " + mhz(f.serving->frequency_hz);
         ImGui::SeparatorText(tr("Serving cell"));
@@ -404,9 +413,10 @@ void Gui::draw_cells_panel(const SurveyFrame& f) {
     ImGui::SameLine();
     // UI-03: neighbours; listed and received, received only, listed only.
     ImGui::BeginChild("###cells.neighbours", ImVec2(0.0F, 0.0F));
+    wrap_texts();
     ImGui::SeparatorText(tr("Neighbours"));
     ImGui::TextColored(kMeasuredOnlyColour, tr("received, not listed"));
-    ImGui::SameLine();
+    same_line_if(ImGui::CalcTextSize(tr("  listed, not received")).x);
     ImGui::TextColored(kListedOnlyColour, tr("  listed, not received"));
     if (ImGui::BeginTable("###cells.neighbour_table", 4,
                           ImGuiTableFlags_RowBg | ImGuiTableFlags_Borders | ImGuiTableFlags_SizingStretchProp)) {
@@ -414,7 +424,7 @@ void Gui::draw_cells_panel(const SurveyFrame& f) {
         ImGui::TableSetupColumn(tr("Frequency"));
         ImGui::TableSetupColumn(tr("Level"));
         ImGui::TableSetupColumn("C1");
-        ImGui::TableHeadersRow();
+        headers_row();
         for (const CellRow& r : f.neighbours) {
             ++survey_.neighbour_rows;
             if (r.list == ListState::ListedOnly) ++survey_.listed_only_rows;
@@ -607,7 +617,7 @@ void Gui::draw_scanner_panel(const SurveyFrame& f) {
         ImGui::TableSetupColumn(tr("Cell"));
         ImGui::TableSetupColumn(tr("Level"));
         ImGui::TableSetupColumn(tr("State"));
-        ImGui::TableHeadersRow();
+        headers_row();
         for (const CellRow& r : f.scan) {
             ++survey_.scan_rows;
             ImGui::TableNextRow();
@@ -634,10 +644,10 @@ void Gui::draw_events_panel() {
     }
     const std::int64_t t0 = events.front().t_ns;
     if (ImGui::BeginTable("###events.table", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_ScrollY | ImGuiTableFlags_SizingStretchProp)) {
-        ImGui::TableSetupColumn(tr("Time"), ImGuiTableColumnFlags_WidthFixed, 70.0F);
-        ImGui::TableSetupColumn(tr("Event"), ImGuiTableColumnFlags_WidthFixed, 130.0F);
+        ImGui::TableSetupColumn(tr("Time"), ImGuiTableColumnFlags_WidthFixed, em(70.0F));
+        ImGui::TableSetupColumn(tr("Event"), ImGuiTableColumnFlags_WidthFixed, em(130.0F));
         ImGui::TableSetupColumn(tr("Text"));
-        ImGui::TableHeadersRow();
+        headers_row();
         // Newest first.
         for (auto it = events.rbegin(); it != events.rend(); ++it) {
             ++survey_.event_rows;
@@ -681,17 +691,16 @@ void Gui::draw_stats_panel() {
 
 // -- the status bar's survey items (UI-08) ----------------------------------------------------
 
-void Gui::draw_status_items() {
+
+std::vector<StatusPiece> Gui::status_pieces() {
+    std::vector<StatusPiece> out;
+    const std::string& s = state_.status();
+    out.push_back({s.empty() ? std::string(tr("Ready")) : s, state_.status_is_error() ? ImGui::GetColorU32(kErrorColour) : 0U});
     const AppState::StatusBar b = state_.status_bar(ImGui::GetTime());
     survey_.status = b;
-    auto item = [](const std::string& text, bool warn, const ImVec4* colour = nullptr) {
+    auto item = [&](const std::string& text, bool warn, const ImVec4* colour = nullptr) {
         if (text.empty()) return;
-        ImGui::SameLine();
-        ImGui::TextDisabled("|");
-        ImGui::SameLine();
-        if (colour) ImGui::TextColored(*colour, "%s", text.c_str());
-        else if (warn) ImGui::TextColored(kWarnColour, "%s", text.c_str());
-        else ImGui::TextUnformatted(text.c_str());
+        out.push_back({text, colour != nullptr ? ImGui::GetColorU32(*colour) : warn ? ImGui::GetColorU32(kWarnColour) : 0U});
     };
     item(b.radio, b.radio_warning);
     item(b.recording, false, b.recording_active ? &kRecordColour : nullptr);
@@ -699,6 +708,7 @@ void Gui::draw_status_items() {
     item(b.interference, b.interference_warning);
     item(b.disk, b.disk_warning);
     item(b.power, b.power_warning);
+    return out;
 }
 
 }  // namespace yantra::app

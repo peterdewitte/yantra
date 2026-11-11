@@ -63,8 +63,29 @@ own changes are in its CHANGELOG.md.
   while kept an old position, so on a loaded computer a point could lie
   metres from where its level was computed (RAD-19).
 
+### Layout and languages
+
+- No text is cut off, runs past its window, column or button, or covers
+  another in any UI language, in the desktop and touch layout, at
+  1280 x 720 and at UI scales up to 200 % (TST-52): windows, dialogs and
+  the side panel grow with the font; rows of buttons and switches wrap
+  when there is no room; texts wrap at their window or table column; the
+  status bar shortens a long message with "..." (the whole message on
+  hover) and puts its items on more lines when needed; a long project or
+  file path is shortened the same way; a shortened table header shows its
+  whole name on hover; the project window scrolls when it is too low for
+  the plan and the side panel. Map labels and marks on the plan grow with
+  the UI scale.
+- A pseudo-language for checking layouts (`--language pseudo`, not
+  offered in Settings): every text 40 % longer, in brackets and with
+  accented letters, plugin texts included.
+
 ### Reports
 
+- A report's long words wrap in the HTML version; in the PDF the floors
+  table's columns are wider for the translated headers and a chart's y
+  axis label longer than its axis is set smaller (TST-52). The sample
+  report is regenerated.
 - The statistics header says "Share of measured points (%)" next to
   "Share of floor area (interpolated) (%)", in the report and on the Post
   page alike, also in Dutch, French and German (IND-43). The sample report
@@ -87,6 +108,13 @@ own changes are in its CHANGELOG.md.
 
 ### Building
 
+- New test (TST-52, label `slow`, `test_app_overflow`, Linux and Windows):
+  every window, dialog, menu, tab, tooltip and radio window, in every UI
+  language and the pseudo-language, both layouts and themes, at
+  1280 x 720 and 2560 x 1440 at 100, 150 and 200 % UI scale, and the
+  reports in every language: no text clipped, past its box or over
+  another. It replaces the TST-50 layout check of the UI lint. A failure
+  saves a picture of the window with the text outlined.
 - clang from the cross SDK of yantra-radios is the default compiler of
   every build tree; gcc is the second Linux tree (preset `gcc`). CI builds
   both (BUILD.md).

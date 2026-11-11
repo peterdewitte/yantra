@@ -883,11 +883,27 @@ The documentation's screenshot set (SCR-01..05, SCR-07) is made by the app itsel
   `screenshots_compare` runs the script against `docs/img`; `doc_images` (`tools/ci/check_doc_images.py`)
   checks that every manual image exists and every image in `docs/img` is used. The in-app help leaves
   the image lines out.
-- Layout check (TST-50): `tests/app/ui/test_ui_lint.cpp` runs the UI lint (`ui_lint.h`: tooltips,
-  disabled reasons, overlap, labels cut off, squashed controls, touch targets) over every window on a
-  1280 x 800 desktop and touch layout in every language, and in English on a 1024 x 640 window, a
-  full-HD screen at 150 % and a 7-inch tablet (1024 x 600, touch). Widths are set with
-  `gui_detail::px()` so they follow the scale.
+- UI lint (DOC-20): `tests/app/ui/test_ui_lint.cpp` runs the UI lint (`ui_lint.h`: tooltips, disabled
+  reasons, controls that overlap, are cut off or squashed, touch targets) over every window
+  (`tests/app/ui/ui_visit.h`, the walk shared with TST-52) on a 1280 x 800 desktop and touch layout in
+  every language. Widths are set with `gui_detail::px()` so they follow the scale.
+- GUI text-overflow test (TST-52, replaces step 9.11's TST-50 layout check): `tests/app/overflow`
+  (`test_app_overflow`, label `slow`, one ctest per language and layout) draws every window of
+  `ui_visit.h`, every scene of the screenshot set (with the radio windows of the simulator, the example
+  beacon radio plugin and the HackRF plugin on the fake SoapySDR device) and every tooltip and "(?)"
+  text, in EN/NL/FR/DE and the pseudo-language (`--language pseudo`: every text 40 % longer, in
+  brackets, accented), desktop and touch layout, dark and light theme, at 1280 x 720 (100 %) and
+  2560 x 1440 (100, 150, 200 %). Every text Dear ImGui draws is recorded (`text_probe.h`: the test
+  binary alone is linked with `--wrap` on `ImDrawList::AddText` and `ImFont::RenderChar`; Dear ImGui is
+  not changed) and fails the test when it is clipped by its control, table column or window (unless
+  that window scrolls that way), runs past the screen or its control, overlaps another text or
+  control, or is shortened with "..." without its whole text in the tooltip. A failure names the
+  language, layout, theme, size, scale, place, window, item, text and the pixels, and saves a PNG of
+  the frame with the text outlined (`build/tests/app/scratch/test_app_overflow/tst52_shots`). The
+  reports' half renders the demo's coverage report in every language and the pseudo-language:
+  `report::PdfOptions::layout_issues` notes any PDF text past its cell, column, axis or the page, over
+  another text or cut inside a word; the HTML style sheet must let words wrap. Known exceptions go in
+  `tests/app/overflow/exceptions.txt` with a reason; the list is empty (a test checks it).
 - The side panel's pages (`panel.layers/edit/walk/map/survey/post`) are a wrapping row of buttons, not
   tabs, so their labels stay readable on narrow and touch layouts.
 

@@ -101,11 +101,11 @@ void Gui::draw_tour_body(const TourView& v, bool strip) {
                      : v.done ? tr("Go on to the next step.")
                               : tr("Go on without doing this step (it is marked skipped)."),
                      can_next, tr("Choose an example building first."));
-    ImGui::SameLine();
+    same_line_if(label_w(tr("Leave###tour.leave")));
     if (ImGui::Button(tr("Leave###tour.leave"), ImVec2(0.0F, target_h()))) tour.leave();
     text_tooltip(tr("Close the tour. Help > Tour opens it again at this step."));
     if (!strip) {
-        ImGui::SameLine();
+        same_line_if(label_w(tr("Help###tour.help")));
         if (ImGui::Button(tr("Help###tour.help"), ImVec2(0.0F, target_h()))) (void)state_.open_help(v.help);
         text_tooltip(trf("Open the user manual at {}", {v.help}).c_str());
     }
@@ -119,7 +119,7 @@ void Gui::draw_tour() {
     if (state_.dialog() != Dialog::None) return;
     const TourView v = tour.view();
     const ImGuiViewport* vp = ImGui::GetMainViewport();
-    const float w = std::min(px(440.0F), vp->WorkSize.x * 0.45F);
+    const float w = std::min(em(440.0F), vp->WorkSize.x * 0.45F);
     ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + vp->WorkSize.x - w - 12.0F, vp->WorkPos.y + 12.0F), ImGuiCond_Appearing);
     ImGui::SetNextWindowSize(ImVec2(w, 0.0F), ImGuiCond_Always);
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse |
