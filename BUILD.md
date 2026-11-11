@@ -5,9 +5,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Building Yantra
 
-Yantra builds and is tested on Linux (x86-64; arm64 in the nightly CI).
-The Windows build (MSYS2 UCRT64) is written down below but not yet tested:
-DEFERRED (Windows). [ARCHITECTURE.md](ARCHITECTURE.md) explains the
+Yantra builds and is tested on Linux (x86-64; arm64 in the nightly CI)
+and on Windows x64, cross-compiled on Linux and tested on Windows (section
+"Windows"). [ARCHITECTURE.md](ARCHITECTURE.md) explains the
 layers and targets; [CONTRIBUTING.md](CONTRIBUTING.md) the rules for
 changes.
 
@@ -276,8 +276,8 @@ installing it (control fields, contents, icons 16..512 equal to
 app finding its PDFium, no build-machine folder, home folder or git
 identity of the builder, no MAK plan); the ctest `package_deb` builds the
 package from the default tree with the documentation of `docs_build` and
-runs that check (offline). The Windows zip and NSIS installer are
-DEFERRED (Windows).
+runs that check (offline). The Windows zip and NSIS installer follow in
+step 13.9 of the build (section "Windows").
 
 ## Plugin folders (PLG-09)
 
@@ -316,19 +316,69 @@ and `windows.yml` (native MSYS2 UCRT64 with gcc, the second Windows check;
 written but not run). The workflows are YAML-linted locally; they have
 never run (no remote).
 
-## Windows (MSYS2 UCRT64) - not yet tested, DEFERRED (Windows)
+## Windows (OA-02, HW-06)
 
-These steps are how the Windows build is meant to run; they have not been
-run yet. The code keeps platform parts behind small interfaces
-(`core/src/platform`). In a UCRT64 shell:
+Windows x64 (UCRT) is cross-compiled on Linux with clang from the cross
+SDK of the yantra-radios submodule (RAD-139) and Yantra's own lock of
+MSYS2 UCRT64 packages, `tools/windows/msys2.lock` (GLFW, SQLite, zstd,
+libcurl with Windows' own TLS, libharu and what they need; Mesa for the
+tests only). Make the SDK with both locks once (downloads checked by
+SHA-256 and signature, nothing installed in the system):
+
+    export YANTRA_SDK_DIR=~/yantra-sdk
+    python3 third_party/yantra-radios/tools/sdk/yantra_sdk.py make --msys2-lock tools/windows/msys2.lock
+
+(`python3 tools/windows/update_msys2_lock.py` pins today's packages; then
+make the SDK again.) PDFium comes from its pinned Windows release
+(`pdfium-win-x64.tgz`, cmake/YantraPdfium.cmake). The Windows tree takes
+its build-time data (the demo projects, the TST-10 record files) from a
+Linux tree of the same sources, `YANTRA_HOST_BUILD_DIR` (default `build`),
+so build that first:
+
+    cmake --preset default && ninja -C build
+    cmake --preset windows && ninja -C build-win     # ci-windows: warnings are errors
+
+`build-win/bin` gets the programs, the tests and the DLLs they import
+(`tools/windows/copy_dlls.py`, list in `bin/yantra-dlls.txt`), plus Mesa's
+`opengl32.dll` (llvmpipe) so the tests render off-screen on a machine
+without OpenGL 3 (the test VM's display adapter); the packages (step 13.9)
+use the system's OpenGL. The radio plugins are the submodule's
+self-contained `.dll` in `lib/yantra/plugins/radios`. User folders on
+Windows: `%APPDATA%/Yantra` (settings, data, calibration table, plugins in
+`%APPDATA%/Yantra/plugins`), `%LOCALAPPDATA%/Yantra` (caches).
+
+The tree's ctest runs on Windows (no emulator). Checks of the sources and
+of the build machine's tools (lints, Doxygen, docs, header checks) carry
+the label `build_host`: they skip on Windows and run on Linux with
+
+    ctest --test-dir build-win -L build_host
+
+The Windows test VM (the owner's onair-wintest VirtualBox VM; `status`
+first, it must be powered off) runs the rest; the tests start programs
+that are not on their command lines (the radio tools, the app), so push
+every program with `--all`:
+
+    ~/onair/OnAir.Claude/.claude/skills/onair-wintest/wintest.sh status
+    ~/onair/OnAir.Claude/.claude/skills/onair-wintest/wintest.sh test ~/yantra/build-win --all -LE timing
+    ~/onair/OnAir.Claude/.claude/skills/onair-wintest/wintest.sh test ~/yantra/build-win --all -L timing -j 1
+
+Results land in `build-win/wintest-results/<time>/` (junit.xml,
+LastTest.log). Tests that check Linux-only things are registered as
+skipped with the reason (label `skipped`): the X11/Wayland/WSL launch
+checks (`app_launch_win32` and `app_screenshot_start` check the Windows
+start and an off-screen screenshot), the plugin template build (needs the
+compiler and the kit on one machine). The crash cases of the project file
+and the recordings (a writer killed with SIGKILL, fork) and PDFium's
+operator new check are compiled out on Windows. File names with
+characters outside the system code page are not yet checked on Windows.
+
+The native MSYS2 UCRT64 build (gcc, `windows.yml` in CI) stays a second
+check; MSYS2 is not installed on the test machine, so it has not been run
+locally. In a UCRT64 shell:
 
     pacman -S git mingw-w64-ucrt-x86_64-{gcc,cmake,ninja,pkgconf,python,rust} \
-              mingw-w64-ucrt-x86_64-{sqlite3,zstd,libharu,glfw,curl}
+              mingw-w64-ucrt-x86_64-{sqlite3,zstd,libharu,glfw,curl-winssl}
     git submodule update --init --recursive
-    cmake --preset gcc                # MSYS2's gcc (the cross SDK is for Linux hosts)
+    cmake --preset gcc
     cmake --build build-gcc
     ctest --test-dir build-gcc -LE 'slow|timing'
-
-Open Windows items: the radio plugins as `.dll` (yantra-radios RAD-131),
-a PDFium Windows archive, thread names (SetThreadDescription), the
-installer (NSIS) and the CI job in `windows.yml`.
