@@ -44,14 +44,14 @@ struct FileWriter::Io {
     ~Io() { ZSTD_freeCCtx(cctx); }
 };
 
-FileWriter::FileWriter(fs::path path, Compression compression)
-    : path_(std::move(path)), compression_(compression), max_pending_(kDefaultMaxPendingBytes),
+FileWriter::FileWriter(fs::path path)
+    : path_(std::move(path)), max_pending_(kDefaultMaxPendingBytes),
       io_(std::make_unique<Io>()) {}
 
 FileWriter::~FileWriter() = default;
 
 std::unique_ptr<FileWriter> FileWriter::create(const fs::path& path, const Header& header, std::string& error) {
-    std::unique_ptr<FileWriter> w(new FileWriter(path, header.compression));
+    std::unique_ptr<FileWriter> w(new FileWriter(path));
     w->io_->file = platform::AppendFile::create_new(path, error);
     if (!w->io_->file.ok()) return nullptr;
     if (header.compression == Compression::Zstd) {

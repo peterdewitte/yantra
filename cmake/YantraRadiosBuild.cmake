@@ -30,11 +30,12 @@
 #   YANTRA_RADIOS_CACHE_DIR  where the bundled libraries of the radio
 #                            plugins are built once (tools/deps/
 #                            build_deps.sh of the submodule), in
-#                            deps-<submodule commit>; default
+#                            deps-<submodule commit>-<compiler>; default
 #                            <build>/radios-cache. Survives reconfigures;
 #                            point several trees at one folder to share it.
 #
-# The submodule build runs with the tree's compiler, build type,
+# The submodule build runs with the tree's compiler (its toolchain file,
+# e.g. the SDK's clang, or its compilers), build type,
 # YANTRA_SIMD and YANTRA_SANITIZER (sanitizer trees build the bundled
 # libraries in-tree, instrumented, instead of from the cache), without its
 # tests. Yantra itself compiles no source of the submodule (RAD-26, HW-01).
@@ -145,17 +146,35 @@ endif()
 set(YANTRA_RADIOS_COMMIT_STAMP ${PROJECT_BINARY_DIR}/radios/commit.txt)
 file(CONFIGURE OUTPUT ${YANTRA_RADIOS_COMMIT_STAMP} CONTENT "${_yr_commit}\n")
 
+# The compiler (OA-02): the tree's toolchain file (clang from the cross
+# SDK of the submodule, RAD-139, with its SDK folder) or, without one, the
+# tree's compilers (the gcc tree). The bundled libraries are built with
+# the same compiler (tools/deps/build_deps.sh reads CC/CXX or
+# CMAKE_TOOLCHAIN_FILE from the environment); their cache folder is per
+# compiler, so a gcc and a clang tree can share YANTRA_RADIOS_CACHE_DIR.
+if(CMAKE_TOOLCHAIN_FILE)
+  set(_yr_compiler -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE})
+  set(_yr_deps_env CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE})
+  if(YANTRA_SDK_DIR)
+    list(APPEND _yr_compiler -DYANTRA_SDK_DIR=${YANTRA_SDK_DIR})
+    list(APPEND _yr_deps_env YANTRA_SDK_DIR=${YANTRA_SDK_DIR})
+  endif()
+else()
+  set(_yr_compiler -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER} -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER})
+  set(_yr_deps_env CC=${CMAKE_C_COMPILER} CXX=${CMAKE_CXX_COMPILER})
+endif()
+string(TOLOWER "${CMAKE_CXX_COMPILER_ID}-${CMAKE_CXX_COMPILER_VERSION}" _yr_compiler_tag)
+
 set(_yr_args
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-  -DCMAKE_C_COMPILER=${CMAKE_C_COMPILER}
-  -DCMAKE_CXX_COMPILER=${CMAKE_CXX_COMPILER}
+  ${_yr_compiler}
   -DYANTRA_RADIOS_BUILD_TESTS=OFF
   -DYANTRA_SIMD=${YANTRA_SIMD}
   -DYANTRA_SANITIZER=${YANTRA_SANITIZER}
   -DYANTRA_WERROR=${YANTRA_WERROR})
 set(_yr_depends)
 if(YANTRA_SANITIZER STREQUAL "")
-  set(YANTRA_RADIOS_DEPS_PREFIX ${YANTRA_RADIOS_CACHE_DIR}/deps-${_yr_commit})
+  set(YANTRA_RADIOS_DEPS_PREFIX ${YANTRA_RADIOS_CACHE_DIR}/deps-${_yr_commit}-${_yr_compiler_tag})
   ExternalProject_Add(yantra_radios_deps
     SOURCE_DIR ${YANTRA_RADIOS_DIR}
     BINARY_DIR ${PROJECT_BINARY_DIR}/radios/deps-step
@@ -163,7 +182,8 @@ if(YANTRA_SANITIZER STREQUAL "")
     UPDATE_COMMAND ""
     CONFIGURE_COMMAND ""
     # Returns at once while the prefix's stamp matches the sources.
-    BUILD_COMMAND ${YANTRA_BASH} ${YANTRA_RADIOS_DIR}/tools/deps/build_deps.sh
+    BUILD_COMMAND ${CMAKE_COMMAND} -E env ${_yr_deps_env}
+                  ${YANTRA_BASH} ${YANTRA_RADIOS_DIR}/tools/deps/build_deps.sh
                   ${YANTRA_RADIOS_DEPS_PREFIX}
     BUILD_ALWAYS ON
     INSTALL_COMMAND ""

@@ -33,6 +33,12 @@ own changes are in its CHANGELOG.md.
   neighbour of another network or location area is found in the cell
   database by its own MCC, MNC and LA.
 
+### Building
+
+- clang from the cross SDK of yantra-radios is the default compiler of
+  every build tree; gcc is the second Linux tree (preset `gcc`). CI builds
+  both (BUILD.md).
+
 ## [0.1.0] - 2026-11-09
 
 The first release of Yantra (version of the CMake project, 0.1.0; git tag

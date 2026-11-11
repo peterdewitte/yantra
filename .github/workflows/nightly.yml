@@ -4,8 +4,9 @@
 # Full CI, nightly and before a release (TST-03, TST-05): every test
 # including slow and opt-in, the scalar build without SIMD and without the
 # app (same results), the ASan+UBSan and TSan builds (without the label
-# timing: the sanitizer trees run far slower than real time) and Linux
-# arm64.
+# timing: the sanitizer trees run far slower than real time), all with
+# clang from the cross SDK of the yantra-radios submodule (OA-02,
+# RAD-139), the gcc tree, and Linux arm64 with gcc (the SDK is x86-64).
 # Adapted from yantra-radios fb194f5: .github/workflows/ci-full.yml.
 
 name: nightly
@@ -19,19 +20,23 @@ on:
 permissions:
   contents: read
 
+env:
+  SDK_KEY: yantra-sdk-${{ hashFiles('third_party/yantra-radios/tools/sdk/*.lock', 'third_party/yantra-radios/tools/sdk/yantra_sdk.py') }}
+
 jobs:
   full:
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-24.04,     name: x86-64, preset: ci,         skip_labels: "" }
-          - { os: ubuntu-24.04,     name: scalar, preset: ci-scalar,  skip_labels: "" }
+          - { os: ubuntu-24.04,     name: x86-64, preset: ci,         sdk: true,  skip_labels: "" }
+          - { os: ubuntu-24.04,     name: scalar, preset: ci-scalar,  sdk: true,  skip_labels: "" }
           # PLG-01: everything without the probe and the TETRA terminal plugin.
-          - { os: ubuntu-24.04,     name: plugins-off, preset: ci-plugins-off, skip_labels: "" }
-          - { os: ubuntu-24.04,     name: asan,   preset: asan-ubsan, skip_labels: timing }
-          - { os: ubuntu-24.04,     name: tsan,   preset: tsan,       skip_labels: timing }
-          - { os: ubuntu-24.04-arm, name: arm64,  preset: ci,         skip_labels: "" }
+          - { os: ubuntu-24.04,     name: plugins-off, preset: ci-plugins-off, sdk: true, skip_labels: "" }
+          - { os: ubuntu-24.04,     name: asan,   preset: asan-ubsan, sdk: true,  skip_labels: timing }
+          - { os: ubuntu-24.04,     name: tsan,   preset: tsan,       sdk: true,  skip_labels: timing }
+          - { os: ubuntu-24.04,     name: gcc,    preset: ci-gcc,     sdk: false, skip_labels: "" }
+          - { os: ubuntu-24.04-arm, name: arm64,  preset: ci-gcc,     sdk: false, skip_labels: "" }
     runs-on: ${{ matrix.os }}
     name: full-${{ matrix.name }}
     steps:
@@ -43,9 +48,22 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             cmake ninja-build g++ python3 python3-yaml pipx libsqlite3-dev libzstd-dev libhpdf-dev pkg-config \
-            libglfw3-dev libgl-dev libcurl4-openssl-dev cargo rustc doxygen curl
+            libglfw3-dev libgl-dev libcurl4-openssl-dev cargo rustc doxygen curl gpg zstd
           pipx install reuse
+      - name: Cache the cross SDK (OA-02, RAD-139)
+        if: matrix.sdk
+        uses: actions/cache@v4
+        with:
+          path: sdk
+          key: ${{ env.SDK_KEY }}-${{ runner.os }}-${{ runner.arch }}
+      - name: Cross SDK (made from the submodule's lock files, else checked)
+        if: matrix.sdk
+        run: |
+          python3 third_party/yantra-radios/tools/sdk/yantra_sdk.py check --sdk-dir "$PWD/sdk" ||
+            python3 third_party/yantra-radios/tools/sdk/yantra_sdk.py make --sdk-dir "$PWD/sdk"
       - name: Configure
+        env:
+          YANTRA_SDK_DIR: ${{ matrix.sdk && format('{0}/sdk', github.workspace) || '' }}
         run: cmake --preset ${{ matrix.preset }} -B build-full
       - name: Build
         run: cmake --build build-full -j "$(nproc)"

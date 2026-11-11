@@ -42,10 +42,14 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build g++ python3 pkg-config libsqlite3-dev libzstd-dev libhpdf-dev \
+            cmake ninja-build python3 gpg zstd pkg-config libsqlite3-dev libzstd-dev libhpdf-dev \
             libglfw3-dev libgl-dev libcurl4-openssl-dev xvfb mesa-utils libgl1-mesa-dri
           cargo install oxipng --locked
+      - name: Cross SDK (clang, OA-02; made from the submodule's lock files)
+        run: python3 third_party/yantra-radios/tools/sdk/yantra_sdk.py make --sdk-dir "$PWD/sdk"
       - name: Configure and build the app
+        env:
+          YANTRA_SDK_DIR: ${{ github.workspace }}/sdk
         run: |
           cmake --preset ci
           cmake --build --preset ci -j "$(nproc)" --target yantra demo_fraunces

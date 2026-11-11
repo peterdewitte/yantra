@@ -18,10 +18,10 @@ package names (other distributions differ):
 
 | Needed for | Packages |
 |---|---|
-| build | `cmake` (3.20+), `ninja-build`, `g++` (C++20; gcc 13+) or `clang`, `pkg-config`, `python3`, `binutils` |
+| build | `cmake` (3.20+), `ninja-build`, `pkg-config`, `python3`, `binutils`; the compiler is clang from the cross SDK (below); `g++` (C++20; gcc 13+) for the second tree (`gcc`) |
 | core | `libsqlite3-dev` (SQLite 3.37+, the project file, IND-01), `libzstd-dev` (zstd 1.4+, compressed recordings, REC-03), `libhpdf-dev` (libharu 2.3+, PDF reports, EXP-05) |
 | desktop app (`YANTRA_BUILD_APP`, ON) | `libglfw3-dev` (GLFW 3.3+), `libgl-dev` (OpenGL 3), `libcurl4-openssl-dev` (libcurl 7.85+: MAK sheet download DEMO-12, sharing EXP-07) |
-| radio plugins (yantra-radios) | `cargo` and `rustc` (its protocol crate); its bundled libraries (SoapySDR, osmo-tetra, libusb, ...) are built from source, no package needed |
+| radio plugins (yantra-radios) | its protocol crate is built with the SDK's `cargo`/`rustc` (the gcc tree: the system's `cargo` and `rustc`); its bundled libraries (SoapySDR, osmo-tetra, libusb, ...) are built from source, no package needed |
 | tests | `python3-yaml` (YAML lint), `reuse` (`pipx install reuse`), `xvfb` and `libgl1-mesa-dri` (app launch and UI tests on software OpenGL; skipped without Xvfb) |
 | docs and screenshots | `doxygen` (plugin API reference), `pandoc` and `weasyprint` (`ninja docs`: HTML and PDF, DOC-20), `curl` (API examples, DOC-21), `oxipng` (`cargo install oxipng`, screenshot size), `ffmpeg` (program only: the animated captures, SCR-06) |
 | packaging | `dpkg-deb` (package `dpkg`, the .deb, NFR-09) |
@@ -32,10 +32,33 @@ CivetWeb, miniaudio, doctest and the yantra-radios submodule
 `-DYANTRA_BUILD_APP=OFF` builds the core, tools and plugins without any
 GUI library or libcurl.
 
+## Compiler: clang from the cross SDK (OA-02)
+
+Every tree except `gcc` is built with clang from ONE pinned LLVM release,
+the cross SDK of yantra-radios (RAD-139), used through the submodule: the
+presets set `CMAKE_TOOLCHAIN_FILE` to
+`third_party/yantra-radios/tools/sdk/toolchain-x86_64-linux-gnu-clang.cmake`
+(clang, lld, llvm-ar; the system's glibc and libstdc++; the SDK's rustc
+and cargo for the radio plugins' crate). The SDK is downloaded and
+checked from the submodule's lock files into a git-ignored folder; nothing
+is installed in the system:
+
+    python3 third_party/yantra-radios/tools/sdk/yantra_sdk.py make     # or: check
+    # it lands in third_party/yantra-radios/sdk; one SDK can serve several
+    # checkouts (e.g. that of yantra-radios itself):
+    export YANTRA_SDK_DIR=<folder of the SDK>
+
+The toolchain file finds the SDK in `-DYANTRA_SDK_DIR`, then
+`$YANTRA_SDK_DIR` (the presets pass it on and keep it in the cache), then
+`third_party/yantra-radios/sdk`, and refuses an SDK made from other lock
+files. The radio plugins and their bundled libraries are built with the
+same toolchain. gcc stays as a second Linux tree (preset `gcc`, below).
+Every tree builds without warnings.
+
 ## Default build
 
     git submodule update --init --recursive
-    cmake --preset default            # or: cmake -S . -B build -G Ninja
+    cmake --preset default            # clang from the SDK (above)
     ninja -C build
     ctest --test-dir build -j"$(nproc)"
 
@@ -63,7 +86,7 @@ Yantra itself has no radio code: the radio plugins come from the
 yantra-radios submodule (`third_party/yantra-radios`, pinned at a tagged
 release). `cmake/YantraRadiosBuild.cmake` builds the submodule as a build
 of its own (`build/radios/build`, without its tests, with the tree's
-compiler, build type, `YANTRA_SIMD` and `YANTRA_SANITIZER`) and copies the
+compiler (toolchain file or compilers), build type, `YANTRA_SIMD` and `YANTRA_SANITIZER`) and copies the
 shipped plugins (hackrf, simulator, soapysdr, pei) into the build tree's
 radio plugin folder `build/lib/yantra/plugins/radios/`. The radio API
 example plugin (beacon) and the fake-SDR test plugin go to
@@ -72,7 +95,7 @@ Yantra compiles no source of the submodule; only its `radio.h` header.
 
 The first build also builds the radio plugins' bundled libraries
 (yantra-radios `tools/deps/build_deps.sh`) once into
-`build/radios-cache/deps-<submodule commit>`. That folder survives
+`build/radios-cache/deps-<submodule commit>-<compiler>-<version>`. That folder survives
 reconfigures; a moved pin (another submodule commit checked out)
 reconfigures by itself and builds a new cache entry. Sanitizer trees build
 those libraries in their own radios build instead, instrumented.
@@ -112,20 +135,23 @@ presets of the same name). Never run two ctest runs in one tree at once.
 |---|---|---|
 | default (`build/`) | `cmake --preset default` | `ctest --test-dir build -j"$(nproc)"` |
 | scalar (`build-scalar/`) | `cmake --preset scalar` (`YANTRA_SIMD=OFF`, `YANTRA_BUILD_APP=OFF`) | `ctest --test-dir build-scalar -j"$(nproc)"` |
-| ASan + UBSan (`build-asan/`) | `cmake --preset asan-ubsan` (Debug) | `ctest --preset asan-ubsan -j4` (= `-LE timing`) |
-| TSan (`build-tsan/`) | `cmake --preset tsan` (Debug) | `ctest --preset tsan -j4` (= `-LE timing`) |
+| ASan + UBSan (`build-asan/`) | `cmake --preset asan-ubsan` (Debug) | `ctest --preset asan-ubsan -j"$(nproc)"` (= `-LE timing`) |
+| TSan (`build-tsan/`) | `cmake --preset tsan` (Debug) | `ctest --preset tsan -j"$(nproc)"` (= `-LE timing`) |
 | plugins off (`build-plugins-off/`) | `cmake --preset plugins-off` | `ctest --test-dir build-plugins-off -j"$(nproc)"` |
-| fuzz (any folder) | `CC=clang CXX=clang++ cmake -S . -B build-fuzz -G Ninja -DYANTRA_FUZZ=ON` | `ninja -C build-fuzz fuzz-all`, then run the targets |
-| CI | `cmake --preset ci` / `ci-scalar` / `ci-plugins-off` | as the trees above, warnings are errors |
+| gcc (`build-gcc/`) | `cmake --preset gcc` (the system's gcc, second tree) | `ctest --test-dir build-gcc -j"$(nproc)"` |
+| fuzz (`build-fuzz/`) | `cmake --preset fuzz` (clang + ASan/UBSan, `YANTRA_FUZZ=ON`) | `ninja -C build-fuzz fuzz-all`, then run the targets |
+| CI | `cmake --preset ci` / `ci-scalar` / `ci-plugins-off` / `ci-gcc` | as the trees above, warnings are errors |
 
 Notes:
 
 - The scalar tree must give the same results as the default tree
   (golden files, TST-03).
+- All trees but `gcc` use clang from the SDK (above); the `gcc` tree uses
+  the system's gcc and must pass the same tests.
 - The sanitizer trees run 5-60 times slower; their hang guards scale with
   `YANTRA_TEST_TIME_SCALE` (set by the tree) and the real-time tests
   (label `timing`) are left out. They need a lot of memory: on a machine
-  with 16 GB run them with `-j4`, one tree at a time.
+  with 16 GB run them with `-j4`, one tree at a time (32 GB: `-j"$(nproc)"`).
 - The plugins-off tree (`YANTRA_PLUGIN_PROBE=OFF`, `YANTRA_RADIOS_PEI=OFF`)
   is the PLG-01 check: the core, indoor and app suites pass without these
   plugins, and the ctest `plugins_off_check` makes sure neither is in the
@@ -204,7 +230,7 @@ machine they were built on (a home folder is personal data). The ctest
 when an installed file holds the source folder, the build folder or the
 builder's home folder. A debugger then needs the source folder:
 `directory <source>` or `set substitute-path . <source>` in gdb. The
-asan-ubsan tree is never installed (gcc's AddressSanitizer keeps full
+asan-ubsan tree is never installed (AddressSanitizer may keep full
 source paths).
 
 ## Install
@@ -277,13 +303,18 @@ installs the kit, the plugin headers and the out-of-tree plugin template
 
 ## CI
 
-`.github/workflows/`: `ci.yml` (every push: lint and `reuse lint`, Linux
-x86-64 build with warnings as errors, fast tests, sample report, timing
-tests retried once; the docs job builds `ninja docs` and keeps the site
-as an artifact, DOC-20), `nightly.yml` (default, scalar, plugins-off, asan,
-tsan and arm64 trees with all tests including slow and opt-in),
-`screenshots.yml` (the screenshot set as an artifact, SCR-04) and
-`windows.yml` (MSYS2 UCRT64, written but not run: DEFERRED (Windows)).
+`.github/workflows/`: `ci.yml` (every push: lint, `reuse lint` and the
+workflow files parsed with PyYAML; the Linux x86-64 build with clang from
+the cross SDK (cached by its lock files, with the radio plugins' bundled
+libraries) and warnings as errors, fast tests, sample report, timing tests
+retried once; a second job with gcc (`ci-gcc`); the docs job builds `ninja
+docs` and keeps the site as an artifact, DOC-20), `nightly.yml` (default,
+scalar, plugins-off, asan and tsan trees with clang from the SDK, the gcc
+tree, and arm64 with gcc (the SDK is x86-64), with all tests including slow
+and opt-in), `screenshots.yml` (the screenshot set as an artifact, SCR-04)
+and `windows.yml` (native MSYS2 UCRT64 with gcc, the second Windows check;
+written but not run). The workflows are YAML-linted locally; they have
+never run (no remote).
 
 ## Windows (MSYS2 UCRT64) - not yet tested, DEFERRED (Windows)
 
@@ -294,9 +325,9 @@ run yet. The code keeps platform parts behind small interfaces
     pacman -S git mingw-w64-ucrt-x86_64-{gcc,cmake,ninja,pkgconf,python,rust} \
               mingw-w64-ucrt-x86_64-{sqlite3,zstd,libharu,glfw,curl}
     git submodule update --init --recursive
-    cmake --preset default
-    cmake --build build
-    ctest --test-dir build -LE 'slow|timing'
+    cmake --preset gcc                # MSYS2's gcc (the cross SDK is for Linux hosts)
+    cmake --build build-gcc
+    ctest --test-dir build-gcc -LE 'slow|timing'
 
 Open Windows items: the radio plugins as `.dll` (yantra-radios RAD-131),
 a PDFium Windows archive, thread names (SetThreadDescription), the

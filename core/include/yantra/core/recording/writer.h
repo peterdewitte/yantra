@@ -93,9 +93,8 @@ public:
     std::uint64_t bytes_written() const;
 
 private:
-    FileWriter(std::filesystem::path path, Compression compression);
+    explicit FileWriter(std::filesystem::path path);
     std::filesystem::path path_;
-    Compression compression_;
     mutable std::mutex buffer_mutex_;  // pending lines, counters
     std::string pending_;
     std::size_t max_pending_ = 0;  // set in the constructor
