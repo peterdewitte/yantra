@@ -9,4 +9,5 @@
 include(GNUInstallDirs)
 add_executable(yantra-probe main.cpp)
 target_link_libraries(yantra-probe PRIVATE yantra::core yantra::json yantra::warnings Threads::Threads)
+yantra_windows_resources(yantra-probe DESCRIPTION "Yantra probe (headless measurement, remote API)")
 install(TARGETS yantra-probe RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

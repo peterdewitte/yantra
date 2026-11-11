@@ -15,6 +15,7 @@ target_link_libraries(yantra_plugin_kit
 
 add_executable(yantra-plugin-test main.cpp)
 target_link_libraries(yantra-plugin-test PRIVATE yantra_plugin_kit yantra::warnings)
+yantra_windows_resources(yantra-plugin-test DESCRIPTION "Yantra plugin test kit")
 
 include(GNUInstallDirs)
 install(TARGETS yantra-plugin-test RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})

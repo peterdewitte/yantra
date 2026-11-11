@@ -47,6 +47,7 @@ add_library(yantra_core STATIC
   src/measure/sample.cpp
   src/measure/self_interference.cpp
   src/measure/technology_map.cpp
+  src/platform/console.cpp
   src/platform/dynlib.cpp
   src/platform/process.cpp
   src/platform/thread_name.cpp

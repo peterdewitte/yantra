@@ -174,6 +174,9 @@ add_executable(yantra src/main.cpp src/stb_image_write_impl.c)
 target_include_directories(yantra SYSTEM PRIVATE ${PROJECT_SOURCE_DIR}/third_party/stb)
 target_link_libraries(yantra PRIVATE yantra::app_gui yantra::audio yantra::app_net yantra_imgui_backends yantra::core
                                      yantra::warnings)
+# Windows: the Yantra icon and version information; a windowed program
+# (BRD-06, NFR-09).
+yantra_windows_resources(yantra GUI DESCRIPTION "Yantra indoor TETRA coverage measurement")
 if(YANTRA_SANITIZER STREQUAL "asan-ubsan")
   # stb_image_write passes NULL with size 0 to memcpy (as stb_image, core/).
   set_source_files_properties(src/stb_image_write_impl.c PROPERTIES COMPILE_OPTIONS -fno-sanitize=nonnull-attribute)

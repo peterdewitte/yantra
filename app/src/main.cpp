@@ -36,6 +36,7 @@
 #include "yantra/app/cli.h"
 #include "yantra/app/data_paths.h"
 #include "yantra/core/calibration/table.h"
+#include "yantra/core/platform/console.h"
 #include "yantra/core/platform/dynlib.h"
 #include "yantra/core/plugin/folders.h"
 #include "yantra/app/settings.h"
@@ -173,6 +174,7 @@ void set_window_icon(GLFWwindow* window, const std::vector<fs::path>& data_folde
 }  // namespace
 
 int main(int argc, char** argv) {
+    yantra::platform::attach_parent_console();  // Windows: a GUI program (NFR-09)
     const auto& info = yantra::core::build_info();
     const app::ParseResult parsed = app::parse_command_line(std::vector<std::string>(argv + 1, argv + argc));
     if (!parsed.command_line) {

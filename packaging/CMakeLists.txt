@@ -5,11 +5,19 @@
 # `ninja deb` builds the documentation (DOC-02, `ninja docs`) and the .deb
 # from this build tree into <build>/package (dpkg-deb, no root; nothing is
 # installed on the system). The ctest package_deb builds and checks the
-# package offline from the documentation of docs_build. The Windows zip
-# and NSIS installer are DEFERRED (Windows). Default trees only: sanitizer
+# package offline from the documentation of docs_build. Windows: see
+# below (the icon, BRD-06). Default trees only: sanitizer
 # trees are never packaged, a tree without the app has nothing to ship, and
 # the package holds every shipped plugin (PLG-26), so a tree built without
 # the probe or pei plugin (PLG-01 check tree, plugins-off) makes none.
+if(WIN32 AND YANTRA_BUILD_TESTS)
+  # BRD-06: the Windows icon holds the logo PNGs as supplied.
+  add_test(NAME windows_icon
+           COMMAND ${YANTRA_BUILD_HOST_TEST} ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/windows/make_ico.py
+                   --png-dir ${PROJECT_SOURCE_DIR}/data/logo/png --check ${YANTRA_ICO})
+  set_tests_properties(windows_icon PROPERTIES LABELS "fast;package")
+  yantra_build_host_tests(windows_icon)
+endif()
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR NOT YANTRA_BUILD_APP OR NOT YANTRA_SANITIZER STREQUAL ""
    OR YANTRA_RADIOS_KIND STREQUAL "none" OR NOT YANTRA_PLUGIN_PROBE OR NOT YANTRA_RADIOS_PEI)
   return()

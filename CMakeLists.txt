@@ -123,6 +123,7 @@ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(YantraWarnings)
 include(YantraSanitizers)
 include(YantraPdfium)
+include(YantraWindowsResources)
 
 # Public plugin API headers: plugin.h (C ABI, PLG-03) and plugin.hpp (C++
 # helpers).
