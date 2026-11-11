@@ -14,7 +14,7 @@
 //     the project window shows it (the shared point list, IND-30) and its
 //     legend, the interpolated coverage map with its fit quality and the
 //     label "interpolated" (IND-41, IND-43), the floor statistics with
-//     "% of measured points" and "% of floor area (interpolated)" against
+//     "Share of measured points (%)" and "Share of floor area (interpolated) (%)" against
 //     the thresholds, the acceptance profiles on both bases with pass or
 //     fail, the RSSI histogram and CDF, per-cell statistics and the
 //     serving-cell changes; optionally the point list as a table;

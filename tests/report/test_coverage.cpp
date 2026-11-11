@@ -292,7 +292,8 @@ TEST_CASE("EXP-05/06 report content: statistics, cells, changes and acceptance o
     CHECK(contains(t, "rms "));
     CHECK(contains(t, "50.0 % of the measured points are at or above -95.0 dBm"));
     CHECK(contains(t, "Walk: FAIL"));
-    CHECK(contains(t, "% of floor area (interpolated)"));
+    CHECK(contains(t, "Share of measured points (%)"));  // IND-43: both shares, side by side
+    CHECK(contains(t, "Share of floor area (interpolated) (%)"));
     CHECK(contains(t, "1 serving-cell changes on this floor."));
     CHECK(contains(t, "test radio (fake)"));
     CHECK(contains(t, "Every neighbour relation is mutual."));  // the building's one cell

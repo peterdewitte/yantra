@@ -101,7 +101,7 @@ std::vector<SurveyPoint> points_in_area(const std::vector<SurveyPoint>& points, 
 ///   `square_percentile` is >= the threshold. Per floor (squares of
 ///   different floors never merge); without a scale a floor has no
 ///   squares.
-/// - FloorArea: "% of floor area (interpolated)" (IND-43): the cells of
+/// - FloorArea: "Share of floor area (interpolated) (%)" (IND-43): the cells of
 ///   the interpolated map on the floor with confidence >= min_confidence,
 ///   a cell counting when its interpolated value is >= the threshold.
 ///   Kept apart from the measured statistics: interpolation.h

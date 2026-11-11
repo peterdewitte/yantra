@@ -771,7 +771,8 @@ CoverageReport coverage_report(const project::Project& project, const CoverageOp
             if (!ps.empty()) k.rows.emplace_back(c.tr("Percentiles"), ps + " " + fu);
             d.key_values(std::move(k));
             TableBlock t;
-            t.header = {c.tr("Threshold"), c.tr("% of measured points"), c.tr(survey::kFloorAreaLabel)};
+            // IND-43: the same wording as the project window's figures, in every language.
+            t.header = {c.tr("Threshold"), c.tr("Share of measured points (%)"), c.tr("Share of floor area (interpolated) (%)")};
             t.numeric = {true, true, true};
             for (std::size_t i = 0; i < st.thresholds.size(); ++i) {
                 const survey::ThresholdShare& ts = st.thresholds[i];

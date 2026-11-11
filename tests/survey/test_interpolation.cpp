@@ -304,7 +304,7 @@ TEST_CASE("IND-45 stored interpolation: round trip, replace by key, staleness") 
     // Coverage summary: the measured points and the area side by side.
     const auto sum = ys::coverage_summary(*fx.p, *back, {-60.0});
     CHECK(sum.stale);
-    CHECK(sum.interpolated.label == "% of floor area (interpolated)");
+    CHECK(sum.interpolated.label == "Share of floor area (interpolated) (%)");
     CHECK(sum.fit.points == fx.pts.size());
     // A damaged row is reported, not guessed.
     auto raw = ys::to_stored(*r);
@@ -370,7 +370,7 @@ TEST_CASE("EXP-06 floor-area basis: hand-computed floor, two floors, the trim ou
     a.confidence = {1.0f, 1.0f, 0.6f, 0.4f, 1.0f, 0.5f, 0.49f, 0.0f};
     a.floor_cells = 7;
     auto s = ys::area_stats(a, {-72.0, -85.0});
-    CHECK(s.label == "% of floor area (interpolated)");
+    CHECK(s.label == "Share of floor area (interpolated) (%)");
     CHECK(s.floor_area_m2 == 7.0);
     CHECK(s.assessed_cells == 5);  // confidence >= 0.5
     CHECK(s.assessed_area_m2 == 5.0);

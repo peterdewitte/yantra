@@ -298,8 +298,8 @@ alpha = confidence), so unmeasured areas fade out.
   cell's value), the cell's model value and confidence, and the nearest
   measured point with its distance.
 - Statistics stay apart: the point statistics (`survey::coverage_stats`,
-  "% of measured points") count measured points only; the area
-  statistics (`survey::area_stats`, "% of floor area (interpolated)")
+  "Share of measured points (%)") count measured points only; the area
+  statistics (`survey::area_stats`, "Share of floor area (interpolated) (%)")
   give, per threshold, the share of the assessed area at or above it.
   The **floor area** is the grid cells whose centre lies on the floor:
   inside its trim outline (rectangle or polygon), else inside the plan

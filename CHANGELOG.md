@@ -41,6 +41,13 @@ own changes are in its CHANGELOG.md.
   calibrate it with the calibration wizard (practice calibration); the
   Walk page names the unit.
 
+### Reports
+
+- The statistics header says "Share of measured points (%)" next to
+  "Share of floor area (interpolated) (%)", in the report and on the Post
+  page alike, also in Dutch, French and German (IND-43). The sample report
+  is regenerated.
+
 ### Radio menu
 
 - The Radio menu lists every loaded radio plugin; a plugin without a

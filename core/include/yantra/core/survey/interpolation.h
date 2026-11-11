@@ -45,7 +45,7 @@ namespace yantra::survey {
 inline constexpr const char* kInterpolatedLabel = "interpolated";
 inline constexpr const char* kEstimatedSourcesLabel = "estimated sources";
 /// The label of the floor-area figures (IND-43, EXP-06).
-inline constexpr const char* kFloorAreaLabel = "% of floor area (interpolated)";
+inline constexpr const char* kFloorAreaLabel = "Share of floor area (interpolated) (%)";
 
 /// The model parameters of the project settings (frequency unset: each
 /// cell's carrier).
@@ -188,7 +188,7 @@ Readout readout(const Interpolation& interpolation, Point2 position_m);
 /// the scale's colour of the value, alpha = confidence * 255 (0xAARRGGBB).
 std::vector<std::uint32_t> cell_colours(const Interpolation& interpolation, const ColourScale& scale);
 
-/// "% of floor area (interpolated)" (IND-43): the share of the assessed
+/// "Share of floor area (interpolated) (%)" (IND-43): the share of the assessed
 /// area (cells on the floor with confidence >= min_confidence) at or above
 /// each threshold, kept apart from the point statistics.
 struct AreaShare {
@@ -221,8 +221,8 @@ InterpolatedAreaStats area_stats(const Interpolation& interpolation, const std::
 AcceptanceResult evaluate_area(const AcceptanceProfile& profile, const std::vector<const Interpolation*>& floors);
 
 /// Both figures side by side, as the report gives them (IND-43): the
-/// measured points of the same selection (point_list, "% of measured
-/// points") and the interpolated area.
+/// measured points of the same selection (point_list, "Share of measured
+/// points (%)") and the interpolated area.
 struct CoverageSummary {
     CoverageStats measured;
     InterpolatedAreaStats interpolated;

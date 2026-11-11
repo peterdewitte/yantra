@@ -199,7 +199,7 @@ the shared list:
     no squares, so the profile does not pass there. The result gives the
     tested squares and area in m².
 
-  - `FloorArea`: "% of floor area (interpolated)" (IND-43): the cells of
+  - `FloorArea`: "Share of floor area (interpolated) (%)" (IND-43): the cells of
     the interpolated map on the floor (inside its trim outline) with
     confidence >= `min_confidence` (default 0.5), a cell counting when
     its interpolated value is >= Y; over several floors the shares are

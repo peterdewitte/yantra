@@ -143,8 +143,10 @@ void Gui::draw_post_section() {
     ImGui::Text(tr("%zu points, %zu with a value"), v.stats.points, v.stats.with_value);
     ImGui::Text(tr("Median %s, min %s, max %s"), dbm(v.stats.median, v.stats.unit).c_str(),
                 dbm(v.stats.min, v.stats.unit).c_str(), dbm(v.stats.max, v.stats.unit).c_str());
+    // IND-43: the report's wording, per threshold "at or above".
+    if (!v.stats.thresholds.empty()) ImGui::TextUnformatted(tr("Share of measured points (%)"));
     for (const survey::ThresholdShare& t : v.stats.thresholds)
-        ImGui::Text(tr("%.1f %% of the points at or above %.1f"), t.percent_at_or_above, t.threshold);
+        ImGui::Text(">= %.1f %s: %.1f", t.threshold, v.stats.unit.c_str(), t.percent_at_or_above);
     if (v.classified) ImGui::Text(tr("%zu good, %zu bad (%.1f %% good)"), v.classified->good, v.classified->bad,
                                   v.classified->percent_good);
     ImGui::Text(tr("%zu serving cell changes"), v.serving_changes);

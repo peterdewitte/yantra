@@ -174,8 +174,9 @@ go through the caller's `translate` (the app's tr()). Content, in order:
   its label ("interpolated", "estimated sources"), fit quality (rms over
   the measured points, before the fit), grid and areas, and notes when it
   is stale or of another metric; the floor statistics (min, median, max,
-  means, percentiles) and a table of "% of measured points" next to "% of
-  floor area (interpolated)" per threshold, never mixed (IND-43); the
+  means, percentiles) and a table of "Share of measured points (%)" next
+  to "Share of floor area (interpolated) (%)" per threshold, never mixed
+  (IND-43; the same wording as the Post page's figures and in NL/FR/DE); the
   acceptance table; the histogram and CDF of the values with the
   threshold marked; per-cell statistics; the serving-cell changes per
   pair of cells; optionally the point list as a table.
