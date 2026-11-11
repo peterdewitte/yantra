@@ -126,7 +126,7 @@ struct FakeSoapy {
         control = fs::path(YANTRA_TEST_FAKE_SDR_CONTROL_DIR) / (std::to_string(getpid()) + "_" + name);
         fs::remove_all(control);
         fs::create_directories(control);
-        const std::string config = R"({"control":")" + control.string() +
+        const std::string config = R"({"control":")" + control.generic_string() +
                                    R"(","devices":[{"serial":"0000000000000000a1b2c3d4e5f60009","scenario":")" +
                                    YANTRA_TEST_FAKE_SDR_SCENARIO + R"(","paced":false}]})";
         REQUIRE(yantra::test::set_env("YANTRA_FAKE_SOAPY", config.c_str()) == 0);

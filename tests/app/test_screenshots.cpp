@@ -212,7 +212,7 @@ TEST_CASE("SCR-03: the HackRF plugin's generated radio windows on the fake Soapy
     // Unpaced: the device delivers the signal as fast as the receiver takes
     // it, so the debug window gets records under a sanitizer too (the
     // script uses the paced device on a normal build).
-    const std::string config = R"({"control":")" + control.string() +
+    const std::string config = R"({"control":")" + control.generic_string() +
                                R"(","devices":[{"serial":"0000000000000000a1b2c3d4e5f60009","scenario":")" +
                                YANTRA_TEST_FAKE_SDR_SCENARIO + R"(","paced":false}]})";
     REQUIRE(yantra::test::set_env("YANTRA_FAKE_SOAPY", config.c_str()) == 0);
@@ -223,7 +223,7 @@ TEST_CASE("SCR-03: the HackRF plugin's generated radio windows on the fake Soapy
                  CHECK(v.plugin.id.find("hackrf") != std::string::npos);
                  // No folder of this machine in the pictures (NFR-09).
                  CHECK(g.screenshot_mode());
-                 CHECK(Gui::shown_plugin_file(v.plugin.path, true) == "<plugins>/hackrf_fake.so");
+                 CHECK(Gui::shown_plugin_file(v.plugin.path, true) == std::string("<plugins>/hackrf_fake") + YANTRA_PLUGIN_SUFFIX);
                  CHECK(Gui::shown_plugin_file(v.plugin.path, false) == v.plugin.path.string());
              },
              fake);

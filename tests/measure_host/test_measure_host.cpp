@@ -236,7 +236,7 @@ TEST_CASE("measurement host: an LNA gain change selects the other calibration en
     const fs::path control = fs::path(FAKE_SDR_CONTROL_DIR) / std::to_string(getpid());
     fs::remove_all(control);
     fs::create_directories(control);
-    const std::string config = R"({"control":")" + control.string() + R"(","devices":[{"serial":")" + serial +
+    const std::string config = R"({"control":")" + control.generic_string() + R"(","devices":[{"serial":")" + serial +
                                R"(","scenario":")" + FAKE_SDR_SCENARIO + R"(","paced":false}]})";
     REQUIRE(yantra::test::set_env("YANTRA_FAKE_SOAPY", config.c_str()) == 0);
     struct Cleanup {
@@ -583,7 +583,7 @@ TEST_CASE("measurement host: without a radio C1 Yantra estimates it from the cal
     const fs::path control = fs::path(FAKE_SDR_CONTROL_DIR) / (std::to_string(getpid()) + "_c1");
     fs::remove_all(control);
     fs::create_directories(control);
-    const std::string config = R"({"control":")" + control.string() + R"(","devices":[{"serial":")" + serial +
+    const std::string config = R"({"control":")" + control.generic_string() + R"(","devices":[{"serial":")" + serial +
                                R"(","scenario":")" + FAKE_SDR_SCENARIO + R"(","paced":false}]})";
     REQUIRE(yantra::test::set_env("YANTRA_FAKE_SOAPY", config.c_str()) == 0);
     struct Cleanup {

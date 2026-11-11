@@ -65,7 +65,10 @@ struct Fake {
         std::string error;
         lib = yantra::platform::DynamicLibrary::open(FAKE_RADIO_PATH, error);
         REQUIRE_MESSAGE(lib, error);
-        ctl = reinterpret_cast<fake::ControlFn>(lib->symbol("fake_control", error))();
+        // A missing export is a failure, not a call through a null pointer.
+        const auto control = reinterpret_cast<fake::ControlFn>(lib->symbol("fake_control", error));
+        REQUIRE_MESSAGE(control != nullptr, error);
+        ctl = control();
         push = reinterpret_cast<fake::PushFn>(lib->symbol("fake_push", error));
         event = reinterpret_cast<fake::EventFn>(lib->symbol("fake_event", error));
         unplug = reinterpret_cast<fake::UnplugFn>(lib->symbol("fake_unplug", error));
@@ -673,7 +676,7 @@ TEST_CASE("radio host: an SDR unplugged and plugged in again is reopened and its
     fs::remove_all(control);
     fs::create_directories(control);
     // Unpaced: samples as fast as they are read (records, not timing).
-    const std::string config = R"({"control":")" + control.string() + R"(","devices":[{"serial":")" + serial +
+    const std::string config = R"({"control":")" + control.generic_string() + R"(","devices":[{"serial":")" + serial +
                                R"(","scenario":")" + FAKE_SDR_SCENARIO + R"(","paced":false}]})";
     REQUIRE(yantra::test::set_env("YANTRA_FAKE_SOAPY", config.c_str()) == 0);
     struct Cleanup {

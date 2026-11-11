@@ -11,6 +11,10 @@
 foreach(_v IN ITEMS 1 2)
   set(_t fake_radio_v${_v})
   add_library(${_t} MODULE fake_radio.cpp)
+  if(WIN32)
+    # YR_EXPORT is empty on Windows: the exports come from a .def file.
+    target_sources(${_t} PRIVATE fake_radio.def)
+  endif()
   target_link_libraries(${_t} PRIVATE yantra::radio_api yantra_warnings)
   target_compile_definitions(${_t} PRIVATE FAKE_API_MAJOR=${_v})
   set_target_properties(${_t} PROPERTIES PREFIX "" OUTPUT_NAME fake
