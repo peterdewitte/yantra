@@ -98,6 +98,16 @@ ys::Metric drawn_cell() {
 
 TEST_CASE("TST-10 simulator walk test: clicked segments give points at the interpolated positions with the levels the multi-wall model predicts; the recorded walk replays to the same points and statistics and loads into the viewer (IND-20, IND-30, GEO-02, RAD-19, REC-07, TST-34, PP-01)") {
     const fs::path dir = scratch_dir("walk");
+    // Removed after every object below is gone: the projects, the walk
+    // test and the simulator rig hold the project files open (Windows
+    // refuses to remove an open file).
+    struct RemoveAtEnd {
+        fs::path dir;
+        ~RemoveAtEnd() {
+            std::error_code ec;
+            fs::remove_all(dir, ec);
+        }
+    } remove_at_end{dir};
     std::string floor_id;
     auto project = office(dir / "live.yantra", floor_id);
     const yb::Building b = project->building();
@@ -373,5 +383,4 @@ TEST_CASE("TST-10 simulator walk test: clicked segments give points at the inter
     for (const json& c : sample["carriers"])
         neighbours += c["role"] == "neighbour" || c["role"] == "neighbour_entry" ? 1 : 0;
     CHECK(d.neighbours.size() == neighbours);
-    fs::remove_all(dir);
 }
