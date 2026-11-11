@@ -39,6 +39,7 @@
 #include "yantra/core/calibration/table.h"
 #include "yantra/core/measure/measurement_pipeline.h"
 #include "yantra/core/project/project.h"
+#include "test_platform.hpp"
 
 namespace fs = std::filesystem;
 namespace pj = yantra::project;
@@ -80,7 +81,7 @@ struct Rig {
     }
 };
 
-fs::path simulator() { return fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator.so"; }
+fs::path simulator() { return fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX; }
 fs::path test_plugin(const char* name) { return fs::path(YANTRA_TEST_RADIO_TEST_PLUGIN_DIR) / name; }
 
 /// Ticks the windows (as the UI does every frame) until `done` holds.
@@ -128,10 +129,10 @@ struct FakeSoapy {
         const std::string config = R"({"control":")" + control.string() +
                                    R"(","devices":[{"serial":"0000000000000000a1b2c3d4e5f60009","scenario":")" +
                                    YANTRA_TEST_FAKE_SDR_SCENARIO + R"(","paced":false}]})";
-        REQUIRE(setenv("YANTRA_FAKE_SOAPY", config.c_str(), 1) == 0);
+        REQUIRE(yantra::test::set_env("YANTRA_FAKE_SOAPY", config.c_str()) == 0);
     }
     ~FakeSoapy() {
-        unsetenv("YANTRA_FAKE_SOAPY");
+        yantra::test::unset_env("YANTRA_FAKE_SOAPY");
         std::error_code ec;
         fs::remove_all(control, ec);
     }
@@ -567,7 +568,7 @@ TEST_CASE("RAD-46: the device info window and the simulator's self-test; refused
 }
 
 TEST_CASE("PLG-16: the beacon example radio's windows from the same code (RAD-44, RAD-48)") {
-    Rig r("beacon", {test_plugin("beacon.so")});
+    Rig r("beacon", {test_plugin("beacon" YANTRA_PLUGIN_SUFFIX)});
     if (!r.ok) return;
     LiveSurvey live(r.project, r.paths);
     RadioWindows rw(live);
@@ -593,7 +594,7 @@ TEST_CASE("PLG-16: the beacon example radio's windows from the same code (RAD-44
 }
 
 TEST_CASE("PLG-16: the SoapySDR plugin's windows with the fake SoapySDR module (RAD-92)") {
-    Rig r("soapysdr", {test_plugin("soapysdr_fake.so")});
+    Rig r("soapysdr", {test_plugin("soapysdr_fake" YANTRA_PLUGIN_SUFFIX)});
     if (!r.ok || std::string(YANTRA_TEST_FAKE_SDR_SCENARIO).empty()) return;
     FakeSoapy fake("soapysdr");
     LiveSurvey live(r.project, r.paths);
@@ -602,7 +603,7 @@ TEST_CASE("PLG-16: the SoapySDR plugin's windows with the fake SoapySDR module (
 }
 
 TEST_CASE("DEMO-14, HW-01b: a real radio never uses a simulated (practice) calibration entry") {
-    Rig r("practice_real", {test_plugin("soapysdr_fake.so")});
+    Rig r("practice_real", {test_plugin("soapysdr_fake" YANTRA_PLUGIN_SUFFIX)});
     if (!r.ok || std::string(YANTRA_TEST_FAKE_SDR_SCENARIO).empty()) return;
     FakeSoapy fake("practice_real");
     LiveSurvey live(r.project, r.paths);
@@ -668,7 +669,7 @@ TEST_CASE("DEMO-14, HW-01b: a real radio never uses a simulated (practice) calib
 }
 
 TEST_CASE("PLG-16: the HackRF plugin's windows with the fake module; a WARNING setting asks first") {
-    Rig r("hackrf", {test_plugin("hackrf_fake.so")});
+    Rig r("hackrf", {test_plugin("hackrf_fake" YANTRA_PLUGIN_SUFFIX)});
     if (!r.ok || std::string(YANTRA_TEST_FAKE_SDR_SCENARIO).empty()) return;
     FakeSoapy fake("hackrf");
     LiveSurvey live(r.project, r.paths);
@@ -701,7 +702,7 @@ TEST_CASE("PLG-16: the HackRF plugin's windows with the fake module; a WARNING s
 // YANTRA_PEI_PORTS to its pseudo-terminal; skipped elsewhere.
 TEST_CASE("PLG-16: the PEI plugin's windows against the simulated terminal") {
     const char* ports = std::getenv("YANTRA_PEI_PORTS");
-    Rig r("pei", {fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "pei.so"});
+    Rig r("pei", {fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "pei" YANTRA_PLUGIN_SUFFIX});
     if (!r.ok || ports == nullptr || *ports == '\0') {
         MESSAGE("not under yantra-pei-sim (ctest test_app_live_pei runs it): skipped");
         return;

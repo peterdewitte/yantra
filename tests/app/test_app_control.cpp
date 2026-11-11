@@ -61,7 +61,7 @@ fs::path plugin_copy(const fs::path& dir, bool with_probe) {
     const fs::path folder = dir / "plugins";
     fs::create_directories(folder);
     for (const auto& e : fs::directory_iterator(YANTRA_TEST_TECH_PLUGIN_DIR))
-        if (e.is_regular_file() && e.path().extension() == ".so" && (with_probe || e.path().filename() != "probe.so"))
+        if (e.is_regular_file() && e.path().extension() == ".so" && (with_probe || e.path().filename() != "probe" YANTRA_PLUGIN_SUFFIX))
             fs::copy_file(e.path(), folder / e.path().filename());
     return folder;
 }
@@ -98,7 +98,7 @@ TEST_CASE("PLG-24 the probe plugin in the app: data folder, sound commands run o
     fs::remove_all(dir);
     const fs::path plugins = dir / "plugins";
     fs::create_directories(plugins);
-    fs::copy_file(fs::path(YANTRA_TEST_TECH_PLUGIN_DIR) / "probe.so", plugins / "probe.so");
+    fs::copy_file(fs::path(YANTRA_TEST_TECH_PLUGIN_DIR) / "probe" YANTRA_PLUGIN_SUFFIX, plugins / "probe" YANTRA_PLUGIN_SUFFIX);
     AppPaths p;
     p.settings_file = dir / "config" / "app.json";
     p.user_data = dir / "data";
@@ -144,8 +144,8 @@ TEST_CASE("PLG-02, API-02 the app's replay feeds the feature plugins, as the wal
     fs::remove_all(dir);
     const fs::path plugins = dir / "plugins";
     fs::create_directories(plugins);
-    fs::copy_file(fs::path(YANTRA_TEST_TECH_PLUGIN_DIR) / "tetra.so", plugins / "tetra.so");
-    fs::copy_file(YANTRA_TEST_FEATURE_PLUGIN, plugins / "ctest.so");
+    fs::copy_file(fs::path(YANTRA_TEST_TECH_PLUGIN_DIR) / "tetra" YANTRA_PLUGIN_SUFFIX, plugins / "tetra" YANTRA_PLUGIN_SUFFIX);
+    fs::copy_file(YANTRA_TEST_FEATURE_PLUGIN, plugins / "ctest" YANTRA_PLUGIN_SUFFIX);
     AppPaths p;
     p.settings_file = dir / "config" / "app.json";
     p.data_folders = {fs::path(YANTRA_TEST_DEMO_PROJECT).parent_path().parent_path().parent_path()};

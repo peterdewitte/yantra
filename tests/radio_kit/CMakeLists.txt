@@ -8,17 +8,17 @@
 # <build>/tests/radio_kit/<plugin>.json. Without radio plugins
 # (YANTRA_BUILD_RADIOS=OFF) or without the host program (a prebuilt package
 # without it) there is nothing to check.
-set(_host ${YANTRA_RADIOS_STAGE}/bin/yantra-radio-host)
+set(_host ${YANTRA_RADIOS_STAGE}/bin/yantra-radio-host${CMAKE_EXECUTABLE_SUFFIX})
 if(YANTRA_RADIOS_KIND STREQUAL "none" OR
    (YANTRA_RADIOS_KIND STREQUAL "prebuilt" AND NOT EXISTS ${_host}))
   return()
 endif()
 set(_plugins)
 foreach(_p IN LISTS _yr_shipped)
-  list(APPEND _plugins ${_p} ${YANTRA_RADIO_PLUGIN_DIR}/${_p}.so)
+  list(APPEND _plugins ${_p} ${YANTRA_RADIO_PLUGIN_DIR}/${_p}${YANTRA_RADIO_PLUGIN_SUFFIX})
 endforeach()
 if(YANTRA_RADIOS_KIND STREQUAL "build")
-  list(APPEND _plugins beacon ${YANTRA_RADIO_TEST_PLUGIN_DIR}/beacon.so)
+  list(APPEND _plugins beacon ${YANTRA_RADIO_TEST_PLUGIN_DIR}/beacon${YANTRA_RADIO_PLUGIN_SUFFIX})
 endif()
 while(_plugins)
   list(POP_FRONT _plugins _name _file)

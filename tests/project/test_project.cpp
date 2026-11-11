@@ -31,8 +31,13 @@
 #include <thread>
 #include <vector>
 
+#if !defined(_WIN32)
+// The crash cases kill a fork()ed writer with SIGKILL: Linux only. On
+// Windows they are compiled out (the same check there needs a child test
+// process killed with TerminateProcess; BUILD.md "Windows").
 #include <sys/wait.h>
 #include <unistd.h>
+#endif
 
 namespace fs = std::filesystem;
 namespace pj = yantra::project;
@@ -992,6 +997,7 @@ TEST_CASE("project: one instance at a time; the lock goes with the process") {
         p->close();
         auto again = pj::Project::open(file);  // released by close
     }
+#if !defined(_WIN32)  // fork() and SIGKILL: Linux only (see the includes)
     // Another process holds it, then dies without closing.
     int ready[2];
     REQUIRE(::pipe(ready) == 0);
@@ -1018,8 +1024,10 @@ TEST_CASE("project: one instance at a time; the lock goes with the process") {
     ::close(ready[0]);
     auto p = pj::Project::open(file);
     CHECK(p->check().empty());
+#endif
 }
 
+#if !defined(_WIN32)
 TEST_CASE("project: a writer killed in the middle leaves a project with whole changes") {
     const fs::path dir = scratch("crash");
     const fs::path file = dir / "c.yantra";
@@ -1117,6 +1125,7 @@ TEST_CASE("project: a save_as killed in the middle never leaves half a file unde
     }
     CHECK(opened >= 4);  // the original and the reported copies
 }
+#endif  // !_WIN32
 
 TEST_CASE("project: calls from several threads are serialised") {
     const fs::path dir = scratch("threads");

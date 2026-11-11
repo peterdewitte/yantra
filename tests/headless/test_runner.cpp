@@ -27,7 +27,7 @@ fs::path scratch(const std::string& name) {
     return p;
 }
 
-bool have_simulator() { return fs::exists(fs::path(RADIO_PLUGIN_DIR) / "simulator.so"); }
+bool have_simulator() { return fs::exists(fs::path(RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX); }
 
 RunnerConfig demo_config(const fs::path& dir) {
     RunnerConfig c;

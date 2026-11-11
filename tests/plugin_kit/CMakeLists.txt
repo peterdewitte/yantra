@@ -67,11 +67,11 @@ yantra_kit_test(conformance_example_beacon EXIT 0 MATCH "PASS .*example_beacon"
        --golden ${_example_data}/beacon.golden.json --strict-translations
        --output ${_out}/example_beacon.out.json)
 yantra_kit_test(conformance_example_beacon_live EXIT 0 MATCH "pass  radio_schema: radio beacon"
-  LABELS slow REQUIRE_FILE ${YANTRA_RADIO_TEST_PLUGIN_DIR}/beacon.so
-  ARGS check --plugin ${_example} --radio ${YANTRA_RADIO_TEST_PLUGIN_DIR}/beacon.so --count 8
+  LABELS slow REQUIRE_FILE ${YANTRA_RADIO_TEST_PLUGIN_DIR}/beacon${YANTRA_RADIO_PLUGIN_SUFFIX}
+  ARGS check --plugin ${_example} --radio ${YANTRA_RADIO_TEST_PLUGIN_DIR}/beacon${YANTRA_RADIO_PLUGIN_SUFFIX} --count 8
        --timeout ${_kit_radio_wait} --strict-translations)
 yantra_kit_test(conformance_ctest EXIT 0 MATCH "PASS .*ctest"
-  ARGS check --plugin ${_ctest}/ctest_ok/ctest.so --records ${_data}/ctest.records.jsonl
+  ARGS check --plugin ${_ctest}/ctest_ok/ctest${CMAKE_SHARED_MODULE_SUFFIX} --records ${_data}/ctest.records.jsonl
        --golden ${_data}/ctest.golden.json --output ${_out}/ctest.out.json)
 
 # Negative cases: each must fail with its reason in the output.
@@ -88,34 +88,41 @@ yantra_kit_test(plugin_kit_refuses_slow EXIT 1 MATCH "fail  threading: .*compute
 yantra_kit_test(plugin_kit_refuses_settings EXIT 1 MATCH "fail  threading: .*settings_set refused on a measurement thread \\(PLG-07\\)"
   ARGS check --plugin $<TARGET_FILE:kit_broken_settings> ${_beacon_records})
 yantra_kit_test(plugin_kit_refuses_api_major EXIT 1 MATCH "fail  load: the plugin was"
-  ARGS check --plugin ${_ctest}/ctest_v2/ctest.so)
+  ARGS check --plugin ${_ctest}/ctest_v2/ctest${CMAKE_SHARED_MODULE_SUFFIX})
 yantra_kit_test(plugin_kit_refuses_no_entry EXIT 1 MATCH "fail  load: .*yantra_plugin_entry"
-  ARGS check --plugin ${_ctest}/ctest_noentry/ctest.so)
+  ARGS check --plugin ${_ctest}/ctest_noentry/ctest${CMAKE_SHARED_MODULE_SUFFIX})
 yantra_kit_test(plugin_kit_refuses_init_failure EXIT 1 MATCH "fail  load: the plugin was"
-  ARGS check --plugin ${_ctest}/ctest_initfail/ctest.so)
+  ARGS check --plugin ${_ctest}/ctest_initfail/ctest${CMAKE_SHARED_MODULE_SUFFIX})
 yantra_kit_test(plugin_kit_refuses_wrong_technology EXIT 1
   MATCH "fail  radio_schema: wrong_technology.records.jsonl: technology 'other', the plugin's is 'ctest'"
-  ARGS check --plugin ${_ctest}/ctest_ok/ctest.so --records ${_data}/wrong_technology.records.jsonl)
+  ARGS check --plugin ${_ctest}/ctest_ok/ctest${CMAKE_SHARED_MODULE_SUFFIX} --records ${_data}/wrong_technology.records.jsonl)
 yantra_kit_test(plugin_kit_refuses_rogue_field EXIT 1
   MATCH "fail  radio_schema: .*the radio delivers 'rogue', which the technology schema lacks"
-  ARGS check --plugin ${_ctest}/ctest_ok/ctest.so --records ${_data}/rogue_field.records.jsonl)
+  ARGS check --plugin ${_ctest}/ctest_ok/ctest${CMAKE_SHARED_MODULE_SUFFIX} --records ${_data}/rogue_field.records.jsonl)
 yantra_kit_test(plugin_kit_refuses_golden_difference EXIT 1 MATCH "fail  golden: [0-9]+ differences"
-  ARGS check --plugin ${_ctest}/ctest_ok/ctest.so --records ${_data}/ctest.records.jsonl
+  ARGS check --plugin ${_ctest}/ctest_ok/ctest${CMAKE_SHARED_MODULE_SUFFIX} --records ${_data}/ctest.records.jsonl
        --golden ${_example_data}/beacon.golden.json)
 yantra_kit_test(plugin_kit_usage EXIT 2 MATCH "error: unknown command"
   ARGS frobnicate --plugin ${_example})
 
-add_test(NAME plugin_template
-  COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${PROJECT_SOURCE_DIR}
-          -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/template -DKIT=${_kit}
-          -DGENERATOR=${CMAKE_GENERATOR} -DC_COMPILER=${CMAKE_C_COMPILER}
-          -DCTEST=${CMAKE_CTEST_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/run_template.cmake)
-set_tests_properties(plugin_template PROPERTIES LABELS slow TIMEOUT 600)
+if(CMAKE_CROSSCOMPILING)
+  # The template is built with the tree's compiler and checked with its kit
+  # program: on the build machine the kit cannot run, on Windows there is
+  # no compiler. The Linux trees run it.
+  yantra_skip_test(plugin_template REASON "builds the plugin template with the cross compiler and runs the kit: needs both machines (the Linux trees run it)" LABELS slow)
+else()
+  add_test(NAME plugin_template
+    COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${PROJECT_SOURCE_DIR}
+            -DWORK_DIR=${CMAKE_CURRENT_BINARY_DIR}/template -DKIT=${_kit}
+            -DGENERATOR=${CMAKE_GENERATOR} -DC_COMPILER=${CMAKE_C_COMPILER}
+            -DCTEST=${CMAKE_CTEST_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/run_template.cmake)
+  set_tests_properties(plugin_template PROPERTIES LABELS slow TIMEOUT 600)
+endif()
 
 yantra_add_test_dir(plugin_kit LIBS yantra_plugin_kit)
 target_compile_definitions(test_plugin_kit PRIVATE
   KIT_EXAMPLE_PATH="$<TARGET_FILE:yantra_example_beacon>"
-  KIT_CTEST_PATH="${_ctest}/ctest_ok/ctest.so"
+  KIT_CTEST_PATH="${_ctest}/ctest_ok/ctest${CMAKE_SHARED_MODULE_SUFFIX}"
   KIT_IMPURE_PATH="$<TARGET_FILE:kit_broken_impure>")
 add_dependencies(test_plugin_kit yantra_example_beacon kit_broken_impure ctest_ok)
 
@@ -130,6 +137,7 @@ yantra_kit_test(conformance_tetra EXIT 0 MATCH "pass  neighbours: [0-9]+ entries
        --golden ${_tetra_data}/tetra.golden.json --strict-translations
        --output ${_out}/tetra.out.json)
 yantra_kit_test(conformance_tetra_live EXIT 0 MATCH "pass  radio_schema: radio simulator.*PASS .*tetra"
-  LABELS slow REQUIRE_FILE ${YANTRA_RADIO_PLUGIN_DIR}/simulator.so PROCESSORS 4
-  ARGS check --plugin ${_tetra} --radio ${YANTRA_RADIO_PLUGIN_DIR}/simulator.so --count 40
+  LABELS slow REQUIRE_FILE ${YANTRA_RADIO_PLUGIN_DIR}/simulator${YANTRA_RADIO_PLUGIN_SUFFIX} PROCESSORS 4
+  ARGS check --plugin ${_tetra} --radio ${YANTRA_RADIO_PLUGIN_DIR}/simulator${YANTRA_RADIO_PLUGIN_SUFFIX} --count 40
        --timeout ${_kit_radio_wait} --strict-translations)
+

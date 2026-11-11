@@ -38,7 +38,7 @@ std::string all(const std::vector<std::string>& errors) {
 
 // Parses and expects a refusal mentioning `needle`.
 void refused(const yantra_plugin_descriptor& d, const std::string& needle) {
-    const auto r = yp::parse_descriptor(&d, yp::host_api_version(), "test.so");
+    const auto r = yp::parse_descriptor(&d, yp::host_api_version(), "test" YANTRA_PLUGIN_SUFFIX);
     CHECK_FALSE(r.ok());
     INFO(all(r.errors));
     CHECK(all(r.errors).find(needle) != std::string::npos);
@@ -92,7 +92,7 @@ struct TechCopy {
 }  // namespace
 
 TEST_CASE("the C test plugin is accepted with all its tables") {
-    const auto r = yp::parse_descriptor(&c_plugin(), yp::host_api_version(), "ctest.so");
+    const auto r = yp::parse_descriptor(&c_plugin(), yp::host_api_version(), "ctest" YANTRA_PLUGIN_SUFFIX);
     INFO(all(r.errors));
     REQUIRE(r.ok());
     const yp::PluginInfo& p = *r.value;
@@ -137,15 +137,15 @@ TEST_CASE("API version: refused from the frozen prefix with a clear message (PLG
     yantra_plugin_descriptor d = c_plugin();
     const yantra_api_version host{1, 0};
     d.api_version = {2, 0};
-    auto r = yp::parse_descriptor(&d, host, "new.so");
+    auto r = yp::parse_descriptor(&d, host, "new" YANTRA_PLUGIN_SUFFIX);
     REQUIRE_FALSE(r.ok());
     REQUIRE(r.errors.size() == 1);
-    CHECK(r.errors[0].find("new.so") == 0);
+    CHECK(r.errors[0].find("new" YANTRA_PLUGIN_SUFFIX) == 0);
     CHECK(r.errors[0].find("plugin API 2.0") != std::string::npos);
     d.api_version = {1, 1};
-    r = yp::parse_descriptor(&d, host, "new.so");
+    r = yp::parse_descriptor(&d, host, "new" YANTRA_PLUGIN_SUFFIX);
     CHECK(all(r.errors).find("newer than") != std::string::npos);
-    CHECK_FALSE(yp::parse_descriptor(nullptr, host, "x.so").ok());
+    CHECK_FALSE(yp::parse_descriptor(nullptr, host, "x" YANTRA_PLUGIN_SUFFIX).ok());
 
     const auto major = yp::check_api_version({1, 4}, {2, 0}, "demo");
     CHECK(major.result == yp::ApiCompat::MajorMismatch);
@@ -252,7 +252,7 @@ TEST_CASE("technology table: bands, cell and neighbour schemas, links, rules (AP
     }
     {
         TechCopy c;  // the copy itself is still valid
-        const auto r = yp::parse_descriptor(&c.d, yp::host_api_version(), "copy.so");
+        const auto r = yp::parse_descriptor(&c.d, yp::host_api_version(), "copy" YANTRA_PLUGIN_SUFFIX);
         INFO(all(r.errors));
         CHECK(r.ok());
     }

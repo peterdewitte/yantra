@@ -40,12 +40,12 @@ using namespace yantra::app;
 using yantra::test::UiHarness;
 
 TEST_CASE("DEMO-14 in the app: the mouse survey with the simulator, move slowly, click to interpolate, Esc stops") {
-    const fs::path sim = fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator.so";
+    const fs::path sim = fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX;
     if (!fs::exists(sim) || !fs::exists(YANTRA_TEST_DEMO_PROJECT)) return;
     const fs::path d = fs::path(YANTRA_TEST_SCRATCH_DIR) / "live_ui";
     fs::remove_all(d);
     fs::create_directories(d / "radios");
-    fs::copy_file(sim, d / "radios" / "simulator.so");
+    fs::copy_file(sim, d / "radios" / "simulator" YANTRA_PLUGIN_SUFFIX);
     fs::copy_file(YANTRA_TEST_DEMO_PROJECT, d / "demo.yantra");
     AppPaths paths;
     paths.radios.plugin_folders = {YANTRA_TEST_TECH_PLUGIN_DIR};
@@ -133,12 +133,12 @@ TEST_CASE("DEMO-14 in the app: the mouse survey with the simulator, move slowly,
 }
 
 TEST_CASE("UI-01..04, UI-08, UI-11, REC-01, REC-05, REC-07, REC-08, REC-11 in the app: panels, graphs, status bar, recording and replay") {
-    const fs::path sim = fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator.so";
+    const fs::path sim = fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX;
     if (!fs::exists(sim) || !fs::exists(YANTRA_TEST_DEMO_PROJECT)) return;
     const fs::path d = fs::path(YANTRA_TEST_SCRATCH_DIR) / "survey_ui";
     fs::remove_all(d);
     fs::create_directories(d / "radios");
-    fs::copy_file(sim, d / "radios" / "simulator.so");
+    fs::copy_file(sim, d / "radios" / "simulator" YANTRA_PLUGIN_SUFFIX);
     fs::copy_file(YANTRA_TEST_DEMO_PROJECT, d / "demo.yantra");
     AppPaths paths;
     paths.radios.plugin_folders = {YANTRA_TEST_TECH_PLUGIN_DIR};
@@ -275,12 +275,12 @@ TEST_CASE("UI-01..04, UI-08, UI-11, REC-01, REC-05, REC-07, REC-08, REC-11 in th
 }
 
 TEST_CASE("DEMO-11 DEMO-14 the guided tour's mouse survey: Show me starts the simulator, move slowly, click to interpolate") {
-    const fs::path sim = fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator.so";
+    const fs::path sim = fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX;
     if (!fs::exists(sim)) return;
     const fs::path d = fs::path(YANTRA_TEST_SCRATCH_DIR) / "live_tour";
     fs::remove_all(d);
     fs::create_directories(d / "radios");
-    fs::copy_file(sim, d / "radios" / "simulator.so");
+    fs::copy_file(sim, d / "radios" / "simulator" YANTRA_PLUGIN_SUFFIX);
     AppPaths paths;
     paths.data_folders = {YANTRA_TEST_SOURCE_DATA_DIR};
     paths.user_data = d / "user";

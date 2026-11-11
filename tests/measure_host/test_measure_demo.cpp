@@ -227,7 +227,7 @@ TEST_CASE("DEMO-06 making the demo project again gives the same recordings and p
 }
 
 TEST_CASE("RAD-18 the simulator picks the Fraunces scenario by the floors' example ids; its levels at the walk points are the project's model (TST-36, DEMO-05)") {
-    const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator.so";
+    const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX;
     if (!fs::exists(path)) {
         MESSAGE("no simulator plugin built: skipped");
         return;
@@ -324,7 +324,7 @@ TEST_CASE("RAD-18 the simulator picks the Fraunces scenario by the floors' examp
 }
 
 TEST_CASE("DEMO-09 every demo scenario can be selected in the simulator and is the one that runs") {
-    const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator.so";
+    const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX;
     if (!fs::exists(path)) {
         MESSAGE("no simulator plugin built: skipped");
         return;

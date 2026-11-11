@@ -24,6 +24,7 @@
 #include "yantra/core/project/project.h"
 #include "yantra/core/report/document.h"
 #include "yantra/core/report/figure.h"
+#include "test_platform.hpp"
 
 namespace fs = std::filesystem;
 namespace yr = yantra::report;
@@ -421,14 +422,14 @@ TEST_CASE("EXP-05 report files: format by extension, atomic write, the assets fr
 TEST_CASE("EXP-05 SOURCE_DATE_EPOCH fixes the creation time") {
     const char* old = std::getenv("SOURCE_DATE_EPOCH");
     const std::string keep = old ? old : "";
-    ::unsetenv("SOURCE_DATE_EPOCH");
+    yantra::test::unset_env("SOURCE_DATE_EPOCH");
     CHECK(yr::creation_time(42) == 42);
-    ::setenv("SOURCE_DATE_EPOCH", "1793000000", 1);
+    yantra::test::set_env("SOURCE_DATE_EPOCH", "1793000000");
     CHECK(yr::creation_time(42) == kCreated);
-    ::setenv("SOURCE_DATE_EPOCH", "soon", 1);
+    yantra::test::set_env("SOURCE_DATE_EPOCH", "soon");
     CHECK(yr::creation_time(42) == 42);
-    if (old) ::setenv("SOURCE_DATE_EPOCH", keep.c_str(), 1);
-    else ::unsetenv("SOURCE_DATE_EPOCH");
+    if (old) yantra::test::set_env("SOURCE_DATE_EPOCH", keep.c_str());
+    else yantra::test::unset_env("SOURCE_DATE_EPOCH");
 }
 
 TEST_CASE("DEMO-12 a licence-restricted plan is drawn only from the user's cached unaltered copy, with its credit and licence") {

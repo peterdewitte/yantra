@@ -24,6 +24,7 @@
 #include "yantra/core/export/plugin_export.h"
 #include "yantra/core/export/table.h"
 #include "yantra/core/plugin/loader.h"
+#include "test_platform.hpp"
 
 using namespace survey_test;
 namespace yx = yantra::exports;
@@ -164,14 +165,14 @@ TEST_CASE("EXP-01 CSV: columns, separator, -999, neighbours, channel numbers, UT
     // Local time with its offset.
     const char* old_tz = std::getenv("TZ");
     const std::string saved = old_tz != nullptr ? old_tz : "";
-    setenv("TZ", "CET-1", 1);
+    yantra::test::set_env("TZ", "CET-1");
     tzset();
     CHECK(yx::format_time(r0.utc_ns, true) == "2026-10-26T08:33:21.000+01:00");
     yx::CsvOptions local;
     local.local_time = true;
     CHECK(yx::csv_layout(t.rows, local).header.front() == "time_local");
-    if (old_tz != nullptr) setenv("TZ", saved.c_str(), 1);
-    else unsetenv("TZ");
+    if (old_tz != nullptr) yantra::test::set_env("TZ", saved.c_str());
+    else yantra::test::unset_env("TZ");
     tzset();
 
     // A row without any value: -999 everywhere but the flags and the marker.

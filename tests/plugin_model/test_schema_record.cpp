@@ -26,7 +26,7 @@ const yp::Schema& cell_schema() {
         h.struct_size = sizeof h;
         h.api_version = yantra_api_version_compiled();
         const auto r =
-            yp::parse_descriptor(yantra_plugin_entry(&h), yp::host_api_version(), "ctest.so");
+            yp::parse_descriptor(yantra_plugin_entry(&h), yp::host_api_version(), "ctest" YANTRA_PLUGIN_SUFFIX);
         REQUIRE(r.ok());
         return r.value->technology->schemas[0];
     }();

@@ -20,7 +20,7 @@
 #include <yantra/plugin.h>
 
 /* The example's entry point, renamed. */
-const yantra_plugin_descriptor* example_beacon_entry(const yantra_host_api* host);
+YANTRA_PLUGIN_EXPORT const yantra_plugin_descriptor* example_beacon_entry(const yantra_host_api* host);
 #define yantra_plugin_entry example_beacon_entry
 #include "beacon_technology.c"
 #undef yantra_plugin_entry

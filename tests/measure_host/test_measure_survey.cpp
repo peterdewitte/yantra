@@ -108,7 +108,7 @@ TEST_CASE("TST-10 simulator walk test: clicked segments give points at the inter
         Rig rig{true};
         TetraPlugin tetra{rig};
     } sim;
-    const fs::path so = fs::path(RADIO_PLUGIN_DIR) / "simulator.so";
+    const fs::path so = fs::path(RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX;
     if (!fs::exists(so)) {
         MESSAGE("no simulator plugin built: skipped");
         return;

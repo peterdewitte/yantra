@@ -26,6 +26,7 @@
 #include "ui_harness.h"
 #include "yantra/app/app_state.h"
 #include "yantra/app/i18n.h"
+#include "test_platform.hpp"
 
 namespace fs = std::filesystem;
 namespace fx = yantra::plan::fixtures;
@@ -35,7 +36,7 @@ using yantra::test::UiHarness;
 namespace {
 
 bool available() {
-    return fs::exists(YANTRA_TEST_DEMO_PROJECT) && fs::exists(fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator.so");
+    return fs::exists(YANTRA_TEST_DEMO_PROJECT) && fs::exists(fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX);
 }
 
 /// Plays one scene to its capture; returns the harness's items of the
@@ -48,7 +49,7 @@ void play(const std::string& name, const std::function<void(UiHarness&, AppState
                        (name + "_" + language_key(language) + (sheet_folder ? "_folder" : ""));
     fs::remove_all(d);
     fs::create_directories(d / "radios");
-    fs::copy_file(fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator.so", d / "radios" / "simulator.so");
+    fs::copy_file(fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX, d / "radios" / "simulator" YANTRA_PLUGIN_SUFFIX);
     if (!radios_extra.empty()) fs::copy_file(radios_extra, d / "radios" / radios_extra.filename());
     AppPaths paths;
     // The demo project of the build tree (<build>/demo/fraunces), the
@@ -172,7 +173,7 @@ TEST_CASE("SCR-03: the screenshot scenes without a radio reach their capture") {
     });
     play("verification", [](UiHarness&, AppState& s, Gui&) { CHECK(s.network_windows().verification); });
     // The probe plugin's window (absent in a build without it, PLG-01 check).
-    if (fs::exists(fs::path(YANTRA_TEST_TECH_PLUGIN_DIR) / "probe.so"))
+    if (fs::exists(fs::path(YANTRA_TEST_TECH_PLUGIN_DIR) / "probe" YANTRA_PLUGIN_SUFFIX))
         play("remote_probes", [](UiHarness&, AppState& s, Gui&) {
             CHECK(s.plugin_ui().is_open("yantra.probe", "remote_probes"));
         });
@@ -203,7 +204,7 @@ TEST_CASE("SCR-03: the simulator's scenes: scanner, radio list and generated rad
 }
 
 TEST_CASE("SCR-03: the HackRF plugin's generated radio windows on the fake SoapySDR device (PLG-16)") {
-    const fs::path fake = fs::path(YANTRA_TEST_RADIO_TEST_PLUGIN_DIR) / "hackrf_fake.so";
+    const fs::path fake = fs::path(YANTRA_TEST_RADIO_TEST_PLUGIN_DIR) / "hackrf_fake" YANTRA_PLUGIN_SUFFIX;
     if (!available() || !fs::exists(fake) || std::string(YANTRA_TEST_FAKE_SDR_SCENARIO).empty()) return;
     const fs::path control = fs::path(YANTRA_TEST_FAKE_SDR_CONTROL_DIR) / (std::to_string(getpid()) + "_shots");
     fs::remove_all(control);
@@ -214,7 +215,7 @@ TEST_CASE("SCR-03: the HackRF plugin's generated radio windows on the fake Soapy
     const std::string config = R"({"control":")" + control.string() +
                                R"(","devices":[{"serial":"0000000000000000a1b2c3d4e5f60009","scenario":")" +
                                YANTRA_TEST_FAKE_SDR_SCENARIO + R"(","paced":false}]})";
-    REQUIRE(setenv("YANTRA_FAKE_SOAPY", config.c_str(), 1) == 0);
+    REQUIRE(yantra::test::set_env("YANTRA_FAKE_SOAPY", config.c_str()) == 0);
     for (const char* name : {"settings", "debug", "calibration", "info"})
         play(std::string("radio_hackrf_") + name,
              [](UiHarness&, AppState& s, Gui& g) {
@@ -226,6 +227,6 @@ TEST_CASE("SCR-03: the HackRF plugin's generated radio windows on the fake Soapy
                  CHECK(Gui::shown_plugin_file(v.plugin.path, false) == v.plugin.path.string());
              },
              fake);
-    unsetenv("YANTRA_FAKE_SOAPY");
+    yantra::test::unset_env("YANTRA_FAKE_SOAPY");
     fs::remove_all(control);
 }

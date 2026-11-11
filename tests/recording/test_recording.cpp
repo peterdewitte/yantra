@@ -25,9 +25,14 @@
 #include <string>
 #include <vector>
 
+#if !defined(_WIN32)
+// The crash case kills a fork()ed writer with SIGKILL: Linux only. On
+// Windows it is compiled out (the same check there needs a child test
+// process killed with TerminateProcess; BUILD.md "Windows").
 #include <poll.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#endif
 
 #include <yantra/core/measure/measurement_pipeline.h>
 #include <yantra/core/measure/sample.h>
@@ -713,6 +718,7 @@ TEST_CASE("recording: the player plays in real time and faster, pauses, stops an
     CHECK(r->mismatches() == 0);
 }
 
+#if !defined(_WIN32)
 TEST_CASE("recording: SIGKILL while recording leaves a readable file with every input up to the last durable one (REC-10)") {
     for (const rec::Compression comp : {rec::Compression::None, rec::Compression::Zstd}) {
         CAPTURE(static_cast<int>(comp));
@@ -787,6 +793,7 @@ TEST_CASE("recording: SIGKILL while recording leaves a readable file with every 
         CHECK(r->mismatches() == 0);
     }
 }
+#endif  // !_WIN32
 
 TEST_CASE("recording: a large recording (an hour of a three-carrier walk) writes, reads and replays (REC-02, REC-07)") {
     const fs::path dir = scratch("large");

@@ -19,6 +19,8 @@
 
 #include <yantra/core/plugin/folders.h>
 #include <yantra/core/plugin/loader.h>
+#include "test_platform.hpp"
+#include "yantra/core/platform/dynlib.h"
 
 namespace fs = std::filesystem;
 namespace yp = yantra::plugin;
@@ -58,25 +60,26 @@ fs::path fresh_dir(const std::string& name) {
 
 TEST_CASE("plugin folders: overrides, XDG, home and the application folder") {
     yp::FolderInputs in;
-    in.plugin_path_env = "/dev/plugins-a:relative/ignored:/dev/plugins-b";
-    in.xdg_data_home = "/xdg";
-    in.home = "/home/someone";
-    in.executable_dir = "/opt/yantra/bin";
+    const std::string sep(1, yantra::platform::path_list_separator());
+    in.plugin_path_env = yantra::test::kRoot + "/dev/plugins-a" + sep + "relative/ignored" + sep + yantra::test::kRoot + "/dev/plugins-b";
+    in.xdg_data_home = (yantra::test::kRoot + "/xdg");
+    in.home = (yantra::test::kRoot + "/home/someone");
+    in.executable_dir = (yantra::test::kRoot + "/opt/yantra/bin");
     yp::PluginFolders f = yp::plugin_folders(in);
     REQUIRE(f.plugins.size() == 4);
-    CHECK(f.plugins[0] == fs::path("/dev/plugins-a"));
-    CHECK(f.plugins[1] == fs::path("/dev/plugins-b"));
-    CHECK(f.user == fs::path("/xdg/yantra/plugins"));
-    CHECK(f.application == fs::path("/opt/yantra/lib/yantra/plugins"));
+    CHECK(f.plugins[0] == fs::path((yantra::test::kRoot + "/dev/plugins-a")));
+    CHECK(f.plugins[1] == fs::path((yantra::test::kRoot + "/dev/plugins-b")));
+    CHECK(f.user == fs::path((yantra::test::kRoot + "/xdg/yantra/plugins")));
+    CHECK(f.application == fs::path((yantra::test::kRoot + "/opt/yantra/lib/yantra/plugins")));
     CHECK(f.plugins[2] == f.user);
     CHECK(f.plugins[3] == f.application);
     REQUIRE(f.radios.size() == 4);
-    CHECK(f.radios[2] == fs::path("/xdg/yantra/plugins/radios"));
+    CHECK(f.radios[2] == fs::path((yantra::test::kRoot + "/xdg/yantra/plugins/radios")));
 
     in.xdg_data_home.clear();
-    CHECK(yp::plugin_folders(in).user == fs::path("/home/someone/.local/share/yantra/plugins"));
-    in.user_plugin_dir = "/tests/user";
-    CHECK(yp::plugin_folders(in).user == fs::path("/tests/user"));
+    CHECK(yp::plugin_folders(in).user == fs::path((yantra::test::kRoot + "/home/someone/.local/share/yantra/plugins")));
+    in.user_plugin_dir = (yantra::test::kRoot + "/tests/user");
+    CHECK(yp::plugin_folders(in).user == fs::path((yantra::test::kRoot + "/tests/user")));
     in = {};
     CHECK(yp::plugin_folders(in).plugins.empty());
 }
@@ -84,15 +87,15 @@ TEST_CASE("plugin folders: overrides, XDG, home and the application folder") {
 TEST_CASE("plugin folders: discovery lists only plugin files, sorted per folder") {
     const fs::path a = fresh_dir("discover/a");
     const fs::path b = fresh_dir("discover/b");
-    for (const char* n : {"z.so", "a.so", "notes.txt"}) std::ofstream(a / n) << "x";
+    for (const char* n : {"z" YANTRA_PLUGIN_SUFFIX, "a" YANTRA_PLUGIN_SUFFIX, "notes.txt"}) std::ofstream(a / n) << "x";
     fs::create_directories(a / "radios");
-    std::ofstream(a / "radios" / "r.so") << "x";
-    std::ofstream(b / "m.so") << "x";
+    std::ofstream(a / "radios" / "r" YANTRA_PLUGIN_SUFFIX) << "x";
+    std::ofstream(b / "m" YANTRA_PLUGIN_SUFFIX) << "x";
     const auto files = yp::discover_plugin_files({a, b, fs::path(LOADER_TMP_DIR) / "missing"});
     REQUIRE(files.size() == 3);
-    CHECK(files[0] == a / "a.so");
-    CHECK(files[1] == a / "z.so");
-    CHECK(files[2] == b / "m.so");
+    CHECK(files[0] == a / "a" YANTRA_PLUGIN_SUFFIX);
+    CHECK(files[1] == a / "z" YANTRA_PLUGIN_SUFFIX);
+    CHECK(files[2] == b / "m" YANTRA_PLUGIN_SUFFIX);
 }
 
 TEST_CASE("loader: the C test plugin loads, initialises and shuts down") {
@@ -132,7 +135,7 @@ TEST_CASE("loader: wrong API version, failing init, no entry, no library, duplic
     CHECK(noentry.status == yp::PluginStatus::Refused);
     CHECK(noentry.message.find("does not export 'yantra_plugin_entry'") != std::string::npos);
 
-    const fs::path bogus = fresh_dir("bogus") / "bogus.so";
+    const fs::path bogus = fresh_dir("bogus") / "bogus" YANTRA_PLUGIN_SUFFIX;
     std::ofstream(bogus) << "not a library";
     const yp::PluginEntry bad = loader.load_file(bogus);
     CHECK(bad.status == yp::PluginStatus::Refused);
@@ -327,7 +330,9 @@ TEST_CASE("loader: control and data_folder host services (plugin API 1.1)") {
     REQUIRE(host->data_folder(host->host, folder, sizeof folder, &len) == YANTRA_OK);
     CHECK(fs::path(folder) == root / "plugin-data" / "org.example.ctest");
     CHECK(fs::is_directory(folder));
+#if !defined(_WIN32)  // POSIX mode bits; Windows: the profile folder's permissions
     CHECK(fs::status(folder).permissions() == fs::perms::owner_all);
+#endif
     CHECK(host->data_folder(host->host, folder, 4, &len) == YANTRA_ERR_BUFFER_TOO_SMALL);
     CHECK(len == std::string((root / "plugin-data" / "org.example.ctest").string()).size());
 }

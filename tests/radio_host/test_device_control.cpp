@@ -30,7 +30,7 @@ struct Beacon {
     std::shared_ptr<yr::RadioDevice> dev;
     bool ok = false;
     Beacon() {
-        const fs::path path = fs::path(RADIO_TEST_PLUGIN_DIR) / "beacon.so";
+        const fs::path path = fs::path(RADIO_TEST_PLUGIN_DIR) / "beacon" YANTRA_PLUGIN_SUFFIX;
         if (!fs::exists(path)) return;
         yr::RadioHostConfig c;
         c.state = state;

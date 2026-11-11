@@ -71,11 +71,11 @@ struct Rig {
     RadioPaths paths;
     bool ok = false;
     explicit Rig(const std::string& name) {
-        const fs::path sim = fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator.so";
+        const fs::path sim = fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX;
         if (!fs::exists(sim) || !fs::exists(YANTRA_TEST_DEMO_PROJECT)) return;
         const fs::path d = scratch(name);
         fs::create_directories(d / "radios");
-        fs::copy_file(sim, d / "radios" / "simulator.so");
+        fs::copy_file(sim, d / "radios" / "simulator" YANTRA_PLUGIN_SUFFIX);
         fs::copy_file(YANTRA_TEST_DEMO_PROJECT, d / "demo.yantra");
         project = pj::Project::open(d / "demo.yantra");
         const bm::Building b = project->building();

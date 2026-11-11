@@ -75,7 +75,7 @@ TEST_CASE("example beacon: loads through the PluginLoader and matches its radio 
     }
 
     // The schemas the radio plugin itself declares.
-    const fs::path radio = fs::path(RADIO_TEST_PLUGIN_DIR) / "beacon.so";
+    const fs::path radio = fs::path(RADIO_TEST_PLUGIN_DIR) / "beacon" YANTRA_PLUGIN_SUFFIX;
     if (!fs::exists(radio)) {
         MESSAGE("no beacon radio plugin (prebuilt radio plugins): descriptor check skipped");
         return;

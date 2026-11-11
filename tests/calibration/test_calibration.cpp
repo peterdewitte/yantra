@@ -25,6 +25,7 @@
 #include <yantra/core/calibration/corrector.h>
 #include <yantra/core/calibration/table.h>
 #include <yantra/core/calibration/wizard.h>
+#include "test_platform.hpp"
 
 namespace yc = yantra::calibration;
 namespace ym = yantra::measure;
@@ -301,9 +302,9 @@ TEST_CASE("calibration: one entry as JSON and the UTC date text") {
 }
 
 TEST_CASE("calibration: the table lives in the user's data folder (decision 6.2)") {
-    CHECK(yc::default_table_path("/data/x", "/home/u") == fs::path("/data/x/yantra/calibration.json"));
-    CHECK(yc::default_table_path("relative", "/home/u") == fs::path("/home/u/.local/share/yantra/calibration.json"));
-    CHECK(yc::default_table_path("", "/home/u") == fs::path("/home/u/.local/share/yantra/calibration.json"));
+    CHECK(yc::default_table_path((yantra::test::kRoot + "/data/x"), (yantra::test::kRoot + "/home/u")) == fs::path((yantra::test::kRoot + "/data/x/yantra/calibration.json")));
+    CHECK(yc::default_table_path("relative", (yantra::test::kRoot + "/home/u")) == fs::path((yantra::test::kRoot + "/home/u/.local/share/yantra/calibration.json")));
+    CHECK(yc::default_table_path("", (yantra::test::kRoot + "/home/u")) == fs::path((yantra::test::kRoot + "/home/u/.local/share/yantra/calibration.json")));
     CHECK(yc::default_table_path("", "").empty());
 }
 

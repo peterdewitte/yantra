@@ -73,9 +73,11 @@ TEST_CASE("API-02 tokens: created owner-only, LAN token read access from LAN add
     std::string e;
     REQUIRE_MESSAGE(t.load_or_create(&e, &created), e);
     CHECK(created);
+#if !defined(_WIN32)  // mode bits: Linux; on Windows the profile folder's permissions apply
     struct stat st{};
     REQUIRE(::stat(t.path().c_str(), &st) == 0);
     CHECK((st.st_mode & 077) == 0);
+#endif
     const std::string owner = t.token();
     CHECK(owner.size() == 64);
     CHECK(t.check(owner, "203.0.113.5") == Access::Full);
@@ -91,10 +93,12 @@ TEST_CASE("API-02 tokens: created owner-only, LAN token read access from LAN add
     REQUIRE(again.load_or_create(&e, &created));
     CHECK_FALSE(created);
     CHECK(again.token() == t.token());
+#if !defined(_WIN32)
     ::chmod(t.path().c_str(), 0644);
     TokenStore open_file(t.path());
     CHECK_FALSE(open_file.load_or_create(&e));
     CHECK(e.find("chmod 600") != std::string::npos);
+#endif
 }
 
 TEST_CASE("API-02 the limiter and the Origin policy") {

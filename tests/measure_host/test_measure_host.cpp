@@ -16,6 +16,7 @@
 #include <doctest/doctest.h>
 
 #include "measure_rig.h"
+#include "test_platform.hpp"
 
 using namespace mh;
 
@@ -117,7 +118,7 @@ TEST_CASE("measurement host: an unplugged device's samples are flagged until it 
 }
 
 TEST_CASE("measurement host: the simulator end to end gives a serving sample every second (RF-01, TST-31)") {
-    const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator.so";
+    const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX;
     if (!fs::exists(path)) {
         MESSAGE("no simulator plugin built: skipped");
         return;
@@ -182,7 +183,7 @@ TEST_CASE("measurement host: the simulator end to end gives a serving sample eve
 }
 
 TEST_CASE("measurement host: beacon radio records map onto the example technology plugin's schema (PLG-05)") {
-    const fs::path path = fs::path(RADIO_TEST_PLUGIN_DIR) / "beacon.so";
+    const fs::path path = fs::path(RADIO_TEST_PLUGIN_DIR) / "beacon" YANTRA_PLUGIN_SUFFIX;
     if (!fs::exists(path)) {
         MESSAGE("no beacon plugin (prebuilt radio plugins): skipped");
         return;
@@ -226,7 +227,7 @@ TEST_CASE("measurement host: beacon radio records map onto the example technolog
 // CALIBRATION setting: changing it while streaming changes the calibration
 // key, and the records measured from then on get the other table entry.
 TEST_CASE("measurement host: an LNA gain change selects the other calibration entry (RF-02, HW-01b, TST-30)") {
-    const fs::path path = fs::path(RADIO_TEST_PLUGIN_DIR) / "soapysdr_fake.so";
+    const fs::path path = fs::path(RADIO_TEST_PLUGIN_DIR) / "soapysdr_fake" YANTRA_PLUGIN_SUFFIX;
     if (!fs::exists(path) || std::string(FAKE_SDR_SCENARIO).empty()) {
         MESSAGE("no soapysdr_fake plugin (YANTRA_RADIOS_FAKE_SDR off or prebuilt radio plugins): skipped");
         return;
@@ -237,11 +238,11 @@ TEST_CASE("measurement host: an LNA gain change selects the other calibration en
     fs::create_directories(control);
     const std::string config = R"({"control":")" + control.string() + R"(","devices":[{"serial":")" + serial +
                                R"(","scenario":")" + FAKE_SDR_SCENARIO + R"(","paced":false}]})";
-    REQUIRE(setenv("YANTRA_FAKE_SOAPY", config.c_str(), 1) == 0);
+    REQUIRE(yantra::test::set_env("YANTRA_FAKE_SOAPY", config.c_str()) == 0);
     struct Cleanup {
         fs::path dir;
         ~Cleanup() {
-            unsetenv("YANTRA_FAKE_SOAPY");
+            yantra::test::unset_env("YANTRA_FAKE_SOAPY");
             std::error_code ec;
             fs::remove_all(dir, ec);
         }
@@ -323,7 +324,7 @@ TEST_CASE("measurement host: an LNA gain change selects the other calibration en
 // makes gives the generator level back; a gain change makes it a key
 // without an entry again. The practice entry is marked simulated.
 TEST_CASE("measurement host: the simulator's practice calibration gives the generator level back (RAD-61, RF-02, TST-30)") {
-    const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator.so";
+    const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX;
     if (!fs::exists(path)) {
         MESSAGE("no simulator plugin built: skipped");
         return;
@@ -436,7 +437,7 @@ TEST_CASE("measurement host: the simulator's practice calibration gives the gene
 // no calibration table applies, even with an entry for its key; dBFS:
 // the table path as for an SDR, from the next record on.
 TEST_CASE("measurement host: the simulator in both level modes: dBm needs no calibration, dBFS takes the table (HW-01b, RAD-61)") {
-    const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator.so";
+    const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX;
     if (!fs::exists(path)) {
         MESSAGE("no simulator plugin built: skipped");
         return;
@@ -519,7 +520,7 @@ TEST_CASE("measurement host: the simulator in both level modes: dBm needs no cal
 }
 
 TEST_CASE("measurement host: simulator records map onto the TETRA plugin with the radio's C1 (PLG-11, RF-06)") {
-    const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator.so";
+    const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX;
     if (!fs::exists(path)) {
         MESSAGE("no simulator plugin built: skipped");
         return;
@@ -573,7 +574,7 @@ TEST_CASE("measurement host: simulator records map onto the TETRA plugin with th
 }
 
 TEST_CASE("measurement host: without a radio C1 Yantra estimates it from the calibrated level (RF-06, TST-30)") {
-    const fs::path path = fs::path(RADIO_TEST_PLUGIN_DIR) / "soapysdr_fake.so";
+    const fs::path path = fs::path(RADIO_TEST_PLUGIN_DIR) / "soapysdr_fake" YANTRA_PLUGIN_SUFFIX;
     if (!fs::exists(path) || std::string(FAKE_SDR_SCENARIO).empty()) {
         MESSAGE("no soapysdr_fake plugin (YANTRA_RADIOS_FAKE_SDR off or prebuilt radio plugins): skipped");
         return;
@@ -584,11 +585,11 @@ TEST_CASE("measurement host: without a radio C1 Yantra estimates it from the cal
     fs::create_directories(control);
     const std::string config = R"({"control":")" + control.string() + R"(","devices":[{"serial":")" + serial +
                                R"(","scenario":")" + FAKE_SDR_SCENARIO + R"(","paced":false}]})";
-    REQUIRE(setenv("YANTRA_FAKE_SOAPY", config.c_str(), 1) == 0);
+    REQUIRE(yantra::test::set_env("YANTRA_FAKE_SOAPY", config.c_str()) == 0);
     struct Cleanup {
         fs::path dir;
         ~Cleanup() {
-            unsetenv("YANTRA_FAKE_SOAPY");
+            yantra::test::unset_env("YANTRA_FAKE_SOAPY");
             std::error_code ec;
             fs::remove_all(dir, ec);
         }

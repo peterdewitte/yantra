@@ -194,7 +194,7 @@ AppPaths paths_with_tetra(const fs::path& dir) {
     fs::create_directories(p.home);
     const fs::path folder = dir / "plugins";
     fs::create_directories(folder);
-    fs::copy_file(fs::path(YANTRA_TEST_TECH_PLUGIN_DIR) / "tetra.so", folder / "tetra.so",
+    fs::copy_file(fs::path(YANTRA_TEST_TECH_PLUGIN_DIR) / "tetra" YANTRA_PLUGIN_SUFFIX, folder / "tetra" YANTRA_PLUGIN_SUFFIX,
                   fs::copy_options::overwrite_existing);
     p.radios.plugin_folders = {folder};
     p.radios.plugin_state = dir / "config" / "plugin_state.json";

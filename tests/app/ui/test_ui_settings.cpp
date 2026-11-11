@@ -38,7 +38,7 @@ AppPaths paths_with_beacon(const fs::path& dir) {
     p.data_folders = {YANTRA_TEST_SOURCE_DATA_DIR};
     const fs::path folder = dir / "plugins";
     fs::create_directories(folder);
-    fs::copy_file(fs::path(YANTRA_TEST_EXAMPLE_PLUGIN_DIR) / "example_beacon.so", folder / "example_beacon.so",
+    fs::copy_file(fs::path(YANTRA_TEST_EXAMPLE_PLUGIN_DIR) / "example_beacon" YANTRA_PLUGIN_SUFFIX, folder / "example_beacon" YANTRA_PLUGIN_SUFFIX,
                   fs::copy_options::overwrite_existing);
     p.radios.plugin_folders = {folder};
     p.radios.plugin_state = dir / "config" / "plugin_state.json";

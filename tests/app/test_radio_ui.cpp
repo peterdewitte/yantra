@@ -32,6 +32,7 @@
 #include "ui_harness.h"
 #include "yantra/app/app_state.h"
 #include "yantra/core/platform/dynlib.h"
+#include "test_platform.hpp"
 
 namespace fs = std::filesystem;
 using namespace yantra::app;
@@ -222,10 +223,10 @@ struct FakeSoapy {
         const std::string config = R"({"control":")" + control.string() +
                                    R"(","devices":[{"serial":"0000000000000000a1b2c3d4e5f6000a","scenario":")" +
                                    YANTRA_TEST_FAKE_SDR_SCENARIO + R"(","paced":false}]})";
-        REQUIRE(setenv("YANTRA_FAKE_SOAPY", config.c_str(), 1) == 0);
+        REQUIRE(yantra::test::set_env("YANTRA_FAKE_SOAPY", config.c_str()) == 0);
     }
     ~FakeSoapy() {
-        unsetenv("YANTRA_FAKE_SOAPY");
+        yantra::test::unset_env("YANTRA_FAKE_SOAPY");
         std::error_code ec;
         fs::remove_all(control, ec);
     }
@@ -234,7 +235,7 @@ struct FakeSoapy {
 }  // namespace
 
 TEST_CASE("PLG-16 in the app: the Radio menu waits for a project; the simulator's windows by clicking") {
-    App a("simulator", {fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator.so"});
+    App a("simulator", {fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX});
     if (!a.ok) return;
     REQUIRE(a.ui.has("menu.radio"));
     CHECK(a.ui.find("menu.radio")->disabled);  // start screen: no project
@@ -243,7 +244,7 @@ TEST_CASE("PLG-16 in the app: the Radio menu waits for a project; the simulator'
 
 TEST_CASE("PLG-16 in the app: the Radio menu lists every radio plugin, one without a usable device greyed out with the reason") {
     const fs::path fake_path = YANTRA_TEST_FAKE_RADIO_PATH;
-    App a("menu_reasons", {fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator.so", test_plugin("soapysdr_fake.so"), fake_path});
+    App a("menu_reasons", {fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX, test_plugin("soapysdr_fake" YANTRA_PLUGIN_SUFFIX), fake_path});
     if (!a.ok) return;
     // The fake radio's only device is held by another program (RAD-30
     // IN_USE with its reason); the fake SoapySDR module has no device.
@@ -313,7 +314,7 @@ TEST_CASE("PLG-16 in the app: the Radio menu lists every radio plugin, one witho
 }
 
 TEST_CASE("PLG-16 in the app: typing a setting, a refused value, an action, Advanced and Reset with confirmation") {
-    App a("simulator_settings", {fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator.so"});
+    App a("simulator_settings", {fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX});
     if (!a.ok) return;
     REQUIRE(a.state->open_project(a.dir / "demo.yantra").ok);
     REQUIRE(a.ui.frames(3));
@@ -424,7 +425,7 @@ TEST_CASE("PLG-16 in the app: typing a setting, a refused value, an action, Adva
 
 TEST_CASE("PLG-16 in the app: the SoapySDR plugin's windows with the fake module") {
     if (std::string(YANTRA_TEST_FAKE_SDR_SCENARIO).empty()) return;
-    App a("soapysdr", {test_plugin("soapysdr_fake.so")});
+    App a("soapysdr", {test_plugin("soapysdr_fake" YANTRA_PLUGIN_SUFFIX)});
     if (!a.ok) return;
     FakeSoapy fake("soapysdr");
     walk_windows(a);
@@ -432,7 +433,7 @@ TEST_CASE("PLG-16 in the app: the SoapySDR plugin's windows with the fake module
 
 TEST_CASE("PLG-16 in the app: the HackRF plugin's windows with the fake module") {
     if (std::string(YANTRA_TEST_FAKE_SDR_SCENARIO).empty()) return;
-    App a("hackrf", {test_plugin("hackrf_fake.so")});
+    App a("hackrf", {test_plugin("hackrf_fake" YANTRA_PLUGIN_SUFFIX)});
     if (!a.ok) return;
     FakeSoapy fake("hackrf");
     walk_windows(a);
@@ -441,7 +442,7 @@ TEST_CASE("PLG-16 in the app: the HackRF plugin's windows with the fake module")
 // Runs in the ctest test_app_live_pei under yantra-pei-sim; skipped elsewhere.
 TEST_CASE("PLG-16 in the app: the PEI plugin's windows against the simulated terminal") {
     const char* ports = std::getenv("YANTRA_PEI_PORTS");
-    App a("pei", {fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "pei.so"});
+    App a("pei", {fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "pei" YANTRA_PLUGIN_SUFFIX});
     if (!a.ok || ports == nullptr || *ports == '\0') {
         MESSAGE("not under yantra-pei-sim (ctest test_app_live_pei runs it): skipped");
         return;

@@ -14,7 +14,9 @@
 
 #include <doctest/doctest.h>
 
+#if !defined(_WIN32)
 #include <dlfcn.h>
+#endif
 
 #include <cstdlib>
 #include <string>
@@ -336,6 +338,7 @@ TEST_CASE("plan source: PDF pages through PDFium") {
     }
 }
 
+#if !defined(_WIN32)  // dladdr/RTLD_DEFAULT; a Windows DLL cannot interpose the program's operator new
 TEST_CASE("plan source: PDFium does not replace the program's operator new") {
     // libpdfium.so exports its own operator new/delete (cmake/YantraPdfium.cmake):
     // the program's must stay the C++ runtime's, so std::bad_alloc is
@@ -354,3 +357,4 @@ TEST_CASE("plan source: PDFium does not replace the program's operator new") {
     CAPTURE(ginfo.dli_fname);
     CHECK(std::string(ginfo.dli_fname).find("pdfium") == std::string::npos);
 }
+#endif  // !_WIN32

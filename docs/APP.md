@@ -925,9 +925,12 @@ Use `paths.data_folders`, `paths.user_data` and `paths.home` under
 
 ## Launch tests
 
-`tests/app/CMakeLists.txt` `yantra_app_launch_test()` runs the binary on
+`tests/app/CMakeLists.txt` `yantra_app_launch_test()` runs the binary
+through `tests/app/app_check.py` (no shell; Linux and Windows): on Linux on
 a private Xvfb (`with_xvfb.sh`, skipped with 77 without Xvfb) with private
-`XDG_*` and `HOME`, and checks its log lines (`expect_output.sh`):
+`XDG_*` and `HOME`, on Windows with private `%APPDATA%`/`%LOCALAPPDATA%`
+and the build tree's Mesa `opengl32.dll`; it checks the exit code and the
+log lines:
 `yantra: window system ...`, `yantra: window icon set ...`,
 `yantra: first frame (<platform>, OpenGL <version>, <renderer>)`,
 `yantra: screenshot <file> (<w>x<h>)`. `app_screenshot_gl31` renders

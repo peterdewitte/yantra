@@ -23,6 +23,7 @@
 #include "yantra/app/window_system.h"
 #include "yantra/core/build_info.h"
 #include "yantra/core/project/project.h"
+#include "test_platform.hpp"
 
 namespace fs = std::filesystem;
 using namespace yantra::app;
@@ -207,8 +208,8 @@ TEST_CASE("settings: recent list, JSON round trip, damaged file, atomic save") {
     CHECK(load_settings(file, error) == AppSettings{});
     CHECK_FALSE(error.empty());
 
-    CHECK(config_folder("/x/cfg", "/home/u") == fs::path("/x/cfg/yantra"));
-    CHECK(config_folder("relative", "/home/u") == fs::path("/home/u/.config/yantra"));
+    CHECK(config_folder((yantra::test::kRoot + "/x/cfg"), (yantra::test::kRoot + "/home/u")) == fs::path((yantra::test::kRoot + "/x/cfg/yantra")));
+    CHECK(config_folder("relative", (yantra::test::kRoot + "/home/u")) == fs::path((yantra::test::kRoot + "/home/u/.config/yantra")));
     CHECK(config_folder("", "").empty());
 }
 
@@ -247,13 +248,13 @@ TEST_CASE("data folders: environment, installed share/yantra, build tree; user f
     CHECK_FALSE(find_data_file(folders, "y.txt"));
 
     DataPathInputs u;
-    u.home = "/home/u";
-    CHECK(user_data_folder(u) == fs::path("/home/u/.local/share/yantra"));
-    CHECK(user_config_folder(u) == fs::path("/home/u/.config/yantra"));
-    u.xdg_data_home = "/x/data";
-    u.xdg_config_home = "/x/config";
-    CHECK(user_data_folder(u) == fs::path("/x/data/yantra"));
-    CHECK(user_config_folder(u) == fs::path("/x/config/yantra"));
+    u.home = (yantra::test::kRoot + "/home/u");
+    CHECK(user_data_folder(u) == fs::path((yantra::test::kRoot + "/home/u/.local/share/yantra")));
+    CHECK(user_config_folder(u) == fs::path((yantra::test::kRoot + "/home/u/.config/yantra")));
+    u.xdg_data_home = (yantra::test::kRoot + "/x/data");
+    u.xdg_config_home = (yantra::test::kRoot + "/x/config");
+    CHECK(user_data_folder(u) == fs::path((yantra::test::kRoot + "/x/data/yantra")));
+    CHECK(user_config_folder(u) == fs::path((yantra::test::kRoot + "/x/config/yantra")));
     CHECK(user_data_folder(DataPathInputs{}).empty());
 }
 

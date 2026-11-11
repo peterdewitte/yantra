@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """Writes one ctest per doctest test case (TST-01).
 
-Copied from yantra-radios fb194f5: cmake/doctest_discover.py.
+Copied from yantra-radios 6fac3ee: cmake/doctest_discover.py.
 
 Run after a doctest binary is linked (cmake/YantraTests.cmake,
 yantra_doctest_tests()). It lists the test cases that pass the group's
@@ -13,22 +13,41 @@ runs the binary with the group's filters plus --test-case=<that case>.
 The union of these ctests is exactly the group: the same cases and the
 same assertions, only in parallel.
 
+With --emulator (repeatable: the program and its arguments, the build's
+CMAKE_CROSSCOMPILING_EMULATOR, e.g. tools/sdk/wsl_run.sh --in-place for
+the Windows tree) the binary is listed and every ctest is run through it.
+When the emulator cannot run the binary here (exit code 77: a Linux CI
+runner without Windows), the group becomes one ctest that runs the whole
+binary with the group's filters: the same cases, not split.
+
+A cross-compiled tree without an emulator (the Windows tree, whose ctest
+runs on Windows) writes that one group ctest at build time (--group-only)
+and lists the cases when ctest reads the tests on the target
+(--at-test-time, run from the group's ctest include file): where the
+binary cannot run (not Windows) it writes nothing and exits 77, so ctest
+keeps the group ctest.
+
 Usage: doctest_discover.py --exe EXE --group NAME --out FILE
            [--labels L1,L2] [--timeout S] [--run-serial] [--workdir DIR]
-           [--costs FILE] [-- doctest filter arguments...]
+           [--costs FILE] [--emulator ARG]... [--group-only | --at-test-time]
+           [-- doctest filter arguments...]
 """
 
 import argparse
 import fnmatch
+import os
 import re
 import subprocess
 import sys
 
 
-def list_cases(exe, filters):
-    """Test case names passing the filters, in doctest's order."""
-    proc = subprocess.run([exe, *filters, "--list-test-cases", "--no-colors=true"],
+def list_cases(exe, filters, emulator):
+    """Test case names passing the filters, in doctest's order; None when
+    the emulator cannot run the binary (exit code 77)."""
+    proc = subprocess.run([*emulator, exe, *filters, "--list-test-cases", "--no-colors=true"],
                           stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    if emulator and proc.returncode == 77:
+        return None
     if proc.returncode != 0:
         sys.exit(f"doctest_discover: {exe} --list-test-cases failed ({proc.returncode}):\n{proc.stderr}")
     lines = proc.stdout.splitlines()
@@ -84,10 +103,22 @@ def main():
     ap.add_argument("--processors", default="")
     ap.add_argument("--workdir", default="")
     ap.add_argument("--costs", default="")
+    ap.add_argument("--emulator", action="append", default=[])
+    ap.add_argument("--group-only", action="store_true")
+    ap.add_argument("--at-test-time", action="store_true")
     ap.add_argument("filters", nargs="*")
     a = ap.parse_args()
 
-    names = list(dict.fromkeys(list_cases(a.exe, a.filters)))  # a duplicate name runs once, all copies
+    if a.group_only:
+        write_group(a, "Listed when ctest runs on the target (--at-test-time)")
+        return
+    if a.at_test_time and a.exe.lower().endswith(".exe") and os.name != "nt":
+        sys.exit(77)  # a Windows binary, not runnable here: keep the group ctest
+    listed = list_cases(a.exe, a.filters, a.emulator)
+    if listed is None:
+        write_group(a)
+        return
+    names = list(dict.fromkeys(listed))  # a duplicate name runs once, all copies
     if not names:
         sys.exit(f"doctest_discover: group {a.group} of {a.exe} has no test case")
     # doctest filters are wildcards (* and ?) and case-insensitive: every
@@ -108,31 +139,53 @@ def main():
         while test in used:
             test, k = f"{base}_{k}", k + 1
         used.add(test)
-        args = " ".join(bracket(x) for x in [a.exe, *a.filters, "--test-case=" + doctest_filter(n)])
+        args = " ".join(bracket(x) for x in [*a.emulator, a.exe, *a.filters, "--test-case=" + doctest_filter(n)])
         out.append(f"add_test({bracket(test)} {args})\n")
-        props = []
-        if a.labels:
-            props.append(f"LABELS {bracket(a.labels.replace(',', ';'))}")
-        if a.timeout:
-            props.append(f"TIMEOUT {a.timeout}")
-        if a.run_serial:
-            props.append("RUN_SERIAL TRUE")
-        if a.processors:
-            props.append(f"PROCESSORS {a.processors}")
-        if a.workdir:
-            props.append(f"WORKING_DIRECTORY {bracket(a.workdir)}")
+        props = properties(a)
         if test in costs:
             props.append(f"COST {costs[test]}")
         if props:
             out.append(f"set_tests_properties({bracket(test)} PROPERTIES {' '.join(props)})\n")
-    text = "".join(out)
+    write_if_changed(a.out, "".join(out))
+
+
+def properties(a):
+    """The ctest properties every test of the group gets."""
+    props = []
+    if a.labels:
+        props.append(f"LABELS {bracket(a.labels.replace(',', ';'))}")
+    if a.timeout:
+        props.append(f"TIMEOUT {a.timeout}")
+    if a.run_serial:
+        props.append("RUN_SERIAL TRUE")
+    if a.processors:
+        props.append(f"PROCESSORS {a.processors}")
+    if a.workdir:
+        props.append(f"WORKING_DIRECTORY {bracket(a.workdir)}")
+    return props
+
+
+def write_group(a, why="Not listed (the emulator could not run it here)"):
+    """One ctest for the whole group (the binary could not be listed)."""
+    test = f"{a.group}/all"
+    args = " ".join(bracket(x) for x in [*a.emulator, a.exe, *a.filters])
+    out = [f"# Generated by cmake/doctest_discover.py from {a.exe}: do not edit.\n",
+           f"# {why}: one test for the group.\n",
+           f"add_test({bracket(test)} {args})\n"]
+    props = properties(a)
+    if props:
+        out.append(f"set_tests_properties({bracket(test)} PROPERTIES {' '.join(props)})\n")
+    write_if_changed(a.out, "".join(out))
+
+
+def write_if_changed(path, text):
     try:
-        with open(a.out, encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             if f.read() == text:
                 return
     except OSError:
         pass
-    with open(a.out, "w", encoding="utf-8") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.write(text)
 
 

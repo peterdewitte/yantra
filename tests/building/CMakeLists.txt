@@ -9,14 +9,14 @@
 # compiling any yantra-radios source into Yantra.
 yantra_add_test_dir(building LIBS yantra::core yantra::json)
 
-set(_host ${YANTRA_RADIOS_STAGE}/bin/yantra-radio-host)
+set(_host ${YANTRA_RADIOS_STAGE}/bin/yantra-radio-host${CMAKE_EXECUTABLE_SUFFIX})
 if(YANTRA_RADIOS_KIND STREQUAL "none" OR
    (YANTRA_RADIOS_KIND STREQUAL "prebuilt" AND NOT EXISTS ${_host}))
   return()
 endif()
 foreach(_floor IN ITEMS f0 f1)
   add_test(NAME scene_radios_check_${_floor}
-           COMMAND ${_host} stream --plugin ${YANTRA_RADIO_PLUGIN_DIR}/simulator.so
+           COMMAND ${_host} stream --plugin ${YANTRA_RADIO_PLUGIN_DIR}/simulator${YANTRA_RADIO_PLUGIN_SUFFIX}
                    --scene ${PROJECT_SOURCE_DIR}/tests/fixtures/building/example_office.${_floor}.scene.json
                    --records 1 --out ${CMAKE_CURRENT_BINARY_DIR}/scene_${_floor}.records.jsonl)
   set_tests_properties(scene_radios_check_${_floor} PROPERTIES LABELS fast TIMEOUT 120)
@@ -26,7 +26,7 @@ endforeach()
 # parser reads the 1.1 members).
 foreach(_bad IN ITEMS unknown_cell storey_level)
   add_test(NAME scene_radios_check_refuses_${_bad}
-           COMMAND ${_host} stream --plugin ${YANTRA_RADIO_PLUGIN_DIR}/simulator.so
+           COMMAND ${_host} stream --plugin ${YANTRA_RADIO_PLUGIN_DIR}/simulator${YANTRA_RADIO_PLUGIN_SUFFIX}
                    --scene ${PROJECT_SOURCE_DIR}/tests/fixtures/building/invalid_${_bad}.scene.json
                    --records 1 --out ${CMAKE_CURRENT_BINARY_DIR}/scene_invalid_${_bad}.records.jsonl)
   set_tests_properties(scene_radios_check_refuses_${_bad} PROPERTIES LABELS fast TIMEOUT 120 WILL_FAIL TRUE)

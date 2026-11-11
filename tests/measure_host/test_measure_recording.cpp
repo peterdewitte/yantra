@@ -74,7 +74,7 @@ void replay_matches(const std::vector<fs::path>& files, const std::shared_ptr<ym
 TEST_CASE("REC-07 simulator: a recorded TETRA walk replays to the same cycles, C1 and statistics (REC-03, TST-10)") {
     Rig rig{true};
     TetraPlugin tetra{rig};
-    const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator.so";
+    const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX;
     if (!fs::exists(path)) {
         MESSAGE("no simulator plugin built: skipped");
         return;

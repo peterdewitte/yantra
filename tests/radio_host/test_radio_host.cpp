@@ -27,6 +27,7 @@
 #include <yantra/core/radio/radio_host.h>
 
 #include "fake_control.h"
+#include "test_platform.hpp"
 
 namespace fs = std::filesystem;
 namespace yr = yantra::radio;
@@ -567,7 +568,7 @@ TEST_CASE("radio host: cursor moves are merged while the plugin is busy") {
 
 TEST_CASE("radio host: shipped radio plugins load from the radio plugin folder (PLG-26)") {
     const fs::path dir = RADIO_PLUGIN_DIR;
-    if (!fs::exists(dir / "simulator.so")) {
+    if (!fs::exists(dir / "simulator" YANTRA_PLUGIN_SUFFIX)) {
         MESSAGE("no radio plugins built (YANTRA_BUILD_RADIOS=OFF): skipped");
         return;
     }
@@ -587,7 +588,7 @@ TEST_CASE("radio host: shipped radio plugins load from the radio plugin folder (
 }
 
 TEST_CASE("radio host: the simulator streams records through the host") {
-    const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator.so";
+    const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX;
     if (!fs::exists(path)) {
         MESSAGE("no simulator plugin built: skipped");
         return;
@@ -631,7 +632,7 @@ TEST_CASE("radio host: the simulator streams records through the host") {
 }
 
 TEST_CASE("radio host: the beacon example plugin streams through the host") {
-    const fs::path path = fs::path(RADIO_TEST_PLUGIN_DIR) / "beacon.so";
+    const fs::path path = fs::path(RADIO_TEST_PLUGIN_DIR) / "beacon" YANTRA_PLUGIN_SUFFIX;
     if (!fs::exists(path)) {
         MESSAGE("no beacon plugin (prebuilt radio plugins): skipped");
         return;
@@ -662,7 +663,7 @@ TEST_CASE("radio host: the beacon example plugin streams through the host") {
 // gone, DEVICE_BACK; the host reopens, re-applies the stored settings and
 // restarts, and the records resume.
 TEST_CASE("radio host: an SDR unplugged and plugged in again is reopened and its records resume (NFR-04)") {
-    const fs::path path = fs::path(RADIO_TEST_PLUGIN_DIR) / "soapysdr_fake.so";
+    const fs::path path = fs::path(RADIO_TEST_PLUGIN_DIR) / "soapysdr_fake" YANTRA_PLUGIN_SUFFIX;
     if (!fs::exists(path) || std::string(FAKE_SDR_SCENARIO).empty()) {
         MESSAGE("no soapysdr_fake plugin (YANTRA_RADIOS_FAKE_SDR off or prebuilt radio plugins): skipped");
         return;
@@ -674,11 +675,11 @@ TEST_CASE("radio host: an SDR unplugged and plugged in again is reopened and its
     // Unpaced: samples as fast as they are read (records, not timing).
     const std::string config = R"({"control":")" + control.string() + R"(","devices":[{"serial":")" + serial +
                                R"(","scenario":")" + FAKE_SDR_SCENARIO + R"(","paced":false}]})";
-    REQUIRE(setenv("YANTRA_FAKE_SOAPY", config.c_str(), 1) == 0);
+    REQUIRE(yantra::test::set_env("YANTRA_FAKE_SOAPY", config.c_str()) == 0);
     struct Cleanup {
         fs::path dir;
         ~Cleanup() {
-            unsetenv("YANTRA_FAKE_SOAPY");
+            yantra::test::unset_env("YANTRA_FAKE_SOAPY");
             std::error_code ec;
             fs::remove_all(dir, ec);
         }

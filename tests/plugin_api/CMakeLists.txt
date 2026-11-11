@@ -15,15 +15,23 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   set(_radio_inc ${YANTRA_RADIOS_DIR}/include)
   set(_dir ${CMAKE_CURRENT_SOURCE_DIR}/syntax)
   add_test(NAME plugin_api_header_c99
-    COMMAND ${CMAKE_C_COMPILER} -std=c99 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes
+    COMMAND ${YANTRA_BUILD_HOST_TEST} ${CMAKE_C_COMPILER} -std=c99 -pedantic -Wall -Wextra -Werror -Wstrict-prototypes
             -Wmissing-prototypes -Wundef -fsyntax-only -I${_inc} -I${_radio_inc}
             -x c ${_dir}/plugin_h.c)
   add_test(NAME plugin_api_header_cxx11
-    COMMAND ${CMAKE_CXX_COMPILER} -std=c++11 -pedantic -Wall -Wextra -Werror -Wundef
+    COMMAND ${YANTRA_BUILD_HOST_TEST} ${CMAKE_CXX_COMPILER} -std=c++11 -pedantic -Wall -Wextra -Werror -Wundef
             -fsyntax-only -I${_inc} -I${_radio_inc} -x c++ ${_dir}/plugin_h.c)
   add_test(NAME plugin_api_header_hpp
-    COMMAND ${CMAKE_CXX_COMPILER} -std=c++20 -pedantic -Wall -Wextra -Werror -Wundef -Wshadow
+    COMMAND ${YANTRA_BUILD_HOST_TEST} ${CMAKE_CXX_COMPILER} -std=c++20 -pedantic -Wall -Wextra -Werror -Wundef -Wshadow
             -Wconversion -fsyntax-only -I${_inc} -x c++ ${_dir}/plugin_hpp.cpp)
   set_tests_properties(plugin_api_header_c99 plugin_api_header_cxx11 plugin_api_header_hpp
     PROPERTIES LABELS fast)
 endif()
+
+# Checks of the sources and the build machine's tools: build_host in a
+# cross-compiled tree (top-level CMakeLists.txt).
+foreach(_t plugin_api_header_c99 plugin_api_header_cxx11 plugin_api_header_hpp)
+  if(TEST ${_t})
+    yantra_build_host_tests(${_t})
+  endif()
+endforeach()

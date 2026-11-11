@@ -4,15 +4,15 @@
 # Repository lint under ctest (TST-02 lint job, NFR-01): shell, Python and
 # YAML syntax (tools/ci/lint.sh) and REUSE compliance.
 # Copied from yantra-radios fb194f5: tests/lint/CMakeLists.txt, adapted.
-add_test(NAME repo_lint COMMAND sh ${PROJECT_SOURCE_DIR}/tools/ci/lint.sh ${PROJECT_SOURCE_DIR})
+add_test(NAME repo_lint COMMAND ${YANTRA_BUILD_HOST_TEST} sh ${PROJECT_SOURCE_DIR}/tools/ci/lint.sh ${PROJECT_SOURCE_DIR})
 set_tests_properties(repo_lint PROPERTIES LABELS "fast;lint" TIMEOUT 300)
 
 find_program(YANTRA_REUSE_EXECUTABLE reuse)
 if(YANTRA_REUSE_EXECUTABLE)
-  add_test(NAME reuse_lint COMMAND ${YANTRA_REUSE_EXECUTABLE} --root ${PROJECT_SOURCE_DIR} lint -q)
+  add_test(NAME reuse_lint COMMAND ${YANTRA_BUILD_HOST_TEST} ${YANTRA_REUSE_EXECUTABLE} --root ${PROJECT_SOURCE_DIR} lint -q)
 else()
   # Skipped, not passed: ctest reports it (exit code 77).
-  add_test(NAME reuse_lint COMMAND sh -c "echo 'reuse not found (pip install reuse)'; exit 77")
+  add_test(NAME reuse_lint COMMAND ${YANTRA_BUILD_HOST_TEST} sh -c "echo 'reuse not found (pip install reuse)'; exit 77")
 endif()
 set_tests_properties(reuse_lint PROPERTIES LABELS "fast;lint" TIMEOUT 300 SKIP_RETURN_CODE 77)
 
@@ -21,5 +21,13 @@ set_tests_properties(reuse_lint PROPERTIES LABELS "fast;lint" TIMEOUT 300 SKIP_R
 # manual sections it refers to exist (tools/ci/lint_ui.py; the run-time
 # half is test_app_ui's "DOC-20 UI lint" cases).
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
-add_test(NAME ui_lint COMMAND Python3::Interpreter -I ${PROJECT_SOURCE_DIR}/tools/ci/lint_ui.py ${PROJECT_SOURCE_DIR})
+add_test(NAME ui_lint COMMAND ${YANTRA_BUILD_HOST_TEST} ${Python3_EXECUTABLE} -I ${PROJECT_SOURCE_DIR}/tools/ci/lint_ui.py ${PROJECT_SOURCE_DIR})
 set_tests_properties(ui_lint PROPERTIES LABELS "fast;lint" TIMEOUT 120)
+
+# Checks of the sources and the build machine's tools: build_host in a
+# cross-compiled tree (top-level CMakeLists.txt).
+foreach(_t repo_lint reuse_lint ui_lint)
+  if(TEST ${_t})
+    yantra_build_host_tests(${_t})
+  endif()
+endforeach()

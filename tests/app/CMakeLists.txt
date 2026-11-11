@@ -122,50 +122,95 @@ yantra_doctest_tests(test_app_live GROUP test_app_live LABELS "fast;app" TIMEOUT
 # YANTRA_PEI_PORTS set (without it the case skips).
 if(YANTRA_RADIOS_PEI_SIM)
   file(MAKE_DIRECTORY ${_scratch}/pei)
+  # Windows: a named pipe stands in for the serial port (yantra-radios 13.5).
+  set(_pei_link ${_scratch}/pei/pei0)
+  if(WIN32)
+    set(_pei_link [=[\\.\pipe\yantra-test-app-pei0]=])
+  endif()
   add_test(NAME test_app_live_pei
-           COMMAND ${YANTRA_RADIOS_PEI_SIM} --link ${_scratch}/pei/pei0 --scenario ${YANTRA_RADIOS_PEI_SCENARIO}
+           COMMAND ${YANTRA_RADIOS_PEI_SIM} --link ${_pei_link} --scenario ${YANTRA_RADIOS_PEI_SCENARIO}
                    -- $<TARGET_FILE:test_app_live> "-tc=*the PEI plugin's windows against the simulated terminal")
   set_tests_properties(test_app_live_pei PROPERTIES LABELS "fast;app" TIMEOUT ${_app_timeout} PROCESSORS 2)
 endif()
 
 set(_xvfb ${CMAKE_CURRENT_SOURCE_DIR}/with_xvfb.sh)
-set(_expect ${CMAKE_CURRENT_SOURCE_DIR}/expect_output.sh)
+# tests/app/app_check.py runs the launch and command-line tests without a
+# shell (Linux and Windows, HW-06); on Linux through with_xvfb.sh (a
+# private Xvfb display, exit 77 without one). On Windows the build tree's
+# Mesa opengl32.dll (llvmpipe) renders off-screen in the test VM.
+set(_check ${Python3_EXECUTABLE} -B ${CMAKE_CURRENT_SOURCE_DIR}/app_check.py)
+set(_wrap)
+if(NOT WIN32)
+  set(_wrap --wrap ${_xvfb})
+endif()
 # A private home for settings, the demo copy and caches; no user files.
+# The user folders: XDG on Linux, %APPDATA% (data and settings) and
+# %LOCALAPPDATA% (caches) on Windows.
 file(MAKE_DIRECTORY ${_scratch}/home)
-set(_env XDG_CONFIG_HOME=${_scratch}/config XDG_DATA_HOME=${_scratch}/data
-         XDG_CACHE_HOME=${_scratch}/cache TMPDIR=${_scratch} HOME=${_scratch}/home)
+if(WIN32)
+  set(_data_var APPDATA)
+  set(_config_var APPDATA)
+  set(_env APPDATA=${_scratch}/config LOCALAPPDATA=${_scratch}/cache USERPROFILE=${_scratch}/home
+           TMP=${_scratch} TEMP=${_scratch})
+else()
+  set(_data_var XDG_DATA_HOME)
+  set(_config_var XDG_CONFIG_HOME)
+  set(_env XDG_CONFIG_HOME=${_scratch}/config XDG_DATA_HOME=${_scratch}/data
+           XDG_CACHE_HOME=${_scratch}/cache TMPDIR=${_scratch} HOME=${_scratch}/home)
+endif()
 
-# yantra_app_launch_test(<name> PATTERNS <grep -E pattern>... COMMAND <args>...)
-# Runs the command on a private Xvfb display; it must exit with 0 and
-# print a line matching each pattern (expect_output.sh).
+# yantra_app_launch_test(<name> PATTERNS <regex>... [CHECK <app_check.py options>...] COMMAND <args>...)
+# Runs the command on a display (Linux: a private Xvfb); it must exit
+# with 0 and print a line matching each pattern.
 function(yantra_app_launch_test name)
-  cmake_parse_arguments(ARG "" "" "PATTERNS;COMMAND" ${ARGN})
-  add_test(NAME ${name} COMMAND ${_expect} ${ARG_PATTERNS} -- ${_xvfb} ${ARG_COMMAND})
+  cmake_parse_arguments(ARG "" "" "PATTERNS;CHECK;COMMAND" ${ARGN})
+  set(_expects)
+  foreach(_p IN LISTS ARG_PATTERNS)
+    list(APPEND _expects --expect ${_p})
+  endforeach()
+  add_test(NAME ${name} COMMAND ${_check} ${_expects} ${ARG_CHECK} ${_wrap} -- ${ARG_COMMAND})
   set_tests_properties(${name} PROPERTIES
     LABELS "fast;app" TIMEOUT 300 SKIP_RETURN_CODE 77 ENVIRONMENT "${_env}")
 endfunction()
 
-# NFR-10: the first frame appears (X11 asked for explicitly), with the
-# Yantra logo as window icon (BRD-06).
-yantra_app_launch_test(app_launch_x11
-  PATTERNS "^yantra: window icon set \\(7 sizes, 16x16 to 256x256\\)" "^yantra: first frame \\(x11, OpenGL"
-  COMMAND $<TARGET_FILE:yantra> --window-system x11 --frames 3)
-# NFR-10: under WSL, with a Wayland display announced (that does not
-# exist here), the app chooses X11 by itself and starts.
-yantra_app_launch_test(app_launch_wsl_prefers_x11
-  PATTERNS "^yantra: window system x11 \\(x11 preferred under WSL" "^yantra: first frame \\(x11"
-  COMMAND env WSL_DISTRO_NAME=yantra-test WAYLAND_DISPLAY=yantra-test-no-such-display
-          $<TARGET_FILE:yantra> --frames 3)
-# NFR-10: the override (environment variable) beats the WSL preference.
-yantra_app_launch_test(app_launch_override
-  PATTERNS "^yantra: window system x11 \\(x11 chosen by YANTRA_WINDOW_SYSTEM\\)" "^yantra: first frame"
-  COMMAND env WSL_DISTRO_NAME=yantra-test YANTRA_WINDOW_SYSTEM=x11 $<TARGET_FILE:yantra> --frames 1)
-# TST-04: software rendering limited to OpenGL 3.1 (Mesa llvmpipe), the
-# start screen saved as PNG.
-yantra_app_launch_test(app_screenshot_gl31
-  PATTERNS "^yantra: first frame \\(x11, OpenGL 3\\.1 .*llvmpipe" "^yantra: screenshot .*gl31_start\\.png \\(1280x800\\)"
-  COMMAND env LIBGL_ALWAYS_SOFTWARE=1 MESA_GL_VERSION_OVERRIDE=3.1
-          $<TARGET_FILE:yantra> --screenshot ${_scratch}/gl31_start.png)
+if(WIN32)
+  # NFR-10 on Windows: the first frame appears (GLFW's Win32 platform,
+  # OpenGL 3 from the test tree's Mesa), with the Yantra logo as window
+  # icon (BRD-06); TST-04: the start screen saved as PNG.
+  yantra_app_launch_test(app_launch_win32
+    PATTERNS "^yantra: window icon set \\(7 sizes, 16x16 to 256x256\\)" "^yantra: first frame \\(win32, OpenGL [3-9]"
+    COMMAND $<TARGET_FILE:yantra> --frames 3)
+  yantra_app_launch_test(app_screenshot_start
+    PATTERNS "^yantra: first frame \\(win32, OpenGL [3-9].*llvmpipe" "^yantra: screenshot .*start\\.png \\(1280x800\\)"
+    COMMAND $<TARGET_FILE:yantra> --screenshot ${_scratch}/start.png)
+  yantra_skip_test(app_launch_x11 REASON "X11 (Xvfb): the Linux window systems (NFR-10); app_launch_win32 here" LABELS app)
+  yantra_skip_test(app_launch_wsl_prefers_x11 REASON "WSL's X11/Wayland choice (NFR-10) is Linux only" LABELS app)
+  yantra_skip_test(app_launch_override REASON "the X11/Wayland override (NFR-10) is Linux only" LABELS app)
+  yantra_skip_test(app_screenshot_gl31 REASON "Mesa's OpenGL 3.1 override under Xvfb (TST-04) is Linux only; app_screenshot_start here" LABELS app)
+else()
+  # NFR-10: the first frame appears (X11 asked for explicitly), with the
+  # Yantra logo as window icon (BRD-06).
+  yantra_app_launch_test(app_launch_x11
+    PATTERNS "^yantra: window icon set \\(7 sizes, 16x16 to 256x256\\)" "^yantra: first frame \\(x11, OpenGL"
+    COMMAND $<TARGET_FILE:yantra> --window-system x11 --frames 3)
+  # NFR-10: under WSL, with a Wayland display announced (that does not
+  # exist here), the app chooses X11 by itself and starts.
+  yantra_app_launch_test(app_launch_wsl_prefers_x11
+    PATTERNS "^yantra: window system x11 \\(x11 preferred under WSL" "^yantra: first frame \\(x11"
+    CHECK --env WSL_DISTRO_NAME=yantra-test --env WAYLAND_DISPLAY=yantra-test-no-such-display
+    COMMAND $<TARGET_FILE:yantra> --frames 3)
+  # NFR-10: the override (environment variable) beats the WSL preference.
+  yantra_app_launch_test(app_launch_override
+    PATTERNS "^yantra: window system x11 \\(x11 chosen by YANTRA_WINDOW_SYSTEM\\)" "^yantra: first frame"
+    CHECK --env WSL_DISTRO_NAME=yantra-test --env YANTRA_WINDOW_SYSTEM=x11
+    COMMAND $<TARGET_FILE:yantra> --frames 1)
+  # TST-04: software rendering limited to OpenGL 3.1 (Mesa llvmpipe), the
+  # start screen saved as PNG.
+  yantra_app_launch_test(app_screenshot_gl31
+    PATTERNS "^yantra: first frame \\(x11, OpenGL 3\\.1 .*llvmpipe" "^yantra: screenshot .*gl31_start\\.png \\(1280x800\\)"
+    CHECK --env LIBGL_ALWAYS_SOFTWARE=1 --env MESA_GL_VERSION_OVERRIDE=3.1
+    COMMAND $<TARGET_FILE:yantra> --screenshot ${_scratch}/gl31_start.png)
+endif()
 # The About dialog and the in-app file browser render over the start screen.
 yantra_app_launch_test(app_about
   PATTERNS "^yantra: first frame" "^yantra: screenshot .*about\\.png \\(1024x700\\)"
@@ -178,8 +223,9 @@ yantra_app_launch_test(app_file_browser
 if(TARGET demo_fraunces)
   yantra_app_launch_test(app_project_demo
     PATTERNS "^yantra: first frame" "^yantra: screenshot .*project_demo\\.png \\(1280x800\\)"
-    COMMAND sh -c "rm -rf \"$1\" && cp -r \"$0\" \"$1\" && exec \"$2\" --size 1280x800 --screenshot \"$1/project_demo.png\" \"$1/fraunces.yantra\""
-            ${YANTRA_DEMO_FRAUNCES_DIR} ${_scratch}/project_demo $<TARGET_FILE:yantra>)
+    CHECK --fresh-copy ${YANTRA_DEMO_FRAUNCES_DIR} ${_scratch}/project_demo
+    COMMAND $<TARGET_FILE:yantra> --size 1280x800 --screenshot ${_scratch}/project_demo/project_demo.png
+            ${_scratch}/project_demo/fraunces.yantra)
 endif()
 
 # SCR-01..03 (step 9.11): scenes of the screenshot set render with OpenGL
@@ -189,23 +235,28 @@ endif()
 if(TARGET demo_fraunces)
   yantra_app_launch_test(app_shot_survey_light
     PATTERNS "^yantra: first frame" "^yantra: screenshot .*shot_survey_light\\.png \\(1280x800\\)"
-    COMMAND env XDG_DATA_HOME=${_scratch}/shot_light XDG_CONFIG_HOME=${_scratch}/shot_light
-            $<TARGET_FILE:yantra> --shot survey --theme light --screenshot ${_scratch}/shot_survey_light.png)
+    CHECK --env ${_data_var}=${_scratch}/shot_light --env ${_config_var}=${_scratch}/shot_light
+    COMMAND $<TARGET_FILE:yantra> --shot survey --theme light --screenshot ${_scratch}/shot_survey_light.png)
   yantra_app_launch_test(app_shot_survey_de
     PATTERNS "^yantra: first frame" "^yantra: screenshot .*shot_survey_de\\.png \\(1024x700\\)"
-    COMMAND env XDG_DATA_HOME=${_scratch}/shot_de XDG_CONFIG_HOME=${_scratch}/shot_de
-            $<TARGET_FILE:yantra> --shot survey --language de --touch --size 1024x700
+    CHECK --env ${_data_var}=${_scratch}/shot_de --env ${_config_var}=${_scratch}/shot_de
+    COMMAND $<TARGET_FILE:yantra> --shot survey --language de --touch --size 1024x700
             --screenshot ${_scratch}/shot_survey_de.png)
   yantra_app_launch_test(app_shot_radio_settings
     PATTERNS "^yantra: first frame" "^yantra: screenshot .*shot_radio\\.png \\(1280x800\\)"
-    COMMAND env XDG_DATA_HOME=${_scratch}/shot_radio XDG_CONFIG_HOME=${_scratch}/shot_radio
-            $<TARGET_FILE:yantra> --shot radio_simulator_settings --screenshot ${_scratch}/shot_radio.png)
+    CHECK --env ${_data_var}=${_scratch}/shot_radio --env ${_config_var}=${_scratch}/shot_radio
+    COMMAND $<TARGET_FILE:yantra> --shot radio_simulator_settings --screenshot ${_scratch}/shot_radio.png)
 endif()
-# --shot needs a known scene, --screenshot and, for plan_import, --input.
-add_test(NAME app_shot_errors
-         COMMAND sh -c "\"$0\" --shot nothing --screenshot x.png 2>&1 | grep -q 'no such scene' && \"$0\" --shot survey; test $? -eq 2 && \"$0\" --shot plan_import --screenshot x.png; test $? -eq 2 && \"$0\" --list-shots | grep -q '^plan_import'"
-                 $<TARGET_FILE:yantra>)
-set_tests_properties(app_shot_errors PROPERTIES LABELS "fast;app")
+# --shot needs a known scene, --screenshot and, for plan_import, --input
+# (exit 2 with the reason); --list-shots names the scenes.
+add_test(NAME app_shot_errors_scene
+         COMMAND ${_check} --expect "no such scene" --exit-code 2 -- $<TARGET_FILE:yantra> --shot nothing --screenshot x.png)
+add_test(NAME app_shot_errors_screenshot COMMAND ${_check} --exit-code 2 -- $<TARGET_FILE:yantra> --shot survey)
+add_test(NAME app_shot_errors_input
+         COMMAND ${_check} --exit-code 2 -- $<TARGET_FILE:yantra> --shot plan_import --screenshot x.png)
+add_test(NAME app_shot_errors_list COMMAND ${_check} --expect "^plan_import" -- $<TARGET_FILE:yantra> --list-shots)
+set_tests_properties(app_shot_errors_scene app_shot_errors_screenshot app_shot_errors_input app_shot_errors_list
+  PROPERTIES LABELS "fast;app" WORKING_DIRECTORY ${_scratch})
 
 # SCR-04/05 (opt-in, a few minutes): tools/screenshots makes the whole set
 # into the build tree and compares it with docs/img (threshold 2 % pixels).
@@ -223,11 +274,15 @@ yantra_app_launch_test(app_settings
   COMMAND $<TARGET_FILE:yantra> --dialog settings --size 1024x700 --screenshot ${_scratch}/settings.png)
 # UI-16: --reset-settings backs up and removes the stored settings and
 # exits without a window; the calibration table stays.
+set(_reset ${_scratch}/reset/yantra)
 add_test(NAME app_reset_settings
-         COMMAND sh -c "c=\"$1/yantra\"; rm -rf \"$c\" && mkdir -p \"$c\" && echo '{}' > \"$c/app.json\" && echo '{}' > \"$c/plugin_state.json\" && \"$0\" --reset-settings | grep -q 'saved in .*backups' && test ! -e \"$c/app.json\" && test ! -e \"$c/plugin_state.json\" && ls \"$c\"/backups/*/app.json >/dev/null"
-                 $<TARGET_FILE:yantra> ${_scratch}/config)
+         COMMAND ${_check} --env ${_config_var}=${_scratch}/reset
+                 --write ${_reset}/app.json "{}" --write ${_reset}/plugin_state.json "{}"
+                 --expect "saved in .*backups" --absent ${_reset}/app.json --absent ${_reset}/plugin_state.json
+                 --exists-glob ${_reset}/backups/*/app.json
+                 -- $<TARGET_FILE:yantra> --reset-settings)
 set_tests_properties(app_reset_settings PROPERTIES LABELS "fast;app" ENVIRONMENT "${_env}")
 
 # Command line errors exit with 2 and say why (no window needed).
-add_test(NAME app_bad_option COMMAND sh -c "\"$0\" --no-such-option; test $? -eq 2" $<TARGET_FILE:yantra>)
+add_test(NAME app_bad_option COMMAND ${_check} --exit-code 2 -- $<TARGET_FILE:yantra> --no-such-option)
 set_tests_properties(app_bad_option PROPERTIES LABELS "fast;app")

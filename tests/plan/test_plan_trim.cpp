@@ -14,6 +14,7 @@
 #include <doctest/doctest.h>
 
 #include <cmath>
+#include <numbers>
 #include <random>
 
 namespace pl = yantra::plan;
@@ -37,11 +38,11 @@ TEST_CASE("trim: deskew from two points") {
     CHECK(pl::deskew_from_line({0, 0}, {-10, 0}) == 0.0);
     // A line going down to the right by 2 degrees (clockwise on screen)
     // is turned back by -2 degrees.
-    const double a = 2.0 * M_PI / 180.0;
+    const double a = 2.0 * std::numbers::pi / 180.0;
     CHECK(pl::deskew_from_line({5, 5}, {5 + 100 * std::cos(a), 5 + 100 * std::sin(a)}) == doctest::Approx(-2.0));
     CHECK(pl::deskew_from_line({5, 5}, {5 - 100 * std::cos(a), 5 - 100 * std::sin(a)}) == doctest::Approx(-2.0));
     // Nearly vertical, leaning 3 degrees: turned by +3 or -3 to vertical.
-    const double b = (90.0 + 3.0) * M_PI / 180.0;
+    const double b = (90.0 + 3.0) * std::numbers::pi / 180.0;
     CHECK(pl::deskew_from_line({0, 0}, {std::cos(b), std::sin(b)}) == doctest::Approx(-3.0));
     // 45 degrees exactly: one way, consistently.
     const double d = pl::deskew_from_line({0, 0}, {1, 1});
@@ -112,7 +113,7 @@ TEST_CASE("trim: rectangles, quarter turns and floor size") {
     CHECK(whole.page_to_floor({12.5, 7.25}) == Point2{12.5, 7.25});
     // Deskewed whole page: the floor holds the turned page.
     const pl::TrimTransform dw(pl::whole_page_trim({100, 100}, 0, 10.0));
-    const double c = std::cos(10.0 * M_PI / 180.0), s = std::sin(10.0 * M_PI / 180.0);
+    const double c = std::cos(10.0 * std::numbers::pi / 180.0), s = std::sin(10.0 * std::numbers::pi / 180.0);
     CHECK(dw.floor_size().width == doctest::Approx(100 * (c + s)));
     // A rectangle drawn in a deskewed view is a rectangle there.
     const pl::TrimTransform dr(pl::rectangle_trim({10, 10}, {90, 60}, 1, 5.0));
@@ -199,7 +200,7 @@ TEST_CASE("trim: floor rendering") {
         // A dark line at 4 degrees on a white sheet.
         pl::Raster sheet(400, 200);
         std::fill(sheet.rgba.begin(), sheet.rgba.end(), 255);
-        const double a = 4.0 * M_PI / 180.0;
+        const double a = 4.0 * std::numbers::pi / 180.0;
         for (int x = 20; x < 380; ++x) {
             const int y = int(std::lround(100 + (x - 200) * std::tan(a)));
             for (int k = -1; k <= 1; ++k) {

@@ -3,8 +3,8 @@
 #
 # ctest helpers (TST-01, TST-05): parallel doctest cases and opt-in
 # suites. CONTRIBUTING.md "Building and testing" has the commands.
-# Copied from yantra-radios fb194f5: cmake/YantraTests.cmake, the same
-# test conventions in both projects.
+# Copied from yantra-radios 6fac3ee: cmake/YantraTests.cmake (fb194f5,
+# Windows parts 13.3b), the same test conventions in both projects.
 #
 # yantra_doctest_tests(<target> GROUP <name> [FILTERS <doctest args>...]
 #                      [LABELS <l>...] [TIMEOUT <s>] [RUN_SERIAL] [OPT_IN]
@@ -78,6 +78,21 @@ function(yantra_doctest_tests target)
   if(ARG_WORKING_DIRECTORY)
     list(APPEND _opts --workdir ${ARG_WORKING_DIRECTORY})
   endif()
+  # A tree with CMAKE_CROSSCOMPILING_EMULATOR (YANTRA_WINDOWS_TEST_RUNNER
+  # wsl) lists and runs its .exe through it.
+  foreach(_e ${CMAKE_CROSSCOMPILING_EMULATOR})
+    list(APPEND _opts --emulator=${_e})
+  endforeach()
+  # A cross-compiled tree without one (the Windows tree, run in the test
+  # VM) cannot run its binaries here: the build writes one ctest for the
+  # group (<group>/all), and ctest on the target lists the cases when it
+  # reads the tests (--at-test-time, <group>_cases.cmake), so there every
+  # case is its own ctest as on Linux.
+  set(_at_test_time OFF)
+  if(CMAKE_CROSSCOMPILING AND NOT CMAKE_CROSSCOMPILING_EMULATOR)
+    set(_at_test_time ON)
+    list(APPEND _opts --group-only)
+  endif()
   add_custom_command(TARGET ${target} POST_BUILD
     COMMAND ${Python3_EXECUTABLE} ${YANTRA_DOCTEST_DISCOVER} --exe $<TARGET_FILE:${target}>
             --group ${ARG_GROUP} --out ${_gen} --labels ${_labels_arg} --costs ${YANTRA_TEST_COSTS}
@@ -89,17 +104,54 @@ function(yantra_doctest_tests target)
   # Before the first build the binary and its list do not exist: one
   # failing placeholder says so instead of silently running nothing.
   set(_body "if(EXISTS \"${_gen}\")\n  include(\"${_gen}\")\nelse()\n  add_test(${ARG_GROUP}_NOT_BUILT ${ARG_GROUP}_NOT_BUILT)\nendif()\n")
+  if(_at_test_time)
+    set(_cases ${CMAKE_CURRENT_BINARY_DIR}/${ARG_GROUP}_cases.cmake)
+    set(_list_args --exe $<TARGET_FILE:${target}> --group ${ARG_GROUP} --out ${_cases}
+                   --labels ${_labels_arg} --costs ${YANTRA_TEST_COSTS} ${_opts} --at-test-time -- ${ARG_FILTERS})
+    list(REMOVE_ITEM _list_args --group-only)
+    set(_list_cmd "")
+    foreach(_a ${Python3_EXECUTABLE} ${YANTRA_DOCTEST_DISCOVER} ${_list_args})
+      string(APPEND _list_cmd " [==[${_a}]==]")
+    endforeach()
+    # Listed again when the binary is newer than the list; the script
+    # writes nothing where it cannot run the binary (Linux), and a failed
+    # listing leaves the group test, which then fails with the reason.
+    set(_body "if(EXISTS [==[$<TARGET_FILE:${target}>]==] AND (NOT EXISTS [==[${_cases}]==] OR [==[$<TARGET_FILE:${target}>]==] IS_NEWER_THAN [==[${_cases}]==]))
+  execute_process(COMMAND${_list_cmd} RESULT_VARIABLE _yantra_rc OUTPUT_VARIABLE _yantra_out ERROR_VARIABLE _yantra_out)
+  if(NOT _yantra_rc EQUAL 0 AND NOT _yantra_rc EQUAL 77)
+    message(WARNING \"${ARG_GROUP}: listing the doctest cases failed (\${_yantra_rc}): \${_yantra_out}\")
+  endif()
+endif()
+if(EXISTS [==[${_cases}]==])
+  include([==[${_cases}]==])
+else()
+${_body}endif()
+")
+  endif()
   if(ARG_OPT_IN)
     set(_body "${_yantra_opt_in_if}${_body}endif()\n")
   endif()
   set(_inc ${CMAKE_CURRENT_BINARY_DIR}/${ARG_GROUP}_include.cmake)
-  file(WRITE ${_inc} "${_body}")
+  if(_at_test_time)
+    file(GENERATE OUTPUT ${_inc} CONTENT "${_body}")
+  else()
+    file(WRITE ${_inc} "${_body}")
+  endif()
   set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES ${_inc})
 endfunction()
 
 function(yantra_add_opt_in_test name)
   cmake_parse_arguments(ARG "RUN_SERIAL" "TIMEOUT;COST" "COMMAND;LABELS" ${ARGN})
   set(_cmd)
+  list(GET ARG_COMMAND 0 _first)
+  if(TARGET ${_first})
+    get_target_property(_type ${_first} TYPE)
+    if(_type STREQUAL "EXECUTABLE")
+      foreach(_e ${CMAKE_CROSSCOMPILING_EMULATOR})
+        string(APPEND _cmd " [==[${_e}]==]")
+      endforeach()
+    endif()
+  endif()
   foreach(_a ${ARG_COMMAND})
     if(TARGET ${_a})
       set(_a $<TARGET_FILE:${_a}>)
@@ -121,4 +173,22 @@ function(yantra_add_opt_in_test name)
   file(GENERATE OUTPUT ${_inc} CONTENT
     "${_yantra_opt_in_if}  add_test([==[${name}]==]${_cmd})\n  set_tests_properties([==[${name}]==] PROPERTIES ${_props})\nendif()\n")
   set_property(DIRECTORY APPEND PROPERTY TEST_INCLUDE_FILES ${_inc})
+endfunction()
+
+# yantra_skip_test(<name> REASON <text> [LABELS <l>...])
+#
+# A test that does not apply on this platform (e.g. a Linux-only check in
+# the Windows tree): it stays in the list and ctest reports it as skipped
+# (exit code 77, SKIP_RETURN_CODE) with the reason in its output, so a
+# platform's skipped tests are visible instead of silently missing.
+function(yantra_skip_test name)
+  cmake_parse_arguments(ARG "" "REASON" "LABELS" ${ARGN})
+  if(NOT ARG_REASON)
+    message(FATAL_ERROR "yantra_skip_test(${name}): REASON is required")
+  endif()
+  find_package(Python3 REQUIRED COMPONENTS Interpreter)
+  add_test(NAME ${name}
+           COMMAND ${Python3_EXECUTABLE} -c "import sys; print(sys.argv[1]); sys.exit(77)"
+                   "skipped on ${CMAKE_SYSTEM_NAME}: ${ARG_REASON}")
+  set_tests_properties(${name} PROPERTIES SKIP_RETURN_CODE 77 LABELS "skipped;${ARG_LABELS}")
 endfunction()

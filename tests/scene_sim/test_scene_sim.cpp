@@ -126,7 +126,7 @@ struct Sim {
     explicit Sim(const yantra::radio::SceneExportOptions& options = {}) : context(publisher, options) {}
 
     bool start() {
-        const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator.so";
+        const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX;
         if (!fs::exists(path)) return false;
         yr::RadioHostConfig c;
         c.state = state;

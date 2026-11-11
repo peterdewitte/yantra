@@ -36,12 +36,12 @@ if(DOXYGEN_FOUND)
   configure_file(api/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile.plugin-api-check @ONLY)
   if(YANTRA_BUILD_TESTS)
     add_test(NAME plugin_api_doxygen
-             COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile.plugin-api-check)
+             COMMAND ${YANTRA_BUILD_HOST_TEST} ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile.plugin-api-check)
     set_tests_properties(plugin_api_doxygen PROPERTIES LABELS "fast;lint;docs" TIMEOUT 300)
   endif()
 elseif(YANTRA_BUILD_TESTS)
   add_test(NAME plugin_api_doxygen
-           COMMAND sh -c "echo 'SKIPPED: Doxygen was not found (DOC-17)'; exit 77")
+           COMMAND ${YANTRA_BUILD_HOST_TEST} sh -c "echo 'SKIPPED: Doxygen was not found (DOC-17)'; exit 77")
   set_tests_properties(plugin_api_doxygen PROPERTIES
     LABELS "fast;lint;docs" SKIP_RETURN_CODE 77)
 endif()
@@ -53,20 +53,20 @@ if(YANTRA_BUILD_TESTS)
   find_package(Python3 COMPONENTS Interpreter QUIET)
   if(Python3_Interpreter_FOUND)
     add_test(NAME doc_snippets
-             COMMAND ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/ci/check_doc_snippets.py
+             COMMAND ${YANTRA_BUILD_HOST_TEST} ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/ci/check_doc_snippets.py
                      ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/docs/PLUGINS.md)
     add_test(NAME doc_links
-             COMMAND ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/ci/check_doc_links.py
+             COMMAND ${YANTRA_BUILD_HOST_TEST} ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/ci/check_doc_links.py
                      ${PROJECT_SOURCE_DIR})
     # SCR-07: the manual and README use images from docs/img only, all exist,
     # and every image there is used (the screenshot set, SCR-03).
     add_test(NAME doc_images
-             COMMAND ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/ci/check_doc_images.py
+             COMMAND ${YANTRA_BUILD_HOST_TEST} ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/ci/check_doc_images.py
                      ${PROJECT_SOURCE_DIR})
     set_tests_properties(doc_snippets doc_links doc_images PROPERTIES LABELS "fast;lint;docs")
   else()
     foreach(_t doc_snippets doc_links doc_images)
-      add_test(NAME ${_t} COMMAND sh -c "echo 'SKIPPED: Python 3 was not found'; exit 77")
+      add_test(NAME ${_t} COMMAND ${YANTRA_BUILD_HOST_TEST} sh -c "echo 'SKIPPED: Python 3 was not found'; exit 77")
       set_tests_properties(${_t} PROPERTIES LABELS "fast;lint;docs" SKIP_RETURN_CODE 77)
     endforeach()
   endif()
@@ -100,7 +100,7 @@ if(YANTRA_BUILD_TESTS)
   # The same build into its own folder (never racing with the target),
   # PDFs included when WeasyPrint is there; offline.
   add_test(NAME docs_build
-           COMMAND bash ${PROJECT_SOURCE_DIR}/tools/docs/build_docs.sh ${CMAKE_CURRENT_BINARY_DIR}/site-check
+           COMMAND ${YANTRA_BUILD_HOST_TEST} bash ${PROJECT_SOURCE_DIR}/tools/docs/build_docs.sh ${CMAKE_CURRENT_BINARY_DIR}/site-check
                    --root ${PROJECT_SOURCE_DIR})
   set_tests_properties(docs_build PROPERTIES LABELS "docs" SKIP_RETURN_CODE 77 TIMEOUT 600
                        FIXTURES_SETUP yantra_docs_site)
@@ -131,3 +131,11 @@ if(TARGET yantra)
     add_dependencies(captures demo_fraunces)
   endif()
 endif()
+
+# Checks of the sources and the build machine's tools: build_host in a
+# cross-compiled tree (top-level CMakeLists.txt).
+foreach(_t plugin_api_doxygen doc_snippets doc_links doc_images docs_build)
+  if(TEST ${_t})
+    yantra_build_host_tests(${_t})
+  endif()
+endforeach()

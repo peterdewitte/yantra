@@ -37,8 +37,16 @@ target_compile_definitions(test_measure_host PRIVATE
 # without them. Regenerated when a scenario, the script or the radios pin
 # changes.
 set(_e2e_records ${CMAKE_CURRENT_BINARY_DIR}/records)
-set(_e2e_gen ${YANTRA_RADIOS_STAGE}/bin/yantra-gen)
-set(_e2e_host ${YANTRA_RADIOS_STAGE}/bin/yantra-radio-host)
+set(_e2e_gen ${YANTRA_RADIOS_STAGE}/bin/yantra-gen${CMAKE_EXECUTABLE_SUFFIX})
+set(_e2e_host ${YANTRA_RADIOS_STAGE}/bin/yantra-radio-host${CMAKE_EXECUTABLE_SUFFIX})
+# A cross-compiled tree makes the files with the Linux tree's tools
+# (YANTRA_HOST_BUILD_DIR, top-level CMakeLists.txt).
+set(_e2e_make_gen ${_e2e_gen})
+set(_e2e_make_host ${_e2e_host})
+if(CMAKE_CROSSCOMPILING)
+  set(_e2e_make_gen ${YANTRA_HOST_RADIOS_BIN}/yantra-gen)
+  set(_e2e_make_host ${YANTRA_HOST_RADIOS_BIN}/yantra-radio-host)
+endif()
 if(YANTRA_RADIOS_KIND STREQUAL "build" OR (YANTRA_RADIOS_KIND STREQUAL "prebuilt" AND EXISTS ${_e2e_gen}))
   set(_e2e_scenarios fraunces:3 failed_site:10 floor_change:12 indoor_good_das:10 indoor_weak_das:10 network_border:10)
   set(_e2e_outputs ${_e2e_records}/fraunces_dbfs.records.jsonl)
@@ -55,7 +63,7 @@ if(YANTRA_RADIOS_KIND STREQUAL "build" OR (YANTRA_RADIOS_KIND STREQUAL "prebuilt
     list(APPEND _e2e_scenario_files ${_e2e_gen})
   endif()
   add_custom_command(OUTPUT ${_e2e_outputs}
-    COMMAND ${CMAKE_COMMAND} -DGEN=${_e2e_gen} -DHOST=${_e2e_host} -DOUT=${_e2e_records}
+    COMMAND ${CMAKE_COMMAND} -DGEN=${_e2e_make_gen} -DHOST=${_e2e_make_host} -DOUT=${_e2e_records}
             "-DSCENARIOS=${_e2e_scenarios}" -DDBFS=fraunces -P ${_dir}/gen_records.cmake
     DEPENDS ${_dir}/gen_records.cmake ${_e2e_scenario_files}
     COMMENT "Record files of the radios' scenarios (yantra-gen, decode-iq) for TST-10"

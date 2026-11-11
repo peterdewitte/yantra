@@ -486,10 +486,10 @@ TEST_CASE("tetra verification: broadcast codes and exact values (DB-04)") {
 
 TEST_CASE("tetra schemas: every shipped radio plugin's schemas match the technology schemas (PLG-05, PLG-11)") {
     std::size_t checked = 0;
-    for (const char* name : {"simulator.so", "hackrf.so", "soapysdr.so", "pei.so"}) {
+    for (const char* name : {"simulator" YANTRA_PLUGIN_SUFFIX, "hackrf" YANTRA_PLUGIN_SUFFIX, "soapysdr" YANTRA_PLUGIN_SUFFIX, "pei" YANTRA_PLUGIN_SUFFIX}) {
         CAPTURE(name);
 #ifndef TETRA_TEST_PEI
-        if (std::string(name) == "pei.so") continue;  // not shipped in this build (YANTRA_RADIOS_PEI=OFF)
+        if (std::string(name) == "pei" YANTRA_PLUGIN_SUFFIX) continue;  // not shipped in this build (YANTRA_RADIOS_PEI=OFF)
 #endif
         const fs::path path = fs::path(RADIO_PLUGIN_DIR) / name;
         REQUIRE(fs::exists(path));

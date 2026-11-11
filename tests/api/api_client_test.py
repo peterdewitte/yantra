@@ -233,7 +233,8 @@ def main():
          "--split-minutes", "1", "--keep", "5"], "probe.log")
     token_file = os.path.join(data, "plugin-data", "yantra.probe", "api_tokens.json")
     check(os.path.exists(token_file), "no token file " + token_file)
-    check((os.stat(token_file).st_mode & 0o077) == 0, "the token file can be read by others")
+    if os.name != "nt":  # Windows: no mode bits; the profile folder's permissions apply
+        check((os.stat(token_file).st_mode & 0o077) == 0, "the token file can be read by others")
     with open(token_file) as f:
         tokens = json.load(f)
     check(tokens.get("format") == "yantra-api-tokens" and tokens.get("version") == 1, "token file format")

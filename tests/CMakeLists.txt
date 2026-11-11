@@ -16,6 +16,10 @@ include(YantraTests)
 
 set(YANTRA_PER_CASE_TESTS calibration measure recording)
 
+# Plugin file names in the tests: "<name>" YANTRA_PLUGIN_SUFFIX (.so on
+# Linux, .dll on Windows).
+add_compile_definitions(YANTRA_PLUGIN_SUFFIX="${CMAKE_SHARED_MODULE_SUFFIX}")
+
 add_library(yantra_doctest INTERFACE)
 target_include_directories(yantra_doctest SYSTEM INTERFACE ${PROJECT_SOURCE_DIR}/third_party/doctest)
 
