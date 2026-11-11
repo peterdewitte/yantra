@@ -70,11 +70,79 @@ const char* platform_name(int p) {
     }
 }
 
-/// Reads the back buffer of the current frame and writes it as PNG.
-bool save_png(const fs::path& file, int width, int height) {
+// OpenGL 3.0 framebuffer objects (not in the OpenGL 1.1 headers of Windows).
+constexpr GLenum kGlFramebuffer = 0x8D40;
+constexpr GLenum kGlRenderbuffer = 0x8D41;
+constexpr GLenum kGlColorAttachment0 = 0x8CE0;
+constexpr GLenum kGlRgba8 = 0x8058;
+constexpr GLenum kGlFramebufferComplete = 0x8CD5;
+
+/// TST-04: a screenshot renders off-screen into a frame buffer of the
+/// requested size. The window's own may be smaller: Windows keeps a window
+/// within the screen (the test VM's is 1024 x 768).
+class OffscreenTarget {
+public:
+    OffscreenTarget(const OffscreenTarget&) = delete;
+    OffscreenTarget& operator=(const OffscreenTarget&) = delete;
+    /// With the window's context current; ok() is false when the driver
+    /// has no framebuffer objects (the window's frame buffer is used then).
+    OffscreenTarget(int width, int height) : width_(width), height_(height) {
+        gen_framebuffers_ = load<GenFn>("glGenFramebuffers");
+        bind_framebuffer_ = load<BindFn>("glBindFramebuffer");
+        delete_framebuffers_ = load<DeleteFn>("glDeleteFramebuffers");
+        gen_renderbuffers_ = load<GenFn>("glGenRenderbuffers");
+        bind_renderbuffer_ = load<BindFn>("glBindRenderbuffer");
+        delete_renderbuffers_ = load<DeleteFn>("glDeleteRenderbuffers");
+        const auto storage = load<StorageFn>("glRenderbufferStorage");
+        const auto attach = load<AttachFn>("glFramebufferRenderbuffer");
+        const auto status = load<StatusFn>("glCheckFramebufferStatus");
+        if (!gen_framebuffers_ || !bind_framebuffer_ || !delete_framebuffers_ || !gen_renderbuffers_ ||
+            !bind_renderbuffer_ || !delete_renderbuffers_ || !storage || !attach || !status)
+            return;
+        gen_renderbuffers_(1, &colour_);
+        bind_renderbuffer_(kGlRenderbuffer, colour_);
+        storage(kGlRenderbuffer, kGlRgba8, width, height);
+        gen_framebuffers_(1, &framebuffer_);
+        bind_framebuffer_(kGlFramebuffer, framebuffer_);
+        attach(kGlFramebuffer, kGlColorAttachment0, kGlRenderbuffer, colour_);
+        ok_ = status(kGlFramebuffer) == kGlFramebufferComplete;
+        bind_framebuffer_(kGlFramebuffer, 0);
+    }
+    ~OffscreenTarget() {
+        if (framebuffer_ != 0) delete_framebuffers_(1, &framebuffer_);
+        if (colour_ != 0) delete_renderbuffers_(1, &colour_);
+    }
+    bool ok() const { return ok_; }
+    int width() const { return width_; }
+    int height() const { return height_; }
+    /// Draws and reads into this frame buffer from now on.
+    void bind() const { bind_framebuffer_(kGlFramebuffer, framebuffer_); }
+
+private:
+    using GenFn = void (*)(GLsizei, GLuint*);
+    using BindFn = void (*)(GLenum, GLuint);
+    using DeleteFn = void (*)(GLsizei, const GLuint*);
+    using StorageFn = void (*)(GLenum, GLenum, GLsizei, GLsizei);
+    using AttachFn = void (*)(GLenum, GLenum, GLenum, GLuint);
+    using StatusFn = GLenum (*)(GLenum);
+    template <class F>
+    static F load(const char* name) {
+        return reinterpret_cast<F>(glfwGetProcAddress(name));
+    }
+    int width_ = 0, height_ = 0;
+    bool ok_ = false;
+    GLuint framebuffer_ = 0, colour_ = 0;
+    GenFn gen_framebuffers_ = nullptr, gen_renderbuffers_ = nullptr;
+    BindFn bind_framebuffer_ = nullptr, bind_renderbuffer_ = nullptr;
+    DeleteFn delete_framebuffers_ = nullptr, delete_renderbuffers_ = nullptr;
+};
+
+/// Reads the frame just drawn (the back buffer, or the colour attachment
+/// of the bound off-screen target) and writes it as PNG.
+bool save_png(const fs::path& file, int width, int height, bool offscreen) {
     std::vector<unsigned char> pixels(static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4U);
     glPixelStorei(GL_PACK_ALIGNMENT, 1);
-    glReadBuffer(GL_BACK);
+    glReadBuffer(offscreen ? kGlColorAttachment0 : GL_BACK);
     glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE, pixels.data());
     for (std::size_t i = 3; i < pixels.size(); i += 4) pixels[i] = 255;  // opaque
     std::error_code ec;
@@ -257,6 +325,16 @@ int main(int argc, char** argv) {
     app::Gui::apply_style(app::Gui::style_of(settings));
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 140");
+    std::unique_ptr<OffscreenTarget> offscreen;
+    if (screenshot) {
+        offscreen = std::make_unique<OffscreenTarget>(cli.width, cli.height);
+        if (offscreen->ok()) {
+            offscreen->bind();
+        } else {
+            std::fprintf(stderr, "yantra: no off-screen frame buffer; the screenshot has the window's size\n");
+            offscreen.reset();
+        }
+    }
 
     int rc = 0;
     {
@@ -332,6 +410,10 @@ int main(int argc, char** argv) {
             }
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplGlfw_NewFrame();
+            if (offscreen) {  // the frame buffer's size, not the window's
+                ImGui::GetIO().DisplaySize = ImVec2(static_cast<float>(offscreen->width()), static_cast<float>(offscreen->height()));
+                ImGui::GetIO().DisplayFramebufferScale = ImVec2(1.0F, 1.0F);
+            }
             // A screenshot advances a fixed time per frame, so popups have
             // faded in by the capture frame whatever the machine's speed.
             if (screenshot) ImGui::GetIO().DeltaTime = 1.0F / 15.0F;
@@ -342,13 +424,17 @@ int main(int argc, char** argv) {
             probe.end_frame();
             int fw = 0, fh = 0;
             glfwGetFramebufferSize(window, &fw, &fh);
+            if (offscreen) {
+                fw = offscreen->width();
+                fh = offscreen->height();
+            }
             glViewport(0, 0, fw, fh);
             glClearColor(0.08F, 0.08F, 0.09F, 1.0F);
             glClear(GL_COLOR_BUFFER_BIT);
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
             const bool capture = runner ? runner->ready() : frame == capture_frame;
             if (screenshot && capture) {
-                if (!save_png(*cli.screenshot, fw, fh)) {
+                if (!save_png(*cli.screenshot, fw, fh, offscreen != nullptr)) {
                     std::fprintf(stderr, "yantra: cannot write %s\n", cli.screenshot->string().c_str());
                     rc = 1;
                 } else {
@@ -379,6 +465,7 @@ int main(int argc, char** argv) {
         ImGui_ImplOpenGL3_Shutdown();
         ImGui_ImplGlfw_Shutdown();
     }
+    offscreen.reset();  // with the context still current
     ImGui::DestroyContext();
     glfwDestroyWindow(window);
     glfwTerminate();

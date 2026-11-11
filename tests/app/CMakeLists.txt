@@ -150,8 +150,11 @@ file(MAKE_DIRECTORY ${_scratch}/home)
 if(WIN32)
   set(_data_var APPDATA)
   set(_config_var APPDATA)
+  # Mesa's first choice, its d3d12 driver, ends the program (exit
+  # 0x80070057) where there is no Direct3D 12 device (the test VM):
+  # llvmpipe renders in software.
   set(_env APPDATA=${_scratch}/config LOCALAPPDATA=${_scratch}/cache USERPROFILE=${_scratch}/home
-           TMP=${_scratch} TEMP=${_scratch})
+           TMP=${_scratch} TEMP=${_scratch} GALLIUM_DRIVER=llvmpipe)
 else()
   set(_data_var XDG_DATA_HOME)
   set(_config_var XDG_CONFIG_HOME)
