@@ -113,6 +113,20 @@ target_include_directories(yantra_imgui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/gui)
 # The same definitions for every user: IMGUI_ENABLE_TEST_ENGINE changes
 # imgui_internal.h enums (ui_probe.h).
 target_compile_definitions(yantra_imgui PUBLIC IMGUI_DISABLE_OBSOLETE_FUNCTIONS IMGUI_ENABLE_TEST_ENGINE)
+if(YANTRA_SANITIZER STREQUAL "asan-ubsan" AND CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  # Dear ImGui 1.92.9b, vendored and not changed: in the first frame of a
+  # table with ImGuiTableFlags_SizingStretchProp, TableUpdateLayout()
+  # weights each stretch column by WidthAuto / (sum of WidthAuto), 0 / 0
+  # while no content width is measured (imgui_tables.cpp); EndTable()
+  # carries that NaN into the window's ideal content size, which Begin()
+  # truncates to an integer (ImTrunc64): clang's UBSan reports it as
+  # float-cast-overflow (gcc's -fsanitize=undefined has no such check).
+  # The next frame has the real widths. Only these four vendored sources are left out of that one
+  # check; Yantra's own code keeps it.
+  set_source_files_properties(${_imgui}/imgui.cpp ${_imgui}/imgui_draw.cpp ${_imgui}/imgui_tables.cpp
+                              ${_imgui}/imgui_widgets.cpp
+                              PROPERTIES COMPILE_OPTIONS -fno-sanitize=float-cast-overflow)
+endif()
 
 add_library(yantra_app_gui STATIC gui/gui.cpp gui/gui_tools.cpp gui/plan_canvas.cpp gui/plan_import_view.cpp
   gui/survey_view.cpp gui/radio_view.cpp gui/user_texture.cpp gui/plugin_view.cpp gui/settings_view.cpp
