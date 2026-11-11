@@ -8,6 +8,16 @@
 // api.listen is set.
 #include <doctest/doctest.h>
 
+#ifdef _WIN32
+#  ifndef NOMINMAX
+#    define NOMINMAX
+#  endif
+#  include <winsock2.h>
+#  include <ws2tcpip.h>
+#  include <iphlpapi.h>
+#  include <vector>
+#endif
+
 #include <filesystem>
 #include <fstream>
 #include <set>
@@ -29,8 +39,54 @@ namespace {
 
 json ask(AppControl& c, const json& request) { return json::parse(c.control("yantra.probe", request.dump())); }
 
-/// Network listeners of this process (Linux /proc): its TCP sockets in
-/// state LISTEN and its bound UDP sockets, IPv4 and IPv6.
+/// Network listeners of this process: its TCP sockets in state LISTEN and
+/// its bound UDP sockets, IPv4 and IPv6 (Linux: /proc; Windows: the IP
+/// helper's tables with their owning process).
+#ifdef _WIN32
+std::size_t listeners() {
+    const DWORD self = GetCurrentProcessId();
+    std::size_t n = 0;
+    const auto count = [&](auto get, auto table_class, ULONG family, auto per_row) {
+        ULONG size = 0;
+        std::vector<unsigned char> buffer;
+        DWORD rc = ERROR_INSUFFICIENT_BUFFER;
+        while (rc == ERROR_INSUFFICIENT_BUFFER) {
+            buffer.resize(size + 1);
+            rc = get(buffer.data(), &size, FALSE, family, table_class, 0);
+        }
+        if (rc == NO_ERROR) n += per_row(buffer.data(), self);
+    };
+    const auto tcp4 = [](const unsigned char* b, DWORD pid) {
+        const auto* t = reinterpret_cast<const MIB_TCPTABLE_OWNER_PID*>(b);
+        std::size_t k = 0;
+        for (DWORD i = 0; i < t->dwNumEntries; ++i) k += t->table[i].dwOwningPid == pid ? 1 : 0;
+        return k;
+    };
+    const auto tcp6 = [](const unsigned char* b, DWORD pid) {
+        const auto* t = reinterpret_cast<const MIB_TCP6TABLE_OWNER_PID*>(b);
+        std::size_t k = 0;
+        for (DWORD i = 0; i < t->dwNumEntries; ++i) k += t->table[i].dwOwningPid == pid ? 1 : 0;
+        return k;
+    };
+    const auto udp4 = [](const unsigned char* b, DWORD pid) {
+        const auto* t = reinterpret_cast<const MIB_UDPTABLE_OWNER_PID*>(b);
+        std::size_t k = 0;
+        for (DWORD i = 0; i < t->dwNumEntries; ++i) k += t->table[i].dwOwningPid == pid ? 1 : 0;
+        return k;
+    };
+    const auto udp6 = [](const unsigned char* b, DWORD pid) {
+        const auto* t = reinterpret_cast<const MIB_UDP6TABLE_OWNER_PID*>(b);
+        std::size_t k = 0;
+        for (DWORD i = 0; i < t->dwNumEntries; ++i) k += t->table[i].dwOwningPid == pid ? 1 : 0;
+        return k;
+    };
+    count(GetExtendedTcpTable, TCP_TABLE_OWNER_PID_LISTENER, AF_INET, tcp4);
+    count(GetExtendedTcpTable, TCP_TABLE_OWNER_PID_LISTENER, AF_INET6, tcp6);
+    count(GetExtendedUdpTable, UDP_TABLE_OWNER_PID, AF_INET, udp4);
+    count(GetExtendedUdpTable, UDP_TABLE_OWNER_PID, AF_INET6, udp6);
+    return n;
+}
+#else
 std::size_t listeners() {
     std::set<std::string> mine;  // socket inodes of our file descriptors
     std::error_code ec;
@@ -54,6 +110,7 @@ std::size_t listeners() {
     }
     return n;
 }
+#endif
 
 /// The build's technology and feature plugins in a folder of the test's
 /// own; without the probe plugin unless `with_probe`.
@@ -61,7 +118,7 @@ fs::path plugin_copy(const fs::path& dir, bool with_probe) {
     const fs::path folder = dir / "plugins";
     fs::create_directories(folder);
     for (const auto& e : fs::directory_iterator(YANTRA_TEST_TECH_PLUGIN_DIR))
-        if (e.is_regular_file() && e.path().extension() == ".so" && (with_probe || e.path().filename() != "probe" YANTRA_PLUGIN_SUFFIX))
+        if (e.is_regular_file() && e.path().extension() == YANTRA_PLUGIN_SUFFIX && (with_probe || e.path().filename() != "probe" YANTRA_PLUGIN_SUFFIX))
             fs::copy_file(e.path(), folder / e.path().filename());
     return folder;
 }

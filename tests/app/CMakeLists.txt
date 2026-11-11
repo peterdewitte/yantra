@@ -55,6 +55,9 @@ if(TARGET demo_fraunces)
   add_dependencies(test_app demo_fraunces)
   target_compile_definitions(test_app PRIVATE YANTRA_TEST_DEMO_PROJECT="${YANTRA_DEMO_FRAUNCES_DIR}/fraunces.yantra")
 endif()
+if(WIN32)
+  target_link_libraries(test_app PRIVATE iphlpapi)  # listeners(): the sockets of the test process
+endif()
 add_test(NAME test_app COMMAND test_app)
 # The hang guard scales in the sanitizer trees (YantraTests.cmake).
 math(EXPR _app_timeout "300 * ${YANTRA_TEST_TIME_SCALE}")
