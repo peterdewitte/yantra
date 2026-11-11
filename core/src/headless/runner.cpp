@@ -66,6 +66,7 @@ struct Runner::Impl {
     const std::chrono::steady_clock::time_point started = std::chrono::steady_clock::now();
 
     std::mutex command_mutex;  // one command at a time
+    bool closing = false;      // the runner is going: commands refused (under command_mutex)
     mutable std::mutex mutex;  // the parts below (status reads them)
     std::shared_ptr<radio::RadioDevice> device;
     std::unique_ptr<measure::CycleRunner> cycles;
@@ -419,15 +420,20 @@ Runner::Runner(RunnerConfig config) : impl_(std::make_unique<Impl>()) {
 
 Runner::~Runner() {
     Impl& m = *impl_;
-    // The plugins go first: their stop joins their threads, so a control
-    // call still running finishes against a whole runner.
-    if (m.loader) {
-        m.loader->set_controller(nullptr);
-        m.loader->unload_all();
+    // No more commands from the plugins (PLG-24): a command still running
+    // finishes first, later ones are refused.
+    if (m.loader) m.loader->set_controller(nullptr);
+    {
+        const std::lock_guard lock(m.command_mutex);
+        m.closing = true;
     }
+    // The measurements stop before the plugins go: a radio's stream thread
+    // maps its records with the technology plugins, whose modules Windows
+    // unmaps when they are unloaded (a crash at exit, HW-06).
     m.record_stop();
     m.stop_replay();
     m.monitor_off();
+    if (m.loader) m.loader->unload_all();
     m.host.reset();
 }
 
@@ -510,7 +516,7 @@ json Runner::execute(const Command& command) {
     const std::lock_guard lock(m.command_mutex);
     CommandResult r;
     try {
-        r = m.run(command, quit_);
+        r = m.closing ? CommandResult::failure("the runner is closing") : m.run(command, quit_);
     } catch (const std::exception& e) {
         r = CommandResult::failure(e.what());
     }
