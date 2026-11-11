@@ -55,6 +55,7 @@
 #include <functional>
 #include <cstdint>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <optional>
 #include <string>
@@ -192,6 +193,9 @@ public:
     bool radios_searched() const noexcept { return searched_; }
     /// Why no radio is listed, or what failed to load ("" none).
     const std::string& radio_note() const noexcept { return radio_note_; }
+    /// PLG-16: what the last search heard from an enabled plugin that
+    /// listed no device (its diagnostic, RAD-52; "" none or not searched).
+    std::string search_note(const std::string& plugin_id) const;
     Result choose_radio(std::size_t index);
     /// The chosen radio (nullptr none). A simulated context radio is chosen
     /// by default when there is one (the demo and the tour).
@@ -319,6 +323,7 @@ private:
     std::vector<RadioChoice> radios_;
     bool searched_ = false;
     std::string radio_note_;
+    std::map<std::string, std::string> search_notes_;  ///< plugin id -> diagnostic of an empty enumeration
     std::optional<std::size_t> chosen_;
     WalkForm form_;
     RecordingForm recording_form_;

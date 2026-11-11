@@ -389,6 +389,7 @@ Result LiveSurvey::find_radios() {
     radios_.clear();
     chosen_.reset();
     radio_note_.clear();
+    search_notes_.clear();
     try {
         impl_->ensure_host(impl_->period_ns != 0 ? impl_->period_ns : kWalkPeriodNs);
     } catch (const std::exception& e) {
@@ -403,8 +404,10 @@ Result LiveSurvey::find_radios() {
             continue;
         }
         const radio::EnumerateResult r = impl_->host->enumerate(e.id);
-        if (r.devices.empty() && !r.diagnostic.empty())
+        if (r.devices.empty() && !r.diagnostic.empty()) {
             problems += (problems.empty() ? "" : "; ") + e.name + ": " + r.diagnostic;
+            search_notes_[e.id] = r.diagnostic;
+        }
         for (const radio::DeviceInfo& d : r.devices) {
             RadioChoice c;
             c.plugin_id = e.id;
@@ -431,6 +434,11 @@ Result LiveSurvey::find_radios() {
     }
     if (!problems.empty()) radio_note_ = problems;
     return Result{true, std::to_string(radios_.size()) + (radios_.size() == 1 ? tr(" radio found.") : tr(" radios found."))};
+}
+
+std::string LiveSurvey::search_note(const std::string& plugin_id) const {
+    const auto it = search_notes_.find(plugin_id);
+    return it == search_notes_.end() ? std::string() : it->second;
 }
 
 Result LiveSurvey::choose_radio(std::size_t index) {
@@ -555,6 +563,7 @@ Result LiveSurvey::change_plugins(const std::function<Result()>& change) {
     radios_.clear();
     chosen_.reset();
     searched_ = false;
+    search_notes_.clear();
     const Result r = change();
     m.fill_catalog();
     radio_note_ = tr("The plugins changed: find the radios again.");

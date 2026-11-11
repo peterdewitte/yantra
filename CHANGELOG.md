@@ -41,6 +41,13 @@ own changes are in its CHANGELOG.md.
   calibrate it with the calibration wizard (practice calibration); the
   Walk page names the unit.
 
+### Radio menu
+
+- The Radio menu lists every loaded radio plugin; a plugin without a
+  usable device is greyed out and its tooltip says why: not searched yet,
+  no device found, the device is in use by another program or not
+  accessible, or the plugin is switched off (PLG-16).
+
 ### Plugins
 
 - Plugin API 1.2 (compatible): a neighbour entry names its cell by its

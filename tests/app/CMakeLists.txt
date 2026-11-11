@@ -97,7 +97,13 @@ target_compile_definitions(test_app_live PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scr
                                                  YANTRA_TEST_RADIO_PLUGIN_DIR="${YANTRA_RADIO_PLUGIN_DIR}"
                                                  YANTRA_TEST_RADIO_TEST_PLUGIN_DIR="${YANTRA_RADIO_TEST_PLUGIN_DIR}"
                                                  YANTRA_TEST_FAKE_SDR_SCENARIO="${YANTRA_RADIOS_FAKE_SDR_SCENARIO}"
-                                                 YANTRA_TEST_FAKE_SDR_CONTROL_DIR="${_scratch}/fake_sdr_control")
+                                                 YANTRA_TEST_FAKE_SDR_CONTROL_DIR="${_scratch}/fake_sdr_control"
+                                                 YANTRA_TEST_FAKE_RADIO_PATH="$<TARGET_FILE:fake_radio_v1>")
+# The radio host tests' fake radio (tests/radio_host, added later: the
+# generator expression and the dependency resolve at generation time),
+# e.g. a device in use for the Radio menu (PLG-16).
+target_include_directories(test_app_live PRIVATE ${PROJECT_SOURCE_DIR}/tests/radio_host)
+add_dependencies(test_app_live fake_radio_v1)
 if(TARGET yantra_radio_plugins)
   add_dependencies(test_app_live yantra_radio_plugins)
 endif()

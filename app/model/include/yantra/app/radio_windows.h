@@ -98,6 +98,11 @@ radio::SettingDef translate_setting(radio::SettingDef d, const std::string& pref
 
 struct PluginRow {
     std::string id, name, version, api, author, licence, status, message, capabilities;
+    /// PLG-16: the Radio menu greys a plugin with no usable device out,
+    /// with the reason (not loaded, switched off, not searched yet, no
+    /// device found, every device in use or not accessible).
+    bool usable = false;
+    std::string reason;
 };
 
 struct RadioRow {
@@ -279,6 +284,9 @@ public:
 
     // -- radios -------------------------------------------------------------------
     RadioListView list_view() const;
+    /// Loads the radio plugins when they are not loaded yet, so the Radio
+    /// menu can list them before a search (PLG-16).
+    void load_plugins();
     Result find_radios();
     Result choose(std::size_t index);
     Result connect();

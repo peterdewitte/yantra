@@ -910,6 +910,24 @@ RadioListView RadioWindows::list_view() const {
             p.status = radio::status_text(e.status);
             p.message = e.message;
             p.capabilities = radio::capabilities_text(e.capabilities);
+            // PLG-16: usable when the search found a usable device of it.
+            const auto& radios = live.radios();
+            const auto usable = std::find_if(radios.begin(), radios.end(),
+                                             [&](const RadioChoice& c) { return c.plugin_id == e.id && c.usable; });
+            const auto any = std::find_if(radios.begin(), radios.end(), [&](const RadioChoice& c) { return c.plugin_id == e.id; });
+            if (e.status == radio::RadioPluginStatus::Disabled) {
+                p.reason = tr("The plugin is switched off (File > Settings... > Plugins).");
+            } else if (e.status != radio::RadioPluginStatus::Enabled) {
+                p.reason = tr("The plugin could not be loaded: ") + e.message;
+            } else if (!v.searched) {
+                p.reason = tr("Find the radios first (Radio > Find radios).");
+            } else if (any == radios.end()) {
+                const std::string why = live.search_note(e.id);
+                p.reason = why.empty() ? std::string(tr("No device found.")) : tr("No device found: ") + why;
+            } else if (usable == radios.end()) {
+                p.reason = tr("No usable device: ") + any->reason;
+            }
+            p.usable = p.reason.empty();
             v.plugins.push_back(std::move(p));
         }
     const RadioChoice* chosen = live.chosen();
@@ -939,6 +957,10 @@ RadioListView RadioWindows::list_view() const {
     else if (live.radio_running()) v.disconnect_reason = tr("Stop the radio first: it is measuring.");
     v.can_disconnect = v.disconnect_reason.empty();
     return v;
+}
+
+void RadioWindows::load_plugins() {
+    if (impl_->live.host() == nullptr) (void)impl_->live.load_radio_plugins();
 }
 
 Result RadioWindows::find_radios() {

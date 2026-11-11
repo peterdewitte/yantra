@@ -27,9 +27,11 @@
 #include <variant>
 #include <vector>
 
+#include "fake_control.h"
 #include "gui.h"
 #include "ui_harness.h"
 #include "yantra/app/app_state.h"
+#include "yantra/core/platform/dynlib.h"
 
 namespace fs = std::filesystem;
 using namespace yantra::app;
@@ -237,6 +239,77 @@ TEST_CASE("PLG-16 in the app: the Radio menu waits for a project; the simulator'
     REQUIRE(a.ui.has("menu.radio"));
     CHECK(a.ui.find("menu.radio")->disabled);  // start screen: no project
     walk_windows(a);
+}
+
+TEST_CASE("PLG-16 in the app: the Radio menu lists every radio plugin, one without a usable device greyed out with the reason") {
+    const fs::path fake_path = YANTRA_TEST_FAKE_RADIO_PATH;
+    App a("menu_reasons", {fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator.so", test_plugin("soapysdr_fake.so"), fake_path});
+    if (!a.ok) return;
+    // The fake radio's only device is held by another program (RAD-30
+    // IN_USE with its reason); the fake SoapySDR module has no device.
+    std::string error;
+    const auto lib = yantra::platform::DynamicLibrary::open(a.dir / "radios" / fake_path.filename(), error);
+    REQUIRE_MESSAGE(lib, error);
+    fake::Control* ctl = reinterpret_cast<fake::ControlFn>(lib->symbol("fake_control", error))();
+    REQUIRE(ctl != nullptr);
+    {
+        const std::lock_guard lock(ctl->m);
+        ctl->device_flags = YR_DEVICE_IN_USE;
+        ctl->flags_reason = "The device is used by another program.";
+    }
+    REQUIRE(a.state->open_project(a.dir / "demo.yantra").ok);
+    REQUIRE(a.ui.frames(3));
+
+    // Before a search: every plugin is listed, greyed out until the radios are found.
+    REQUIRE(a.ui.click("menu.radio"));
+    REQUIRE(a.until([&] { return a.rw().list_view().plugins.size() == 3; }));
+    for (const PluginRow& p : a.rw().list_view().plugins) {
+        CAPTURE(p.id);
+        REQUIRE(a.until([&] { return a.ui.has("radio.p." + p.id); }));
+        CHECK(a.ui.find("radio.p." + p.id)->disabled);
+        CHECK_FALSE(p.usable);
+        CHECK(p.reason == "Find the radios first (Radio > Find radios).");
+    }
+    REQUIRE(a.ui.click("menu.radio"));  // closes it
+    REQUIRE(a.until([&] { return !a.ui.has("radio.list"); }));
+
+    // After the search: the simulator is usable; the others say why not.
+    REQUIRE(a.rw().find_radios().ok);
+    REQUIRE(a.ui.click("menu.radio"));
+    std::string simulator;
+    for (const PluginRow& p : a.rw().list_view().plugins) {
+        CAPTURE(p.id);
+        REQUIRE_MESSAGE(a.until([&] { return a.ui.has("radio.p." + p.id); }), a.ui.dump());
+        CHECK(a.ui.find("radio.p." + p.id)->disabled == !p.usable);
+        if (p.id == "simulator") {
+            simulator = p.id;
+            CHECK(p.usable);
+            CHECK(p.reason.empty());
+        } else if (p.id == "test.fake") {
+            CHECK_FALSE(p.usable);
+            CHECK(p.reason == "No usable device: The device is used by another program.");
+        } else {
+            CHECK_FALSE(p.usable);
+            CHECK(p.reason.rfind("No device found", 0) == 0);
+        }
+    }
+    REQUIRE_FALSE(simulator.empty());
+    // The reason shows on hover (DOC-07 c), and the usable plugin opens.
+    CHECK(a.ui.hover("radio.p.test.fake"));
+    REQUIRE(a.ui.click("radio.p." + simulator));
+    std::size_t sim_row = 0;
+    for (const RadioRow& r : a.rw().list_view().radios)
+        if (r.plugin_id == simulator) sim_row = r.index;
+    CHECK(a.until([&] { return a.ui.has("radio.d." + std::to_string(sim_row)); }));
+    // The device in use is in the list too, unusable with its reason.
+    bool listed = false;
+    for (const RadioRow& r : a.rw().list_view().radios)
+        if (r.plugin_id == "test.fake") {
+            listed = true;
+            CHECK_FALSE(r.usable);
+            CHECK(r.reason == "The device is used by another program.");
+        }
+    CHECK(listed);
 }
 
 TEST_CASE("PLG-16 in the app: typing a setting, a refused value, an action, Advanced and Reset with confirmation") {

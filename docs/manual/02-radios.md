@@ -7,7 +7,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 Radios are plugins (chapter 14) from the separate yantra-radios project. Each radio plugin processes its radio's signal itself and gives Yantra measurement records only: levels, cell identity, quality, C1, broadcast parameters and neighbour lists. Yantra lists the devices every radio plugin finds and builds the windows of each radio from what the plugin declares, so every radio has the same four windows: settings, debug, calibration and device info.
 
-The Radio menu (once a project is open) opens the radio list, finds radios again and opens the windows of the chosen radio; below that, every plugin that found a device has a submenu with its devices and their windows. Opening a radio window for a device chooses and connects it.
+The Radio menu (once a project is open) opens the radio list, finds radios again and opens the windows of the chosen radio; below that, every radio plugin has a submenu with its devices and their windows. A plugin that cannot be used is greyed out, and its tooltip says why: the radios were not searched yet (Find radios), no device was found, every device is in use by another program or not accessible (for example missing permissions), or the plugin is switched off or could not be loaded. Opening a radio window for a device chooses and connects it.
 
 ### The shipped radio plugins
 

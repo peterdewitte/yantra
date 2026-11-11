@@ -89,8 +89,12 @@ yr_status enumerate(yr_plugin*, yr_device_cb cb, void* user) {
     maybe_hang(lock, fake::kEnumerate);
     if (!g_ctl.present) return result_of(fake::kEnumerate, YR_ERR_NO_DEVICE);
     const yr_status st = result_of(fake::kEnumerate, YR_OK);
+    yr_device_info shown = info;
+    shown.flags = g_ctl.device_flags;
+    const std::string reason = g_ctl.flags_reason;
+    shown.flags_reason = reason.c_str();
     lock.unlock();
-    if (st == YR_OK) cb(user, &info);
+    if (st == YR_OK) cb(user, &shown);
     return st;
 }
 

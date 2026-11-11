@@ -12,7 +12,7 @@ Answers to common questions and problems. A greyed control always says why it is
 - Radio > Radios... lists a device that cannot be opened with the reason. Missing USB permissions: install the udev rules (1, "Radio drivers and permissions") and plug the radio in again.
 - An RTL-SDR that is busy is usually held by the DVB-T television driver: install the blacklist file and plug it in again.
 - A TETRA terminal's port needs your user in the `dialout` group.
-- The Radio menu shows a plugin's submenu only when that plugin found a device. Press Find radios after plugging a radio in.
+- The Radio menu lists every radio plugin; one that found no usable device is greyed out, and its tooltip says why (no device found, in use by another program, no permission). Press Find radios after plugging a radio in.
 - A plugin switched off in File > Settings > Plugins finds nothing (14.1).
 
 ### The levels are in dBFS or marked uncalibrated

@@ -41,6 +41,8 @@ struct Control {
     yr_status result[kCallCount] = {};  // returned instead of the real result when != 0
     bool released = false;              // ends every hang
     bool block_context = false;         // on_context_event waits until cleared
+    std::uint32_t device_flags = 0;     // YR_DEVICE_* of the enumerated device (e.g. IN_USE, PLG-16)
+    std::string flags_reason;           // its flags_reason
     // Observations.
     int hanging = 0;  // calls inside a hang now
     int context_waiting = 0;  // on_context_event calls inside now

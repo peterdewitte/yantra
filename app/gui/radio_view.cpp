@@ -129,6 +129,7 @@ void Gui::draw_radio_menu() {
         if (rw == nullptr) text_tooltip(tr("Open or create a project first: the radio windows work with its walk test."));
         return;
     }
+    if (ImGui::IsWindowAppearing()) rw->load_plugins();  // PLG-16: the plugins before a search
     const RadioListView v = rw->list_view();
     if (ImGui::MenuItem(tr("Radios...###radio.list"))) (void)rw->open(RadioWindow::List);
     text_tooltip(tr("The radio plugins and their devices: choose, connect and disconnect a radio (PLG-16)."));
@@ -160,33 +161,46 @@ void Gui::draw_radio_menu() {
         a.disabled_reason = reason;
         item_tooltip(a);
     }
-    // PLG-16: Radio > <plugin> > <device> > window, for every radio found.
-    bool first = true;
+    // PLG-16: Radio > <plugin> > <device> > window. Every loaded radio
+    // plugin is listed; one without a usable device is greyed out with the
+    // reason (not searched yet, no device found, in use, not loaded).
+    if (!v.plugins.empty()) ImGui::Separator();
     for (const PluginRow& p : v.plugins) {
-        bool any = false;
-        for (const RadioRow& r : v.radios) any = any || r.plugin_id == p.id;
-        if (!any) continue;
-        if (first) ImGui::Separator();
-        first = false;
-        if (!ImGui::BeginMenu((p.name + "###radio.p." + p.id).c_str())) continue;
+        const bool open = ImGui::BeginMenu((p.name + "###radio.p." + p.id).c_str(), p.usable);
+        ActionView pa;
+        pa.tooltip = tr("The devices of this radio plugin and their windows (PLG-16).");
+        pa.enabled = p.usable;
+        pa.disabled_reason = p.reason;
+        item_tooltip(pa);
+        if (!open) continue;
         for (const RadioRow& r : v.radios) {
             if (r.plugin_id != p.id) continue;
             const std::string id = "radio.d." + std::to_string(r.index);
-            if (!ImGui::BeginMenu((r.label + "###" + id).c_str(), r.usable)) {
-                if (!r.usable) text_tooltip(r.reason.c_str());
-                continue;
-            }
+            const bool device_open = ImGui::BeginMenu((r.label + "###" + id).c_str(), r.usable);
+            ActionView da;
+            da.tooltip = tr("This device's settings, debug, calibration and information windows; opening one chooses and "
+                            "connects it.");
+            da.enabled = r.usable;
+            da.disabled_reason = r.reason;
+            item_tooltip(da);
+            if (!device_open) continue;
             const struct {
                 RadioWindow w;
                 const char* label;
                 const char* suffix;
-            } items[] = {{RadioWindow::Settings, tr("Settings..."), ".settings"},
-                         {RadioWindow::Debug, tr("Debug..."), ".debug"},
-                         {RadioWindow::Calibration, tr("Calibration..."), ".calibration"},
-                         {RadioWindow::Info, tr("Device info and self-test..."), ".info"}};
-            for (const auto& e : items)
-                if (ImGui::MenuItem((std::string(e.label) + "###" + id + e.suffix).c_str()))
-                    (void)rw->open(e.w, r.index);
+                const char* tip;
+            } items[] = {{RadioWindow::Settings, tr("Settings..."), ".settings",
+                          tr("The chosen radio's settings, built from its descriptors (RAD-40..44).")},
+                         {RadioWindow::Debug, tr("Debug..."), ".debug",
+                          tr("The radio's records, counters, events, sensors and log (RAD-14, RAD-24, RAD-25).")},
+                         {RadioWindow::Calibration, tr("Calibration..."), ".calibration",
+                          tr("The level calibration table, the wizard, verify, frequency error and the reference noise (RF-02, NFR-07).")},
+                         {RadioWindow::Info, tr("Device info and self-test..."), ".info",
+                          tr("The plugin, the device and its self-test (RAD-30, RAD-46).")}};
+            for (const auto& e : items) {
+                if (ImGui::MenuItem((std::string(e.label) + "###" + id + e.suffix).c_str())) (void)rw->open(e.w, r.index);
+                text_tooltip(e.tip);
+            }
             ImGui::EndMenu();
         }
         ImGui::EndMenu();

@@ -370,9 +370,15 @@ radio window for a radio chooses and connects it.
 Radio menu `menu.radio` (between File and Help; disabled on the start
 screen): `radio.list` (the Radios window), `radio.find`,
 `radio.settings`, `radio.debug`, `radio.calibration`, `radio.info`
-(enabled once a radio is chosen), then per plugin with devices found
+(enabled once a radio is chosen), then every loaded radio plugin
+(PLG-16; the plugins are loaded when the menu opens)
 Radio > `radio.p.<plugin id>` > `radio.d.<n>` >
-`radio.d.<n>.settings|debug|calibration|info`. Windows `win.radio.list|settings|
+`radio.d.<n>.settings|debug|calibration|info`. A plugin without a usable
+device is greyed out with the reason in its tooltip (`PluginRow::usable`,
+`reason`: switched off, not loaded, "Find the radios first" before a
+search, "No device found" with the plugin's diagnostic, or "No usable
+device" with the device's `flags_reason` when every device is IN_USE or
+NO_PERMISSION); a device that cannot be used is greyed out the same way. Windows `win.radio.list|settings|
 debug|calibration|info`:
 
 - Radios: `radio.list.find`, `radio.row.<n>` (choose),
