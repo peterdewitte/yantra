@@ -527,6 +527,8 @@ struct RadioWindows::Impl {
     std::function<std::string(const std::string&)> translator() const {
         radio::RadioHost* host = live.host();
         if (host == nullptr || lang == "en" || lang.empty()) return {};
+        if (lang == language_key(kPseudoLanguage))  // TST-52: the English text, made longer
+            return [host, pid = plugin_id](const std::string& k) { return pseudo_text(host->translation(pid, k, "en")); };
         return [host, pid = plugin_id, lg = lang](const std::string& k) { return host->translation(pid, k, lg); };
     }
 

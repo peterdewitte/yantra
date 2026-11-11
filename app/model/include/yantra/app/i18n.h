@@ -30,15 +30,27 @@
 
 namespace yantra::app {
 
-enum class Language { En, Nl, Fr, De };
+enum class Language { En, Nl, Fr, De, Pseudo };
+/// The UI languages a user chooses from (Settings, --language).
 inline constexpr Language kLanguages[] = {Language::En, Language::Nl, Language::Fr, Language::De};
+/// TST-52: a pseudo-language for the GUI text-overflow test ("pseudo" in
+/// the settings and on the command line, not offered in Settings): every
+/// English text 40 % longer, in brackets, with accented letters
+/// (pseudo_text()), so a layout that has no room for a longer translation
+/// fails before that translation exists. Plugin texts follow it too.
+inline constexpr Language kPseudoLanguage = Language::Pseudo;
 
-/// "en", "nl", "fr", "de" (settings, plugin translation tables).
+/// "en", "nl", "fr", "de" (settings, plugin translation tables); "pseudo".
 const char* language_key(Language language);
 /// The language's own name ("English", "Nederlands", "Français",
 /// "Deutsch"): shown untranslated, so everyone finds their own.
 const char* language_name(Language language);
 std::optional<Language> parse_language(std::string_view key);
+/// The pseudo-language's form of an English text (TST-52): each line
+/// "[" + the text with accented letters + " ~~~" padding + "]", at least
+/// 40 % (and two characters) longer; "{}" placeholders, printf
+/// conversions, a "##id" suffix and line breaks are kept as they are.
+std::string pseudo_text(std::string_view english);
 
 /// The language of tr() (default English).
 void set_language(Language language);

@@ -163,6 +163,7 @@ void PluginUi::draw(const PluginWindowView& window, const yantra_ui_api& api) co
 
 std::string PluginUi::translate(const std::string& plugin_id, const std::string& english) const {
     if (language_ == "en" || language_.empty()) return english;
+    if (language_ == language_key(kPseudoLanguage)) return pseudo_text(english);  // TST-52
     const plugin::PluginInfo* info = loader_.info(plugin_id);
     if (info == nullptr) return english;
     for (const plugin::Translation& t : info->translations)
