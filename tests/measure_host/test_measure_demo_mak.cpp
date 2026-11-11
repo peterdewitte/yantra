@@ -306,7 +306,9 @@ TEST_CASE("DEMO-12 with a stand-in sheet the example project builds and referenc
         std::shared_ptr<yj::Project> p = yd::create_project(d, dir / (id + ".yantra"), o);
         check_made(*p, d);
         const yj::SourceFile src = p->sources().front();
-        CHECK(src.reference == fs::absolute(image).lexically_normal().string());
+        // IND-01: stored relative to the project file, naming the same file.
+        CHECK(src.reference == fs::absolute(image).lexically_normal().lexically_relative(fs::absolute(dir)).generic_string());
+        CHECK(p->resolve_path(src.reference) == fs::absolute(image).lexically_normal());
         // The project holds no copy: its content is read from the file
         // and checked against the hash, from any folder.
         CHECK(p->read_source(src.plan.id).size() == size);

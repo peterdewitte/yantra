@@ -99,6 +99,22 @@ them, so nothing is ever dropped silently.
   the building model: heights in metres, plan sizes in plan units,
   attenuations in dB.
 
+### Stored paths
+
+The paths the file holds (the `reference` of `sources` and `recordings`,
+IND-01) are relative to the folder of the project file when the file is
+on the same volume, written with `/` separators (e.g. `plans/sheet.pdf`,
+`../cache/sheet.jpg`, `recordings/walk_0000.yrec.zst`), so the project
+folder can be moved or shared with its files; a file on another volume
+(another drive letter on Windows) is stored with its absolute path. A
+relative path is read from the project file's folder, an absolute one as
+it is: files of earlier versions, which hold absolute paths, still open
+and find their files (no migration; they keep their absolute paths). A
+copy in another folder (Save as, a copy for an export) writes every
+stored path again for its own folder, so it names the same files
+(`project::stored_path`, `project::resolve_stored_path`,
+`Project::stored_path`, `Project::resolve_path`).
+
 ## Tables (version 7)
 
 ### `meta`
@@ -167,7 +183,7 @@ image from its cache with `read_source_from`.
 | `sha256` | TEXT, unique | 64 lower-case hex digits of the content |
 | `storage` | TEXT | `embedded` or `reference` |
 | `content` | BLOB | the file (`embedded` only; NULL for references) |
-| `reference` | TEXT | `reference` only: the cached file's absolute path when it was added, or the described file name (a hint) |
+| `reference` | TEXT | `reference` only: the cached file's path when it was added, or the described file name (a hint); a stored path (see "Stored paths") |
 | `added_utc` | TEXT | when it was added |
 
 A source used by a floor cannot be removed.
@@ -420,7 +436,7 @@ a moved, missing or changed file is noticed.
 | `file_index` | INTEGER >= 0 | the file number in its session |
 | `sha256` | TEXT | 64 lower-case hex digits of the file |
 | `size` | INTEGER >= 0 | bytes |
-| `reference` | TEXT | the path when it was added (a hint) |
+| `reference` | TEXT | the path when it was added (a hint); a stored path (see "Stored paths"), usually `recordings/<file_name>` |
 | `header` | TEXT | the file's header line (JSON) |
 | `added_utc` | TEXT | when it was added |
 

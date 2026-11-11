@@ -466,7 +466,7 @@ TEST_CASE("project: licence-restricted sources are referenced by hash (IND-03, D
     REQUIRE(s.has_value());
     CHECK_FALSE(s->plan.embedded);
     CHECK(s->plan.sha256 == yantra::util::Sha256::of(pdf));
-    CHECK(s->reference == fs::absolute(cached).lexically_normal().string());
+    CHECK(s->reference == "cache/restricted.pdf");  // IND-01: relative to the project file
     CHECK(as_string(p->read_source(r.id)) == pdf);
     p->save();
     // The content is not in the project (an empty schema-3 project is
@@ -524,6 +524,106 @@ TEST_CASE("project: a licence-restricted source can be referenced from its descr
                             pj::SourceReference{"b.jpg", "image/jpeg", 10, "abc", ""}})
         CHECK(code_of([&] { (void)p->add_source_reference(bad); }) == Code::Invalid);
     CHECK(p->sources().size() == 1);
+}
+
+TEST_CASE("project: paths are stored relative to the project file's folder when possible (IND-01)") {
+    const fs::path base = fs::absolute(scratch("relative-rules"));
+    CHECK(pj::stored_path(base / "a", base / "a" / "plans" / "s.pdf") == "plans/s.pdf");
+    CHECK(pj::stored_path(base / "a", base / "cache" / "s.pdf") == "../cache/s.pdf");
+    CHECK(pj::stored_path(base / "a", base / "a" / "x" / ".." / "s.pdf") == "s.pdf");
+    CHECK(pj::stored_path(base / "a", fs::path()).empty());
+    CHECK(pj::resolve_stored_path(base / "a", "../cache/s.pdf") == base / "cache" / "s.pdf");
+    CHECK(pj::resolve_stored_path(base / "a", (base / "b.pdf").string()) == base / "b.pdf");  // absolute: as it is
+    CHECK(pj::resolve_stored_path(base / "a", "").empty());
+#ifdef _WIN32
+    // Another volume: absolute.
+    CHECK(fs::path(pj::stored_path("C:\\projects", "D:\\plans\\s.pdf")).is_absolute());
+#endif
+}
+
+TEST_CASE("project: plan-source and recording paths round trip relative; the moved project folder still finds them (IND-01)") {
+    const fs::path dir = fs::absolute(scratch("relative"));
+    const std::string pdf = fake_pdf(2) + std::string(3000, 'p');
+    const std::string cache_pdf = fake_pdf(1) + std::string(3000, 'c');
+    const fs::path folder = dir / "site";
+    fs::create_directories(folder / "plans");
+    fs::create_directories(dir / "cache");
+    write_file(folder / "plans" / "sheet.pdf", pdf);
+    write_file(dir / "cache" / "restricted.pdf", cache_pdf);
+    std::string inside, outside;
+    {
+        auto p = pj::Project::create(folder / "p.yantra", info());
+        inside = p->add_source_reference(folder / "plans" / "sheet.pdf").id;
+        outside = p->add_source_reference(dir / "cache" / "restricted.pdf").id;
+        pj::RecordingFile rec;
+        rec.file_name = "walk_0000.yrec";
+        rec.session_id = "0123456789abcdef";
+        rec.sha256 = std::string(64, 'a');
+        rec.size = 10;
+        rec.reference = (folder / "recordings" / "walk_0000.yrec").string();
+        (void)p->add_recording(rec);
+        CHECK(p->source(inside)->reference == "plans/sheet.pdf");
+        CHECK(p->source(outside)->reference == "../cache/restricted.pdf");
+        CHECK(p->recordings().front().reference == "recordings/walk_0000.yrec");
+        CHECK(p->resolve_path(p->recordings().front().reference) == folder / "recordings" / "walk_0000.yrec");
+    }
+    {  // reopened
+        auto p = pj::Project::open(folder / "p.yantra");
+        CHECK(as_string(p->read_source(inside)) == pdf);
+        CHECK(as_string(p->read_source(outside)) == cache_pdf);
+    }
+    // The project folder moved (the cache next to it stays where it was
+    // relative to it): the files are found from the new place.
+    const fs::path moved = dir / "moved";
+    fs::rename(folder, moved);
+    {
+        auto p = pj::Project::open(moved / "p.yantra");
+        CHECK(p->check().empty());
+        CHECK(as_string(p->read_source(inside)) == pdf);
+        CHECK(as_string(p->read_source(outside)) == cache_pdf);
+        CHECK(p->resolve_path(p->recordings().front().reference) == moved / "recordings" / "walk_0000.yrec");
+
+        // save_as into another folder writes the paths again for it.
+        fs::create_directories(dir / "other" / "copy");
+        p->save_as(dir / "other" / "copy" / "q.yantra");
+        CHECK(p->source(inside)->reference == "../../moved/plans/sheet.pdf");
+        CHECK(as_string(p->read_source(inside)) == pdf);
+        CHECK(as_string(p->read_source(outside)) == cache_pdf);
+        CHECK(p->resolve_path(p->recordings().front().reference) == moved / "recordings" / "walk_0000.yrec");
+        // A copy (write_copy) likewise; the open project keeps its own paths.
+        p->write_copy(dir / "c.yantra");
+        CHECK(p->source(inside)->reference == "../../moved/plans/sheet.pdf");
+    }
+    auto c = pj::Project::open(dir / "c.yantra");
+    CHECK(c->source(inside)->reference == "moved/plans/sheet.pdf");
+    CHECK(as_string(c->read_source(outside)) == cache_pdf);
+}
+
+TEST_CASE("project: a file of an earlier version with absolute paths still opens and finds its files (IND-01)") {
+    const fs::path dir = fs::absolute(scratch("absolute-paths"));
+    const std::string pdf = fake_pdf(1) + std::string(2000, 'o');
+    fs::create_directories(dir / "plans");
+    write_file(dir / "plans" / "old.pdf", pdf);
+    const fs::path file = dir / "old.yantra";
+    std::string id;
+    {
+        auto p = pj::Project::create(file, info());
+        id = p->add_source_reference(dir / "plans" / "old.pdf").id;
+        pj::RecordingFile rec;
+        rec.file_name = "walk.yrec";
+        rec.session_id = "0123456789abcdef";
+        rec.sha256 = std::string(64, 'b');
+        rec.size = 10;
+        (void)p->add_recording(rec);
+    }
+    // As Yantra 0.1.0 wrote them: absolute paths.
+    raw_sql(file, "UPDATE sources SET reference = '" + (dir / "plans" / "old.pdf").string() + "' WHERE id = '" + id +
+                      "'; UPDATE recordings SET reference = '" + (dir / "recordings" / "walk.yrec").string() + "'");
+    auto p = pj::Project::open(file);
+    CHECK(p->check().empty());
+    CHECK(p->source(id)->reference == (dir / "plans" / "old.pdf").string());  // kept as it is
+    CHECK(as_string(p->read_source(id)) == pdf);
+    CHECK(p->resolve_path(p->recordings().front().reference) == dir / "recordings" / "walk.yrec");
 }
 
 TEST_CASE("project: save_as writes a copy and continues with it") {

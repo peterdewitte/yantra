@@ -977,11 +977,12 @@ std::vector<SourceChoice> AppState::plan_sources() const {
         c.detail += ", " + std::to_string(n) + (n == 1 ? " floor" : " floors");
         if (!s.plan.embedded) {
             std::error_code ec;
-            c.available = !s.reference.empty() && fs::is_regular_file(s.reference, ec);
+            const fs::path where = project_->resolve_path(s.reference);  // IND-01: relative to the project
+            c.available = !where.empty() && fs::is_regular_file(where, ec);
             c.detail += c.available ? tr(", referenced (licence-restricted)") : tr(", referenced file missing");
             if (!c.available)
                 c.reason = tr("The project only references this licence-restricted plan, and the file ") +
-                           (s.reference.empty() ? std::string(tr("it refers to")) : s.reference) +
+                           (where.empty() ? std::string(tr("it refers to")) : where.string()) +
                            tr(" is not there. Fetch it again (Help > Tour) to use it.");
         }
         out.push_back(std::move(c));

@@ -304,6 +304,15 @@ struct ProjectOptions {
     std::vector<std::string> testing_extra_steps;
 };
 
+/// IND-01: a path as a project file stores it (plan-source references,
+/// recordings): relative to `folder` (the project file's folder) with "/"
+/// separators when both are on the same volume, so the project folder can
+/// be moved or shared; absolute otherwise. "" stays "".
+std::string stored_path(const std::filesystem::path& folder, const std::filesystem::path& file);
+/// IND-01: the file a stored path names: an absolute path as it is (files
+/// of earlier versions), a relative one in `folder`. "" gives "".
+std::filesystem::path resolve_stored_path(const std::filesystem::path& folder, const std::string& stored);
+
 class Project {
 public:
     /// Creates a new project file at `path` (IND-01) and opens it. The
@@ -318,6 +327,12 @@ public:
     Project& operator=(const Project&) = delete;
 
     const std::filesystem::path& path() const;
+    /// IND-01: `file` as this project stores a path (stored_path() in the
+    /// project file's folder).
+    std::string stored_path(const std::filesystem::path& file) const;
+    /// IND-01: the file a stored path names (resolve_stored_path() in the
+    /// project file's folder).
+    std::filesystem::path resolve_path(const std::string& stored) const;
     /// The schema version the file had when it was opened (before a
     /// migration).
     int opened_version() const;

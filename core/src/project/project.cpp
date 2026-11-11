@@ -393,7 +393,52 @@ void remove_side_files(const fs::path& p) {
     }
 }
 
+// IND-01: a copy of the project in another folder keeps naming the same
+// files: its stored paths (reference sources, recordings) are written
+// again for `to`, the folder of the copy `file`.
+void rebase_paths(const fs::path& file, const fs::path& from, const fs::path& to) {
+    if (from.lexically_normal() == to.lexically_normal()) return;
+    sql::Db db;
+    db.open(file.string(), SQLITE_OPEN_READWRITE);
+    db.exec("BEGIN", "rebase paths");
+    for (const char* table : {"sources", "recordings"}) {
+        std::vector<std::pair<std::int64_t, std::string>> changed;  // rowid, new path
+        {
+            sql::Stmt q(db, std::string("SELECT rowid, reference FROM ") + table + " WHERE reference <> ''");
+            while (q.step()) {
+                const std::string old_path = q.text(1);
+                const std::string new_path = stored_path(to, resolve_stored_path(from, old_path));
+                if (new_path != old_path) changed.emplace_back(q.i64(0), new_path);
+            }
+        }
+        for (const auto& [rowid, path] : changed) {
+            sql::Stmt u(db, std::string("UPDATE ") + table + " SET reference = ?1 WHERE rowid = ?2");
+            u.bind(1, path).bind(2, rowid).run();
+        }
+    }
+    db.exec("COMMIT", "rebase paths");
+}
+
 }  // namespace
+
+std::string stored_path(const fs::path& folder, const fs::path& file) {
+    if (file.empty()) return {};
+    std::error_code ec;
+    const fs::path f = fs::absolute(file, ec).lexically_normal();
+    const fs::path d = fs::absolute(folder, ec).lexically_normal();
+    if (f.root_name() == d.root_name()) {
+        const fs::path rel = f.lexically_relative(d);
+        if (!rel.empty()) return rel.generic_string();
+    }
+    return f.string();
+}
+
+fs::path resolve_stored_path(const fs::path& folder, const std::string& stored) {
+    if (stored.empty()) return {};
+    const fs::path p(stored);
+    if (p.is_absolute()) return p;
+    return (folder / p).lexically_normal();
+}
 
 // ---- Impl ---------------------------------------------------------------
 
@@ -1150,6 +1195,16 @@ std::unique_ptr<Project> Project::open(const fs::path& path, ProjectOptions opti
 }
 
 const fs::path& Project::path() const { return impl_->path; }
+
+std::string Project::stored_path(const fs::path& file) const {
+    std::error_code ec;
+    return project::stored_path(fs::absolute(impl_->path, ec).parent_path(), file);
+}
+
+fs::path Project::resolve_path(const std::string& stored) const {
+    std::error_code ec;
+    return resolve_stored_path(fs::absolute(impl_->path, ec).parent_path(), stored);
+}
 int Project::opened_version() const { return impl_->opened_version; }
 const fs::path& Project::migration_backup() const { return impl_->backup; }
 
@@ -1963,7 +2018,7 @@ AddSourceResult Project::add_source_reference(const fs::path& cached_file) {
                                "added_utc) VALUES (?1, ?2, ?3, ?4, ?5, 'reference', ?6, ?7)");
         s.bind(1, r.id).bind(2, cached_file.filename().string()).bind(3, sniff_media_type(d.head, cached_file));
         s.bind(4, static_cast<std::int64_t>(d.size)).bind(5, d.sha256);
-        s.bind(6, fs::absolute(cached_file).lexically_normal().string()).bind(7, impl_->now()).run();
+        s.bind(6, stored_path(cached_file)).bind(7, impl_->now()).run();
         r.added = true;
         impl_->touch();
         tx.commit();
@@ -1997,7 +2052,9 @@ AddSourceResult Project::add_source_reference(const SourceReference& described) 
         s.bind(1, r.id).bind(2, described.file_name)
             .bind(3, described.media_type.empty() ? std::string("application/octet-stream") : described.media_type);
         s.bind(4, static_cast<std::int64_t>(described.size)).bind(5, described.sha256);
-        s.bind(6, described.reference).bind(7, impl_->now()).run();
+        // IND-01: an absolute path hint is stored relative when possible.
+        const bool absolute = fs::path(described.reference).is_absolute();
+        s.bind(6, absolute ? stored_path(described.reference) : described.reference).bind(7, impl_->now()).run();
         r.added = true;
         impl_->touch();
         tx.commit();
@@ -2028,7 +2085,7 @@ std::vector<std::uint8_t> Project::read_source(const std::string& id) const {
         if (!src) throw ProjectError(Code::NotFound, "no source " + id);
         if (src->plan.embedded) data = impl_->read_embedded(*src);
     }
-    if (!src->plan.embedded) data = read_whole(src->reference, *src);
+    if (!src->plan.embedded) data = read_whole(resolve_path(src->reference), *src);
     require_hash(data, *src);
     return data;
 }
@@ -2362,6 +2419,7 @@ void Project::save_as(const fs::path& path, bool replace) {
         try {
             sql::Stmt s(impl_->db, "VACUUM INTO ?1");
             s.bind(1, tmp.string()).run();
+            rebase_paths(tmp, fs::absolute(impl_->path, ec).parent_path(), fs::absolute(path, ec).parent_path());
             impl_->fault("save_as:written");
             // A log of the replaced file must never be applied to the new
             // one (SQLite would read it as the new file's log).
@@ -2393,6 +2451,7 @@ void Project::write_copy(const fs::path& path, bool replace) const {
     try {
         sql::Stmt s(impl_->db, "VACUUM INTO ?1");
         s.bind(1, tmp.string()).run();
+        rebase_paths(tmp, fs::absolute(impl_->path, ec).parent_path(), fs::absolute(path, ec).parent_path());
         if (exists) remove_side_files(path);
         publish(tmp, path, replace);
     } catch (...) {
@@ -2536,6 +2595,8 @@ std::int64_t Project::add_recording(RecordingFile file) {
                                "size, reference, header, added_utc) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)");
         s.bind(1, file.file_name).bind(2, file.session_id).bind(3, file.session_name);
         s.bind(4, static_cast<std::int64_t>(file.file_index)).bind(5, file.sha256);
+        // IND-01: an absolute path is stored relative when possible.
+        if (fs::path(file.reference).is_absolute()) file.reference = stored_path(file.reference);
         s.bind(6, static_cast<std::int64_t>(file.size)).bind(7, file.reference).bind(8, file.header);
         s.bind(9, impl_->now()).run();
         id = impl_->db.last_rowid();

@@ -915,7 +915,7 @@ std::vector<celldb::ObservedCell> observed_cells(const project::Project& project
         std::vector<fs::path> paths;
         for (const project::RecordingFile& f : files) {
             std::optional<fs::path> found;
-            for (const fs::path& p : {fs::path(f.reference), base / f.reference, base / f.file_name,
+            for (const fs::path& p : {project.resolve_path(f.reference), base / f.file_name,
                                       base / "recordings" / f.file_name}) {
                 std::error_code ec;
                 if (!p.empty() && fs::is_regular_file(p, ec)) {

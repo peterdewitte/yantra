@@ -152,7 +152,7 @@ RecordingExtras session_extras(const project::Project& project, const project::S
     for (const auto& f : files) {
         std::error_code ec;
         std::optional<fs::path> found;
-        for (const fs::path& p : {fs::path(f.reference), base / f.reference, base / f.file_name,
+        for (const fs::path& p : {project.resolve_path(f.reference), base / f.file_name,
                                   base / "recordings" / f.file_name})
             if (!p.empty() && fs::is_regular_file(p, ec)) {
                 found = p;

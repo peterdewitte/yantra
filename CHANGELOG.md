@@ -25,6 +25,14 @@ own changes are in its CHANGELOG.md.
   (HW-01b). The device information names dBm devices.
 - Record files with the flag `level_dbm` (radio API 1.1) are read.
 
+### Projects
+
+- The project file stores the paths of its referenced plans and its
+  recordings relative to its own folder when they are on the same drive,
+  so a project folder can be moved or shared; Save as into another folder
+  keeps naming the same files. Projects with full paths from 0.1.0 still
+  open (IND-01).
+
 ### Surveying
 
 - The mouse survey with the simulator no longer applies an automatic

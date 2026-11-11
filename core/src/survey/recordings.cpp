@@ -38,7 +38,7 @@ std::int64_t add_recording_file(project::Project& project, const std::filesystem
     r.file_index = header.value->file_index;
     r.sha256 = h.finish_hex();
     r.size = size;
-    r.reference = reference.empty() ? std::filesystem::absolute(path).lexically_normal().string() : reference;
+    r.reference = reference.empty() ? project.stored_path(path) : reference;  // IND-01
     r.header = recording::codec::header_line(*header.value);
     return project.add_recording(std::move(r));
 }
