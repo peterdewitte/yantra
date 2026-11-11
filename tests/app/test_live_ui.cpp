@@ -400,9 +400,13 @@ TEST_CASE("DEMO-11 DEMO-14 the guided tour's mouse survey: Show me starts the si
     model.max_reflections = 0;
     const rt::PointLevels want = rt::evaluate(walked, rt::trace_points(walked, floor, where, model), model);
     std::size_t close = 0;
-    for (std::size_t i = 0; i < where.size(); ++i)
+    std::string points;
+    for (std::size_t i = 0; i < where.size(); ++i) {
         if (std::abs(levels[i] - want.best_dbm[i]) <= 3.0) ++close;
-    CHECK(close * 10 >= where.size() * 8);
+        points += std::to_string(where[i].x) + " m: " + std::to_string(levels[i]) + " dBm, model " +
+                  std::to_string(want.best_dbm[i]) + "\n";
+    }
+    CHECK_MESSAGE(close * 10 >= where.size() * 8, points);
 
     // The report shows the same points (TST-34) with no calibration recorded.
     yantra::report::CoverageOptions ro;
@@ -441,7 +445,9 @@ TEST_CASE("DEMO-11 DEMO-14 the guided tour's mouse survey: Show me starts the si
     REQUIRE_MESSAGE(replay, replay_error);
     CHECK(replay->files().front().header.info.calibration.empty());
     (void)replay->advance_to(replay->duration_ns());
-    CHECK(replay->mismatches() == 0);
+    std::string mismatches;
+    for (const std::string& m : replay->mismatch_messages()) mismatches += m + "\n";
+    CHECK_MESSAGE(replay->mismatches() == 0, mismatches);
     const auto last = replay->last_cycle();
     REQUIRE(last);
     REQUIRE_FALSE(last->samples.empty());

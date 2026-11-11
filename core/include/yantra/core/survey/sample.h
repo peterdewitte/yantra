@@ -31,12 +31,16 @@ namespace yantra::survey {
 nlohmann::json sample_json(const measure::MeasurementCycle& cycle);
 
 /// The simulator's position of a cycle (RAD-19 sim_position): of its
-/// serving sample, else of its first sample that has one.
+/// serving sample, else of its newest sample (smallest age) that has one;
+/// with `device`, only that device's samples. A held sample (no record in
+/// this cycle, e.g. a scan channel the radio has not measured again) keeps
+/// the position of its old record: the first sample's position may be
+/// seconds old, so the serving sample's, whose level a point shows, is used.
 struct SimPosition {
     std::string floor_id;
     double x_m = 0.0, y_m = 0.0;  ///< plan-frame metres
 };
-std::optional<SimPosition> sim_position(const nlohmann::json& sample);
+std::optional<SimPosition> sim_position(const nlohmann::json& sample, const std::string& device = {});
 
 enum class AverageRule { Power, Arithmetic };
 /// Power for "dBm", "dBFS" and "dB", Arithmetic otherwise.

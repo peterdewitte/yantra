@@ -57,6 +57,11 @@ own changes are in its CHANGELOG.md.
   With the simulator set to dBFS the points are uncalibrated until you
   calibrate it with the calibration wizard (practice calibration); the
   Walk page names the unit.
+- A mouse-survey point takes the simulator position of its serving cell's
+  record, whose level it shows, instead of the first record that has one:
+  a held scan channel the busy simulator had not measured again for a
+  while kept an old position, so on a loaded computer a point could lie
+  metres from where its level was computed (RAD-19).
 
 ### Reports
 

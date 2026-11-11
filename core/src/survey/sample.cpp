@@ -120,15 +120,20 @@ json sample_json(const measure::MeasurementCycle& cycle) {
     return {{"cycle", cycle.sequence}, {"flags", measure::sample_flags_text(cycle.flags)}, {"carriers", carriers}};
 }
 
-std::optional<SimPosition> sim_position(const json& sample) {
+std::optional<SimPosition> sim_position(const json& sample, const std::string& device) {
     const json* found = nullptr;
+    double age = 0.0;
     for (const json& c : carriers_of(sample)) {
-        if (!c.contains("sim")) continue;
+        if (!c.contains("sim") || (!device.empty() && c.value("dev", "") != device)) continue;
         if (c.value("role", "") == "serving") {
             found = &c;
             break;
         }
-        if (found == nullptr) found = &c;
+        const double a = c.value("age_ms", 0.0);
+        if (found == nullptr || a < age) {
+            found = &c;
+            age = a;
+        }
     }
     if (found == nullptr) return std::nullopt;
     const json& s = (*found)["sim"];

@@ -265,18 +265,15 @@ void WalkTest::on_cycle(const measure::MeasurementCycle& c) {
     last_cycle_ = std::pair{t, c.time.utc_ns};
     if (o_.kind == "simulated") {
         const json sample = sample_json(c);
-        for (const json& car : sample["carriers"]) {
-            if (!car.contains("sim") || (!o_.device.empty() && car.value("dev", "") != o_.device)) continue;
-            const json& sp = car["sim"];
-            if (sp.value("floor", "") != floor_ || !mpu_ || *mpu_ <= 0.0) break;
-            const Point2 m{sp.value("x_m", 0.0), sp.value("y_m", 0.0)};
-            if (o_.min_spacing_m > 0.0 && last_sim_m_ &&
-                std::hypot(m.x - last_sim_m_->x, m.y - last_sim_m_->y) < o_.min_spacing_m)
-                break;
-            last_sim_m_ = m;
-            store(t, c.time.utc_ns, {m.x / *mpu_, m.y / *mpu_}, 1, 1, {}, sample);
-            break;
-        }
+        // The position of the serving sample, whose level the point shows
+        // (not of a held sample, whose record and position may be old).
+        const std::optional<SimPosition> sp = sim_position(sample, o_.device);
+        if (!sp || sp->floor_id != floor_ || !mpu_ || *mpu_ <= 0.0) return;
+        const Point2 m{sp->x_m, sp->y_m};
+        if (o_.min_spacing_m > 0.0 && last_sim_m_ && std::hypot(m.x - last_sim_m_->x, m.y - last_sim_m_->y) < o_.min_spacing_m)
+            return;
+        last_sim_m_ = m;
+        store(t, c.time.utc_ns, {m.x / *mpu_, m.y / *mpu_}, 1, 1, {}, sample);
         return;
     }
     if (o_.kind == "manual") {

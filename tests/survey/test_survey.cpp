@@ -233,6 +233,26 @@ TEST_CASE("GEO-06 walk: a floor change in the middle of a walk goes on in a new 
     CHECK(ys::point_counts(*fx.p) == std::vector<std::pair<std::string, std::size_t>>{{fx.ground, 3}, {fx.first, 3}});
 }
 
+TEST_CASE("RAD-19 the position of a cycle is its serving sample's, else its newest sample's, not a held one's") {
+    using nlohmann::json;
+    namespace ys = yantra::survey;
+    // A scan channel the radio stopped measuring is held with the position
+    // of its old record (13 m); the serving cell's record is new (16 m).
+    json s = {{"carriers",
+               json::array({{{"dev", "sim:0"}, {"role", "scan"}, {"age_ms", 4000.0}, {"sim", {{"floor", "f"}, {"x_m", 13.0}, {"y_m", 1.0}}}},
+                            {{"dev", "sim:0"}, {"role", "serving"}, {"age_ms", 100.0}, {"sim", {{"floor", "f"}, {"x_m", 16.0}, {"y_m", 1.0}}}}})}};
+    REQUIRE(ys::sim_position(s));
+    CHECK(ys::sim_position(s)->x_m == 16.0);
+    // Without a serving sample: the newest.
+    s["carriers"][1]["role"] = "neighbour";
+    CHECK(ys::sim_position(s)->x_m == 16.0);
+    s["carriers"][1]["age_ms"] = 5000.0;
+    CHECK(ys::sim_position(s)->x_m == 13.0);
+    // Only the walk's device.
+    CHECK(ys::sim_position(s, "sim:0"));
+    CHECK_FALSE(ys::sim_position(s, "other:0"));
+}
+
 TEST_CASE("RAD-19 simulated walk: each cycle with a simulator position on the floor is a point there") {
     Fixture fx("simulated");
     auto w = fx.walk("simulated");
