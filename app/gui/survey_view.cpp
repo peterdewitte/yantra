@@ -445,7 +445,7 @@ void Gui::draw_cells_panel(const SurveyFrame& f) {
             ImGui::TableNextRow();
             ImGui::TableNextColumn();
             ImGui::TextUnformatted(cell_label(r).c_str());
-            if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", list_state_label(r.list));
+            if (!help_shown_on_purpose() && ImGui::IsItemHovered()) ImGui::SetTooltip("%s", list_state_label(r.list));
             ImGui::TableNextColumn();
             ImGui::TextUnformatted(mhz(r.frequency_hz).c_str());
             ImGui::TableNextColumn();

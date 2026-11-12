@@ -53,7 +53,7 @@ bool reason_button(const std::string& label, const char* tooltip, const std::str
     const bool pressed = ImGui::Button(label.c_str());
     ImGui::EndDisabled();
     const bool shown = note_help(!reason.empty(), tooltip, reason.c_str());
-    if (shown || ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) {
+    if (shown || (!help_shown_on_purpose() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal))) {
         ImGui::BeginTooltip();
         ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
         ImGui::TextUnformatted(tooltip);

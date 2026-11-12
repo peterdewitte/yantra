@@ -39,7 +39,7 @@ bool tool_button(const std::string& label, bool enabled, const std::string& tip,
     if (active) ImGui::PopStyleColor();
     ImGui::EndDisabled();
     const bool shown = note_help(!enabled && !reason.empty(), tip.c_str(), enabled ? nullptr : reason.c_str());
-    if (shown || ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) {
+    if (shown || (!help_shown_on_purpose() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal))) {
         ImGui::BeginTooltip();
         ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
         ImGui::TextUnformatted(tip.c_str());

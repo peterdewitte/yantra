@@ -34,7 +34,9 @@ constexpr ImU32 kScaleColour = IM_COL32(200, 30, 160, 255);
 void tooltip(const char* text) {
     // A disabled control's text says why (DOC-07 c).
     const bool shown = gui_detail::note_help((ImGui::GetItemFlags() & ImGuiItemFlags_Disabled) != 0, text);
-    if (!shown && !ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) return;
+    if (!shown && (gui_detail::help_shown_on_purpose() ||
+                   !ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)))
+        return;
     ImGui::BeginTooltip();
     ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
     ImGui::TextUnformatted(text);
@@ -47,7 +49,8 @@ void tooltip(const std::string& text) { tooltip(text.c_str()); }
 void help(const char* text) {
     gui_detail::same_line_if(ImGui::CalcTextSize("(?)").x);
     ImGui::TextDisabled("(?)");
-    if (gui_detail::note_help(false, text) || ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+    if (gui_detail::note_help(false, text) ||
+        (!gui_detail::help_shown_on_purpose() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))) {
         ImGui::BeginTooltip();
         ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
         ImGui::TextUnformatted(text);

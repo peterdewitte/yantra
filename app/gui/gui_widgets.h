@@ -155,6 +155,14 @@ inline bool note_help(bool reason, const char* text = nullptr, const char* text2
     return r->show == static_cast<int>(r->entries.size()) - 1;
 }
 
+/// True while a test shows one recorded hover text on purpose: then no
+/// other item's hover text joins it in the tooltip window (a list that
+/// moves under the mouse would add the row's text to the same window).
+inline bool help_shown_on_purpose() {
+    const HelpRecord* r = help_record();
+    return r != nullptr && r->show >= 0;
+}
+
 /// Tooltips on or off (settings, DOC-07 h). Off hides the hover texts;
 /// the "(?)" markers and the reasons of disabled controls stay.
 inline bool& tooltips_shown() {
@@ -168,7 +176,8 @@ inline void item_tooltip(const ActionView& a) {
     const bool shown = note_help(!a.enabled && !a.disabled_reason.empty(), a.tooltip.c_str(),
                                  a.enabled ? nullptr : a.disabled_reason.c_str());
     if (!tooltips_shown() && a.enabled) return;
-    if (!shown && !ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) return;
+    if (!shown && (help_shown_on_purpose() || !ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)))
+        return;
     ImGui::BeginTooltip();
     ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
     ImGui::TextUnformatted(a.tooltip.c_str());
@@ -184,7 +193,8 @@ inline void text_tooltip(const char* text) {
     // On a disabled item the text is written to say why (DOC-07 c).
     const bool shown = note_help((ImGui::GetItemFlags() & ImGuiItemFlags_Disabled) != 0, text);
     if (!tooltips_shown()) return;
-    if (!shown && !ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)) return;
+    if (!shown && (help_shown_on_purpose() || !ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled | ImGuiHoveredFlags_DelayNormal)))
+        return;
     ImGui::BeginTooltip();
     ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
     ImGui::TextUnformatted(text);
@@ -276,7 +286,7 @@ inline void help_marker(const char* text) {
     same_line_if(ImGui::CalcTextSize("(?)").x);
     ImGui::TextDisabled("(?)");
     const bool shown = note_help(false, text);
-    if (shown || ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)) {
+    if (shown || (!help_shown_on_purpose() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))) {
         ImGui::BeginTooltip();
         ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
         ImGui::TextUnformatted(text);

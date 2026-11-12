@@ -4,6 +4,7 @@
 // The plan view of the project window, see plan_canvas.h.
 // Partly copied from yantra-v2 68ea20a: app/src/plan_canvas.cpp, adapted.
 #include "plan_canvas.h"
+#include "gui_widgets.h"
 #include "yantra/app/i18n.h"
 
 #include <imgui.h>
@@ -232,7 +233,7 @@ void PlanCanvas::draw_overlay(ImDrawList* dl, ImVec2 origin, ImVec2 size, const 
             const ImVec2 s = badge(dl, at, tr("STALE: inputs changed since it was computed"), IM_COL32(190, 60, 30, 230),
                                    IM_COL32(255, 255, 255, 255));
             stats_.stale_badge = true;
-            if (mouse_in(at, ImVec2(at.x + s.x, at.y + s.y))) {
+            if (!gui_detail::help_shown_on_purpose() && mouse_in(at, ImVec2(at.x + s.x, at.y + s.y))) {
                 std::string why;
                 for (const std::string& r : c.interpolation->stale_reasons) why += (why.empty() ? "" : "\n") + r;
                 ImGui::SetTooltip(tr("The map is shown as it was computed. Changed since:\n%s"), why.c_str());
@@ -368,7 +369,7 @@ void PlanCanvas::draw(ProjectWindow& window, const FloorContent& c, const LayerS
     draw_overlay(dl, origin, size, c, layers);
     dl->PopClipRect();
 
-    if (hover_.any) {
+    if (hover_.any && !gui_detail::help_shown_on_purpose()) {
         ImGui::BeginTooltip();
         ImGui::TextUnformatted(hover_.text.c_str());
         ImGui::EndTooltip();
