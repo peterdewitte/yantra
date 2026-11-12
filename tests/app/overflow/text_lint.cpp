@@ -210,8 +210,10 @@ void TextLint::tooltips(const std::string& where, const app::gui_detail::HelpRec
         const ImVec2 d = ImGui::GetIO().DisplaySize;
         if (w == nullptr || !w->InnerClipRect.Contains(c) || c.x < 0 || c.y < 0 || c.x > d.x || c.y > d.y) continue;
         if (!tips_done_.insert(e.text).second) continue;
+        // By its text, not its number: a live list can gain a row between
+        // the two frames, which renumbers the entries after it.
         app::gui_detail::HelpRecord rec;
-        rec.show = static_cast<int>(i);
+        rec.show_text = e.text;
         ui_.mouse_move(e.rect.GetCenter().x, e.rect.GetCenter().y);
         app::gui_detail::help_record() = &rec;
         bool ok = ui_.frame();  // the tooltip window takes its size
@@ -222,7 +224,7 @@ void TextLint::tooltips(const std::string& where, const app::gui_detail::HelpRec
             app::gui_detail::help_record() = nullptr;
             continue;
         }
-        rec.entries.clear();
+        rec.next_frame();
         text_probe_start();
         ok = ui_.frame() && ok;
         std::vector<DrawnText> drawn = text_probe_stop();

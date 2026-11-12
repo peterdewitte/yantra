@@ -129,7 +129,10 @@ inline const ImVec4 kErrorColour{1.0F, 0.45F, 0.40F, 1.0F};
 /// belongs to, its text and whether it says why the item is disabled, so
 /// the lint can find controls without one; with `show` set, the hover text
 /// of entry number `show` is drawn as if hovered (the test draws every
-/// tooltip and "(?)" text in turn).
+/// tooltip and "(?)" text in turn). With `show_text` set instead, the
+/// first entry with that text is drawn: a live list (the radio debug
+/// window's records) can gain a row between two frames, which moves the
+/// numbers of the entries after it but not their texts.
 struct HelpRecord {
     struct Entry {
         ImRect rect;
@@ -139,6 +142,13 @@ struct HelpRecord {
     };
     std::vector<Entry> entries;
     int show = -1;
+    std::string show_text;
+    bool shown = false;  ///< `show_text` was drawn in this frame
+    /// Before the next frame: no entries, nothing drawn yet.
+    void next_frame() {
+        entries.clear();
+        shown = false;
+    }
 };
 inline HelpRecord*& help_record() {
     static HelpRecord* r = nullptr;
@@ -151,6 +161,12 @@ inline bool note_help(bool reason, const char* text = nullptr, const char* text2
     const ImGuiContext& g = *ImGui::GetCurrentContext();
     std::string t = text != nullptr ? text : "";
     if (text2 != nullptr && *text2 != '\0') t += std::string("\n") + text2;
+    if (!r->show_text.empty()) {
+        const bool now = !r->shown && t == r->show_text;
+        r->shown = r->shown || now;
+        r->entries.push_back({g.LastItemData.Rect, g.CurrentWindow != nullptr ? g.CurrentWindow->ID : 0, reason, std::move(t)});
+        return now;
+    }
     r->entries.push_back({g.LastItemData.Rect, g.CurrentWindow != nullptr ? g.CurrentWindow->ID : 0, reason, std::move(t)});
     return r->show == static_cast<int>(r->entries.size()) - 1;
 }
@@ -160,7 +176,7 @@ inline bool note_help(bool reason, const char* text = nullptr, const char* text2
 /// moves under the mouse would add the row's text to the same window).
 inline bool help_shown_on_purpose() {
     const HelpRecord* r = help_record();
-    return r != nullptr && r->show >= 0;
+    return r != nullptr && (r->show >= 0 || !r->show_text.empty());
 }
 
 /// Tooltips on or off (settings, DOC-07 h). Off hides the hover texts;
