@@ -22,6 +22,8 @@ folder:
   package's own lib\\yantra\\plugins (Yantra's and the radio plugins,
   PLG-26) and exits with 0;
 - yantra-radio-host.exe info --plugin <package>\\...\\simulator.dll;
+- yantra-gen.exe --list lists the scenarios of the package's own
+  share\\yantra-radios\\scenarios (found relative to the program, RAD-71);
 - yantra.exe --demo --screenshot renders the demo project (the package's
   data folder) off-screen and writes a 1280x800 PNG.
 
@@ -104,7 +106,7 @@ def check_programs(root: pathlib.Path, version: str, mesa_from: pathlib.Path, sc
         (users / d).mkdir(parents=True)
     env = dict(os.environ, APPDATA=str(users / "appdata"), LOCALAPPDATA=str(users / "localappdata"),
                USERPROFILE=str(users / "home"), TMP=str(users / "tmp"), TEMP=str(users / "tmp"))
-    for k in ("YANTRA_PLUGIN_PATH", "YANTRA_USER_PLUGIN_DIR", "YANTRA_DATA_DIR"):
+    for k in ("YANTRA_PLUGIN_PATH", "YANTRA_USER_PLUGIN_DIR", "YANTRA_DATA_DIR", "YANTRA_SCENARIO_DIR"):
         env.pop(k, None)
 
     rc, out = run([bin_ / "yantra.exe", "--version"], env)
@@ -120,6 +122,12 @@ def check_programs(root: pathlib.Path, version: str, mesa_from: pathlib.Path, sc
 
     rc, out = run([bin_ / "yantra-radio-host.exe", "info", "--plugin", plugins / "radios" / "simulator.dll"], env)
     expect(rc == 0 and "simulator" in out.lower(), "yantra-radio-host.exe info on the packaged simulator.dll")
+
+    rc, out = run([bin_ / "yantra-gen.exe", "--list"], env)
+    scenarios = (root / "share" / "yantra-radios" / "scenarios").resolve()
+    first = out.splitlines()[0].lstrip("# ").strip() if out.strip() else ""
+    expect(rc == 0 and first and os.path.normcase(os.path.realpath(first)) == os.path.normcase(str(scenarios))
+           and "fraunces" in out, f"yantra-gen.exe --list names the package's scenarios ({first})")
 
     copied = []
     try:

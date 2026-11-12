@@ -120,6 +120,8 @@ Start
   bin\\yantra-hackrf.exe     the HackRF device check of yantra-radios
   bin\\yantra-radio-host.exe the radio plugin host of yantra-radios (info,
                              devices, conformance)
+  bin\\yantra-gen.exe        the TETRA test-signal generator of yantra-radios
+                             (scenarios in share\\yantra-radios\\scenarios)
 
 The portable zip runs from any folder; nothing is installed. The setup
 .exe installs the same files for the current user (no administrator

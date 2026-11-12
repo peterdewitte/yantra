@@ -194,10 +194,15 @@ if(NOT YANTRA_RADIOS_KIND STREQUAL "none")
           DESTINATION share/licenses OPTIONAL)
   install(DIRECTORY ${YANTRA_RADIOS_STAGE}/lib/udev ${YANTRA_RADIOS_STAGE}/lib/modprobe.d
           DESTINATION lib OPTIONAL)
-  # Windows (NFR-09): the radio tools next to yantra.exe (self-contained
-  # .exe): the device check yantra-hackrf and the plugin host
-  # yantra-radio-host. Not yantra-gen: it needs yantra-radios' scenario
-  # files, which Yantra does not ship.
+  # The TETRA test-signal generator yantra-gen (RAD-71) with yantra-radios'
+  # scenario files in share/yantra-radios/scenarios, where it finds them
+  # relative to itself (<bin>/../share/yantra-radios/scenarios; since
+  # yantra-radios v0.3.1 no folder of the build machine is compiled in).
+  install(PROGRAMS ${YANTRA_RADIOS_STAGE}/bin/yantra-gen${CMAKE_EXECUTABLE_SUFFIX} DESTINATION bin OPTIONAL)
+  install(DIRECTORY ${YANTRA_RADIOS_STAGE}/share/yantra-radios/scenarios DESTINATION share/yantra-radios OPTIONAL)
+  # Windows (NFR-09): also the other radio tools next to yantra.exe
+  # (self-contained .exe): the device check yantra-hackrf and the plugin
+  # host yantra-radio-host.
   if(WIN32)
     install(PROGRAMS ${YANTRA_RADIOS_STAGE}/bin/yantra-hackrf.exe ${YANTRA_RADIOS_STAGE}/bin/yantra-radio-host.exe
             DESTINATION bin)

@@ -62,6 +62,9 @@ for l in "" nl/ fr/ de/; do
 done
 for s in 16 24 32 48 64 128 256 512; do want+=("./usr/share/icons/hicolor/${s}x${s}/apps/yantra.png"); done
 for w in "${want[@]}"; do grep -qx -- "$w" <<<"$list" || bad "missing $w"; done
+# RAD-71: yantra-gen with its scenario files beside it.
+grep -qx -- './usr/bin/yantra-gen' <<<"$list" || bad "missing ./usr/bin/yantra-gen"
+grep -q -- '^./usr/share/yantra-radios/scenarios/.*\.json$' <<<"$list" || bad "missing yantra-gen's scenarios"
 for t in beacon.so soapysdr_fake.so hackrf_fake.so example_beacon.so; do
   grep -q "/$t\$" <<<"$list" && bad "test plugin $t in the package"
 done
@@ -92,6 +95,10 @@ readelf -d "$root/usr/bin/yantra" | grep -q 'RUNPATH.*\[\$ORIGIN/../lib/yantra\]
 pdfium=$(ldd "$root/usr/bin/yantra" 2>/dev/null | sed -n 's/.*libpdfium.so => \(.*\) (0x.*/\1/p')
 [ -n "$pdfium" ] && [ "$(realpath "$pdfium")" = "$(realpath "$root/usr/lib/yantra/libpdfium.so")" ] \
   || bad "the unpacked yantra does not find its libpdfium.so (${pdfium:-not found})"
+# yantra-gen finds the scenarios beside it, not a folder of the build machine.
+gen_dir=$(env -u YANTRA_SCENARIO_DIR "$root/usr/bin/yantra-gen" --list 2>/dev/null | sed -n '1s/^# *//p')
+[ "$(realpath -m "$gen_dir")" = "$(realpath -m "$root/usr/share/yantra-radios/scenarios")" ] \
+  || bad "the unpacked yantra-gen lists ${gen_dir:-no folder}, not its own share/yantra-radios/scenarios"
 # No build-machine folder in any file (NFR-09; the same scan as the ctest
 # install_build_paths), no personal data, no MAK sheet.
 if [ -n "${YANTRA_CHECK_BUILD:-}" ]; then
