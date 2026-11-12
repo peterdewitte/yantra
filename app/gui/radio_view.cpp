@@ -498,7 +498,8 @@ void Gui::draw_radio_settings(RadioWindows& rw) {
     ImGui::BeginChild("###set.list", ImVec2(0.0F, 0.0F));
     for (const SettingSection& s : v.sections) {
         const std::string title = (s.name.empty() ? std::string(tr("General")) : s.name) + "###set.group." + s.name;
-        if (!ImGui::CollapsingHeader(title.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) continue;
+        if (!section_header(title.c_str(), tr("A group of the radio's settings: click to show or hide it."), ImGuiTreeNodeFlags_DefaultOpen))
+            continue;
         for (const SettingRow& r : s.rows) draw_setting_row(rw, r);
     }
     ImGui::EndChild();
@@ -526,7 +527,8 @@ void Gui::draw_radio_debug(RadioWindows& rw) {
         }
         for (const std::string& p : s.sink.problems) wrapped(p, &kErrorColour);
     }
-    if (ImGui::CollapsingHeader(tr("Records###dbg.records"), ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (section_header(tr("Records###dbg.records"), tr("The newest record of each carrier, as the radio delivers it."),
+                       ImGuiTreeNodeFlags_DefaultOpen)) {
         if (v.records.empty()) ImGui::TextDisabled(tr("No records yet: start the radio (Survey > Start radio)."));
         for (std::size_t i = 0; i < v.records.size(); ++i) {
             const RecordRow& r = v.records[i];
@@ -542,12 +544,12 @@ void Gui::draw_radio_debug(RadioWindows& rw) {
             ImGui::TreePop();
         }
     }
-    if (ImGui::CollapsingHeader(tr("Sensors###dbg.sensors"))) sensors_table(v.sensors, "###dbg.sensor_table");
-    if (ImGui::CollapsingHeader(tr("Events###dbg.events"))) {
+    if (section_header(tr("Sensors###dbg.sensors"), tr("The readings of the radio's sensors."))) sensors_table(v.sensors, "###dbg.sensor_table");
+    if (section_header(tr("Events###dbg.events"), tr("The radio's events, the newest first."))) {
         if (v.events.empty()) ImGui::TextDisabled(tr("No events yet."));
         for (auto it = v.events.rbegin(); it != v.events.rend(); ++it) ImGui::TextUnformatted(it->c_str());
     }
-    if (ImGui::CollapsingHeader(tr("Plugin log###dbg.log"))) {
+    if (section_header(tr("Plugin log###dbg.log"), tr("The messages of the radio plugin; warnings and errors in colour."))) {
         ImGui::BeginChild("###dbg.log_lines", ImVec2(0.0F, em(180.0F)), ImGuiChildFlags_Borders);
         for (const radio::LogLine& l : v.log) {
             const ImVec4* c = l.level >= YR_LOG_ERROR ? &kErrorColour : l.level >= YR_LOG_WARNING ? &kWarnColour : nullptr;
@@ -556,7 +558,7 @@ void Gui::draw_radio_debug(RadioWindows& rw) {
         }
         ImGui::EndChild();
     }
-    if (!v.context_calls.empty() && ImGui::CollapsingHeader(tr("Context calls###dbg.context"))) {
+    if (!v.context_calls.empty() && section_header(tr("Context calls###dbg.context"), tr("How often the plugin called each function of Yantra."))) {
         for (const auto& [name, n] : v.context_calls) row_text(name.c_str(), std::to_string(n));
     }
 }
@@ -572,7 +574,8 @@ void Gui::draw_radio_calibration(RadioWindows& rw) {
     row_text(tr("Table"), v.table_file);
     if (v.simulated) wrapped(tr("Simulated radio: practice calibration, never applied to a real radio."), &kWarnColour);
 
-    if (ImGui::CollapsingHeader(tr("Entries of this device###cal.entries"), ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (section_header(tr("Entries of this device###cal.entries"), tr("The calibration table's entries for this device."),
+                       ImGuiTreeNodeFlags_DefaultOpen)) {
         if (v.entries.empty()) ImGui::TextDisabled(tr("No calibration of this device yet."));
         for (std::size_t i = 0; i < v.entries.size(); ++i) {
             const CalibrationEntryRow& e = v.entries[i];
@@ -587,7 +590,9 @@ void Gui::draw_radio_calibration(RadioWindows& rw) {
         }
     }
 
-    if (ImGui::CollapsingHeader(tr("Level calibration wizard###cal.wizard"), ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (section_header(tr("Level calibration wizard###cal.wizard"),
+                       tr("Calibrate the level step by step with a signal generator or a reference radio."),
+                       ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::BeginDisabled(v.wizard);
         ImGui::SetNextItemWidth(std::min(em(260.0F), ImGui::GetContentRegionAvail().x));
         input_text(tr("Frequencies (MHz)###cal.freqs"), f.frequencies_mhz);
@@ -604,8 +609,10 @@ void Gui::draw_radio_calibration(RadioWindows& rw) {
         text_tooltip(tr("Records averaged per point."));
         const bool reference = f.method == calibration::kMethodReference;
         if (ImGui::RadioButton(tr("Signal generator###cal.method.generator"), !reference)) f.method = calibration::kMethodGenerator;
+        text_tooltip(tr("Known levels from a signal generator at the radio's input."));
         ImGui::SameLine();
         if (ImGui::RadioButton(tr("Reference radio###cal.method.reference"), reference)) f.method = calibration::kMethodReference;
+        text_tooltip(tr("Levels measured at the same time by a calibrated reference radio."));
         ImGui::EndDisabled();
         if (reason_button(tr("Start###cal.start"), tr("Start the calibration with these points."), v.start_reason)) (void)rw.start_calibration();
         if (v.wizard) {
@@ -634,7 +641,8 @@ void Gui::draw_radio_calibration(RadioWindows& rw) {
         }
     }
 
-    if (ImGui::CollapsingHeader(tr("Verify and frequency error###cal.verify_section"))) {
+    if (section_header(tr("Verify and frequency error###cal.verify_section"),
+                       tr("Check the calibration at a known level and measure the frequency error."))) {
         ImGui::SetNextItemWidth(std::min(em(140.0F), ImGui::GetContentRegionAvail().x));
         ImGui::InputDouble(tr("MHz###cal.verify_mhz"), &f.verify_mhz, 0.0, 0.0, "%.4f");
         ImGui::SameLine();
@@ -654,7 +662,8 @@ void Gui::draw_radio_calibration(RadioWindows& rw) {
         if (v.ppm) ImGui::Text(tr("Frequency error: %+.3f ppm"), *v.ppm);
     }
 
-    if (ImGui::CollapsingHeader(tr("Reference noise (NFR-07)###cal.noise"), ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (section_header(tr("Reference noise (NFR-07)###cal.noise"), tr("The noise reference of the self-interference warning."),
+                       ImGuiTreeNodeFlags_DefaultOpen)) {
         wrapped(tr("Take the reference with the antenna away from the PC: the self-interference warning compares the "
                 "measured noise with it (else with the thermal floor)."));
         row_text(tr("Thermal floor"), number_text(v.thermal_dbm, 1, "dBm"));
@@ -671,7 +680,7 @@ void Gui::draw_radio_calibration(RadioWindows& rw) {
                                ImVec2(em(260.0F), 0.0F));
     }
 
-    if (ImGui::CollapsingHeader(tr("Import and export###cal.files"))) {
+    if (section_header(tr("Import and export###cal.files"), tr("Read or write the calibration table as a file."))) {
         ImGui::SetNextItemWidth(std::min(em(360.0F), ImGui::GetContentRegionAvail().x));
         input_text(tr("File###cal.file"), f.file);
         text_tooltip(tr("A calibration table file (JSON)."));

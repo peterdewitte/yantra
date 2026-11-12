@@ -286,6 +286,7 @@ void Gui::draw_replay_controls() {
     if (tool_button(tr("Cut: cursor to end###replay.cut_tail"), why, tr("Save the part after the cursor as a new recording (REC-08).")))
         (void)state_.show(replay->cut(false, cut_name_));
     if (ImGui::Button(tr("Close replay###replay.close"))) (void)state_.close_replay();
+    text_tooltip(tr("Close the recording and go back to the live view."));
 }
 
 // -- the panels under the plan -------------------------------------------------------------
@@ -464,10 +465,13 @@ void Gui::draw_graphs_panel() {
         ImGui::SameLine();
     }
     ImGui::Checkbox(tr("Level###graph.level"), &graph_level_);
+    text_tooltip(tr("Show the graph of the levels."));
     ImGui::SameLine();
     ImGui::Checkbox("C1###graph.c1", &graph_c1_);
+    text_tooltip(tr("Show the graph of C1, the path loss criterion."));
     ImGui::SameLine();
     ImGui::Checkbox(tr("Quality###graph.quality"), &graph_quality_);
+    text_tooltip(tr("Show the graph of the quality."));
     // The threshold lines (UI-04), wrapped onto more rows when needed.
     const float right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
     for (const ThresholdLine& t : plot_.thresholds) {

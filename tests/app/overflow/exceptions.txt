@@ -69,28 +69,6 @@
 "frequency_hz=390000000;mcc=901;mnc=1;la=100" | open (13.10): clipped by its window in main/###survey/###cells.serving; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
 "frequency_hz=430025000;mnc=7;la=101  ch 1  430.0250 MHz" | open (13.10): clipped by its window in main/###survey/###cells.serving; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
 "frequency_hz=430025000;mnc=7;la=101" | open (13.10): clipped by its window in main/###survey/###cells.serving; needs room in this window (wrap, wider column, or "..." with the whole text on hover)
-: cal.entries | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.calibration, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
-: cal.files | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.calibration, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
-: cal.method.generator | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.calibration, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
-: cal.method.reference | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.calibration, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
-: cal.noise | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.calibration, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
-: cal.verify_section | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.calibration, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
-: cal.wizard | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.calibration, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
-: dbg.context | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.debug, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
-: dbg.events | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.debug, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
-: dbg.log | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.debug, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
-: dbg.records | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.debug, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
-: dbg.sensors | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.debug, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
-: graph.c1 | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in main/###survey, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
-: graph.level | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in main/###survey, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
-: graph.quality | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in main/###survey, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
-: replay.close | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in main/###layers, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
-: set.group.Gain | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.settings/###set.list, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
-: set.group.Position | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.settings/###set.list, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
-: set.group.RF | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.settings/###set.list, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
-: set.group.Receiver | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.settings/###set.list, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
-: set.group.Scenario | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.settings/###set.list, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
-: set.group.Signal | open (13.10): no tooltip (UI lint, DOC-07/UI-13) in win.radio.settings/###set.list, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
 : settings.sound_reselection | open (13.10): overlap (UI lint, DOC-07/UI-13) in settings.test.reselection in dlg.settings/###settings.body, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
 : settings.sound_sync | open (13.10): overlap (UI lint, DOC-07/UI-13) in settings.test.sync_lost in dlg.settings/###settings.body, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
 : settings.ui_scale | open (13.10): squashed (UI lint, DOC-07/UI-13) in dlg.settings/###settings.body, a window the UI lint did not reach before TST-52; needs its hover text, touch size or room
