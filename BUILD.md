@@ -200,9 +200,28 @@ binaries instead.
 - `ninja -C build docs-plugin-api`: the plugin API reference (Doxygen,
   DOC-17) in `build/docs/plugin-api/html`; the ctest `plugin_api_doxygen`
   fails on any Doxygen warning.
+- `ninja -C build docs-manual` (DOC-02a): the PDF user manual alone,
+  `build/docs/manual/yantra-manual-<version>.pdf`, made from
+  `docs/manual/NN-*.md` by `tools/docs/build_manual.py` (pandoc writes one
+  HTML page, WeasyPrint lays it out with `tools/docs/manual.css`): A4,
+  title page with the Yantra logo, version, build date (the last commit,
+  or `SOURCE_DATE_EPOCH`) and licence, contents with page numbers, the
+  manual's own section numbers, bookmarks for every chapter and section,
+  internal links for the contents and the section references "(13.2)",
+  the light-theme screenshots as numbered figures, table headers repeated
+  across pages, running chapter titles and page numbers, an index
+  (`tools/docs/manual_index.txt`: main terms, windows and menus), Inter and
+  JetBrains Mono embedded from `data/fonts`, a tagged PDF (PDF/UA-1) with
+  metadata. English only (DOC-06). Its checks (DOC-20) fail the build: no
+  pandoc or WeasyPrint warning, every picture present and laid out, every
+  internal link and bookmark resolving, bookmarks equal to the headings,
+  every chapter in the layout, every index term found, no text past the
+  page margin or out of a table cell, every font embedded, metadata and
+  page count. The ctest `docs_manual_faults` checks that the checker finds
+  a fixture's faults.
 - `ninja -C build docs` (DOC-20): every Markdown page to HTML with
-  pandoc, the user manual on one page (`docs/manual/manual.html` and
-  `.pdf`), the quick starts in every language and the method and legal
+  pandoc, the user manual on one page (`docs/manual/manual.html`) and
+  as the PDF above, the quick starts in every language and the method and legal
   notes also to PDF with WeasyPrint (`pandoc`, `weasyprint`), the plugin
   API reference in `docs/plugin-api`, all in `build/docs/site`; then
   every relative link, anchor and picture is checked offline
@@ -266,8 +285,11 @@ rules or hicolor icons (the icon is in `yantra.exe`).
 `build/package/yantra_<version>-1_<arch>.deb` with Yantra's own script
 `packaging/deb/build_deb.sh` (dpkg-deb with root-owned files, no sudo;
 nothing is installed on the build machine): the install layout above
-below `/usr` (stripped), the built documentation with the manual PDF in
-`/usr/share/doc/yantra/html`, a DEP-5 `copyright` file and the licence
+below `/usr` (stripped), the PDF manual
+`/usr/share/doc/yantra/yantra-manual-<version>.pdf` (Help > User manual
+(PDF)), the built documentation in `/usr/share/doc/yantra/html`, the
+TETRA test-signal generator `/usr/bin/yantra-gen` with its scenario files
+in `/usr/share/yantra-radios/scenarios`, a DEP-5 `copyright` file and the licence
 texts in `/usr/share/doc/yantra`, and maintainer scripts that reload the
 udev rules. The radio plugins are self-contained, so the package needs no
 SoapySDR or vendor package; the other dependencies come from
@@ -381,9 +403,21 @@ first, it must be powered off) runs the rest; the tests start programs
 that are not on their command lines (the radio tools, the app), so push
 every program with `--all`:
 
-    ~/onair/OnAir.Claude/.claude/skills/onair-wintest/wintest.sh status
-    ~/onair/OnAir.Claude/.claude/skills/onair-wintest/wintest.sh test ~/yantra/build-win --all -LE timing
-    ~/onair/OnAir.Claude/.claude/skills/onair-wintest/wintest.sh test ~/yantra/build-win --all -L timing -j 1
+    W=~/onair/OnAir.Claude/.claude/skills/onair-wintest/wintest.sh
+    ninja -C build-win package-windows      # the package tests need a current package
+    $W status
+    $W test ~/yantra/build-win --all -LE timing -E test_app_overflow
+    $W test ~/yantra/build-win --all -j 3 -R test_app_overflow
+    $W test ~/yantra/build-win --all -L timing -j 1
+
+Each `test` restores the VM's clean snapshot, copies the tree, runs ctest
+in the guest and powers the VM off. The GUI overflow test (TST-52,
+`test_app_overflow`, 10 heavy cases) runs on its own with at most 3 jobs:
+at 12 jobs together with the rest it exhausted the VM's memory. While the
+VM runs, keep builds and tests on the host to 8 jobs (`-j8`). A run that
+ends with "VM stopped while waiting for ssh (state gurumeditation)" left
+the VM stuck: `VBoxManage controlvm onair-wintest poweroff`, wait about
+90 s, run again (never `up` right after `down`). WSL2 is not used.
 
 Results land in `build-win/wintest-results/<time>/` (junit.xml,
 LastTest.log). What the tree needs on the test machine:
@@ -432,11 +466,14 @@ writes into `build-win/package/`:
 
 - `yantra-<version>-windows-x86_64.zip`: one folder with `bin\` (the
   programs `yantra.exe`, `yantra-probe.exe`, `yantra-plugin-test.exe`, the
-  radio tools `yantra-hackrf.exe` and `yantra-radio-host.exe`, PDFium and
+  radio tools `yantra-hackrf.exe`, `yantra-radio-host.exe` and
+  `yantra-gen.exe` (its scenarios in `share\yantra-radios\scenarios`), PDFium and
   the MSYS2 UCRT64 DLLs they import), `lib\yantra\plugins` (TETRA, probe
   and the self-contained radio plugins of yantra-radios, PLG-26),
   `share\yantra` (data, fonts with their OFL texts, logo, the Fraunces
-  demo, the in-app manual, quick starts, THIRD_PARTY.md), `include\`
+  demo, the in-app manual, quick starts, THIRD_PARTY.md), the PDF manual
+  `share\doc\yantra\yantra-manual-<version>.pdf` (DOC-02a; the target
+  builds it first, `docs-manual`), `include\`
   (the plugin headers), the licence texts (`LICENSE.txt`,
   `share\doc\yantra\LICENSES`, `share\licenses\{yantra-radios,pdfium,msys2}`
   with `msys2\PACKAGES.txt`), `README.txt` and `SOURCE.txt` (the
@@ -471,7 +508,8 @@ Mesa is a test tool and never in a package; a machine without an OpenGL
   installs the setup .exe silently into a scratch folder
   (`packaging/windows/smoke_test.py`, Python only); both start the
   packaged `yantra.exe --version`, `yantra-probe.exe` (every plugin
-  loaded from the package), `yantra-radio-host.exe info` and an
+  loaded from the package), `yantra-radio-host.exe info`, `yantra-gen.exe
+  --list` (the package's own scenarios), check the PDF manual and run an
   off-screen `yantra.exe --demo --screenshot` (with the test tree's Mesa
   copied next to it for that run only, as the VM has no OpenGL 3 driver);
   the setup test checks the uninstall entry and the Start menu shortcut
@@ -487,3 +525,23 @@ locally. In a UCRT64 shell:
     cmake --preset gcc
     cmake --build build-gcc
     ctest --test-dir build-gcc -LE 'slow|timing'
+
+## Making a release
+
+A release is an annotated tag `v<version>` on a commit whose
+`project(Yantra VERSION ...)` and CHANGELOG entry carry that version and
+date, with the release check passing (`YANTRA_RELEASE_CHECK=1`: the TST-52
+exceptions list must be empty). The artefacts are made from that commit:
+
+    cmake --preset default && ninja -C build && ctest --test-dir build -j"$(nproc)"
+    ninja -C build deb                    # build/package/yantra_<version>-1_amd64.deb
+    cmake --preset windows && ninja -C build-win
+    ninja -C build-win package-windows    # zip, setup .exe, SHA256SUMS in build-win/package
+    ctest --test-dir build-win -L build_host
+    # the Windows test VM: the three runs of section "Windows"
+
+then `sha256sum` over the .deb, the zip, the setup .exe and the PDF manual
+(`build/docs/manual/yantra-manual-<version>.pdf`, `ninja -C build
+docs-manual`, its own release artefact) and `git tag -a v<version>`.
+Nothing is pushed by the build; the artefacts stay in the build trees.
+

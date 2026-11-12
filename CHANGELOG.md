@@ -12,7 +12,29 @@ plugins come from yantra-radios (git submodule `third_party/yantra-radios`,
 PLG-26); every move of its pinned release is recorded here (RAD-98), its
 own changes are in its CHANGELOG.md.
 
-## [Unreleased]
+## [0.2.0] - 2026-11-12
+
+Yantra for Windows x64 next to Linux, built with clang from one pinned
+LLVM release; the simulator in dBm; the GUI checked for cut-off text in
+every language; the user manual as one PDF; yantra-radios v0.3.1.
+
+### Documentation
+
+- The user manual as one PDF, `yantra-manual-<version>.pdf` (DOC-02a):
+  title page with the Yantra logo, contents with page numbers, the
+  manual's section numbers, bookmarks, links for the contents and the
+  section references, numbered screenshots, an index of the main terms,
+  windows and menus, the Inter font embedded, tagged for accessibility.
+  The docs build checks it (bookmarks, links, pictures, fonts, index, no
+  text past the margins). It is in the .deb
+  (`/usr/share/doc/yantra/`) and the Windows zip and setup
+  (`share\doc\yantra\`), and a release artefact of its own.
+- Help > User manual (PDF) opens it in your PDF viewer, also offline; the
+  entry is greyed, with the reason, when the PDF is missing (UI-14).
+- The manual stays English only; the quick starts are in English, Dutch,
+  French and German (DOC-06).
+- BUILD.md: the Windows test runs in the test VM with their exact
+  commands, the PDF manual, making a release.
 
 ### Windows
 
@@ -30,6 +52,10 @@ own changes are in its CHANGELOG.md.
   and opens no console window; started from a console it prints there.
 - The Fraunces demo's plan-sheet notes (source and licence) are installed
   with the demo project.
+- The packages (Windows and the .deb) hold the TETRA test-signal
+  generator `yantra-gen` of yantra-radios again, with its scenario files
+  beside it (`share/yantra-radios/scenarios`), where it finds them by
+  itself.
 
 ### Radio plugins
 
@@ -68,6 +94,9 @@ own changes are in its CHANGELOG.md.
 
 ### Layout and languages
 
+- The name and notes fields of the survey window's Recording section (and
+  the marker label and the ring buffer's save name) show what they are
+  for while empty.
 - No text is cut off, runs past its window, column or button, or covers
   another in any UI language, in the desktop and touch layout, at
   1280 x 720 and at UI scales up to 200 % (TST-52): windows, dialogs and

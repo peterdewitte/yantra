@@ -116,7 +116,7 @@ These tools are never linked into Yantra and do not affect its licence.
 | Python 3 (standard library) | PSF-2.0 | check, test and screenshot scripts (`tools/ci`, `tools/screenshots`, `tests/`) |
 | Doxygen | GPL-2.0-only | plugin API reference from `include/yantra/plugin.h` (DOC-17; target `docs-plugin-api`, ctest `plugin_api_doxygen`) |
 | pandoc | GPL-2.0-or-later | manual, quick starts and notes from Markdown to HTML (DOC-02, DOC-20) |
-| WeasyPrint | BSD-3-Clause | HTML to PDF for the manual (DOC-20), run on pandoc's HTML |
+| WeasyPrint | BSD-3-Clause | HTML to PDF for the manual (DOC-20) and the PDF user manual `yantra-manual-<version>.pdf` (DOC-02a, `tools/docs/build_manual.py`, through its Python API), run on pandoc's HTML |
 | oxipng | MIT | lossless size reduction of the PNGs in `docs/img` and `docs/samples` (SCR-03) |
 | ffmpeg (program only) | GPL-2.0-or-later / LGPL-2.1-or-later | short animated captures (SCR-06); no FFmpeg library is linked |
 | binutils (readelf, objdump), `strings` | GPL-3.0-or-later | completeness and build-folder checks of the installed binaries and plugins (RAD-133, NFR-09) |
@@ -135,8 +135,8 @@ run time, never compiled into the binary (NFR-01).
 
 | Font | Version | Files | Licence | Source | Used for |
 |---|---|---|---|---|---|
-| Inter | 4.1 (copied unchanged from the earlier Yantra implementation's `data/fonts/`) | `data/fonts/Inter-Regular.ttf`, `data/fonts/Inter-SemiBold.ttf`, `data/fonts/Inter-OFL.txt` (its licence) | OFL-1.1 | https://github.com/rsms/inter | Text of the exported floor images (EXP-08, `core/src/export/image.cpp`) and of the reports; installed in `share/yantra/fonts/` |
-| JetBrains Mono | 2.304 (release tag `v2.304` of https://github.com/JetBrains/JetBrainsMono, `fonts/ttf/JetBrainsMono-Regular.ttf` unchanged, SHA-256 `a0bf60ef0f83c5ed4d7a75d45838548b1f6873372dfac88f71804491898d138f`; the same file as the earlier Yantra implementation's `data/fonts/`) | `data/fonts/JetBrainsMono-Regular.ttf`, `data/fonts/JetBrainsMono-OFL.txt` (its licence) | OFL-1.1 | https://github.com/JetBrains/JetBrainsMono | Numeric tables of the PDF reports (EXP-05, `core/src/report/pdf.cpp`), embedded as a subset; installed in `share/yantra/fonts/` |
+| Inter | 4.1 (copied unchanged from the earlier Yantra implementation's `data/fonts/`) | `data/fonts/Inter-Regular.ttf`, `data/fonts/Inter-SemiBold.ttf`, `data/fonts/Inter-OFL.txt` (its licence) | OFL-1.1 | https://github.com/rsms/inter | Text of the exported floor images (EXP-08, `core/src/export/image.cpp`), of the reports and of the PDF user manual (DOC-02a, embedded as subsets); installed in `share/yantra/fonts/` |
+| JetBrains Mono | 2.304 (release tag `v2.304` of https://github.com/JetBrains/JetBrainsMono, `fonts/ttf/JetBrainsMono-Regular.ttf` unchanged, SHA-256 `a0bf60ef0f83c5ed4d7a75d45838548b1f6873372dfac88f71804491898d138f`; the same file as the earlier Yantra implementation's `data/fonts/`) | `data/fonts/JetBrainsMono-Regular.ttf`, `data/fonts/JetBrainsMono-OFL.txt` (its licence) | OFL-1.1 | https://github.com/JetBrains/JetBrainsMono | Numeric tables of the PDF reports (EXP-05, `core/src/report/pdf.cpp`) and code in the PDF user manual (DOC-02a), embedded as subsets; installed in `share/yantra/fonts/` |
 
 ## Data
 

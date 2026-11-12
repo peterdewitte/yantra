@@ -91,8 +91,10 @@ the cross build on Linux ([BUILD.md](BUILD.md#windows-packages-nfr-09)):
   uninstaller (Settings > Apps); silent: `setup.exe /S`.
 
 Both hold the app, `yantra-probe`, the plugin test kit, the plugins with
-the self-contained radio plugins of yantra-radios, every DLL they need,
-the demo project and the licence texts (`SOURCE.txt` names the source).
+the self-contained radio plugins of yantra-radios and its radio tools
+(`yantra-hackrf`, `yantra-radio-host`, the test-signal generator
+`yantra-gen` with its scenarios), every DLL they need, the demo project,
+the PDF user manual and the licence texts (`SOURCE.txt` names the source).
 Yantra needs a graphics driver with OpenGL 3.3. USB radios (HackRF One,
 RTL-SDR, Airspy) need the WinUSB driver, installed once per device with
 [Zadig](https://zadig.akeo.ie). User settings and data are in
@@ -124,7 +126,11 @@ plan import, the walk test and the coverage map to the report (also as
 ## Documentation
 
 - [User manual](docs/manual/README.md): every window and function; also
-  in the app (F1 and the Help buttons).
+  in the app (F1 and the Help buttons) and as one PDF with contents,
+  bookmarks and an index, `yantra-manual-<version>.pdf` (Help > User
+  manual (PDF); in the packages, or `ninja -C build docs-manual`). The
+  manual is in English only for now; the quick starts are also in Dutch,
+  French and German (DOC-06).
 - [Quick starts](docs/quickstart/README.md): one page each.
 - [Measurement method note](docs/METHOD.md): what is measured and how,
   calibration and its uncertainty, the ray-tracing model and its limits.
