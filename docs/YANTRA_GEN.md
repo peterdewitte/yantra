@@ -42,7 +42,10 @@ yantra-gen --list | --help | --version
 Scenario folders, first existing one wins: `--scenario-dir`,
 `$YANTRA_SCENARIO_DIR`, `<directory of the program>/../share/yantra-radios/scenarios`
 (the installed layout; the build tree mirrors it as
-`build/share/yantra-radios/scenarios`), the install folder of the build.
+`build/share/yantra-radios/scenarios`). The program folder comes from the
+running program itself (`/proc/self/exe` on Linux, `GetModuleFileNameW` on
+Windows), so an installed or unpacked copy works wherever it is; no folder
+of the build machine is compiled in.
 
 `--cell` keys: `id` (default `C<n>`), `carrier` (main carrier, required),
 `band` (3), `offset` (0..3), `la` (1), `cc` (colour code, 1), `number`
@@ -258,4 +261,6 @@ decoded records compare field by field. yantra-gen fills:
 
 `cmake --install build --prefix PREFIX` installs `PREFIX/bin/yantra-gen`
 and the scenario files with their scenes in
-`PREFIX/share/yantra-radios/scenarios`.
+`PREFIX/share/yantra-radios/scenarios`. The installed program finds them
+relative to itself, so the tree may be moved (or unpacked from the release
+.tar.gz/.zip) anywhere.

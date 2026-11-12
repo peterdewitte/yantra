@@ -39,9 +39,6 @@
 #ifndef YANTRA_GEN_VERSION
 #define YANTRA_GEN_VERSION "0.0.0"
 #endif
-#ifndef YANTRA_GEN_INSTALL_SCENARIO_DIR
-#define YANTRA_GEN_INSTALL_SCENARIO_DIR ""
-#endif
 
 namespace yantra::gentool {
 
@@ -541,8 +538,10 @@ std::vector<std::string> scenario_dirs(const Options& o, const std::string& exe_
         const fs::path prefix = bin.is_absolute() ? bin.parent_path() : bin / "..";
         dirs.push_back((prefix / "share" / "yantra-radios" / "scenarios").string());
     }
-    if (*YANTRA_GEN_INSTALL_SCENARIO_DIR)
-        dirs.emplace_back(YANTRA_GEN_INSTALL_SCENARIO_DIR);
+    // No folder of the build machine is compiled in (the install prefix
+    // of a build is a folder of that machine: NFR-09, RAD-137): the
+    // program finds its scenarios relative to itself, tests pass the
+    // source tree's folder with --scenario-dir or $YANTRA_SCENARIO_DIR.
     // Existing folders only; load_scenario() and --list use the first one
     // with scenario files, so an installed and a build copy never mix.
     std::vector<std::string> out;

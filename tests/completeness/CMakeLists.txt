@@ -21,6 +21,14 @@
 # completeness_programs checks every .exe: only Windows system DLLs and the
 # UCRT imported (RAD-132); completeness_programs_shipped also that the
 # shipped programs hold no build folder.
+#   shipped_paths_selftest  the scanner of tools/ci/check_shipped_paths.py
+#   shipped_paths  `cmake --install` of this tree into a scratch prefix;
+#                  no installed file (plugins, programs, data, docs) holds
+#                  the source tree, the build tree, the cross SDK or the
+#                  home folder, and no program or library the configured
+#                  install folders (yantra-gen finds its scenarios relative
+#                  to itself; RAD-137, RAD-138, Yantra NFR-09). Run on the
+#                  build machine (label build_host in the Windows trees).
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
 set(_check ${PROJECT_SOURCE_DIR}/tools/ci/check_completeness.py)
 set(_fixture_dir ${CMAKE_CURRENT_BINARY_DIR}/fixture_plugins)
@@ -110,3 +118,27 @@ if(YANTRA_SANITIZER STREQUAL "")
 endif()
 set_tests_properties(completeness_selftest completeness_fixture completeness_plugins ${_neg} ${_programs}
   PROPERTIES LABELS "fast;completeness" TIMEOUT 120)
+
+add_test(NAME shipped_paths_selftest
+         COMMAND Python3::Interpreter -B ${PROJECT_SOURCE_DIR}/tools/ci/check_shipped_paths.py --self-test)
+set_tests_properties(shipped_paths_selftest PROPERTIES LABELS "fast;completeness" TIMEOUT 60)
+# Sanitizer trees are never installed or shipped (gcc's ASan keeps the
+# source paths on purpose).
+if(YANTRA_SANITIZER STREQUAL "")
+  include(GNUInstallDirs)
+  set(_forbid --forbid ${PROJECT_SOURCE_DIR} --forbid ${PROJECT_BINARY_DIR})
+  if(YANTRA_SDK_DIR)
+    list(APPEND _forbid --forbid ${YANTRA_SDK_DIR})
+  endif()
+  add_test(NAME shipped_paths
+           COMMAND ${YANTRA_BUILD_HOST_TEST} ${Python3_EXECUTABLE} -B
+                   ${PROJECT_SOURCE_DIR}/tools/ci/check_shipped_paths.py --cmake ${CMAKE_COMMAND}
+                   --build ${PROJECT_BINARY_DIR} --root ${CMAKE_CURRENT_BINARY_DIR}/shipped_paths
+                   ${_forbid}
+                   --forbid-binary ${CMAKE_INSTALL_FULL_DATADIR}/yantra-radios
+                   --forbid-binary ${CMAKE_INSTALL_FULL_LIBDIR}/yantra-radios)
+  # It installs the build tree, as the install and release tests do.
+  set_tests_properties(shipped_paths PROPERTIES LABELS "fast;completeness" TIMEOUT 300
+                       RESOURCE_LOCK install_tree)
+  yantra_build_host_tests(shipped_paths)
+endif()

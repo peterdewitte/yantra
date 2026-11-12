@@ -61,8 +61,15 @@ if [ -f "$manual" ]; then
 fi
 # No file of the package names a folder of this machine (no personal data;
 # tools/deps/deps.cmake, check_completeness.py build_paths).
+# The cross SDK too (a link sdk/ or $YANTRA_SDK_DIR, often outside the
+# tree; tests/completeness shipped_paths checks the same in every tree).
 forbid=(-e "$root" -e "$build")
 case ${HOME:-} in /*/*) forbid+=(-e "${HOME%/}") ;; esac
+for sdk in "${YANTRA_SDK_DIR:-}" "$root/sdk"; do
+    [ -n "$sdk" ] && [ -e "$sdk" ] || continue
+    sdk=$(cd "$sdk" && pwd -P)
+    case $sdk in /*/*) forbid+=(-e "$sdk") ;; esac
+done
 # An asan-ubsan tree is packaged only by its test: AddressSanitizer
 # keeps each source file's full path.
 if ! grep -q '^YANTRA_SANITIZER:.*=asan-ubsan$' "$build/CMakeCache.txt" \
