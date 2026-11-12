@@ -24,6 +24,7 @@
 #include "yantra/core/build_info.h"
 #include "yantra/core/measure/feature_feed.h"
 #include "yantra/core/platform/clock.h"
+#include "yantra/core/platform/process.h"
 #include "yantra/core/demo/demo_project.h"
 #include "yantra/core/plugin/loader.h"
 #include "yantra/core/plugin/state_store.h"
@@ -94,6 +95,8 @@ const ActionDef kActions[] = {
     {Action::Tour, "help.tour", tr_mark("Tour"), "",
      tr_mark("A guided tour through an indoor survey with an example building and the simulated radio."), nullptr},
     {Action::UserManual, "help.user_manual", tr_mark("User manual"), "", tr_mark("Open the user manual (works offline)."), nullptr},
+    {Action::UserManualPdf, "help.user_manual_pdf", tr_mark("User manual (PDF)"), "",
+     tr_mark("Open the user manual as one PDF file in your PDF viewer, to read or print (works offline)."), nullptr},
     {Action::QuickStarts, "help.quick_starts", tr_mark("Quick starts"), "", tr_mark("Short step-by-step guides for common tasks."),
      nullptr},
     {Action::ResetSettings, "help.reset_settings", tr_mark("Reset all settings..."), "",
@@ -281,6 +284,13 @@ ActionView AppState::action(Action a) const {
             v.disabled_reason = tr("A recording is running: stop it first (Survey > Recording).");
         }
         break;
+    case Action::UserManualPdf:
+        if (manual_pdf().empty()) {
+            v.enabled = false;
+            v.disabled_reason = tr("The PDF manual is not installed with this copy of Yantra (in a build tree: ninja "
+                                   "docs-manual). Help > User manual shows the same manual.");
+        }
+        break;
     case Action::OpenDemo:
         if (!installed_demo()) {
             v.enabled = false;
@@ -313,8 +323,9 @@ std::vector<Menu> AppState::menus() const {
     Menu network{"network", tr("Network"), {}};
     network.entries = {item(Action::CellDatabase), item(Action::Verification), item(Action::Reselection)};
     Menu help{"help", tr("Help"), {}};
-    help.entries = {item(Action::Tour),          item(Action::UserManual), item(Action::QuickStarts), sep,
-                    item(Action::ResetSettings), sep,                      item(Action::HelpAbout)};
+    help.entries = {item(Action::Tour),        item(Action::UserManual),    item(Action::UserManualPdf),
+                    item(Action::QuickStarts), sep,                         item(Action::ResetSettings),
+                    sep,                       item(Action::HelpAbout)};
     return {file, network, help};
 }
 
@@ -388,6 +399,14 @@ std::optional<ProjectView> AppState::project_view() const {
     for (const building::Floor& f : project_->floors())
         v.floors.push_back(FloorView{f.id, f.name, f.level, !f.source.empty()});
     return v;
+}
+
+fs::path AppState::manual_pdf() const {
+    if (!manual_pdf_) {
+        const auto f = find_manual_pdf(paths_.data_folders, core::build_info().version_string);
+        manual_pdf_ = f ? *f : fs::path();
+    }
+    return *manual_pdf_;
 }
 
 AboutView AppState::about() {
@@ -477,6 +496,13 @@ Result AppState::trigger(Action a) {
         quit_ = true;
         return Result{};
     case Action::UserManual: return open_help("");
+    case Action::UserManualPdf: {
+        const fs::path pdf = manual_pdf();
+        std::string error;
+        const bool opened = document_opener_ ? document_opener_(pdf, error) : platform::open_document(pdf, error);
+        if (!opened) return fail(trf("The PDF manual could not be opened: {}", {error}));
+        return done(trf("The PDF manual opens in your PDF viewer: {}", {pdf.filename().string()}));
+    }
     case Action::QuickStarts: return open_quick_start("");
     case Action::Tour: return tour_->start();
     case Action::CellDatabase: network_windows_.cell_db = true; return Result{};

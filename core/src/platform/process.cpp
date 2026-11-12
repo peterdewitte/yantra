@@ -10,6 +10,8 @@
 #define NOMINMAX
 #endif
 #include <windows.h>
+// windows.h first
+#include <shellapi.h>
 #else
 #include <fcntl.h>
 #include <spawn.h>
@@ -19,6 +21,8 @@ extern char** environ;
 #endif
 
 #include <cerrno>
+#include <cstring>
+#include <thread>
 
 namespace yantra::platform {
 
@@ -73,6 +77,15 @@ int run_program(const std::vector<std::string>& argv, const std::filesystem::pat
 
 std::filesystem::path null_device() { return "NUL"; }
 
+bool open_document(const std::filesystem::path& file, std::string& error, const std::string& /*opener*/) {
+    const auto r = reinterpret_cast<INT_PTR>(
+        ShellExecuteW(nullptr, L"open", file.wstring().c_str(), nullptr, nullptr, SW_SHOWNORMAL));
+    if (r > 32) return true;
+    error = r == SE_ERR_NOASSOC ? "no program is set up to open this kind of file"
+                                : "the shell could not open the file (code " + std::to_string(r) + ")";
+    return false;
+}
+
 #else
 
 int run_program(const std::vector<std::string>& argv, const std::filesystem::path& output) {
@@ -98,6 +111,31 @@ int run_program(const std::vector<std::string>& argv, const std::filesystem::pat
 }
 
 std::filesystem::path null_device() { return "/dev/null"; }
+
+bool open_document(const std::filesystem::path& file, std::string& error, const std::string& opener) {
+    const std::string path = file.string();
+    char* args[] = {const_cast<char*>(opener.c_str()), const_cast<char*>(path.c_str()), nullptr};
+    posix_spawn_file_actions_t actions;
+    posix_spawn_file_actions_init(&actions);
+    posix_spawn_file_actions_addopen(&actions, 0, "/dev/null", O_RDONLY, 0);
+    posix_spawn_file_actions_addopen(&actions, 1, "/dev/null", O_WRONLY, 0);
+    posix_spawn_file_actions_adddup2(&actions, 1, 2);
+    pid_t pid = 0;
+    const int spawned = posix_spawnp(&pid, opener.c_str(), &actions, nullptr, args, environ);
+    posix_spawn_file_actions_destroy(&actions);
+    if (spawned != 0) {
+        error = opener + ": " + std::strerror(spawned);
+        return false;
+    }
+    // The viewer may run for long: reap the opener in the background
+    // rather than wait for it.
+    std::thread([pid] {
+        int status = 0;
+        while (waitpid(pid, &status, 0) < 0 && errno == EINTR) {
+        }
+    }).detach();
+    return true;
+}
 
 #endif
 

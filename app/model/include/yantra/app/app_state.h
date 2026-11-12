@@ -30,6 +30,7 @@
 #pragma once
 
 #include <filesystem>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
@@ -85,6 +86,7 @@ enum class Action {
     Exit,
     Tour,
     UserManual,
+    UserManualPdf,  ///< Help > User manual (PDF) (UI-14, DOC-02a)
     QuickStarts,
     ResetSettings,
     HelpAbout,
@@ -368,6 +370,15 @@ public:
     /// Opens the help window at a manual section ("13.2"; "" the contents);
     /// false with the status line when the manual has no such section.
     Result open_help(const std::string& section);
+    /// Help > User manual (PDF) (UI-14, DOC-02a): the shipped PDF manual
+    /// (find_manual_pdf) goes to the document opener; the default opener
+    /// is the system's viewer (platform::open_document). Tests set their
+    /// own, so no viewer starts.
+    using DocumentOpener = std::function<bool(const std::filesystem::path&, std::string& error)>;
+    void set_document_opener(DocumentOpener opener) { document_opener_ = std::move(opener); }
+    /// The PDF manual this copy of Yantra has (empty: none); looked up
+    /// once (the menu asks every frame).
+    std::filesystem::path manual_pdf() const;
     void close_help() { help_.open = false; }
     /// Help > Quick starts (DOC-03): the help window with quick start `id`
     /// ("1".."3"), or their list for "".
@@ -608,6 +619,8 @@ private:
 
     AppSettings settings_;
     AppPaths paths_;
+    DocumentOpener document_opener_;
+    mutable std::optional<std::filesystem::path> manual_pdf_;
     std::string find_demo_label() const;
 
     void drop_tools();

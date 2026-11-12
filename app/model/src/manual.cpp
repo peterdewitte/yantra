@@ -199,4 +199,18 @@ std::string quick_start_text(const QuickStart& quick_start, const std::vector<fs
     return {};
 }
 
+std::string manual_pdf_name(std::string_view version) { return "yantra-manual-" + std::string(version) + ".pdf"; }
+
+std::optional<fs::path> find_manual_pdf(const std::vector<fs::path>& data_folders, std::string_view version) {
+    const std::string name = manual_pdf_name(version);
+    for (const fs::path& d : data_folders) {
+        for (const fs::path& f : {d / ".." / "doc" / "yantra" / name, d / "docs" / "manual" / name,
+                                  d / "docs" / "site" / "docs" / "manual" / name}) {
+            std::error_code ec;
+            if (fs::is_regular_file(f, ec)) return f.lexically_normal();
+        }
+    }
+    return std::nullopt;
+}
+
 }  // namespace yantra::app

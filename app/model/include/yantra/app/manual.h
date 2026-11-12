@@ -16,6 +16,7 @@
 #pragma once
 
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -65,5 +66,15 @@ std::string quick_start_text(const QuickStart& quick_start, const std::vector<st
 /// (installed: share/yantra/quickstart) and, in a source tree,
 /// <data>/../docs/quickstart.
 std::vector<std::filesystem::path> quick_start_folders(const std::vector<std::filesystem::path>& data_folders);
+
+/// The PDF user manual's file name (DOC-02a): yantra-manual-<version>.pdf.
+std::string manual_pdf_name(std::string_view version);
+/// Help > User manual (PDF) (UI-14): the shipped PDF manual, searched for
+/// each data folder <d> (share/yantra) in <d>/../doc/yantra (installed:
+/// share/doc/yantra, the .deb and the Windows packages), then, for a
+/// build tree (<d> = the build folder), <d>/docs/manual (`ninja
+/// docs-manual`) and <d>/docs/site/docs/manual (`ninja docs`).
+std::optional<std::filesystem::path> find_manual_pdf(const std::vector<std::filesystem::path>& data_folders,
+                                                     std::string_view version);
 
 }  // namespace yantra::app

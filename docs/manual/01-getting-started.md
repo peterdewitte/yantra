@@ -43,6 +43,8 @@ The folders follow `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME` when 
 
 Every control has a tooltip when you rest the pointer on it, with its shortcut key in brackets. A dimmed "(?)" after a setting or heading explains it in more words and names the manual section. A greyed control stays hoverable and says why it is greyed and what to do (for example "Set the floor scale first"). Measured values and decoded fields explain themselves on hover: name, unit and where the value comes from. Each window and page has a Help button at its top right that opens its section of this manual, and F1 opens the help of the window in front. The manual is installed with Yantra, so the help works without a network. Tooltips can be switched off and their delay set in File > Settings > General (15.1); the "(?)" markers and the reasons of greyed controls always stay.
 
+Help > User manual (PDF) opens this manual as one PDF file, with contents, bookmarks and an index, in your PDF viewer, to read or print; it is greyed, with the reason, when this copy of Yantra has no PDF manual. The manual is in English; the quick starts (Help > Quick starts) are also in Dutch, French and German.
+
 ## 1.2 About Yantra
 
 Help > About (also File > About) shows the Yantra logo, the version, the build date, the licence (GPL-3.0-or-later) with the link to the source code and the note on the AGPL-3.0 parts of the radio plugins, the curtat.be logo and statement with its homepage, the third-party and data credits and the loaded plugins with their versions, licences and status.

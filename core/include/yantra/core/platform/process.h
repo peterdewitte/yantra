@@ -23,5 +23,11 @@ int run_program(const std::vector<std::string>& argv, const std::filesystem::pat
 // The file that discards what is written to it ("/dev/null"; "NUL" on
 // Windows).
 std::filesystem::path null_device();
+// Opens a document (the PDF manual, UI-14/DOC-02a) with the system's
+// viewer for its type and returns at once: Linux runs `opener` (default
+// xdg-open, looked up in PATH) with the file, without waiting for it;
+// Windows asks the shell (ShellExecuteW "open"; `opener` is not used).
+// false with `error` when nothing could be started.
+bool open_document(const std::filesystem::path& file, std::string& error, const std::string& opener = "xdg-open");
 
 }  // namespace yantra::platform

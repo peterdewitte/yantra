@@ -105,6 +105,8 @@ add_library(yantra::core ALIAS yantra_core)
 # Durable file operations (yantra/core/platform/file.h) per platform (HW-06).
 if(WIN32)
   target_sources(yantra_core PRIVATE src/platform/file_win32.cpp)
+  # platform::open_document: ShellExecuteW (shell32, a Windows system DLL).
+  target_link_libraries(yantra_core PRIVATE shell32)
 else()
   target_sources(yantra_core PRIVATE src/platform/file_posix.cpp)
 endif()

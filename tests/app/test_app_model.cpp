@@ -19,6 +19,7 @@
 #include "yantra/app/app_state.h"
 #include "yantra/app/cli.h"
 #include "yantra/app/data_paths.h"
+#include "yantra/app/manual.h"
 #include "yantra/app/settings.h"
 #include "yantra/app/window_system.h"
 #include "yantra/core/build_info.h"
@@ -297,8 +298,8 @@ TEST_CASE("menus (UI-14): File, Network and Help items, tooltips, disabled reaso
     CHECK(menus[1].label == "Network");
     CHECK(ids(menus[1]) == std::vector<std::string>{"network.cell_db", "network.verification", "network.reselection"});
     CHECK(menus[2].label == "Help");
-    CHECK(ids(menus[2]) == std::vector<std::string>{"help.tour", "help.user_manual", "help.quick_starts",
-                                                     "help.reset_settings", "help.about"});
+    CHECK(ids(menus[2]) == std::vector<std::string>{"help.tour", "help.user_manual", "help.user_manual_pdf",
+                                                     "help.quick_starts", "help.reset_settings", "help.about"});
     std::set<std::string> seen;
     for (const Menu& m : menus) {
         for (const MenuEntry& e : m.entries) {
@@ -311,11 +312,13 @@ TEST_CASE("menus (UI-14): File, Network and Help items, tooltips, disabled reaso
             if (!a.shortcut.empty()) CHECK(a.tooltip.find("[" + a.shortcut + "]") != std::string::npos);
             if (!a.enabled) CHECK_FALSE(a.disabled_reason.empty());  // DOC-07 c
             // Disabled either because it is not wired yet, for want of a
-            // project, or (Open demo) without the installed demo.
+            // project, or (Open demo, the PDF manual) without the installed
+            // file.
             const bool needs_project = a.id == "file.save" || a.id == "file.save_as" || a.id == "file.add_floor" ||
                                        a.id == "file.close_project" || a.id == "file.export" || a.id == "file.report" ||
                                        a.id.rfind("network.", 0) == 0;
-            if (!needs_project && a.id != "file.open_demo") CHECK(a.enabled == a.planned_step.empty());
+            if (!needs_project && a.id != "file.open_demo" && a.id != "help.user_manual_pdf")
+                CHECK(a.enabled == a.planned_step.empty());
         }
     }
     // Not wired yet, each with the step that wires it.
@@ -600,3 +603,62 @@ TEST_CASE("Open demo with the generated Fraunces demo project (DEMO-05)") {
     CHECK(fs::is_directory(dir / "user" / "demo" / "fraunces" / "recordings"));
 }
 #endif
+
+TEST_CASE("Help > User manual (PDF) (UI-14, DOC-02a): the shipped PDF goes to the system's viewer, greyed without it") {
+    const fs::path dir = scratch("manual_pdf");
+    const std::string name = manual_pdf_name(yantra::core::build_info().version_string);
+    CHECK(name == "yantra-manual-" + std::string(yantra::core::build_info().version_string) + ".pdf");
+    auto touch = [](const fs::path& f) {
+        fs::create_directories(f.parent_path());
+        std::ofstream(f, std::ios::binary) << "%PDF-1.7\n";
+    };
+    // Installed layout (.deb, Windows packages): share/doc/yantra next to share/yantra.
+    fs::create_directories(dir / "share" / "yantra");
+    AppPaths paths;
+    paths.data_folders = {dir / "share" / "yantra"};
+    {
+        AppState st({}, paths);
+        const ActionView v = st.action(Action::UserManualPdf);
+        CHECK(v.label == "User manual (PDF)");
+        CHECK_FALSE(v.enabled);
+        CHECK(v.disabled_reason.find("not installed") != std::string::npos);  // DOC-07: says why
+        bool called = false;
+        st.set_document_opener([&](const fs::path&, std::string&) { return called = true; });
+        CHECK_FALSE(st.trigger(Action::UserManualPdf).ok);
+        CHECK_FALSE(called);
+    }
+    touch(dir / "share" / "doc" / "yantra" / name);
+    {
+        AppState st({}, paths);
+        REQUIRE(st.action(Action::UserManualPdf).enabled);
+        CHECK(fs::equivalent(st.manual_pdf(), dir / "share" / "doc" / "yantra" / name));
+        fs::path opened;
+        st.set_document_opener([&](const fs::path& f, std::string&) {
+            opened = f;
+            return true;
+        });
+        const Result r = st.trigger(Action::UserManualPdf);
+        CHECK(r.ok);
+        CHECK(fs::equivalent(opened, dir / "share" / "doc" / "yantra" / name));
+        CHECK(st.status().find(name) != std::string::npos);
+        // The viewer cannot start: the status line says why.
+        st.set_document_opener([](const fs::path&, std::string& error) {
+            error = "no viewer";
+            return false;
+        });
+        const Result bad = st.trigger(Action::UserManualPdf);
+        CHECK_FALSE(bad.ok);
+        CHECK(bad.message.find("no viewer") != std::string::npos);
+        CHECK(st.status_is_error());
+    }
+    // A build tree: <build>/docs/manual (ninja docs-manual) or the docs site.
+    const fs::path build = dir / "build";
+    CHECK_FALSE(find_manual_pdf({build}, "9.9.9"));
+    touch(build / "docs" / "site" / "docs" / "manual" / "yantra-manual-9.9.9.pdf");
+    REQUIRE(find_manual_pdf({build}, "9.9.9"));
+    CHECK(find_manual_pdf({build}, "9.9.9")->parent_path().filename() == "manual");
+    touch(build / "docs" / "manual" / "yantra-manual-9.9.9.pdf");
+    CHECK(fs::equivalent(*find_manual_pdf({build}, "9.9.9"), build / "docs" / "manual" / "yantra-manual-9.9.9.pdf"));
+    CHECK_FALSE(find_manual_pdf({build}, "9.9.8"));  // another version's PDF is not this program's manual
+    fs::remove_all(dir);
+}
