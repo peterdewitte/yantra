@@ -27,7 +27,9 @@ void Gui::draw_settings_general(AppSettings& f) {
     int lang = 0;
     for (std::size_t i = 0; i < std::size(kLanguages); ++i)
         if (f.language == language_key(kLanguages[i])) lang = static_cast<int>(i);
-    ImGui::SetNextItemWidth(px(160.0F));
+    float lang_w = 0.0F;  // the longest language name fits (TST-52)
+    for (const Language l : kLanguages) lang_w = std::max(lang_w, ImGui::CalcTextSize(language_name(l)).x);
+    ImGui::SetNextItemWidth(std::max(px(160.0F), lang_w + ImGui::GetStyle().FramePadding.x * 2.0F + ImGui::GetFrameHeight()));
     if (ImGui::BeginCombo(tr("Language###settings.language"), language_name(kLanguages[lang]))) {
         for (std::size_t i = 0; i < std::size(kLanguages); ++i) {
             const std::string item = std::string(language_name(kLanguages[i])) + "###settings.language." +
@@ -56,7 +58,7 @@ void Gui::draw_settings_general(AppSettings& f) {
     ImGui::Checkbox(tr("Touch layout###settings.touch"), &f.touch);
     text_tooltip(tr("Large controls of at least 48 pixels with more space between them, for 7 to 12 inch tablets."));
     double percent = f.ui_scale * 100.0;
-    ImGui::SetNextItemWidth(px(120.0F));
+    ImGui::SetNextItemWidth(std::max(px(120.0F), step_field_w("0000")));
     if (ImGui::InputDouble(tr("UI scale (%)###settings.ui_scale"), &percent, 5.0, 25.0, "%.0f")) f.ui_scale = percent / 100.0;
     text_tooltip(tr("Makes text and controls larger or smaller (75 to 250 %), on top of the display's own scaling."));
 
@@ -149,11 +151,16 @@ void Gui::draw_settings_sound(AppSettings& f) {
          tr("Two low tones when the battery is under 15 % and not charging, again every 5 minutes."),
          AlertSound::LowBattery, "###settings.test.low_battery"},
     };
+    // The Test buttons in one column after the longest label (TST-52: it
+    // follows the font and the language).
+    float test_x = 0.0F;
+    for (const Row& r : rows) test_x = std::max(test_x, switch_w(r.label));
+    test_x = std::max(px(260.0F), ImGui::GetCursorPosX() + test_x + ImGui::GetStyle().ItemSpacing.x);
     for (const Row& r : rows) {
         ImGui::Checkbox(r.label, r.on);
         need_sound.tooltip = r.tip;
         item_tooltip(need_sound);
-        ImGui::SameLine(px(260.0F));
+        ImGui::SameLine(test_x);
         ImGui::PushID(r.test);
         if (ImGui::Button((std::string(tr("Test")) + r.test).c_str())) (void)state_.show(state_.test_sound(r.sound));
         ImGui::PopID();
@@ -161,7 +168,7 @@ void Gui::draw_settings_sound(AppSettings& f) {
         item_tooltip(need_sound);
     }
     ImGui::BeginDisabled(!s.level_tone);
-    ImGui::SetNextItemWidth(px(120.0F));
+    ImGui::SetNextItemWidth(std::max(px(120.0F), step_field_w("0000")));
     ImGui::InputDouble(tr("Level tone every (s)###settings.level_interval"), &s.level_interval_s, 1.0, 10.0, "%.0f");
     ActionView interval;
     interval.enabled = s.enabled && s.level_tone;

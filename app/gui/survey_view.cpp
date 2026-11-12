@@ -348,6 +348,7 @@ void Gui::draw_cells_panel(const SurveyFrame& f) {
     }
     // UI-01: the large values.
     const ImVec2 start = ImGui::GetCursorPos();
+    const float row_w = ImGui::GetContentRegionAvail().x;
     ImGui::BeginGroup();
     ImGui::PushFont(nullptr, ImGui::GetStyle().FontSizeBase * 2.0F);
     if (f.serving) {
@@ -387,11 +388,21 @@ void Gui::draw_cells_panel(const SurveyFrame& f) {
     ImGui::TextDisabled(tr("%llu samples"), static_cast<unsigned long long>(f.samples));
     ImGui::EndGroup();
     // Right of the large values, however wide they are at the font size and
-    // scale (UI-13): the serving cell never runs over them.
-    ImGui::SameLine(start.x + std::max(gui_detail::px(260.0F), ImGui::GetItemRectSize().x + gui_detail::px(20.0F)));
+    // scale (UI-13): the serving cell never runs over them. When the two
+    // lists have no room there (a narrow window, a large font), they go
+    // under the values, and under each other when the row is narrow too;
+    // the panel scrolls (TST-52).
+    const float min_list = em(220.0F);
+    const float beside_x = start.x + std::max(gui_detail::px(260.0F), ImGui::GetItemRectSize().x + gui_detail::px(20.0F));
+    const bool beside = row_w - (beside_x - start.x) >= 2.0F * min_list + ImGui::GetStyle().ItemSpacing.x;
+    const bool lists_side_by_side = beside || row_w >= 2.0F * min_list + ImGui::GetStyle().ItemSpacing.x;
+    if (beside) ImGui::SameLine(beside_x);
+    const ImGuiChildFlags list_flags = beside ? ImGuiChildFlags_None : ImGuiChildFlags_AutoResizeY;
 
     // UI-02: the serving cell and its broadcast parameters.
-    ImGui::BeginChild("###cells.serving", ImVec2(std::max(em(200.0F), ImGui::GetContentRegionAvail().x * 0.4F), 0.0F));
+    ImGui::BeginChild("###cells.serving",
+                      ImVec2(lists_side_by_side ? std::max(min_list, ImGui::GetContentRegionAvail().x * 0.4F) : 0.0F, 0.0F),
+                      list_flags);
     wrap_texts();
     if (f.serving) {
         survey_.serving = cell_label(*f.serving) + "  " + mhz(f.serving->frequency_hz);
@@ -411,9 +422,9 @@ void Gui::draw_cells_panel(const SurveyFrame& f) {
         }
     }
     ImGui::EndChild();
-    ImGui::SameLine();
+    if (lists_side_by_side) ImGui::SameLine();
     // UI-03: neighbours; listed and received, received only, listed only.
-    ImGui::BeginChild("###cells.neighbours", ImVec2(0.0F, 0.0F));
+    ImGui::BeginChild("###cells.neighbours", ImVec2(0.0F, 0.0F), list_flags);
     wrap_texts();
     ImGui::SeparatorText(tr("Neighbours"));
     ImGui::TextColored(kMeasuredOnlyColour, tr("received, not listed"));
@@ -503,7 +514,9 @@ void Gui::draw_graphs_panel() {
     const int graphs = (graph_level_ ? 1 : 0) + (graph_c1_ ? 1 : 0) + (graph_quality_ ? 1 : 0);
     if (graphs == 0) return;
     const ImVec2 avail = ImGui::GetContentRegionAvail();
-    const float gh = std::max(60.0F, avail.y / static_cast<float>(graphs) - 4.0F);
+    // At least room for the name and two value labels apart (TST-52); the
+    // panel scrolls when the graphs do not fit.
+    const float gh = std::max(ImGui::GetTextLineHeight() * 6.0F, avail.y / static_cast<float>(graphs) - 4.0F);
     const bool light = light_theme();
     survey_.graph_samples = 0;
     for (const auto& s : plot_.samples) survey_.graph_samples += s.t_ns >= t0 ? 1 : 0;
@@ -514,7 +527,10 @@ void Gui::draw_graphs_panel() {
     auto graph = [&](int kind, const char* id, const char* unit) {
         ImDrawList* dl = ImGui::GetWindowDrawList();
         const ImVec2 p0 = ImGui::GetCursorScreenPos();
-        const float left = 48.0F, bottom = 16.0F;
+        // Margins and label places by the font (TST-52: at any UI scale the
+        // axis labels stay apart and out of the plot).
+        const float line_h = ImGui::GetTextLineHeight();
+        const float left = ImGui::CalcTextSize("-100").x + px(8.0F), bottom = line_h + px(2.0F);
         const ImVec2 size(std::max(100.0F, avail.x), gh);
         ImGui::InvisibleButton(id, size);
         const bool clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left) || (ImGui::IsItemActive() && ImGui::IsMouseDragging(0));
@@ -541,19 +557,28 @@ void Gui::draw_graphs_panel() {
         auto sy = [&](double v) { return b.y - (b.y - a.y) * static_cast<float>((v - y.lo) / y.span()); };
         const ImU32 grid = ImGui::GetColorU32(ImGuiCol_Border, 0.5F);
         const ImU32 text = ImGui::GetColorU32(ImGuiCol_TextDisabled);
-        for (double v : nice_ticks(y.lo, y.hi, std::max(2, static_cast<int>(gh / 30.0F)))) {
+        // The graph's name at the top left inside the plot; no value label
+        // beside it (the labels are left of the plot, two lines apart).
+        const std::string name = std::string(kind == 0 ? tr("Level") : kind == 1 ? "C1" : tr("Quality")) + " (" + unit + ")";
+        float last_label_y = 1e9F;  // a value's label only a line clear of the one below it
+        for (double v : nice_ticks(y.lo, y.hi, std::max(2, static_cast<int>((b.y - a.y) / (line_h * 2.0F))))) {
             dl->AddLine(ImVec2(a.x, sy(v)), ImVec2(b.x, sy(v)), grid);
             char l[24];
             std::snprintf(l, sizeof l, "%.0f", v);
-            dl->AddText(ImVec2(p0.x + 2.0F, sy(v) - 7.0F), text, l);
+            const float ly = std::clamp(sy(v) - line_h * 0.5F, p0.y, b.y - line_h);
+            if (ly + line_h > last_label_y) continue;
+            last_label_y = ly;
+            dl->AddText(ImVec2(a.x - px(4.0F) - ImGui::CalcTextSize(l).x, ly), text, l);
         }
-        const std::int64_t step = time_step_ns(span, 8);
+        const float time_w = ImGui::CalcTextSize("00:00:00").x + px(16.0F);
+        const std::int64_t step = time_step_ns(span, std::max(1, std::min(8, static_cast<int>((b.x - a.x) / time_w))));
         for (std::int64_t t = (t0 / step + 1) * step; t <= t1; t += step) {
             dl->AddLine(ImVec2(sx(t), a.y), ImVec2(sx(t), b.y), grid);
-            dl->AddText(ImVec2(sx(t) - 14.0F, b.y + 1.0F), text, clock_text(t - plot_.samples.front().t_ns).c_str());
+            const std::string ct = clock_text(t - plot_.samples.front().t_ns);
+            const float tw = ImGui::CalcTextSize(ct.c_str()).x;
+            dl->AddText(ImVec2(std::clamp(sx(t) - tw * 0.5F, a.x, b.x - tw), b.y + 1.0F), text, ct.c_str());
         }
-        dl->AddText(ImVec2(a.x + 4.0F, a.y + 2.0F), text,
-                    (std::string(kind == 0 ? tr("Level") : kind == 1 ? "C1" : tr("Quality")) + " (" + unit + ")").c_str());
+        dl->AddText(ImVec2(a.x + px(4.0F), a.y + px(2.0F)), text, name.c_str());
         dl->PushClipRect(a, b, true);
         // Per trace cell: a polyline over the samples where it has a value.
         const std::size_t traces = kind == 2 ? 1 : plot_.cells.size();
@@ -591,7 +616,8 @@ void Gui::draw_graphs_panel() {
             if (kind != 2 && t.level_graph == (kind == 0) &&
                 std::find(threshold_on_.begin(), threshold_on_.end(), t.name) != threshold_on_.end()) {
                 dl->AddLine(ImVec2(a.x, sy(t.value)), ImVec2(b.x, sy(t.value)), IM_COL32(255, 190, 60, 220), 1.5F);
-                dl->AddText(ImVec2(b.x - 90.0F, sy(t.value) - 14.0F), IM_COL32(255, 190, 60, 255), t.label.c_str());
+                dl->AddText(ImVec2(b.x - ImGui::CalcTextSize(t.label.c_str()).x - px(4.0F), sy(t.value) - line_h),
+                            IM_COL32(255, 190, 60, 255), t.label.c_str());
             }
         if (cursor) dl->AddLine(ImVec2(sx(*cursor), a.y), ImVec2(sx(*cursor), b.y), ImGui::GetColorU32(ImGuiCol_Text), 1.0F);
         dl->PopClipRect();

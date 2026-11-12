@@ -36,8 +36,9 @@ void Gui::draw_tour_body(const TourView& v, bool strip) {
     // DEMO-07: the tour runs in demo mode.
     ImGui::TextColored(kBannerColour, "%s", v.demo_label.c_str());
     tour_.banner = true;
-    ImGui::SameLine();
-    ImGui::TextDisabled("%s", trf("Tour, step {} of {}", {std::to_string(v.index + 1), std::to_string(v.count)}).c_str());
+    const std::string step = trf("Tour, step {} of {}", {std::to_string(v.index + 1), std::to_string(v.count)});
+    same_line_if(ImGui::CalcTextSize(step.c_str()).x + ImGui::CalcTextSize("(?)").x + ImGui::GetStyle().ItemSpacing.x);
+    ImGui::TextDisabled("%s", step.c_str());
     help_marker(tr("The guided tour: each step points at the control it is about (framed in orange) and says what to "
                    "do. Do it yourself or press Show me; Back repeats a step, Skip goes on, Leave closes the tour (it "
                    "remembers where you were)."));

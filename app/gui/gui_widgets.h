@@ -11,6 +11,7 @@
 #include <imgui_internal.h>
 
 #include <algorithm>
+#include <cstring>
 #include <initializer_list>
 #include <string>
 #include <vector>
@@ -64,6 +65,20 @@ inline void text_ellipsis(const char* text, float width, ImU32 colour = 0) {
     if (colour != 0) ImGui::PopStyleColor();
 }
 
+/// A full-width selectable row showing `text`, shortened with "..." when
+/// the row is narrower; `cut` tells whether it was, so the hover text can
+/// start with the whole text (TST-52). `id` is the "###id" part.
+inline bool selectable_ellipsis(const std::string& text, const std::string& id, bool selected, float height, bool& cut) {
+    const ImVec2 p = ImGui::GetCursorScreenPos();
+    const float w = ImGui::GetContentRegionAvail().x;
+    const ImVec2 ts = ImGui::CalcTextSize(text.c_str());
+    const bool pressed = ImGui::Selectable(id.c_str(), selected, 0, ImVec2(0.0F, std::max(height, ts.y)));
+    cut = ts.x > w;
+    ImGui::RenderTextEllipsis(ImGui::GetWindowDrawList(), p, ImVec2(p.x + w, p.y + std::max(height, ts.y)), p.x + w,
+                              text.c_str(), nullptr, &ts);
+    return pressed;
+}
+
 /// The value of a "label  value" row at `x` (window coordinates), or just
 /// after a label that is longer than that (TST-52: never over the label).
 inline void value_column(float x) {
@@ -93,6 +108,12 @@ inline float combo_w(std::initializer_list<const char*> items) {
 /// The width of a button that fits its label.
 inline float label_w(const char* label) {
     return ImGui::CalcTextSize(label, nullptr, true).x + ImGui::GetStyle().FramePadding.x * 2.0F;
+}
+/// The width of a number field with its - and + buttons (as wide as the
+/// field is high; the touch layout's are larger) that shows `widest`.
+inline float step_field_w(const char* widest) {
+    return ImGui::CalcTextSize(widest).x + ImGui::GetStyle().FramePadding.x * 2.0F +
+           2.0F * (ImGui::GetFrameHeight() + ImGui::GetStyle().ItemInnerSpacing.x);
 }
 /// A button width of at least `min_w` (at the UI scale) that fits its
 /// (translated) label.
@@ -214,9 +235,29 @@ inline bool tab_item(const char* label, const char* tooltip, ImGuiTabItemFlags f
     return open;
 }
 /// A collapsing header with its hover text (DOC-07 b).
+/// A name wider than the header is shortened with "..." and the hover
+/// text starts with the whole name (TST-52; Dear ImGui would cut it).
 inline bool section_header(const char* label, const char* tooltip, ImGuiTreeNodeFlags flags = 0) {
-    const bool open = ImGui::CollapsingHeader(label, flags);
-    text_tooltip(tooltip);
+    const char* end = ImGui::FindRenderedTextEnd(label);
+    const ImGuiStyle& st = ImGui::GetStyle();
+    // As Dear ImGui places a framed header's text: after the arrow.
+    const float text_x = ImGui::GetFontSize() + st.FramePadding.x * 3.0F;
+    const ImVec2 size = ImGui::CalcTextSize(label, end);
+    if (size.x <= ImGui::GetContentRegionAvail().x - text_x - st.FramePadding.x) {
+        const bool open = ImGui::CollapsingHeader(label, flags);
+        text_tooltip(tooltip);
+        return open;
+    }
+    const char* id = std::strstr(label, "###");
+    const std::string hidden = id != nullptr ? std::string(id) : "###" + std::string(label);
+    const ImVec2 p = ImGui::GetCursorScreenPos();
+    const bool open = ImGui::CollapsingHeader(hidden.c_str(), flags);
+    const float y = p.y + st.FramePadding.y;
+    const float right = ImGui::GetItemRectMax().x - st.FramePadding.x;
+    ImGui::RenderTextEllipsis(ImGui::GetWindowDrawList(), ImVec2(p.x + text_x, y), ImVec2(right, y + size.y), right, label, end,
+                              &size);
+    const std::string tip = std::string(label, end) + (tooltip != nullptr && *tooltip != '\0' ? "\n" + std::string(tooltip) : "");
+    text_tooltip(tip.c_str());
     return open;
 }
 

@@ -95,8 +95,10 @@ void Gui::draw_cell_db(CellDbEditor& ed) {
     const float list_h = std::max(140.0F, ImGui::GetContentRegionAvail().y * 0.38F);
     if (ImGui::BeginTable("###cells.table", 7,
                           ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersInnerH | ImGuiTableFlags_ScrollY |
-                              ImGuiTableFlags_SizingStretchProp,
+                              ImGuiTableFlags_ScrollX | ImGuiTableFlags_SizingFixedFit,
                           ImVec2(0.0F, list_h))) {
+        // Columns as wide as their texts; the list scrolls sideways when the
+        // window is narrower (TST-52: a value is never cut in its column).
         ImGui::TableSetupScrollFreeze(0, 1);
         for (const char* h : {tr("Cell"), tr("Technology"), tr("Site / sector"), tr("Carrier"), tr("Channel"), tr("Identity"), tr("Neighbours")})
             ImGui::TableSetupColumn(h);

@@ -377,13 +377,13 @@ void Gui::draw_sharing_dialog() {
     int m = static_cast<int>(s.method);
     ImGui::RadioButton(tr("Off###sh.off"), &m, 0);
     text_tooltip(tr("Nothing is sent."));
-    ImGui::SameLine();
+    same_line_if(switch_w(tr("Shared folder###sh.folder")));
     ImGui::RadioButton(tr("Shared folder###sh.folder"), &m, 1);
     text_tooltip(tr("Copy the files into a shared folder."));
-    ImGui::SameLine();
+    same_line_if(switch_w(tr("Upload (HTTP)###sh.http")));
     ImGui::RadioButton(tr("Upload (HTTP)###sh.http"), &m, 2);
     text_tooltip(tr("Upload each file to a web address."));
-    ImGui::SameLine();
+    same_line_if(switch_w(tr("E-mail (SMTP)###sh.smtp")));
     ImGui::RadioButton(tr("E-mail (SMTP)###sh.smtp"), &m, 3);
     text_tooltip(tr("Send one e-mail with the files through your own mail server."));
     s.method = static_cast<SharingSettings::Method>(m);

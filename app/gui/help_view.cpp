@@ -107,13 +107,15 @@ void Gui::draw_help_body() {
             ImGui::PopFont();
             const bool quick = v.quick_starts;
             for (const auto& [number, title] : v.chapters) {
-                const std::string item =
-                    number + "  " + title + (quick ? "###help.quick_start." : "###help.chapter.") + number;
-                if (ImGui::Selectable(item.c_str(), false, 0, ImVec2(0.0F, target_h(0.6F)))) {
+                const std::string text = number + "  " + title;
+                const std::string id = (quick ? "###help.quick_start." : "###help.chapter.") + number;
+                bool cut = false;
+                if (selectable_ellipsis(text, id, false, target_h(0.6F), cut)) {
                     (void)(quick ? state_.open_quick_start(number) : state_.open_help(number));
                     break;
                 }
-                text_tooltip(quick ? tr("Open this quick start.") : tr("Open this chapter."));
+                const std::string tip = std::string(cut ? text + "\n" : "") + (quick ? tr("Open this quick start.") : tr("Open this chapter."));
+                text_tooltip(tip.c_str());
             }
         } else if (!v.error.empty()) {
             ImGui::TextColored(kErrorColour, "%s", v.error.c_str());

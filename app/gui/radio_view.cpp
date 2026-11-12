@@ -384,8 +384,11 @@ void Gui::draw_setting_row(RadioWindows& rw, const SettingRow& r) {
         float widest = ImGui::CalcTextSize(r.requested_text.c_str()).x;
         for (const radio::EnumItem& it : d.items)
             widest = std::max(widest, ImGui::CalcTextSize((it.label.empty() ? it.name : it.label).c_str()).x);
-        ImGui::SetNextItemWidth(std::min(std::max(em(240.0F), widest + ImGui::GetStyle().FramePadding.x * 2.0F + ImGui::GetFrameHeight()),
-                                         ImGui::GetContentRegionAvail().x));
+        const float want = std::max(em(240.0F), widest + ImGui::GetStyle().FramePadding.x * 2.0F + ImGui::GetFrameHeight());
+        // On a line of its own under the label when the room beside it is
+        // too narrow for the longest choice.
+        if (want > ImGui::GetContentRegionAvail().x) ImGui::NewLine();
+        ImGui::SetNextItemWidth(std::min(want, ImGui::GetContentRegionAvail().x));
         const ImGuiID cid = ImGui::GetID(id.c_str());
         const bool open = ImGui::BeginCombo(id.c_str(), r.requested_text.c_str());
         probe_label(cid, id.c_str());

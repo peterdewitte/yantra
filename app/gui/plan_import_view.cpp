@@ -284,7 +284,7 @@ void PlanImportView::draw_scale(PlanImportWindow& w) {
     for (const ToolView& t : w.tools()) {
         if (t.tool != ImportTool::ScaleLine && t.tool != ImportTool::ScaleBar && t.tool != ImportTool::Reference)
             continue;
-        if (t.tool != ImportTool::ScaleLine) ImGui::SameLine();
+        if (t.tool != ImportTool::ScaleLine) gui_detail::same_line_if(gui_detail::switch_w((t.label + "###pi." + t.id).c_str()));
         if (tool_radio(w, t, r)) report(r);
     }
     ImGui::BeginDisabled(!have_floor);
@@ -440,11 +440,15 @@ void PlanImportView::draw_panel(PlanImportWindow& w) {
         // The Edit and Remove buttons at the right, as wide as their labels.
         const float buttons = gui_detail::label_w(tr("Edit###pi.edit.x")) + gui_detail::label_w(tr("Remove###pi.remove.x")) +
                               ImGui::GetStyle().ItemSpacing.x * 2.0F;
-        const float name_w = std::max(gui_detail::px(40.0F), row_right - buttons - ImGui::GetCursorPosX());
+        // A name too long for the room beside them takes the whole row, the
+        // buttons go under it (TST-52: a name is never cut).
+        const float row_x = ImGui::GetCursorPosX();
+        const bool beside = ImGui::CalcTextSize(p.label.c_str()).x <= row_right - buttons - row_x;
+        const float name_w = beside ? row_right - buttons - row_x : 0.0F;
         if (ImGui::Selectable((p.label + "###pi.floor." + p.floor_id).c_str(), p.selected, 0, ImVec2(name_w, gui_detail::row_h())))
             report(w.select_floor(p.floor_id));
         tooltip(tr("Select this floor for its scale and reference point."));
-        ImGui::SameLine(std::max(row_right - buttons + ImGui::GetStyle().ItemSpacing.x, 0.0F));
+        if (beside) ImGui::SameLine(std::max(row_right - buttons + ImGui::GetStyle().ItemSpacing.x, 0.0F));
         ImGui::BeginDisabled(w.editing().has_value());
         if (gui_detail::small_button((tr("Edit###pi.edit.") + p.floor_id).c_str())) report(w.edit_floor(p.floor_id));
         tooltip(w.editing() ? tr("Apply or cancel the trim you are editing first.") : tr("Adjust this floor's trim."));
