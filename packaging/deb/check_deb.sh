@@ -49,7 +49,7 @@ want=(./usr/bin/yantra ./usr/bin/yantra-probe ./usr/bin/yantra-plugin-test
       ./usr/share/applications/yantra.desktop
       ./usr/share/doc/yantra/copyright ./usr/share/doc/yantra/changelog.Debian.gz ./usr/share/doc/yantra/CHANGELOG.md
       ./usr/share/doc/yantra/LICENSES/GPL-3.0-or-later.txt ./usr/share/doc/yantra/LICENSES/OFL-1.1.txt
-      ./usr/share/doc/yantra/html/docs/manual/manual.pdf ./usr/share/doc/yantra/html/docs/manual/manual.html
+      ./usr/share/doc/yantra/html/docs/manual/manual.html
       ./usr/share/doc/yantra/html/docs/METHOD.pdf ./usr/share/doc/yantra/html/docs/LEGAL.pdf
       ./usr/share/doc/yantra/html/docs/img/yantra_logo_128.png
       ./usr/share/yantra/THIRD_PARTY.md ./usr/share/yantra/METHOD.md ./usr/share/yantra/LEGAL.md
@@ -62,6 +62,9 @@ for l in "" nl/ fr/ de/; do
 done
 for s in 16 24 32 48 64 128 256 512; do want+=("./usr/share/icons/hicolor/${s}x${s}/apps/yantra.png"); done
 for w in "${want[@]}"; do grep -qx -- "$w" <<<"$list" || bad "missing $w"; done
+# DOC-02a: the PDF manual of the package's version.
+version=$(field Version | sed 's/-[^-]*$//')
+grep -qx -- "./usr/share/doc/yantra/yantra-manual-${version}.pdf" <<<"$list" || bad "missing the PDF manual (DOC-02a)"
 # RAD-71: yantra-gen with its scenario files beside it.
 grep -qx -- './usr/bin/yantra-gen' <<<"$list" || bad "missing ./usr/bin/yantra-gen"
 grep -q -- '^./usr/share/yantra-radios/scenarios/.*\.json$' <<<"$list" || bad "missing yantra-gen's scenarios"

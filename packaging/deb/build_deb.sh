@@ -17,8 +17,10 @@
 # RTL-SDR DVB-T blacklist (/usr/lib/udev/rules.d, /usr/lib/modprobe.d),
 # PDFium, the desktop entry and hicolor icons 16..512 (BRD-06), logo,
 # branding, fonts, demo projects, manual, quick starts, notes; plus
-#   /usr/share/doc/yantra/html/         the built docs with the manual PDF
-#                                       (DOC-02; `ninja docs` or --docs-site)
+#   /usr/share/doc/yantra/html/         the built docs (DOC-02; `ninja docs`
+#                                       or --docs-site)
+#   /usr/share/doc/yantra/yantra-manual-<version>.pdf  the PDF manual from
+#                                       the docs (DOC-02a; Help > User manual (PDF))
 #   /usr/share/doc/yantra/copyright     DEP-5, Source from YANTRA_SOURCE_URL
 #   /usr/share/doc/yantra/LICENSES/     the licence texts of REUSE.toml
 #   /usr/share/doc/yantra/changelog.Debian.gz
@@ -58,8 +60,9 @@ source_url=$(cache YANTRA_SOURCE_URL)
 [ -n "$source_url" ] || { echo "build_deb: YANTRA_SOURCE_URL is empty (NFR-09 release check)" >&2; exit 1; }
 [ -z "$(cache YANTRA_SANITIZER)" ] || { echo "build_deb: a sanitizer tree is never packaged" >&2; exit 1; }
 [ -x "$build/bin/yantra" ] || { echo "build_deb: $build has no app (YANTRA_BUILD_APP=OFF)" >&2; exit 1; }
-[ -f "$site/docs/manual/manual.pdf" ] \
-  || { echo "build_deb: no built manual in $site (run ninja -C $build docs, DOC-02)" >&2; exit 1; }
+manual_pdf=$site/docs/manual/yantra-manual-$version.pdf
+[ -f "$manual_pdf" ] \
+  || { echo "build_deb: no PDF manual in $site (run ninja -C $build docs, DOC-02a)" >&2; exit 1; }
 arch=$(dpkg --print-architecture)
 
 mkdir -p "$outdir"
@@ -73,8 +76,9 @@ DESTDIR="$stage" cmake --install "$build" --prefix /usr --strip >"$outdir/instal
 doc=$stage/usr/share/doc/yantra
 rm -rf "$doc/html"
 mkdir -p "$doc/html"
-(cd "$site" && find . -type f ! -name build.log ! -name external-links.txt ! -name '.*' -print0 \
-   | xargs -0 cp --parents -t "$doc/html")
+(cd "$site" && find . -type f ! -name build.log ! -name external-links.txt ! -name '.*' \
+   ! -name 'yantra-manual-*.pdf' -print0 | xargs -0 cp --parents -t "$doc/html")
+cp "$manual_pdf" "$doc/"
 sed -e "s|@SOURCE_URL@|$source_url|" "$here/copyright.in" >"$doc/copyright"
 mkdir -p "$doc/LICENSES"
 cp "$src"/LICENSES/*.txt "$doc/LICENSES/"

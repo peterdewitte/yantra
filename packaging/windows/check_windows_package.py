@@ -80,6 +80,8 @@ REQUIRED = [
 ]
 REQUIRED_DIRS = ["share/licenses/yantra-radios", "share/licenses/pdfium", "share/yantra/manual",
                  "share/yantra-radios/scenarios"]
+# The PDF manual (DOC-02a) of the package's own version.
+MANUAL_PDF = re.compile(r"^share/doc/yantra/yantra-manual-[0-9.]+\.pdf$")
 PICTURE = re.compile(r"\.(png|jpe?g|pdf|tiff?|gif|webp|bmp)$", re.I)
 
 
@@ -236,6 +238,8 @@ def check(files: dict[str, bytes], source: pathlib.Path | None) -> list[str]:
     for req in REQUIRED:
         if req not in files:
             bad.append(f"{req} missing")
+    if not any(MANUAL_PDF.match(p) and files[p][:5] == b"%PDF-" for p in files):
+        bad.append("share/doc/yantra/yantra-manual-<version>.pdf missing (DOC-02a)")
     for d in REQUIRED_DIRS:
         if not any(p.startswith(d + "/") for p in files):
             bad.append(f"{d}/ missing or empty")
@@ -318,6 +322,7 @@ def self_test(files: dict[str, bytes], source: pathlib.Path | None) -> list[str]
         "no icon": ({"bin/yantra.exe": no_icon}, "has no icon resource"),
         "no source URL": ({"SOURCE.txt": b"none"}, "SOURCE.txt names no source URL"),
         "no yantra-gen": ({"bin/yantra-gen.exe": None}, "bin/yantra-gen.exe missing"),
+        "no PDF manual": ({p: None for p in files if MANUAL_PDF.match(p)}, "yantra-manual-<version>.pdf missing"),
     }
     missed = []
     for what, (change, finding) in faults.items():

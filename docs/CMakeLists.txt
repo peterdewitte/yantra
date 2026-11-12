@@ -106,6 +106,30 @@ if(YANTRA_BUILD_TESTS)
                        FIXTURES_SETUP yantra_docs_site)
 endif()
 
+# DOC-02a: `ninja docs-manual` builds the PDF user manual alone,
+# <build>/docs/manual/yantra-manual-<version>.pdf (tools/docs/build_manual.py:
+# pandoc and WeasyPrint, title page, contents, bookmarks, index, Inter
+# embedded) with its DOC-20 checks; `ninja docs` builds the same PDF into
+# the docs site (docs_build checks it). The packages ship it in
+# share/doc/yantra (the install rule below; build_deb.sh, package_windows.py),
+# where Help > User manual (PDF) finds it (UI-14). docs_manual_faults: the
+# checker finds a chapter's faults. Skipped without pandoc or WeasyPrint.
+find_package(Python3 COMPONENTS Interpreter QUIET)
+set(YANTRA_MANUAL_PDF ${CMAKE_CURRENT_BINARY_DIR}/manual/yantra-manual-${PROJECT_VERSION}.pdf
+    CACHE INTERNAL "The PDF user manual (ninja docs-manual)")
+add_custom_target(docs-manual
+  COMMAND ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/docs/build_manual.py
+          --source ${PROJECT_SOURCE_DIR} --out ${CMAKE_CURRENT_BINARY_DIR}/manual --version ${PROJECT_VERSION}
+  COMMENT "PDF user manual in ${YANTRA_MANUAL_PDF} (DOC-02a)"
+  VERBATIM)
+if(YANTRA_BUILD_TESTS)
+  add_test(NAME docs_manual_faults
+           COMMAND ${YANTRA_BUILD_HOST_TEST} ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/docs/check_manual_faults.py
+                   ${PROJECT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/manual-faults)
+  set_tests_properties(docs_manual_faults PROPERTIES LABELS "docs" SKIP_RETURN_CODE 77 TIMEOUT 300)
+endif()
+install(FILES ${YANTRA_MANUAL_PDF} DESTINATION share/doc/yantra OPTIONAL)
+
 # Installed documentation: the method and legal notes next to the manual
 # and quick starts (share/yantra, the manual links ../METHOD.md and
 # ../LEGAL.md), the changelog, and the built site with the manual PDF
@@ -134,7 +158,7 @@ endif()
 
 # Checks of the sources and the build machine's tools: build_host in a
 # cross-compiled tree (top-level CMakeLists.txt).
-foreach(_t plugin_api_doxygen doc_snippets doc_links doc_images docs_build)
+foreach(_t plugin_api_doxygen doc_snippets doc_links doc_images docs_build docs_manual_faults)
   if(TEST ${_t})
     yantra_build_host_tests(${_t})
   endif()

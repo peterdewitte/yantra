@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<!--
+SPDX-FileCopyrightText: 2026 The Yantra contributors
+SPDX-License-Identifier: GPL-3.0-or-later
+
+pandoc template of the user manual (DOC-02a) (tools/docs/build_manual.py):
+no style of its own, so WeasyPrint sees only tools/docs/manual.css.
+Adapted from yantra-radios 9c6d3c9: tools/docs/manual.template.html.
+-->
+<html lang="$lang$">
+<head>
+<meta charset="utf-8">
+<title>$pagetitle$</title>
+$for(header-includes)$
+$header-includes$
+$endfor$
+</head>
+<body>
+$for(include-before)$
+$include-before$
+$endfor$
+$if(toc)$
+<nav id="$idprefix$TOC" role="doc-toc">
+<h2 id="$idprefix$toc-title">$toc-title$</h2>
+$table-of-contents$
+</nav>
+$endif$
+$body$
+$for(include-after)$
+$include-after$
+$endfor$
+</body>
+</html>

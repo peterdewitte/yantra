@@ -1,0 +1,82 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Index of the PDF user manual (DOC-02a): the main terms and the UI
+# windows and menus. A line is "Entry" or "Entry: phrase; phrase"; the
+# index lists the sections whose text holds the entry (or one of its
+# phrases, any case, whole words). tools/docs/build_manual.py fails when
+# an entry is found nowhere.
+
+[Terms]
+Acceptance profile: acceptance profile; acceptance profiles
+Antenna: antenna; antennas
+Binning: binning; binned
+C1: C1
+Calibration: calibration; calibrate
+Calibration table: calibration table
+Cell database: cell database
+Coverage map: coverage map; coverage maps
+CSV: CSV
+dBFS: dBFS
+dBm: dBm
+Demo project: demo project; Fraunces
+DXF: DXF
+Estimated source: estimated source; estimated sources
+F1 (help): F1
+Floor: floor; floors
+Interpolation: interpolation; interpolate
+Language: language; languages
+Level alert: level alert; level alerts
+Location area: location area
+Manual points: manual points
+MAK example plans: MAK
+MCC and MNC: MCC; MNC
+MER: MER
+Mouse survey: mouse survey
+Neighbour list: neighbour list; neighbour lists; neighbours
+PEI: PEI
+Recording: recording; recordings
+Remote API: remote API
+Replay: replay
+Ring buffer: ring buffer
+Scale: scale
+Serving cell: serving cell
+Simulator: simulator
+Sounds: sound; sounds
+Theme: theme; themes
+Touch: touch
+Trimming: trim; trimming; trimmed
+udev rules: udev
+Voice note: voice note; voice notes
+Walk test: walk test; walk tests
+Wall: wall; walls
+Zadig and WinUSB: Zadig; WinUSB
+
+[Windows and menus]
+About: About
+Calibration wizard: calibration wizard
+Cell database window: cell database
+Debug window: debug window
+Device info: device info
+Export dialog: Export
+File menu: File >
+Graphs: graphs
+Help menu: Help >
+Layers: layers
+Network menu: Network >
+Plan import window: plan import window
+Plugin manager: plugin manager
+Post page: Post page
+Radio menu: Radio menu; Radio >
+Remote probes: remote probes
+Report dialog: Report
+Reselection simulator: reselection simulator
+Scanner: scanner
+Settings: settings
+Side panel: side panel
+Start screen: start screen
+Status bar: status bar
+Survey panels: survey panels; survey page
+Tour: guided tour; tour
+Verification window: verification
+Walk page: Walk page

@@ -24,6 +24,8 @@ folder:
 - yantra-radio-host.exe info --plugin <package>\\...\\simulator.dll;
 - yantra-gen.exe --list lists the scenarios of the package's own
   share\\yantra-radios\\scenarios (found relative to the program, RAD-71);
+- the PDF manual share\\doc\\yantra\\yantra-manual-<version>.pdf is there
+  (DOC-02a; Help > User manual (PDF) opens it);
 - yantra.exe --demo --screenshot renders the demo project (the package's
   data folder) off-screen and writes a 1280x800 PNG.
 
@@ -128,6 +130,9 @@ def check_programs(root: pathlib.Path, version: str, mesa_from: pathlib.Path, sc
     first = out.splitlines()[0].lstrip("# ").strip() if out.strip() else ""
     expect(rc == 0 and first and os.path.normcase(os.path.realpath(first)) == os.path.normcase(str(scenarios))
            and "fraunces" in out, f"yantra-gen.exe --list names the package's scenarios ({first})")
+
+    pdf = root / "share" / "doc" / "yantra" / f"yantra-manual-{version}.pdf"
+    expect(pdf.is_file() and pdf.read_bytes()[:5] == b"%PDF-", f"the PDF manual {pdf.name} (DOC-02a)")
 
     copied = []
     try:

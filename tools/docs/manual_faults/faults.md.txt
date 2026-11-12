@@ -1,0 +1,21 @@
+<!--
+SPDX-FileCopyrightText: 2026 The Yantra contributors
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+# 1 A chapter with faults
+
+The PDF manual checker's own test (tools/docs/check_manual_faults.py): this page must fail. Adapted from yantra-radios 9c6d3c9: tests/docs/manual_faults/faults.md.txt.
+
+## 1.1 A missing picture
+
+![a picture that is not there](no-such-picture.png)
+
+## 1.2 A broken link
+
+A link to [nowhere](#no-such-heading) and to [a missing file](no-such-file.md); a section reference (1.1) that works.
+
+## 1.3 Text past the margin
+
+<p><span style="white-space: nowrap">This line is not allowed to wrap, so it runs far past the right margin of the A4 page and the checker has to say so.</span></p>
+
+<table style="table-layout: fixed; width: 60mm"><tr><td style="width: 20mm"><span style="white-space: nowrap">overflowing</span>&nbsp;cell&nbsp;text</td><td>x</td></tr></table>

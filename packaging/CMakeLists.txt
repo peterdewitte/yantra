@@ -44,7 +44,8 @@ if(WIN32 AND CMAKE_CROSSCOMPILING AND YANTRA_BUILD_APP AND YANTRA_SANITIZER STRE
             --msys2-lock ${PROJECT_SOURCE_DIR}/third_party/yantra-radios/tools/sdk/msys2.lock
     COMMENT "Windows zip and setup .exe in ${PROJECT_BINARY_DIR}/package (NFR-09)"
     VERBATIM)
-  add_dependencies(package-windows yantra_ico)
+  # The PDF manual (DOC-02a) goes in through the install rule (docs/).
+  add_dependencies(package-windows yantra_ico docs-manual)
   if(YANTRA_BUILD_TESTS)
     set(_win_check ${CMAKE_CURRENT_SOURCE_DIR}/windows/check_windows_package.py)
     add_test(NAME package_windows_check
@@ -80,7 +81,7 @@ add_custom_target(deb
   COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/deb/build_deb.sh ${PROJECT_BINARY_DIR} ${PROJECT_BINARY_DIR}/package
   COMMENT "Linux package (.deb) in ${PROJECT_BINARY_DIR}/package"
   VERBATIM)
-add_dependencies(deb docs)
+add_dependencies(deb docs)  # the docs site holds the PDF manual (DOC-02a)
 if(YANTRA_BUILD_TESTS)
   add_test(NAME package_deb
            COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/deb/test_deb.sh ${PROJECT_BINARY_DIR}

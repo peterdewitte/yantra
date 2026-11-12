@@ -12,7 +12,7 @@ set -euo pipefail
 build=${1:?} out=${2:?} site=${3:?}
 here=$(cd "$(dirname "$0")" && pwd)
 command -v dpkg-deb >/dev/null || { echo "SKIPPED: dpkg-deb not found"; exit 77; }
-if [ ! -f "$site/docs/manual/manual.pdf" ]; then
+if ! ls "$site"/docs/manual/yantra-manual-*.pdf >/dev/null 2>&1; then
   if ! command -v pandoc >/dev/null || ! command -v weasyprint >/dev/null; then
     echo "SKIPPED: no manual PDF (pandoc or WeasyPrint missing)"; exit 77
   fi

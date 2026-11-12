@@ -3,8 +3,10 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Builds the documentation from Markdown (DOC-20, DOC-02, DOC-03, DOC-06):
-#   OUT/docs/manual/manual.html + .pdf   the user manual on one page, with
+#   OUT/docs/manual/manual.html          the user manual on one page, with
 #                                        the Yantra logo on its title page (BRD-06)
+#   OUT/docs/manual/yantra-manual-<version>.pdf  the PDF manual (DOC-02a,
+#                                        tools/docs/build_manual.py with its checks)
 #   OUT/docs/quickstart/*.html + .pdf    the quick starts (+ nl/, fr/, de/)
 #   OUT/docs/METHOD.*, OUT/docs/LEGAL.*  method and legal notes
 #   OUT/docs/plugin-api/                 the plugin API reference (Doxygen,
@@ -68,7 +70,10 @@ fi
 style=$out/.style.html
 { echo "<style>"; cat "$here/docs.css"; echo "</style>"; } >"$style"
 version=$(sed -n '/^project(Yantra/,/)/s/.*VERSION \([0-9.]*\).*/\1/p' "$root/CMakeLists.txt" | head -1)
-# Reproducible output: no build date in the pages or PDFs.
+# Reproducible output: no build date in the pages or PDFs. The PDF manual
+# names its build date: the caller's SOURCE_DATE_EPOCH, else the date of
+# the last commit (build_manual.py).
+manual_epoch=${SOURCE_DATE_EPOCH:-}
 export SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH:-1794096000}
 
 from="markdown+gfm_auto_identifiers"
@@ -131,7 +136,14 @@ if [ $pdf = 1 ]; then
       || { echo "build_docs: weasyprint failed on ${1#"$out"/} (see $log)" >&2; exit 1; }
     pdfs=$((pdfs + 1))
   }
-  to_pdf "$out/docs/manual/manual.html"
+  # The manual: one PDF with title page, contents, bookmarks, index and
+  # its DOC-20 checks (DOC-02a).
+  SOURCE_DATE_EPOCH=$manual_epoch python3 -B "$here/build_manual.py" --source "$root" --out "$out/.manual-pdf" \
+      --version "$version" >>"$log" 2>&1 \
+    || { echo "build_docs: the PDF manual failed its build or checks:" >&2; grep '^build_manual' "$log" >&2; exit 1; }
+  mv "$out/.manual-pdf/yantra-manual-$version.pdf" "$out/docs/manual/"
+  rm -rf "$out/.manual-pdf"
+  pdfs=$((pdfs + 1))
   for f in "$out"/docs/quickstart/*.html "$out"/docs/quickstart/*/*.html "$out/docs/METHOD.html" \
            "$out/docs/LEGAL.html"; do
     if [ -f "$f" ]; then to_pdf "$f"; fi

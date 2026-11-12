@@ -136,7 +136,8 @@ it once per device with Zadig (https://zadig.akeo.ie), then the radio
 appears in the Radio menu. A TETRA terminal (PEI) on a serial port needs
 no extra driver beyond its USB serial driver.
 
-Documentation: share\\yantra\\manual (also in the app: Help), quick starts
+Documentation: the user manual as PDF in share\\doc\\yantra (Help > User
+manual (PDF)) and as text in share\\yantra\\manual (Help), quick starts
 in share\\yantra\\quickstart, licences in share\\licenses and LICENSE.txt,
 third-party components in share\\yantra\\THIRD_PARTY.md, the source code:
 SOURCE.txt and {source_url}.
@@ -252,6 +253,8 @@ def main() -> int:
         r = subprocess.run([a.cmake, "--install", str(a.build), "--prefix", str(stage)], stdout=f, stderr=subprocess.STDOUT)
     if r.returncode != 0:
         return fail(f"cmake --install failed (see {log})")
+    if not (stage / "share/doc/yantra" / f"yantra-manual-{a.version}.pdf").is_file():
+        return fail("no PDF manual in the staging folder: make it first (ninja docs-manual, DOC-02a)")
 
     # The bundled DLLs (copy_dlls.py at install) and their packages.
     dll_names = sorted(p.name for p in (stage / "bin").glob("*.dll"))
