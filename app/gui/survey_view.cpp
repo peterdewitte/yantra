@@ -137,7 +137,7 @@ void Gui::draw_recording_controls(LiveSurvey& live) {
         if (tool_button(tr("Stop recording###rec.stop"), why_stop, tr("Close the recording; its files are listed in the project.")))
             (void)state_.show(live.stop_recording());
         ImGui::SetNextItemWidth(-1.0F);
-        input_text("###rec.marker_label", marker_label_, 128);
+        input_text_hint("###rec.marker_label", tr("Marker label (optional)"), marker_label_, 128);
         text_tooltip(tr("The marker's label (optional)."));
         const std::string why_mark = paused ? tr("The recording is paused.") : "";
         if (tool_button(tr("Marker###rec.marker"), why_mark, tr("A numbered marker at this instant (REC-05)."))) {
@@ -164,10 +164,10 @@ void Gui::draw_recording_controls(LiveSurvey& live) {
         }
     } else {
         ImGui::SetNextItemWidth(-1.0F);
-        input_text("###rec.name", f.name, 128);
+        input_text_hint("###rec.name", tr("Recording name (optional)"), f.name, 128);
         text_tooltip(tr("The recording's name (empty: a quick-record name with date and time)."));
         ImGui::SetNextItemWidth(-1.0F);
-        input_text("###rec.notes", f.notes, 512);
+        input_text_hint("###rec.notes", tr("Notes (optional)"), f.notes, 512);
         text_tooltip(tr("Notes for the recording's header (no personal data)."));
         ImGui::SetNextItemWidth(std::min(em(110.0F), ImGui::GetContentRegionAvail().x * 0.55F));
         ImGui::InputDouble(tr("min split###rec.split"), &f.split_minutes, 1.0, 5.0, "%.0f");
@@ -204,7 +204,7 @@ void Gui::draw_recording_controls(LiveSurvey& live) {
     const auto files = live.ring_files();
     if (!files.empty()) {
         ImGui::SetNextItemWidth(-1.0F);
-        input_text("###rec.ring_name", ring_name_, 128);
+        input_text_hint("###rec.ring_name", tr("Name of the saved recording"), ring_name_, 128);
         text_tooltip(tr("The name of the saved recording."));
         const std::string why = ring_name_.empty() ? tr("Type a name first.") : "";
         if (tool_button(tr("Save ring buffer###rec.ring_save"), why, tr("Save the kept minutes as a recording of the project."))) {

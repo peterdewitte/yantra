@@ -322,6 +322,16 @@ inline bool input_text(const char* label, std::string& s, std::size_t capacity =
     return changed;
 }
 
+/// input_text with a hint shown while the field is empty: a field
+/// without a label of its own says what it is for (DOC-07).
+inline bool input_text_hint(const char* label, const char* hint, std::string& s, std::size_t capacity = 1024) {
+    std::string buf = s;
+    buf.resize(std::max(capacity, s.size() + 1), '\0');
+    const bool changed = ImGui::InputTextWithHint(label, hint, buf.data(), buf.size());
+    if (changed) s = std::string(buf.c_str());
+    return changed;
+}
+
 inline bool dialog_button(const char* label, const char* tooltip, float width = 140.0F) {
     const bool pressed = ImGui::Button(label, ImVec2(button_w(label, width), target_h()));
     text_tooltip(tooltip);
