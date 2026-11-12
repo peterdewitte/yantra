@@ -80,14 +80,18 @@ def scan(root: str, forbid: list[str], forbid_binary: list[str]) -> list[str]:
             with open(path, "rb") as fh:
                 data = fh.read()
             rel = os.path.relpath(path, root).replace("\\", "/")
-            for t in folders:
-                if t.encode() in data:
-                    findings.append(f"{rel}: holds {t}, a folder of the build machine")
+            for t in longest([t for t in folders if t.encode() in data]):
+                findings.append(f"{rel}: holds {t}, a folder of the build machine")
             if is_binary(data):
-                for t in texts:
-                    if t.encode() in data:
-                        findings.append(f"{rel}: holds {t}, an install folder compiled into a program")
+                for t in longest([t for t in texts if t.encode() in data]):
+                    findings.append(f"{rel}: holds {t}, an install folder compiled into a program")
     return findings
+
+
+def longest(found: list[str]) -> list[str]:
+    """The found texts without those inside another found one (C:\\x\\y
+    and \\x\\y are one finding)."""
+    return [t for t in found if not any(t != o and t in o for o in found)]
 
 
 def self_test() -> int:
@@ -104,11 +108,14 @@ def self_test() -> int:
         for name, data in files.items():
             with open(os.path.join(tmp, name), "wb") as fh:
                 fh.write(data)
-        got = sorted(scan(tmp, [home, "/src/tree", "/"], ["/usr/local/share/yantra-radios"]))
+        # The file and the kind of each finding: on Windows the folders are
+        # also looked for as resolved there (with the drive, C:\\src\\tree).
+        got = sorted(f.split(" holds ")[0] + f.split(",")[-1]
+                     for f in scan(tmp, [home, "/src/tree", "/"], ["/usr/local/share/yantra-radios"]))
         want = sorted([
-            "bin/elf: holds /usr/local/share/yantra-radios, an install folder compiled into a program",
-            "bin/pe.exe: holds \\src\\tree, a folder of the build machine",
-            "share/doc.md: holds /home/builder, a folder of the build machine",
+            "bin/elf: an install folder compiled into a program",
+            "bin/pe.exe: a folder of the build machine",
+            "share/doc.md: a folder of the build machine",
         ])
         if got != want:
             print("check_shipped_paths: self-test failed:\n  got  " + "\n       ".join(got)
