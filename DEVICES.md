@@ -10,7 +10,7 @@ other interface) and its version, the operating system, the functions
 tested with their results, the measured calibration offset and the known
 issues. Hardware-in-the-loop checks are manual and run before a release.
 
-## Status of yantra-radios 0.3.0
+## Status of yantra-radios 0.3.1
 
 **No radio has been measured on real hardware yet.** The project has had
 no radio or signal generator so far; the rows below with real hardware

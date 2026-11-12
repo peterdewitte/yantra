@@ -32,6 +32,40 @@ well; they change independently of the radio API version.
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-11-12
+
+Tag v0.3.1 (RAD-98). A fix release: no shipped program or library names a
+folder of the machine it was built on. Radio API 1.1, record files 1,
+scene JSON 1.1 and scenario files 1 unchanged; the plugins' code is
+unchanged and they keep their versions (simulator 0.3.0, pei 0.2.0;
+hackrf and soapysdr as in 0.2.6).
+
+### Fixed
+- `yantra-gen` no longer has the build's install folder
+  (`<prefix>/share/yantra-radios/scenarios`) compiled in as a last place
+  to look for scenarios. A build whose prefix lay in a home folder (as
+  Yantra's build of this submodule) put that folder into
+  `yantra-gen`/`yantra-gen.exe`. The program finds its scenarios only
+  with `--scenario-dir`, `$YANTRA_SCENARIO_DIR` and
+  `<program folder>/../share/yantra-radios/scenarios`, the folder taken
+  from the running program (`/proc/self/exe`, `GetModuleFileNameW`), so
+  an installed or unpacked tree works wherever it is (RAD-71, RAD-137,
+  RAD-138; Yantra NFR-09).
+
+### Tests and release
+- `shipped_paths`: installs the tree into a scratch prefix and fails when
+  an installed file holds the source tree, the build tree, the cross SDK
+  or the home folder, or when a program or library holds the configured
+  install folders (`tools/ci/check_shipped_paths.py`, with its self-test
+  `shipped_paths_selftest`); a build-machine check (`build_host`) in the
+  Windows trees.
+- `yantra_gen_install`: the installed `yantra-gen` lists its own
+  scenarios from another working folder without `$YANTRA_SCENARIO_DIR`,
+  again after the prefix is moved, and finds none once they are removed
+  (Linux, and the release `.zip` layout in the Windows test VM).
+- `package_release.sh` also refuses a package that names the cross SDK's
+  folder.
+
 ## [0.3.0] - 2026-11-10
 
 Tag v0.3.0 (RAD-98). Radio API 1.1 (compatible: LEVEL_DBM), the

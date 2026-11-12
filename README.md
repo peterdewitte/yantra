@@ -58,7 +58,10 @@ and how: [DEVICES.md](DEVICES.md) (none on real hardware yet).
 
 ## Status
 
-Release 0.3.0 (2026-11-10, tag v0.3.0; [CHANGELOG.md](CHANGELOG.md)): radio API 1.1
+Release 0.3.1 (2026-11-12, tag v0.3.1; [CHANGELOG.md](CHANGELOG.md)): a fix
+release of 0.3.0 (`yantra-gen` finds its scenarios relative to itself; no
+shipped file names a folder of the build machine). Release 0.3.0
+(2026-11-10, tag v0.3.0): radio API 1.1
 (levels in dBm without SELF_CALIBRATED), the simulator's "Levels" setting
 (dBm by default), Windows x64, the cross SDK with clang, the terminal
 plugin's Windows serial ports and the PDF manual.

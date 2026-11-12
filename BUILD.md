@@ -104,6 +104,15 @@ Each artefact embeds the dependency manifest (name, version, licence):
   for the same folders in every file of the package (not in an `asan-ubsan`
   tree, never shipped: AddressSanitizer keeps the full paths). ctests
   `completeness_<plugin>` and `completeness_plugins`.
+- `tools/ci/check_shipped_paths.py` (ctest `shipped_paths`, every tree but
+  the sanitizer ones; a build-machine check in the Windows trees):
+  `cmake --install` into a scratch prefix, then no installed file holds
+  the source tree, the build tree, the cross SDK (as given and resolved)
+  or the home folder, and no program or library the configured install
+  folders (`<prefix>/share/yantra-radios`, `<prefix>/lib/yantra-radios`):
+  programs find their data relative to themselves (`yantra-gen`:
+  `/proc/self/exe`, `GetModuleFileNameW`), never through a folder of the
+  build machine.
 - `tools/ci/clean_env.py`: the conformance kit on the plugins in an
   environment without SoapySDR or vendor packages (bubblewrap locally,
   ctest `clean_env_conformance`; a bare ubuntu:24.04 container in CI with
@@ -228,10 +237,10 @@ tests resolve there), restores a clean snapshot, runs ctest, copies
 `junit.xml` and `LastTest.log` back to `<build-dir>/wintest-results/<time>/`
 and powers the VM off; its exit code is ctest's. About 1.1 GB is pushed
 per run (the build-win programs with their debug information). Expected:
-373 tests: 353 passed and 20 skipped with the reason (the 4
-Linux-only tests below, the 15 build-machine checks and `fuzz_proto_rust`,
+375 tests: 354 passed and 21 skipped with the reason (the 4
+Linux-only tests below, the 16 build-machine checks and `fuzz_proto_rust`,
 below), build-win and build-win-scalar alike; the `timing` tests are best
-run on their own (`-L timing -j 1`: 13, the rest with `-LE timing`: 360).
+run on their own (`-L timing -j 1`: 13, the rest with `-LE timing`: 362).
 
 How the cases are listed: the build cannot run a Windows program, so it
 writes one ctest per doctest group (`<group>/all`); ctest on Windows runs
@@ -243,7 +252,7 @@ Build-machine checks (label `build_host`): the tests that check the build
 machine or run its tools (`sdk_check`, `sdk_windows_smoke`, `deps_build*`,
 `deps_manifest`, `repo_lint`, `reuse_lint`, `radio_api_doxygen`,
 `radio_api_header_*`, `rust_cargo_test`, `release_package`,
-`radios_manual`, `radios_manual_faults`) run through
+`radios_manual`, `radios_manual_faults`, `shipped_paths`) run through
 `cmake/build_host_test.py`: skipped (77) on Windows, run on Linux with
 `ctest --test-dir build-win -L build_host`. `fuzz_proto_rust` is skipped
 in this tree (its cargo runs on the build machine, its corpus comes from
