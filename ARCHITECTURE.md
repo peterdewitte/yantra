@@ -46,7 +46,7 @@ API from a feature plugin.
 - **Repository split (PLG-26).** The radio plugins, their receiver DSP,
   the TETRA decoder and the test-signal generator live in the
   yantra-radios project, a git submodule in `third_party/yantra-radios`
-  pinned at v0.3.0 (6fac3ee; radio API 1.1). Yantra depends on yantra-radios, never the
+  pinned at v0.3.1 (9c6d3c9; radio API 1.1). Yantra depends on yantra-radios, never the
   reverse; moving the pin is a commit of its own (CHANGELOG.md).
 - **What is compiled in.** Only the radio API header (`radio.h`, CMake
   target `yantra::radio_api`) is compiled into Yantra. The submodule is

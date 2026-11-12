@@ -36,6 +36,9 @@ own changes are in its CHANGELOG.md.
 - 2026-11-11: pinned to yantra-radios **v0.3.0** (commit 6fac3ee): radio
   API 1.1, Windows x64 plugins, the terminal plugin on Windows serial
   ports, the PDF plugin manual. Yantra loads radio API 1.1 plugins.
+- 2026-11-12: pinned to yantra-radios **v0.3.1** (commit 9c6d3c9):
+  yantra-gen finds its scenario files relative to the program (no folder
+  of the build machine compiled in); plugins and file formats unchanged.
 - The simulator reports dBm by default ("Levels" setting, dBm or dBFS):
   such levels, and every level a radio flags as dBm, are shown as dBm and
   need no calibration; the calibration table applies to dBFS levels only
