@@ -12,6 +12,16 @@ plugins come from yantra-radios (git submodule `third_party/yantra-radios`,
 PLG-26); every move of its pinned release is recorded here (RAD-98), its
 own changes are in its CHANGELOG.md.
 
+## [Unreleased]
+
+### Fixed
+
+- Cycles built together by one late tick take their UTC from one reading
+  of the system clock, so a wall clock being set or slewed while recording
+  no longer makes the replay of that recording differ ("replay mismatch:
+  cycle N: time"); the mismatch message now shows the recorded and
+  replayed times (OA-13, REC-07).
+
 ## [0.2.0] - 2026-11-12
 
 Yantra for Windows x64 next to Linux, built with clang from one pinned

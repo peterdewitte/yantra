@@ -146,7 +146,7 @@ wrongly) and counts them.
 | Key | Content |
 |-----|---------|
 | `seq` | the cycle number |
-| `mono`, `utc` | the cycle's end (the grid time) |
+| `mono`, `utc` | the cycle's end (the grid time); `utc` is the system clock read once per tick, minus (`built` - `mono`), so cycles of one tick are a period apart in UTC too |
 | `built` | the tick time it was built at |
 | `inputs` | the number of the last input taken in before it |
 | `period` | the period (ns) |

@@ -66,7 +66,10 @@ bool same_level(double a, double b) { return (std::isnan(a) && std::isnan(b)) ||
 
 std::string summary_difference(const CycleLine& rec, const ym::MeasurementCycle& c) {
     if (rec.time_ns != c.time.monotonic_ns || rec.utc_ns != c.time.utc_ns || rec.built_ns != c.built_ns)
-        return "time";
+        return "time: recorded monotonic " + std::to_string(rec.time_ns) + " utc " + std::to_string(rec.utc_ns) +
+               " built " + std::to_string(rec.built_ns) + ", replayed monotonic " +
+               std::to_string(c.time.monotonic_ns) + " utc " + std::to_string(c.time.utc_ns) + " built " +
+               std::to_string(c.built_ns) + " (utc " + std::to_string(c.time.utc_ns - rec.utc_ns) + " ns off)";
     if (rec.inputs != c.inputs) return "inputs";
     if (rec.flags != c.flags) return "flags";
     if (rec.samples.size() != c.samples.size())

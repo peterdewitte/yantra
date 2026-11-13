@@ -268,7 +268,7 @@ private:
     };
     Mapped map_record(const RadioRecord& rr, std::int64_t now, const LevelCorrection* forced);
     void emit_input(const PipelineInput& input);
-    void build_cycle(std::int64_t end_ns, std::int64_t now_ns, MeasurementCycle& out);
+    void build_cycle(std::int64_t end_ns, std::int64_t now_ns, std::int64_t utc_ns, MeasurementCycle& out);
     std::vector<std::shared_ptr<MeasurementObserver>> observers() const;
     void bump();
 

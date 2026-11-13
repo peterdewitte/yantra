@@ -454,12 +454,12 @@ void MeasurementPipeline::on_radio_event(const RadioEvent& ev) {
 
 // --- stage 6: the cycle (TST-31) ------------------------------------------------------
 
-void MeasurementPipeline::build_cycle(std::int64_t end_ns, std::int64_t now_ns,
+void MeasurementPipeline::build_cycle(std::int64_t end_ns, std::int64_t now_ns, std::int64_t utc_ns,
                                       MeasurementCycle& out) {
     out.sequence = sequence_++;
     out.period_ns = config_.period_ns;
     out.time.monotonic_ns = end_ns;
-    out.time.utc_ns = clock_->utc_ns() - (now_ns - end_ns);
+    out.time.utc_ns = utc_ns - (now_ns - end_ns);
     out.time.utc_source = YANTRA_TIME_SOURCE_SYSTEM;
     out.built_ns = now_ns;
     out.inputs = inputs_;
@@ -514,6 +514,10 @@ void MeasurementPipeline::build_cycle(std::int64_t end_ns, std::int64_t now_ns,
 std::size_t MeasurementPipeline::tick() {
     const std::lock_guard tick_lock(tick_mutex_);
     const std::int64_t now = clock_->monotonic_ns();
+    // One UTC reading for every cycle of this tick: a wall clock being set
+    // between two reads must not change the spacing of their times, and a
+    // replay sets its clock once per tick (OA-13, REC-07).
+    const std::int64_t utc = clock_->utc_ns();
     std::vector<MeasurementCycle> cycles;
     {
         const std::lock_guard lock(mutex_);
@@ -526,7 +530,7 @@ std::size_t MeasurementPipeline::tick() {
                 break;
             }
             cycles.emplace_back();
-            build_cycle(next_end_ns_, now, cycles.back());
+            build_cycle(next_end_ns_, now, utc, cycles.back());
             next_end_ns_ += config_.period_ns;
         }
     }

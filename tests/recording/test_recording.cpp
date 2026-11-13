@@ -11,6 +11,7 @@
 #include <doctest/doctest.h>
 
 #include <algorithm>
+#include <atomic>
 #include <chrono>
 #include <cmath>
 #include <csignal>
@@ -342,6 +343,86 @@ TEST_CASE("recording: a recorded walk replays through the pipeline to the same c
                 name_seen = std::get<std::string>(in.record->record.values[4]) == "Site \"A\" \xc3\xa9";
         CHECK(name_seen);
     }
+}
+
+// A wall clock that is being set while the app runs (a guest resumed
+// from a saved state, NTP stepping or slewing): every UTC read moves it
+// by `step_ns`, and the test steps it by whole seconds; the monotonic
+// clock is set by the test only.
+class SteppingClock final : public yantra::platform::Clock {
+public:
+    std::int64_t monotonic_ns() const noexcept override { return mono_.load(); }
+    std::int64_t utc_ns() const noexcept override { return utc_.fetch_add(step_ns.load()); }
+    void set(std::int64_t monotonic) noexcept { mono_.store(monotonic); }
+    void step_utc(std::int64_t ns) noexcept { utc_.fetch_add(ns); }
+    std::atomic<std::int64_t> step_ns{0};
+
+private:
+    std::atomic<std::int64_t> mono_{100 * kSecond};
+    mutable std::atomic<std::int64_t> utc_{1'790'000'000 * kSecond};
+};
+
+TEST_CASE("recording: a wall clock stepping during a recording does not change the cycle times on replay (OA-13, REC-07)") {
+    // Several cycles built by one late tick (a slow app catches up) take
+    // their UTC from one clock reading, so their times keep the monotonic
+    // spacing whatever the wall clock does, and the replay (which sets
+    // the clock once per tick) builds the same times. 13.11: a Windows
+    // guest adjusting its clock after a resume gave "replay mismatch:
+    // cycle N: time" in the tour's simulated survey.
+    const fs::path dir = scratch("utc_steps");
+    auto clock = std::make_shared<SteppingClock>();
+    auto out = std::make_shared<Collector>();
+    ym::MeasurementPipeline::Options o;
+    o.corrector = std::make_shared<OffsetCorrector>();
+    o.clock = clock;
+    auto p = std::make_shared<ym::MeasurementPipeline>(std::move(o));
+    p->add_observer(out);
+    auto cfg = config(dir);
+    cfg.flush_thread = false;
+    auto recorder = rec::Recorder::create(p, std::move(cfg));
+    std::string error;
+    REQUIRE_MESSAGE(recorder->start("utc", error), error);
+    const std::uint64_t first = p->snapshot().sequence;
+    std::int64_t t = 100 * kSecond;
+    for (int i = 0; i < 40; ++i) {
+        t += kSecond / 4;
+        clock->set(t);
+        p->on_radio_record(cell(t - 3'000'000, 390'012'500, -60.0 - i * 0.1));
+        p->on_radio_record(cell(t - 2'000'000, 390'037'500, -75.0, YR_ROLE_NEIGHBOUR));
+        if (i % 8 == 7) {
+            // Late: the app ticks once for two periods (catch-up), while
+            // the wall clock is being slewed and then stepped.
+            clock->step_ns.store(i % 16 == 7 ? 1'000 : 37'000'000);
+            CHECK(p->tick() >= 1);
+            clock->step_ns.store(0);
+            clock->step_utc(i % 16 == 7 ? 2 * kSecond : -3 * kSecond);
+        }
+    }
+    recorder->stop();
+    std::vector<ym::MeasurementCycle> live;
+    {
+        const std::lock_guard lock(out->m);
+        for (const auto& c : out->cycles)
+            if (c.sequence >= first) live.push_back(c);
+    }
+    REQUIRE(live.size() >= 8);
+    // One tick, one UTC reading: the cycles of a tick are a period apart in UTC too.
+    std::size_t same_tick = 0;
+    for (std::size_t i = 1; i < live.size(); ++i)
+        if (live[i].built_ns == live[i - 1].built_ns) {
+            ++same_tick;
+            CHECK(live[i].time.utc_ns - live[i - 1].time.utc_ns == live[i].time.monotonic_ns - live[i - 1].time.monotonic_ns);
+        }
+    CHECK(same_tick >= 4);
+
+    std::string e;
+    auto r = rec::Replay::open({dir / rec::file_name("utc", 0, rec::Compression::None)}, {}, e);
+    REQUIRE_MESSAGE(r, e);
+    const auto replayed = replay_all(*r);
+    std::string mismatches;
+    for (const std::string& m : r->mismatch_messages()) mismatches += m + "\n";
+    CHECK_MESSAGE(r->mismatches() == 0, mismatches);
+    check_same(live, replayed);
 }
 
 TEST_CASE("recording: split by message count and by time gives name_0000, name_0001 ... that replay as one walk (REC-02)") {

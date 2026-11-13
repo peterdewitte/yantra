@@ -76,7 +76,10 @@ stops or its plugin fails.
   `start` is the clock when the pipeline was made. `period_ns` is at most
   1 s (the configuration refuses anything slower); the default is 1 s.
 - Timestamps: a cycle's monotonic time is its grid time; its UTC time is the
-  clock's UTC at the tick minus the time since the grid time.
+  clock's UTC at the tick minus the time since the grid time. The UTC is
+  read once per tick, so the cycles of a late tick are a period apart in
+  UTC as in monotonic time even while the wall clock is being set, and a
+  replay (which sets its clock once per tick) gives the same times.
 - No gaps: a tick that comes late emits every cycle it missed, in order, up
   to `max_catch_up`; any further cycles are counted
   (`PipelineStats::skipped_cycles`) and the sequence number jumps by the
