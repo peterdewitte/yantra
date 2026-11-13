@@ -516,6 +516,13 @@ std::uint32_t SurveyMonitor::last_flags() const {
     return frames_.empty() ? 0 : frames_.back().flags;
 }
 
+std::optional<ym::MeasurementCycle> SurveyMonitor::newest_cycle() const {
+    const std::lock_guard lock(mutex_);
+    if (frozen_) return shown_;
+    if (frames_.empty()) return std::nullopt;
+    return frames_.back();
+}
+
 // -- graph arithmetic ---------------------------------------------------------------------
 
 namespace {

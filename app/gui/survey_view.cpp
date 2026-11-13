@@ -660,7 +660,12 @@ void Gui::draw_scanner_panel(const SurveyFrame& f) {
             const float frac = std::isnan(r.level) ? 0.0F : static_cast<float>(std::clamp((r.level + 130.0) / 90.0, 0.0, 1.0));
             ImGui::ProgressBar(frac, ImVec2(-1.0F, 0.0F), level_text(r.level, r.calibrated).c_str());
             ImGui::TableNextColumn();
-            ImGui::TextUnformatted(r.flags_text.c_str());
+            // The flags can be many ("no_sync,simulated,late,..."; "late"
+            // only when cycles arrive late): shortened with "..." to the
+            // column, the whole list on hover (UI-13, DOC-07, TST-52).
+            const float room = ImGui::GetContentRegionAvail().x;
+            text_ellipsis(r.flags_text.c_str(), room);
+            if (ImGui::CalcTextSize(r.flags_text.c_str()).x > room) text_tooltip(r.flags_text.c_str());
         }
         ImGui::EndTable();
     }

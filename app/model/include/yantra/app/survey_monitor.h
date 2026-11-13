@@ -233,6 +233,9 @@ public:
     std::int64_t last_time() const;
     /// The newest cycle's flags (sample_flag bits; 0 none), cheap (status bar).
     std::uint32_t last_flags() const;
+    /// The cycle the panels show when following the newest: the newest
+    /// live cycle, or the shown one when frozen (nullopt: none yet).
+    std::optional<measure::MeasurementCycle> newest_cycle() const;
 
     // -- measure::MeasurementObserver ---------------------------------------
     void on_event(const measure::RadioEvent& event) override;

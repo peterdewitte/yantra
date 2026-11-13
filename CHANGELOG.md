@@ -16,6 +16,10 @@ own changes are in its CHANGELOG.md.
 
 ### Fixed
 
+- The scanner view's State column shortens a long list of flags (such as
+  "no_sync,simulated,late" when the app runs slowly) with "..." and shows
+  the whole list on hover, instead of cutting it off (UI-13, DOC-07,
+  TST-52); the GUI text test now draws the scanner with every flag set.
 - Cycles built together by one late tick take their UTC from one reading
   of the system clock, so a wall clock being set or slewed while recording
   no longer makes the replay of that recording differ ("replay mismatch:

@@ -25,7 +25,7 @@ The Graphs tab draws the level, C1 and quality of the serving cell and up to 31 
 
 ## 5.3 Scanner, events and statistics
 
-The Scanner tab lists every carrier the radio sees, by frequency, also the ones it cannot decode. The Events tab shows serving-cell changes, sync losses, device and recording events and data losses, newest first. The Statistics tab counts serving-cell changes and sync losses, the time in and out of coverage and the share of samples at or above the coverage threshold (the threshold field on the Survey page, also in 15.2).
+The Scanner tab lists every carrier the radio sees, by frequency, also the ones it cannot decode. Its State column shows the sample flags (for example "no_sync" or "late"); a list too long for the column ends in "..." and shows in full when you hover over it. The Events tab shows serving-cell changes, sync losses, device and recording events and data losses, newest first. The Statistics tab counts serving-cell changes and sync losses, the time in and out of coverage and the share of samples at or above the coverage threshold (the threshold field on the Survey page, also in 15.2).
 
 ![The scanner](../img/survey_scanner_dark.png) [light theme](../img/survey_scanner_light.png)
 ![The event list](../img/survey_events_dark.png) [light theme](../img/survey_events_light.png)

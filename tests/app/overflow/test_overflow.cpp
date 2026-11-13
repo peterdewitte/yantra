@@ -120,6 +120,28 @@ bool have_radios() {
            fs::exists(fs::path(YANTRA_TEST_RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX);
 }
 
+// The scanner once more with every sample flag set on every carrier:
+// the longest flag list ("no_sync,...,late,...") must fit or be shortened
+// with "..." and its hover text. Some flags ("late", "stale", "held") come
+// only when the app is slow, so the live scene alone does not show them
+// deterministically (13.11: seen only under the sanitizers).
+void check_every_flag(UiHarness& ui, AppState& state, Checker& c) {
+    namespace sf = yantra::measure::sample_flag;
+    REQUIRE(state.live()->stop_radio().ok);
+    std::optional<yantra::measure::MeasurementCycle> cycle = state.monitor()->newest_cycle();
+    REQUIRE(cycle.has_value());
+    cycle->flags = sf::kAllMask;
+    for (yantra::measure::CarrierSample& s : cycle->samples) s.flags = sf::kAllMask;
+    state.monitor()->freeze_history(true);
+    state.monitor()->show_cycle(cycle);
+    REQUIRE(ui.frames(3));
+    const std::string every = yantra::measure::sample_flags_text(sf::kAllMask);
+    const SurveyFrame f = state.monitor()->frame();
+    REQUIRE(!f.scan.empty());
+    for (const CellRow& r : f.scan) REQUIRE(r.flags_text == every);
+    c.check("scene survey_scanner, every flag set");
+}
+
 // The screenshot scenes and the beacon plugin's radio windows, played to
 // their capture as test_screenshots.cpp does, then checked.
 void play_scenes(Language l, bool touch, Theme theme, const Size& size, std::string& all, int& frames) {
@@ -187,6 +209,7 @@ void play_scenes(Language l, bool touch, Theme theme, const Size& size, std::str
             REQUIRE(ui.frames(3));
             Checker c(ui, touch, config);
             c.check("scene " + scene.name);
+            if (scene.name == "survey_scanner") check_every_flag(ui, state, c);
             c.collect(all, frames, config);
         }
         set_language(Language::En);
