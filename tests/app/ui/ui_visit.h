@@ -174,6 +174,11 @@ inline void visit_all(Shell& s, const std::function<void(const std::string&)>& c
     settle_check("project walk replay");
     REQUIRE(s.ui.click("walk.replay"));
     REQUIRE(s.ui.frames(2));
+    // UI-21: the Walk tab's recording part, open.
+    REQUIRE_MESSAGE(s.ui.click("walk.recording"), s.ui.dump());
+    settle_check("project walk recording");
+    REQUIRE(s.ui.click("walk.recording"));
+    REQUIRE(s.ui.frames(2));
     // UI-18: the survey windows of the Window menu, all open.
     for (Action a : {Action::WindowNeighbours, Action::WindowGraphs, Action::WindowScanner, Action::WindowEvents,
                      Action::WindowStatistics})
@@ -199,6 +204,21 @@ inline void visit_all(Shell& s, const std::function<void(const std::string&)>& c
     floor_dialog([&] { return s.state.edit_floor(floor); }, "floor properties");
     floor_dialog([&] { return s.state.request_remove_floor(floor); }, "remove floor");
     floor_dialog([&] { return s.state.edit_floor_plan(floor); }, "plan import");
+    // UI-20: the plan import window with Info, Scale and Alignment open,
+    // and its Add as floor popup.
+    REQUIRE(s.state.edit_floor_plan(floor).ok);
+    REQUIRE(s.ui.wait_window("dlg.plan_import"));
+    for (const char* key : {"pi.info", "pi.scale", "pi.align"})
+        REQUIRE_MESSAGE(s.ui.click(key, "dlg.plan_import"), s.ui.dump());
+    settle_check("plan import sections");
+    REQUIRE(s.state.plan_import() != nullptr);
+    (void)s.state.plan_import()->cancel_edit();
+    s.state.plan_import()->begin_add_floor();
+    settle_check("plan import add as floor");
+    s.state.plan_import()->cancel_add_floor();
+    REQUIRE(s.ui.frames(2));
+    s.state.cancel_dialog();
+    REQUIRE(s.ui.frames(3));
     floor_dialog([&] { return s.state.edit_interpolation_settings(); }, "interpolation settings");
     floor_dialog([&] { return s.state.trigger(Action::SaveAs); }, "save as");
     // Step 10.4: the export (each kind), report, profile and sharing dialogs.

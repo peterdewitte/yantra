@@ -150,7 +150,9 @@ TEST_CASE("walk test panel without radios: the reason on Start, the note after a
     REQUIRE(s.ui.frames(2));
     REQUIRE_MESSAGE(s.ui.has("walk.start"), s.ui.dump());
     CHECK(s.ui.find("walk.start")->disabled);
-    REQUIRE(s.ui.click("walk.find_radios"));
+    // UI-21: Select... opens Radio > Radios... and searches the radios.
+    CHECK(s.ui.has("walk.kind.mouse_survey"));
+    REQUIRE(s.ui.click("walk.radio_select"));
     REQUIRE(s.ui.frames(3));
     CHECK(s.state.live()->radios().empty());
     CHECK(s.state.live()->radio_note().find("No radio found") == 0);

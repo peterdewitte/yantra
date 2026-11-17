@@ -68,6 +68,7 @@ private:
     void draw_pages(PlanImportWindow& w);
     void draw_preview(PlanImportWindow& w);
     void draw_scale(PlanImportWindow& w);
+    void draw_add_popup(PlanImportWindow& w);
     void draw_canvas(PlanImportWindow& w);
     void draw_tiles(PlanImportWindow& w, ImDrawList* dl, ImVec2 origin);
     void report(const Result& r);
@@ -86,6 +87,8 @@ private:
     bool wait_for_tiles_ = false;
     std::string message_;
     bool message_error_ = false;
+    bool info_open_ = false;   // UI-20: the file's details behind Info
+    std::string add_error_;    // the Add as floor popup's refusal
     ImportViewStats stats_;
 };
 

@@ -120,7 +120,18 @@ TEST_CASE("plan import: choose a file, trim, preview, add as floor, scale, close
     CHECK(st.preview);  // the whole page, fitted
     CHECK(st.preview_width == 240);
     CHECK_FALSE(st.credit);
+    // UI-20: the file's details behind Info, Scale and Alignment closed.
+    CHECK(s.ui.has("pi.info", "dlg.plan_import"));
+    CHECK_FALSE(s.ui.has("pi.tool.scale_line", "dlg.plan_import"));
+    CHECK_FALSE(s.ui.has("pi.tool.reference", "dlg.plan_import"));
+    REQUIRE(s.ui.click("pi.scale", "dlg.plan_import"));
+    REQUIRE(s.ui.frames(2));
     CHECK(s.ui.find("pi.tool.scale_line", "dlg.plan_import")->disabled);  // no floor yet
+    REQUIRE(s.ui.click("pi.align", "dlg.plan_import"));
+    REQUIRE(s.ui.frames(2));
+    CHECK(s.ui.find("pi.tool.reference", "dlg.plan_import")->disabled);  // no floor yet
+    REQUIRE(s.ui.click("pi.align", "dlg.plan_import"));
+    REQUIRE(s.ui.frames(2));
 
     // Rectangle: drag it on the sheet; the preview follows.
     REQUIRE(s.ui.click("pi.tool.rectangle", "dlg.plan_import"));
@@ -142,12 +153,22 @@ TEST_CASE("plan import: choose a file, trim, preview, add as floor, scale, close
     REQUIRE(s.ui.frames(2));
     CHECK(w->quarter_turns() == 0);
 
-    // Add as floor: name it, Add; the outline is drawn on the sheet.
+    // Add as floor: a popup asks for the name and level (UI-20); Add; the
+    // outline is drawn on the sheet. Cancel first leaves the project as it is.
     REQUIRE(s.ui.click("pi.add", "dlg.plan_import"));
-    REQUIRE(s.ui.frames(2));
-    REQUIRE(s.ui.fill("pi.add_name", "Hall", "dlg.plan_import"));
-    REQUIRE(s.ui.click("pi.add_ok", "dlg.plan_import"));
-    REQUIRE(s.ui.frames(3));
+    REQUIRE(s.ui.wait_window("pi.add_popup"));
+    CHECK(s.ui.has("pi.add_level", "pi.add_popup"));
+    CHECK(s.ui.has("pi.add_height", "pi.add_popup"));
+    REQUIRE(s.ui.click("pi.add_cancel", "pi.add_popup"));
+    REQUIRE(s.ui.wait_window_closed("pi.add_popup"));
+    CHECK(w->added().empty());
+    CHECK(w->add_form() == nullptr);
+    REQUIRE(s.ui.click("pi.add", "dlg.plan_import"));
+    REQUIRE(s.ui.wait_window("pi.add_popup"));
+    REQUIRE(s.ui.fill("pi.add_name", "Hall", "pi.add_popup"));
+    REQUIRE(s.ui.click("pi.add_ok", "pi.add_popup"));
+    REQUIRE(s.ui.wait_window_closed("pi.add_popup"));
+    REQUIRE(s.ui.frames(1));
     REQUIRE(w->added().size() == 1);
     const std::string hall = w->added()[0];
     CHECK(s.state.project()->floor(hall)->name == "Hall");
@@ -232,6 +253,8 @@ TEST_CASE("plan import: PDF pages as thumbnails, page choice (IND-02)") {
     REQUIRE(s.ui.frames(3));
     CHECK(s.gui.import_view().stats().thumbnails == 2);
     REQUIRE(s.ui.has("pi.page.1", "dlg.plan_import"));
+    REQUIRE(s.ui.click("pi.scale", "dlg.plan_import"));  // closed by default (UI-20)
+    REQUIRE(s.ui.frames(2));
     REQUIRE_MESSAGE(s.ui.has("pi.ratio", "dlg.plan_import"), s.ui.dump());
     CHECK(s.ui.find("pi.ratio", "dlg.plan_import")->disabled);  // no floor selected yet
     REQUIRE(s.ui.click("pi.page.1", "dlg.plan_import"));

@@ -161,7 +161,12 @@ void Gui::draw_live_values(const SurveyFrame& f) {
 }
 
 void Gui::draw_recording_controls(LiveSurvey& live) {
-    ImGui::SeparatorText(tr("Recording"));
+    // UI-21: closed by default (the arrow opens it); open while recording.
+    if (live.recording()) ImGui::SetNextItemOpen(true, ImGuiCond_Always);
+    if (!section_header(tr("Recording###walk.recording"),
+                        tr("Record the measurements into the project (REC-01..03), markers, voice notes and the ring "
+                           "buffer.")))
+        return;
     RecordingForm& f = live.recording_form();
     const recording::RecorderStatus st = live.recording_status();
     if (live.recording()) {

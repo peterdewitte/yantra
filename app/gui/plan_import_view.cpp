@@ -45,19 +45,8 @@ void tooltip(const char* text) {
 }
 void tooltip(const std::string& text) { tooltip(text.c_str()); }
 
-/// A dimmed "(?)" marker with an explanation on hover (DOC-07 a).
-void help(const char* text) {
-    gui_detail::same_line_if(ImGui::CalcTextSize("(?)").x);
-    ImGui::TextDisabled("(?)");
-    if (gui_detail::note_help(false, text) ||
-        (!gui_detail::help_shown_on_purpose() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))) {
-        ImGui::BeginTooltip();
-        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
-        ImGui::TextUnformatted(text);
-        ImGui::PopTextWrapPos();
-        ImGui::EndTooltip();
-    }
-}
+/// The shared "(?)" marker (DOC-07 a, UI-20).
+void help(const char* text) { gui_detail::help_marker(text); }
 
 bool input_text(const char* label, std::string& s, std::size_t capacity = 256) {
     std::string buf = s;
@@ -104,11 +93,10 @@ void cross(ImDrawList* dl, ImVec2 p, ImU32 col) {
     dl->AddLine(ImVec2(p.x, p.y - 14.0F), ImVec2(p.x, p.y + 14.0F), col, 2.0F);
 }
 
+/// A tool as an option with its "(?)" help (UI-20).
 bool tool_radio(PlanImportWindow& w, const ToolView& t, Result& r) {
-    ImGui::BeginDisabled(!t.enabled);
-    const bool pressed = ImGui::RadioButton((t.label + "###pi." + t.id).c_str(), w.tool() == t.tool);
-    ImGui::EndDisabled();
-    tooltip(t.enabled ? t.tooltip : t.tooltip + " " + t.disabled_reason);
+    const bool pressed = gui_detail::option_radio((t.label + "###pi." + t.id).c_str(), w.tool() == t.tool, t.tooltip.c_str(),
+                                                  t.enabled ? std::string() : t.disabled_reason);
     if (pressed) r = w.set_tool(t.tool);
     return pressed;
 }
@@ -169,6 +157,7 @@ bool PlanImportView::draw(AppState& state, PlanImportWindow& w) {
                       ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
     draw_canvas(w);
     ImGui::EndChild();
+    draw_add_popup(w);
 
     // Bottom line: the last message (or the tool's hint), Close.
     const float right = ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x;
@@ -270,80 +259,104 @@ void PlanImportView::draw_preview(PlanImportWindow& w) {
 }
 
 void PlanImportView::draw_scale(PlanImportWindow& w) {
-    ImGui::SeparatorText(tr("Scale and alignment"));
-    help(tr("Scale (IND-08): drag between two points of known distance, or along the plan's scale bar, and type the "
-         "real distance in metres; or type the drawing scale (1:100) when the page has a paper size. Floors of one "
-         "sheet can share one scale. A floor without scale is allowed but marked \"not to scale\". Reference "
-         "point (IND-09): the same spot on every floor, so the floors line up."));
+    // UI-20: Scale (IND-08) and Alignment (IND-09), each closed by default;
+    // the arrow of its header opens it.
     const std::vector<PlacedView> placed = w.placed();
     const bool have_floor = !w.selected().empty();
-    if (!have_floor) {
-        ImGui::TextDisabled(tr("Select or add a floor first."));
-    } else {
+    auto floor_line = [&] {
+        if (!have_floor) {
+            ImGui::TextDisabled(tr("Select or add a floor first."));
+            return;
+        }
         for (const PlacedView& p : placed)
             if (p.selected) ImGui::Text(tr("Floor: %s"), p.label.c_str());
-    }
-    Result r;
-    for (const ToolView& t : w.tools()) {
-        if (t.tool != ImportTool::ScaleLine && t.tool != ImportTool::ScaleBar && t.tool != ImportTool::Reference)
-            continue;
-        if (t.tool != ImportTool::ScaleLine) gui_detail::same_line_if(gui_detail::switch_w((t.label + "###pi." + t.id).c_str()));
-        if (tool_radio(w, t, r)) report(r);
-    }
-    ImGui::BeginDisabled(!have_floor);
-    ScaleForm& sf = w.scale_form();
-    ImGui::SetNextItemWidth(gui_detail::px(110.0F));
-    input_text("metres###pi.distance", sf.distance_m, 32);
-    tooltip(tr("The real distance between the two points, or the scale bar's length, in metres (\"2.5\" or \"2,5\")."));
-    ImGui::SameLine();
-    if (ImGui::Button(tr("Apply###pi.scale_apply"))) {
-        if (sf.kind == ScaleForm::Kind::DrawingScale)
-            sf.kind = w.tool() == ImportTool::ScaleBar ? ScaleForm::Kind::ScaleBar : ScaleForm::Kind::TwoPoints;
-        report(w.apply_scale());
-    }
-    tooltip(tr("Set the selected floor's scale from the line drawn on the plan and the distance."));
-    const bool ratio_ok = w.drawing_scale_available();
-    ImGui::BeginDisabled(!ratio_ok);
-    ImGui::SetNextItemWidth(gui_detail::px(110.0F));
-    input_text(tr("drawing scale 1:###pi.ratio"), sf.ratio, 32);
-    tooltip(ratio_ok ? tr("The scale the plan is drawn at, e.g. 100 for 1:100 (the page's paper size is known).")
-                     : tr("Not for this page: it has no paper size (an image without a stored resolution). Use two "
-                       "points or the scale bar."));
-    ImGui::SameLine();
-    if (ImGui::Button(tr("Apply###pi.ratio_apply"))) {
-        const ScaleForm::Kind before = sf.kind;
-        sf.kind = ScaleForm::Kind::DrawingScale;
-        const Result applied = w.apply_scale();
-        if (!applied.ok) w.scale_form().kind = before;
-        report(applied);
-    }
-    tooltip(tr("Set the selected floor's scale from the drawing scale."));
-    ImGui::EndDisabled();
-    if (ImGui::Button(tr("Not to scale###pi.scale_clear"))) report(w.clear_scale());
-    tooltip(tr("Remove the scale: the floor is marked \"not to scale\" in the window and in reports."));
-    ImGui::SameLine();
-    if (ImGui::Button(tr("Clear reference###pi.ref_clear"))) report(w.clear_reference());
-    tooltip(tr("Remove the selected floor's alignment point."));
-    const std::vector<ShareChoice> share = w.share_choices();
-    if (!share.empty()) {
-        ImGui::TextDisabled(tr("Share this scale with (same sheet):"));
-        for (const ShareChoice& c : share) {
-            bool on = c.shared;
-            if (ImGui::Checkbox((c.label + "###pi.share." + c.floor_id).c_str(), &on))
-                report(w.share_scale(c.floor_id, on));
-            tooltip(tr("Floors trimmed from one sheet have the same units, so one scale fits all of them."));
+    };
+    auto tools = [&](std::initializer_list<ImportTool> which) {
+        Result r;
+        for (const ToolView& t : w.tools())
+            if (std::find(which.begin(), which.end(), t.tool) != which.end() && tool_radio(w, t, r)) report(r);
+    };
+
+    if (gui_detail::section_header(tr("Scale###pi.scale"),
+                                   tr("The selected floor's scale: two points with their distance, the scale bar or the "
+                                      "drawing scale (IND-08)."))) {
+        floor_line();
+        help(tr("Drag between two points of known distance, or along the plan's scale bar, and type the real distance in "
+                "metres; or type the drawing scale (1:100) when the page has a paper size. Floors of one sheet can share "
+                "one scale. A floor without scale is allowed but marked \"not to scale\"."));
+        tools({ImportTool::ScaleLine, ImportTool::ScaleBar});
+        ImGui::BeginDisabled(!have_floor);
+        ScaleForm& sf = w.scale_form();
+        ImGui::SetNextItemWidth(gui_detail::px(110.0F));
+        input_text("metres###pi.distance", sf.distance_m, 32);
+        tooltip(tr("The real distance between the two points, or the scale bar's length, in metres (\"2.5\" or \"2,5\")."));
+        ImGui::SameLine();
+        if (ImGui::Button(tr("Apply###pi.scale_apply"))) {
+            if (sf.kind == ScaleForm::Kind::DrawingScale)
+                sf.kind = w.tool() == ImportTool::ScaleBar ? ScaleForm::Kind::ScaleBar : ScaleForm::Kind::TwoPoints;
+            report(w.apply_scale());
         }
+        tooltip(tr("Set the selected floor's scale from the line drawn on the plan and the distance."));
+        const bool ratio_ok = w.drawing_scale_available();
+        ImGui::BeginDisabled(!ratio_ok);
+        ImGui::SetNextItemWidth(gui_detail::px(110.0F));
+        input_text(tr("drawing scale 1:###pi.ratio"), sf.ratio, 32);
+        tooltip(ratio_ok ? tr("The scale the plan is drawn at, e.g. 100 for 1:100 (the page's paper size is known).")
+                         : tr("Not for this page: it has no paper size (an image without a stored resolution). Use two "
+                              "points or the scale bar."));
+        ImGui::SameLine();
+        if (ImGui::Button(tr("Apply###pi.ratio_apply"))) {
+            const ScaleForm::Kind before = sf.kind;
+            sf.kind = ScaleForm::Kind::DrawingScale;
+            const Result applied = w.apply_scale();
+            if (!applied.ok) w.scale_form().kind = before;
+            report(applied);
+        }
+        tooltip(tr("Set the selected floor's scale from the drawing scale."));
+        ImGui::EndDisabled();
+        if (ImGui::Button(tr("Not to scale###pi.scale_clear"))) report(w.clear_scale());
+        tooltip(tr("Remove the scale: the floor is marked \"not to scale\" in the window and in reports."));
+        const std::vector<ShareChoice> share = w.share_choices();
+        if (!share.empty()) {
+            ImGui::TextDisabled(tr("Share this scale with (same sheet):"));
+            for (const ShareChoice& c : share) {
+                bool on = c.shared;
+                if (ImGui::Checkbox((c.label + "###pi.share." + c.floor_id).c_str(), &on))
+                    report(w.share_scale(c.floor_id, on));
+                tooltip(tr("Floors trimmed from one sheet have the same units, so one scale fits all of them."));
+            }
+        }
+        ImGui::EndDisabled();
     }
-    ImGui::EndDisabled();
+
+    if (gui_detail::section_header(tr("Alignment###pi.align"),
+                                   tr("The selected floor's reference point, so the floors line up (IND-09)."))) {
+        floor_line();
+        help(tr("Click the same spot on every floor, e.g. a staircase corner: the floors line up on it in the "
+                "multi-floor view."));
+        tools({ImportTool::Reference});
+        ImGui::BeginDisabled(!have_floor);
+        if (ImGui::Button(tr("Clear reference###pi.ref_clear"))) report(w.clear_reference());
+        tooltip(tr("Remove the selected floor's alignment point."));
+        ImGui::EndDisabled();
+    }
 }
 
 void PlanImportView::draw_panel(PlanImportWindow& w) {
+    // UI-20: the file name with an Info button; the details behind it.
     ImGui::PushTextWrapPos(0.0F);
     ImGui::TextUnformatted(w.title().c_str());
-    ImGui::TextDisabled("%s", w.description().c_str());
-    if (w.large_sheet()) ImGui::TextDisabled(tr("Large sheet: shown in tiles, sharper as you zoom in."));
+    ImGui::PopTextWrapPos();
+    gui_detail::same_line_if(gui_detail::label_w(tr("Info###pi.info")));
+    if (gui_detail::small_button(tr("Info###pi.info"))) info_open_ = !info_open_;
+    tooltip(tr("Show or hide the information about the plan file: its type, page, size and resolution."));
+    ImGui::PushTextWrapPos(0.0F);
+    if (info_open_) {
+        ImGui::TextDisabled("%s", w.description().c_str());
+        if (w.large_sheet()) ImGui::TextDisabled(tr("Large sheet: shown in tiles, sharper as you zoom in."));
+    }
     if (const auto& rv = w.restricted()) {
-        // IND-03, DEMO-12: credit and licence with the plan.
+        // IND-03, DEMO-12: credit and licence with the plan (always shown).
         ImGui::Spacing();
         ImGui::TextColored(kWarnColour, "%s", rv->title.c_str());
         ImGui::TextUnformatted(rv->credit.c_str());
@@ -357,23 +370,14 @@ void PlanImportView::draw_panel(PlanImportWindow& w) {
     ImGui::PopTextWrapPos();
     if (w.page_count() > 1) draw_pages(w);
 
-    // -- trim tools ------------------------------------------------------------
+    // -- trim: every option with its "(?)" (UI-20) --------------------------------
     ImGui::SeparatorText(tr("Trim"));
     help(tr("Trim the part of the sheet that is one floor: a rectangle, or a polygon for irregular outlines, so "
          "legends, title blocks, sections and other floors stay out. The sheet itself is never changed."));
-    int n = 0;
     Result r;
     for (const ToolView& t : w.tools()) {
         if (t.tool == ImportTool::ScaleLine || t.tool == ImportTool::ScaleBar || t.tool == ImportTool::Reference)
-            continue;  // in the Scale section
-        // Two columns when both fit, else one tool per line (TST-52).
-        if (n++ % 2 == 1) {
-            const float half = ImGui::GetContentRegionAvail().x * 0.5F;
-            const float x = ImGui::GetItemRectMax().x - ImGui::GetWindowPos().x + ImGui::GetScrollX();
-            if (x + ImGui::GetStyle().ItemSpacing.x <= half &&
-                gui_detail::switch_w((t.label + "###pi." + t.id).c_str()) <= ImGui::GetContentRegionAvail().x - half)
-                ImGui::SameLine(half);
-        }
+            continue;  // in the Scale and Alignment sections
         if (tool_radio(w, t, r)) report(r);
     }
     if (w.tool() == ImportTool::Polygon && w.drafting()) {
@@ -394,16 +398,21 @@ void PlanImportView::draw_panel(PlanImportWindow& w) {
     gui_detail::same_line_if(gui_detail::label_w(tr("Whole page###pi.reset")));
     if (ImGui::Button(tr("Whole page###pi.reset"))) report(w.reset_trim());
     tooltip(tr("Make the trim the whole page again (the rotation stays)."));
+    help(tr("Turn left and Turn right turn the plan by 90 degrees, so the floor stands upright. Whole page makes the "
+            "trim the whole page again; the rotation stays."));
+    const char* deskew_help = tr("Fine rotation for a scan that is slightly skewed (Ctrl+click to type up to 45 degrees). "
+                                 "The \"Deskew line\" tool sets it from a wall or border.");
     float deskew = static_cast<float>(w.deskew());
-    ImGui::SetNextItemWidth(-(ImGui::CalcTextSize(tr("Deskew###pi.deskew"), nullptr, true).x + ImGui::GetStyle().ItemInnerSpacing.x));
+    ImGui::SetNextItemWidth(-(ImGui::CalcTextSize(tr("Deskew###pi.deskew"), nullptr, true).x +
+                              ImGui::CalcTextSize("(?)").x + ImGui::GetStyle().ItemInnerSpacing.x +
+                              ImGui::GetStyle().ItemSpacing.x));
     if (ImGui::SliderFloat(tr("Deskew###pi.deskew"), &deskew, -10.0F, 10.0F, "%.2f deg"))
         report(w.set_deskew(static_cast<double>(deskew)));
-    tooltip(tr("Fine rotation for a scan that is slightly skewed (Ctrl+click to type up to 45 degrees). The \"Deskew "
-            "line\" tool sets it from a wall or border."));
+    tooltip(deskew_help);
+    help(deskew_help);
     ImGui::TextDisabled("%s", w.trim_text().c_str());
-    draw_preview(w);
 
-    // -- add / edit ------------------------------------------------------------
+    // -- add / edit, in the trim section (UI-20) -------------------------------------
     if (w.editing()) {
         ImGui::TextColored(kWarnColour, tr("Editing the trim of a floor"));
         if (ImGui::Button(tr("Apply###pi.apply_edit"))) report(w.apply_edit());
@@ -412,27 +421,13 @@ void PlanImportView::draw_panel(PlanImportWindow& w) {
         ImGui::SameLine();
         if (ImGui::Button(tr("Cancel###pi.cancel_edit"))) report(w.cancel_edit());
         tooltip(tr("Keep the floor's trim as it was."));
-    } else if (ImportFloorForm* f = w.add_form()) {
-        ImGui::SeparatorText(tr("New floor"));
-        input_text(tr("Name###pi.add_name"), f->name);
-        tooltip(tr("For example \"Ground floor\" or \"Basement\"."));
-        ImGui::InputInt(tr("Level###pi.add_level"), &f->level);
-        tooltip(tr("0 = ground floor, 1 = first floor, -1 = basement. Every floor has its own level."));
-        float h = static_cast<float>(f->height_m);
-        if (ImGui::InputFloat(tr("Height (m)###pi.add_height"), &h, 0.1F, 0.5F, "%.2f")) f->height_m = h;
-        tooltip(tr("Floor-to-floor height in metres (more than 0, at most 50)."));
-        if (ImGui::Button(tr("Add###pi.add_ok"), ImVec2(120.0F, 0.0F))) report(w.confirm_add_floor());
-        tooltip(tr("Add the trim as this floor. The window stays open for the next floor."));
-        ImGui::SameLine();
-        if (ImGui::Button(tr("Cancel###pi.add_cancel"), ImVec2(120.0F, 0.0F))) w.cancel_add_floor();
-        tooltip(tr("Do not add a floor."));
     } else {
         if (ImGui::Button(tr("Add as floor...###pi.add"), ImVec2(-1.0F, gui_detail::target_h()))) w.begin_add_floor();
         tooltip(tr("Turn the current trim into a floor of the project; asks for its name and level."));
     }
 
-    // -- floors of this plan ----------------------------------------------------
-    ImGui::SeparatorText(tr("Floors from this plan"));
+    // -- floors in this plan, above the preview (UI-20) --------------------------------
+    ImGui::SeparatorText(tr("Floors in this plan"));
     help(tr("Trims already added are outlined and labelled on the sheet. Click one (Pan/select) or its name to select "
          "it; Edit loads its trim to adjust it (IND-07)."));
     const std::vector<PlacedView> placed = w.placed();
@@ -475,7 +470,56 @@ void PlanImportView::draw_panel(PlanImportWindow& w) {
             tooltip(tr("Do not remove the floor."));
         }
     }
+    draw_preview(w);
     draw_scale(w);
+}
+
+void PlanImportView::draw_add_popup(PlanImportWindow& w) {
+    // IND-06, UI-20: "Add as floor" asks for the floor's name, level and
+    // height in a popup over the window.
+    const char* id = tr("Add as floor###pi.add_popup");
+    ImportFloorForm* f = w.add_form();
+    if (f != nullptr && !ImGui::IsPopupOpen(id)) {
+        ImGui::OpenPopup(id);
+        add_error_.clear();
+    }
+    if (!ImGui::BeginPopupModal(id, nullptr, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoSavedSettings)) return;
+    if (f == nullptr) {
+        ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+        return;
+    }
+    const float field_w = std::min(gui_detail::em(200.0F), ImGui::GetMainViewport()->WorkSize.x * 0.45F);
+    if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
+    ImGui::SetNextItemWidth(field_w);
+    input_text(tr("Name###pi.add_name"), f->name);
+    tooltip(tr("For example \"Ground floor\" or \"Basement\"."));
+    ImGui::SetNextItemWidth(field_w);
+    ImGui::InputInt(tr("Level###pi.add_level"), &f->level);
+    tooltip(tr("0 = ground floor, 1 = first floor, -1 = basement. Every floor has its own level."));
+    float h = static_cast<float>(f->height_m);
+    ImGui::SetNextItemWidth(field_w);
+    if (ImGui::InputFloat(tr("Height (m)###pi.add_height"), &h, 0.1F, 0.5F, "%.2f")) f->height_m = h;
+    tooltip(tr("Floor-to-floor height in metres (more than 0, at most 50)."));
+    if (!add_error_.empty()) {
+        ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + field_w * 1.5F);
+        ImGui::TextColored(kErrorColour, "%s", add_error_.c_str());
+        ImGui::PopTextWrapPos();
+    }
+    ImGui::Spacing();
+    if (gui_detail::dialog_button(tr("Add###pi.add_ok"), tr("Add the trim as this floor. The window stays open for the next floor."))) {
+        const Result added = w.confirm_add_floor();
+        report(added);
+        if (added.ok) ImGui::CloseCurrentPopup();
+        else add_error_ = added.message;
+    }
+    ImGui::SameLine();
+    if (gui_detail::dialog_button(tr("Cancel###pi.add_cancel"), tr("Do not add a floor.")) ||
+        ImGui::IsKeyPressed(ImGuiKey_Escape)) {
+        w.cancel_add_floor();
+        ImGui::CloseCurrentPopup();
+    }
+    ImGui::EndPopup();
 }
 
 void PlanImportView::draw_tiles(PlanImportWindow& w, ImDrawList* dl, ImVec2 origin) {

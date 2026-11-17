@@ -71,6 +71,25 @@ ImVec2 plan_badge(ImDrawList* dl, ImVec2 pos, const char* text, ImU32 bg, ImU32 
     return ImVec2(end.x - pos.x, end.y - pos.y);
 }
 
+/// The explanation of a walk test kind for its "(?)" (UI-21).
+const char* walk_kind_help(WalkKind k) {
+    switch (k) {
+    case WalkKind::PointAndClick:
+        return tr("Click where you are at the start, walk at a steady pace in a straight line and click where you "
+                  "are at the end: the measurements are spread along the line.");
+    case WalkKind::Continuous:
+        return tr("As point and click, but every click ends a segment and starts the next, so you walk a route "
+                  "without stopping.");
+    case WalkKind::Manual:
+        return tr("Click a point on the plan and stay there: it is measured for the set number of seconds and the "
+                  "cycles are averaged.");
+    case WalkKind::MouseSurvey:
+        return tr("With the simulator: the mouse stands in for the surveyor and the simulator measures where the "
+                  "mouse is on the plan.");
+    }
+    return "";
+}
+
 }  // namespace
 
 // -- the Walk tab (UI-18) ------------------------------------------------------------------------
@@ -177,54 +196,35 @@ void Gui::draw_walk_section(const FloorContent* c) {
                 "continuous), measure at chosen points (manual), or, with the simulator, let the mouse stand in "
                 "for the surveyor (mouse survey). The points are stored in the project as a walk test of the floor."));
     const bool running = live->running();
-    ImGui::BeginDisabled(running);
-    if (ImGui::Button(live->radios_searched() ? tr("Search again###walk.find_radios") : tr("Find radios###walk.find_radios")))
-        (void)state_.show(live->find_radios());
-    ImGui::EndDisabled();
-    text_tooltip(tr("Load the radio plugins and list their devices (a second or two; the simulator needs no hardware)."));
-    if (live->radios_searched() && !live->radios().empty()) {
-        const RadioChoice* ch = live->chosen();
-        ImGui::BeginDisabled(running);
-        bool cut = false;
-        const std::string preview = fit_text(ch ? ch->label : std::string(tr("Choose a radio")),
-                                             combo_preview_w(ImGui::GetContentRegionAvail().x), &cut);
-        ImGui::SetNextItemWidth(-1.0F);
-        if (ImGui::BeginCombo("###walk.radio", preview.c_str())) {
-            for (std::size_t i = 0; i < live->radios().size(); ++i) {
-                const RadioChoice& r = live->radios()[i];
-                ImGui::BeginDisabled(!r.usable);
-                if (ImGui::Selectable((r.label + "###walk.radio." + std::to_string(i)).c_str(), ch == &r))
-                    (void)state_.show(live->choose_radio(i));
-                ImGui::EndDisabled();
-                if (!r.usable) text_tooltip(r.reason.c_str());
-            }
-            ImGui::EndCombo();
+    // UI-21: the radio in use, chosen in Radio > Radios... (Select...).
+    const RadioChoice* ch = live->chosen();
+    ImGui::PushTextWrapPos(0.0F);
+    if (ch != nullptr)
+        ImGui::Text(tr("Radio: %s"), ch->label.c_str());
+    else
+        ImGui::TextDisabled("%s", tr("No radio"));
+    ImGui::PopTextWrapPos();
+    text_tooltip(tr("The radio the walk test measures with."));
+    same_line_if(label_w(tr("Select...###walk.radio_select")));
+    if (ImGui::Button(tr("Select...###walk.radio_select"))) {
+        if (RadioWindows* rw = state_.radio_windows()) {
+            (void)rw->open(RadioWindow::List);
+            // The first time the radios are searched at once.
+            if (!live->radios_searched()) (void)state_.show(rw->find_radios());
         }
-        ImGui::EndDisabled();
-        if (cut && ch)
-            text_tooltip((ch->label + "\n" + tr("The radio the walk test measures with.")).c_str());
-        else
-            text_tooltip(tr("The radio the walk test measures with."));
     }
+    text_tooltip(tr("Open Radio > Radios...: find the radios and choose the one the walk test measures with."));
     wrapped(live->radio_note(), live->radios().empty() && live->radios_searched());
     if (live->radios_searched()) draw_radio_controls(*live);
 
     WalkForm& f = live->form();
     ImGui::BeginDisabled(running);
-    const float kind_w = combo_w({walk_kind_label(WalkKind::PointAndClick), walk_kind_label(WalkKind::Continuous),
-                                  walk_kind_label(WalkKind::Manual), walk_kind_label(WalkKind::MouseSurvey)});
-    const std::string kind_label = label_above_if_narrow(tr("Kind###walk.kind"), kind_w);
-    ImGui::SetNextItemWidth(std::min(kind_w, ImGui::GetContentRegionAvail().x));
-    const std::string kind_preview = fit_text(walk_kind_label(f.kind), combo_preview_w(ImGui::CalcItemWidth()));
-    if (ImGui::BeginCombo(kind_label.c_str(), kind_preview.c_str())) {
-        for (WalkKind k : {WalkKind::PointAndClick, WalkKind::Continuous, WalkKind::Manual, WalkKind::MouseSurvey})
-            if (ImGui::Selectable((std::string(walk_kind_label(k)) + "###walk.kind." + walk_kind_key(k)).c_str(), f.kind == k))
-                f.kind = k;
-        ImGui::EndCombo();
-    }
-    text_tooltip(tr("Point and click: click the start, walk, click the end. Continuous: every click ends a segment and "
-                 "starts the next. Manual: click a point, it is measured for the set time. Mouse survey: the "
-                 "simulator measures where the mouse is."));
+    // UI-21: the kind as options, each with its "(?)" (as the plan import's trim tools).
+    ImGui::TextUnformatted(tr("Kind of walk test"));
+    for (WalkKind k : {WalkKind::PointAndClick, WalkKind::Continuous, WalkKind::Manual, WalkKind::MouseSurvey})
+        if (option_radio((std::string(walk_kind_label(k)) + "###walk.kind." + walk_kind_key(k)).c_str(), f.kind == k,
+                         walk_kind_help(k)))
+            f.kind = k;
     if (f.kind == WalkKind::Manual) {
         ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
         (void)input_double("Seconds per point###walk.seconds", f.manual_seconds, 1.0, "%.0f",

@@ -393,18 +393,46 @@ inline void disabled_tooltip(const char* tooltip, bool enabled, const std::strin
     item_tooltip(a);
 }
 
-/// A dimmed "(?)" marker with an explanation on hover (DOC-07 a).
+/// A dimmed "(?)" marker with an explanation on hover (DOC-07 a); a
+/// click (or a tap in the touch layout) keeps the explanation open until
+/// the next click elsewhere (UI-20, UI-21).
 inline void help_marker(const char* text) {
     same_line_if(ImGui::CalcTextSize("(?)").x);
     ImGui::TextDisabled("(?)");
     const bool shown = note_help(false, text);
-    if (shown || (!help_shown_on_purpose() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled))) {
+    ImGui::PushID(text);
+    const bool clicked = ImGui::IsItemClicked(ImGuiMouseButton_Left);
+    if (clicked) ImGui::OpenPopup("###help.mark");
+    const bool pinned = ImGui::IsPopupOpen("###help.mark");
+    if (!pinned && (shown || (!help_shown_on_purpose() && ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenDisabled)))) {
         ImGui::BeginTooltip();
         ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
         ImGui::TextUnformatted(text);
         ImGui::PopTextWrapPos();
         ImGui::EndTooltip();
     }
+    if (ImGui::BeginPopup("###help.mark")) {
+        ImGui::PushTextWrapPos(ImGui::GetFontSize() * 30.0F);
+        ImGui::TextUnformatted(text);
+        ImGui::PopTextWrapPos();
+        ImGui::EndPopup();
+    }
+    ImGui::PopID();
+}
+
+/// One option of a choice as a radio button ("bullet") with its hover
+/// text and a "(?)" help marker after it, one option per line: the plan
+/// import window's trim tools and the Walk tab's walk test kinds share it
+/// (UI-20, UI-21). A disabled option says why (DOC-07 c). True when it was
+/// clicked.
+inline bool option_radio(const char* label, bool active, const char* help, const std::string& disabled_reason = {}) {
+    const bool enabled = disabled_reason.empty();
+    ImGui::BeginDisabled(!enabled);
+    const bool pressed = ImGui::RadioButton(label, active);
+    ImGui::EndDisabled();
+    disabled_tooltip(help, enabled, disabled_reason);
+    help_marker(help);
+    return pressed && enabled;
 }
 
 inline std::string item_label(const ActionView& a) { return a.label + "###" + a.id; }

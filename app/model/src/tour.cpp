@@ -52,17 +52,19 @@ const StepDef kSteps[] = {
      tr_mark("File > Add floor, then Plan file: choose the sheet {}. The plan import window opens on it."), "13.2"},
     {TourStep::TrimFloors, "trim_floors", tr_mark("Trim several floors from the sheet"),
      tr_mark("In the plan import window choose the Rectangle tool, drag a rectangle around one floor's drawing and "
-             "press Add as floor. Do the same for the other floors of the sheet: one sheet gives several floors."),
+             "press Add as floor: give the floor's name and level, then Add. Do the same for the other floors of the sheet: one "
+             "sheet gives several floors."),
      "13.2"},
     {TourStep::SecondSource, "second_source", tr_mark("Add a floor from a second plan"),
      tr_mark("File > Add floor works with another plan file too: choose {} and trim its floor."), "13.2"},
     {TourStep::Scale, "scale", tr_mark("Set the scale"),
-     tr_mark("Select each floor in the plan import window and give its scale: two points with their distance, the "
-             "sheet's scale bar, or the drawing scale. A floor without a scale is marked \"not to scale\"."),
+     tr_mark("Select each floor in the plan import window, open Scale with its arrow and give the floor's scale: two "
+             "points with their distance, the sheet's scale bar, or the drawing scale. A floor without a scale is "
+             "marked \"not to scale\"."),
      "13.2"},
     {TourStep::MouseSurvey, "mouse_survey", tr_mark("Measure with the mouse survey"),
-     tr_mark("Measuring is done in the Walk tab: find the radios (the simulator is \"Demo (simulated network)\"), "
-             "choose Mouse survey and Start. Move the mouse slowly over the plan to measure: each point is where the "
+     tr_mark("Measuring is done in the Walk tab: Select... next to the radio opens Radio > Radios... and finds the "
+             "radios (the simulator is \"Demo (simulated network)\"); choose Mouse survey and Start. Move the mouse slowly over the plan to measure: each point is where the "
              "simulator measured, and the live values show the serving cell. Click on the plan to start the "
              "interpolation. Esc stops."),
      "7.1"},
@@ -641,9 +643,9 @@ TourView Tour::view() const {
         v.targets = dlg == Dialog::AddFloor ? std::vector<std::string>{"af.plan_file"}
                                             : std::vector<std::string>{"file.add_floor", "floors.add", "menu.file"};
         break;
-    case TourStep::TrimFloors: v.targets = {"pi.add", "tool.rectangle"}; break;
-    case TourStep::Scale: v.targets = {"pi.scale_apply", "tool.scale_line"}; break;
-    case TourStep::MouseSurvey: v.targets = {"walk.stop", "walk.start", "walk.find_radios", "panel.walk"}; break;
+    case TourStep::TrimFloors: v.targets = {"pi.add", "pi.tool.rectangle"}; break;
+    case TourStep::Scale: v.targets = {"pi.scale_apply", "pi.tool.scale_line", "pi.scale"}; break;
+    case TourStep::MouseSurvey: v.targets = {"walk.stop", "walk.start", "walk.radio_select", "panel.walk"}; break;
     case TourStep::Results: v.targets = {"map.advanced", "layer.interpolation", "panel.map"}; break;
     case TourStep::SwitchFloors: v.targets = {"floors"}; break;
     case TourStep::Report: v.targets = {"dlg.ok", "file.report", "menu.file"}; break;

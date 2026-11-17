@@ -76,11 +76,14 @@ TEST_CASE("DEMO-14 in the app: the mouse survey with the simulator, move slowly,
 
     REQUIRE(ui.click("panel.walk"));
     REQUIRE(ui.frames(2));
-    REQUIRE(ui.click("walk.find_radios"));
+    // UI-21: Select... opens Radio > Radios... and searches the radios.
+    REQUIRE(ui.click("walk.radio_select"));
     REQUIRE(ui.frames(2));
     REQUIRE_MESSAGE(state.live()->chosen(), state.live()->radio_note());
     CHECK(state.live()->chosen()->simulated);
-    state.live()->form().kind = WalkKind::MouseSurvey;  // the kind combo (no probe label)
+    state.radio_windows()->close(RadioWindow::List);
+    REQUIRE(ui.frames(2));
+    REQUIRE(ui.click("walk.kind.mouse_survey"));  // the kind as options (UI-21)
     REQUIRE(ui.frames(2));
     REQUIRE(ui.has("walk.spacing"));
     REQUIRE_FALSE(ui.find("walk.start")->disabled);
@@ -189,10 +192,16 @@ TEST_CASE("UI-01..04, UI-08, UI-11, REC-01, REC-05, REC-07, REC-08, REC-11 in th
     // and the recording.
     REQUIRE(ui.click("panel.map"));
     REQUIRE(ui.frames(2));
-    CHECK_FALSE(ui.has("walk.find_radios"));
+    CHECK_FALSE(ui.has("walk.radio_select"));
     REQUIRE(ui.click("panel.walk"));
     REQUIRE(ui.frames(2));
-    REQUIRE(ui.click("walk.find_radios"));
+    REQUIRE(ui.click("walk.radio_select"));
+    REQUIRE(ui.frames(2));
+    state.radio_windows()->close(RadioWindow::List);
+    REQUIRE(ui.frames(2));
+    // UI-21: the recording controls are closed until their arrow opens them.
+    CHECK_FALSE(ui.has("rec.record"));
+    REQUIRE(ui.click("walk.recording"));
     REQUIRE(ui.frames(2));
     REQUIRE(ui.has("walk.radio_start"));
     REQUIRE(ui.find("rec.record")->disabled);  // no radio measuring yet
