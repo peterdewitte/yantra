@@ -91,17 +91,16 @@ A project without stored profiles is reported with the default profile "Indoor a
 
 ## 6 The interpolated coverage map
 
-The map predicts the level between and beyond the measured points from the building model ([PROPAGATION.md](PROPAGATION.md)):
+The map shows the level between the measured points of a floor, from those points only ([INTERPOLATION.md](INTERPOLATION.md)); Yantra has no walls, antennas or propagation model:
 
-1. **Ray tracing per floor.** From every antenna, rays go to every cell of a grid over the floor (0.25 m by default): the direct ray and specular reflections on the drawn walls up to the set order (2 by default, at most 3). Each ray loses free-space path loss up to a reference distance and a log-distance law beyond it, the loss of every wall crossed (per wall class and frequency), a loss per reflection, the antenna pattern, and for antennas on other floors the slab loss per floor. The rays of the antennas of one cell add in power.
-2. **Fit.** The model's parameters (EIRP per antenna group, loss per wall class, loss per floor) are fitted to the measured points by least squares within bounds. Parameters no point depends on keep their defaults and are listed. The fit quality (rms of model minus measurement) is reported.
-3. **Estimated sources.** When no antenna of the building reaches the floor, sources are estimated from the points; they are drawn and labelled "estimated sources" and are never written into the building.
-4. **Residuals.** The remaining difference at each point (measured minus model) is spread with inverse-distance weighting over 10 m, only between places that see each other without crossing a wall; at a measured point the map equals the measurement, far from the points it falls back to the fitted model.
-5. **Confidence mask.** Each cell's confidence is 1 within 2 m of a measured point it sees, 0 beyond 10 m, linear between, and 0 outside the floor's outline. The map's colours fade with the confidence, and the floor-area basis counts only confident cells.
+1. **Grid.** A grid over the floor's plan (0.5 m cells by default).
+2. **Measured cells.** A cell holding measured points takes their level (the median when several), so the map equals the measurement where one was taken.
+3. **Inverse-distance weighting.** Every other cell takes the weighted mean, in dB, of the points within the search radius (10 m by default), each point weighing 1 / distance ^ power (power 2 by default). A cell with no point within the radius has no value.
+4. **Confidence mask.** Each cell's confidence is 1 within 2 m of the nearest measured point, falls linearly to 0 at the search radius, and is 0 outside the floor's outline. The map's colours fade with the confidence, and the floor-area basis counts only confident cells.
 
-The map is always labelled "interpolated" and kept apart from the measured points; it is marked stale when the walls, antennas or points change after it was made.
+The settings are stored in the project with every map, so a report can be made again with the same map. The map is always labelled "interpolated" and kept apart from the measured points; it is marked stale when the points or the settings change after it was made.
 
-**Limits of the model.** 2D floor geometry with straight vertical walls; no diffraction around wall ends or door frames, no scattering, no ceiling or floor reflections; powers add without phase, so the map is a local mean without fast fading or standing waves; the reflection loss does not depend on the angle; outdoor donor directions are not traced. The fit is local: with few points, the EIRP of nearby antennas and the path-loss exponent can trade against each other while the fitted map stays close. The residual spreading does not model the correlation of shadowing. A wall class's default losses are estimates from published ranges (COST 231, ITU-R P.1238 and P.2040) until the fit adjusts them. A floor without a scale cannot be traced. Use the map to see where the measured points do not reach and to show the trend between them; acceptance on the floor-area basis is only as good as the walls drawn and the points walked.
+**Limits of the method.** The map is a weighted mean of what was measured: it does not know about walls, so a level measured on one side of a wall spreads to the other side within the search radius, and it never predicts a level higher or lower than the measured ones. Between distant points it is coarse; the confidence mask shows where it rests on nearby measurements. Use the map to see where the measured points do not reach and to show the trend between them; acceptance on the floor-area basis is only as good as the points walked: walk every room that matters.
 
 ## 7 What the report states
 

@@ -27,7 +27,7 @@ requirements specification.
  | recording/ recorder (yantra-recording/1), reader, replay, cut, voice                  |
  | survey/   walk tests, points, statistics, binning, interpolation, acceptance, viewer  |
  | building/ plan/ project/ celldb/ calibration/ context/   indoor model and storage     |
- | raytrace/ ray tracer, fit, residuals          export/ report/   outputs               |
+ | export/ report/   outputs                                                            |
  | control/ command layer   headless/ Runner   util/ jobs, SHA-256   platform/          |
  +----------------------------------------------------------------------------------------+
         ^                    ^                         ^                    ^
@@ -156,14 +156,14 @@ Details: [docs/SURVEY.md](docs/SURVEY.md).
 - `context/`: the context the radio host hands to plugins (floor, mouse
   and walk positions, the fixed demo scenes; PLG-27, DEMO-05).
 
-### Propagation (`raytrace/`, `survey/interpolation`, `util/job`)
+### Interpolation (`survey/interpolation`, `util/job`)
 
-The ray tracer (IND-40) works per floor in plan metres, with SIMD and
-scalar kernels (`kernels_simd.cpp`, `kernels.cpp`, the same results,
-TST-03). `fit.cpp` fits EIRP and wall losses to measured points (IND-41),
-`residuals.cpp` interpolates the residuals and estimates unknown sources
-(IND-42, IND-43). Long runs are `util::Job`s with progress and cancel.
-Details: [docs/PROPAGATION.md](docs/PROPAGATION.md).
+The coverage map is an inverse-distance-weighted interpolation of the
+measured points of a floor on a grid in plan metres (IND-41), with a
+confidence mask (IND-43), a SIMD and a scalar distance kernel
+(`idw_kernels_simd.cpp`, `idw_kernels.h`, the same results, TST-53). Runs
+are `util::Job`s with progress and cancel (IND-45). Details:
+[docs/INTERPOLATION.md](docs/INTERPOLATION.md).
 
 ### Export and reports (`export/`, `report/`)
 
@@ -217,7 +217,7 @@ radio plugin --record--> RadioHost sink queue --> delivery thread
          |              --> FeatureFeed --> feature plugins (probe live view)
          '-- on_cycle  --> WalkTest --> points in the project (SQLite)
                        --> survey panels, alerts (app) / Runner status
-project points + building --> ray tracer / fit / residuals --> stored maps
+project points --> point interpolation (IDW) --> stored maps
 project + maps + cell DB  --> report (PDF, HTML), export (CSV, DXF, images)
 recording file --> replay --> the same pipeline (post-processing, PP-01)
 ```
@@ -238,7 +238,7 @@ PLG-07 and docs/PLUGINS.md.
 | `yt-pipeline` | CycleRunner | ticks the pipeline: closes measurement cycles, calls cycle observers |
 | `yt-rec-flush` | Recorder | writes queued lines to disk at least every 0.5 s with fdatasync (REC-10) |
 | `yt-replay` | replay | feeds a recording through the pipeline |
-| `yt-job`, `yt-raytrace` | util::Job, ray tracer | interpolations, fits, demo builds; ray-tracing workers |
+| `yt-job`, `yt-interp` | util::Job, point interpolation | interpolations, demo builds; interpolation workers |
 | `yt-plan-tiles` | TileRenderer | renders plan tiles in the background |
 | `yt-plugin-timer` | plugin loader | plugin timer callbacks |
 | `yt-export` | app ReportExport | export, batch and report jobs, one at a time |

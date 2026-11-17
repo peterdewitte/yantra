@@ -2,13 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Limits of the benchmarks (TST-41): calibrated units (time divided by the
-# CPU calibration line), one thread. Set at twice the units measured on
-# the build machine on 2026-11-05 (x86-64, GCC, RelWithDebInfo, one
-# thread): SIMD 4.24 s = 133.86 units, scalar 7.08 s = 223.79 units
-# (calibration 0.0316 s per unit).
+# CPU calibration line), one thread, set at twice the units measured.
 # name,limit
-raytrace_office_simd,267.71
-raytrace_office_scalar,447.58
 # bench_pipeline (step 8.2): twice the units measured on 2026-11-05 (same
 # machine, calibration 0.0315 s per unit): record pipeline (1.6 M records,
 # 4000 cycles) 0.967 s = 30.87.

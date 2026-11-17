@@ -42,7 +42,7 @@ class JobContext {
 public:
     /// True once cancel() was called (and before a commit).
     bool cancelled() const;
-    /// The flag itself, for loops that take an atomic (raytrace::RunControl).
+    /// The flag itself, for loops that take an atomic (survey::RunControl).
     const std::atomic<bool>* cancel_flag() const;
     /// Sets the progress (clamped to 0..1, never lower than before).
     void progress(double fraction);

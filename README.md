@@ -143,7 +143,7 @@ plan import, the walk test and the coverage map to the report (also as
   [the measurement pipeline](docs/MEASUREMENT_PIPELINE.md),
   [calibration](docs/CALIBRATION.md),
   [the cell database](docs/CELL_DATABASE.md),
-  [propagation](docs/PROPAGATION.md), [reports](docs/REPORT.md),
+  [the coverage map](docs/INTERPOLATION.md), [reports](docs/REPORT.md),
   [the headless probe](docs/PROBE.md) and its [API](docs/API.md),
   [the demo](docs/DEMO.md).
 

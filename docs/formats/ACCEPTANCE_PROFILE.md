@@ -18,7 +18,7 @@ Code: `core/include/yantra/core/survey/acceptance.h`
 (`profile_json`, `profile_from_json`, `acceptance_profiles`,
 `set_acceptance_profiles`), `core/src/survey/acceptance.cpp`. How a
 profile is evaluated: [SURVEY.md](../SURVEY.md) "Acceptance profiles
-(stored)" and [PROPAGATION.md](../PROPAGATION.md) "Readout and statistics".
+(stored)" and [INTERPOLATION.md](../INTERPOLATION.md) "Readout and statistics".
 
 ## Members
 

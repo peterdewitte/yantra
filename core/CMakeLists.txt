@@ -84,10 +84,6 @@ add_library(yantra_core STATIC
   src/recording/wav.cpp
   src/recording/cut.cpp
   src/radio/scene_export.cpp
-  src/raytrace/fit.cpp
-  src/raytrace/kernels.cpp
-  src/raytrace/model.cpp
-  src/raytrace/residuals.cpp
   src/survey/acceptance.cpp
   src/survey/bins.cpp
   src/survey/interpolation.cpp
@@ -175,21 +171,6 @@ if(YANTRA_PDFIUM_FOUND)
 else()
   target_sources(yantra_core PRIVATE src/plan/pdf_none.cpp)
 endif()
-
-# Ray tracer (IND-40): the SIMD wall-candidate kernel with YANTRA_SIMD
-# (GCC/Clang vector extensions), else the plain C++ one; floating-point
-# contraction is off in its files, so both paths and every build tree give
-# the same levels (TST-36). Copied from yantra-v2 68ea20a: core/CMakeLists.txt
-# (raytrace part).
-if(YANTRA_SIMD)
-  target_sources(yantra_core PRIVATE src/raytrace/kernels_simd.cpp)
-  target_compile_definitions(yantra_core PRIVATE YANTRA_RAYTRACE_SIMD=1)
-else()
-  target_compile_definitions(yantra_core PRIVATE YANTRA_RAYTRACE_SIMD=0)
-endif()
-set_source_files_properties(src/raytrace/kernels.cpp src/raytrace/kernels_simd.cpp src/raytrace/model.cpp
-  src/raytrace/fit.cpp src/raytrace/residuals.cpp
-  PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
 
 # Point interpolation (IND-41): the SIMD distance kernel with YANTRA_SIMD
 # (GCC/Clang vector extensions), else the plain C++ one; floating-point

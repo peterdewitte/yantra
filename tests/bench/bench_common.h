@@ -4,7 +4,7 @@
 // Shared parts of the benchmarks (TST-41): the CPU calibration line, the
 // limits file and the check of one timing against its limit. See
 // CMakeLists.txt.
-// Copied from tests/bench/bench_raytrace.cpp (this repository), which took
+// Copied from the former tests/bench/bench_raytrace.cpp (this repository), which took
 // the calibration from yantra-radios tests/bench/bench_limits.cpp.
 #pragma once
 

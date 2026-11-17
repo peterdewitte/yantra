@@ -14,7 +14,6 @@
 
 #include "yantra/core/export/image.h"
 #include "yantra/core/project/project.h"
-#include "yantra/core/raytrace/model.h"
 #include "yantra/core/report/coverage.h"
 #include "yantra/core/survey/acceptance.h"
 #include "yantra/core/survey/interpolation.h"

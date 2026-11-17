@@ -23,7 +23,6 @@
 #include <yantra/core/measure/catalog.h>
 #include <yantra/core/plugin/loader.h>
 #include <yantra/core/project/project.h>
-#include <yantra/core/raytrace/model.h>
 #include <yantra/core/survey/interpolation.h>
 #include <yantra/core/survey/interpolation.h>
 #include <yantra/core/survey/points.h>

@@ -204,8 +204,8 @@ the shared list:
     confidence >= `min_confidence` (default 0.5), a cell counting when
     its interpolated value is >= Y; over several floors the shares are
     of their assessed area together. Only `survey::evaluate_area` on the
-    maps evaluates it ([PROPAGATION.md](PROPAGATION.md) "Interpolation of
-    a floor"); the point statistics here give such a profile as not
+    maps evaluates it ([INTERPOLATION.md](INTERPOLATION.md) "Readout and
+    statistics"); the point statistics here give such a profile as not
     passed, with a note, so interpolated values never mix with measured
     ones. The result gives the assessed cells and area in m².
 
