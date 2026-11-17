@@ -92,6 +92,7 @@ add_library(yantra_core STATIC
   src/survey/views.cpp
   src/survey/walk.cpp
   src/survey/walk_test.cpp
+  src/survey/weak_areas.cpp
   src/util/job.cpp
   src/util/sha256.cpp)
 add_library(yantra::core ALIAS yantra_core)

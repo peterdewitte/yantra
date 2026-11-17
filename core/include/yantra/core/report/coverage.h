@@ -43,6 +43,7 @@
 #include "yantra/core/survey/interpolation.h"
 #include "yantra/core/survey/points.h"
 #include "yantra/core/survey/stats.h"
+#include "yantra/core/survey/weak_areas.h"
 
 namespace yantra::measure {
 class TechnologyCatalog;
@@ -108,6 +109,18 @@ struct AcceptanceRow {
     survey::AcceptanceResult result;
 };
 
+/// A weak area of a failing profile (DEMO-16, survey/weak_areas.h): the
+/// points of a floor below the profile's first failed threshold.
+struct WeakAreaRow {
+    std::string profile;
+    std::string floor_id;
+    std::string floor_name;
+    double threshold = 0.0;
+    std::string unit;
+    survey::WeakArea area;
+    std::string part;  ///< plan_part() of the area ("" without the plan size)
+};
+
 /// The points of one serving cell (EXP-05 per-cell statistics).
 struct CellRow {
     std::string cell;  ///< identity text ("" = no serving cell)
@@ -146,6 +159,7 @@ struct CoverageReport {
     std::vector<AcceptanceRow> acceptance;  ///< over the building
     std::vector<survey::AcceptanceProfile> profiles;
     bool default_profile = false;  ///< none given or stored: the default
+    std::vector<WeakAreaRow> weak_areas;  ///< of the failing profiles, per floor, largest first
     std::optional<celldb::Verification> verification;
     std::vector<celldb::LogLine> verification_lines;
     std::vector<celldb::CrossCheckFinding> cross_check;

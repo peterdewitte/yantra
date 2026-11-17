@@ -279,6 +279,21 @@ TEST_CASE("EXP-05/06 report content: statistics, cells, changes and acceptance o
     CHECK(contains(t, "Inverse-distance weighting of 10 measured points, power 2.0, search radius 10.0 m"));
     CHECK(contains(t, "50.0 % of the measured points are at or above -95.0 dBm"));
     CHECK(contains(t, "Walk: FAIL"));
+    // DEMO-16: the failing "Walk" names its weak area: the points below
+    // its failed criterion (-110 dBm), here the one at -120 dBm.
+    std::vector<const yr::WeakAreaRow*> weak;
+    for (const yr::WeakAreaRow& w : rep.weak_areas)
+        if (w.profile == "Walk") weak.push_back(&w);
+    REQUIRE(weak.size() == 1);
+    CHECK(weak[0]->floor_id == fx.ground);
+    CHECK(weak[0]->threshold == doctest::Approx(-110.0));
+    CHECK(weak[0]->area.points == 1);
+    CHECK(weak[0]->area.lowest == doctest::Approx(-120.0));
+    CHECK(weak[0]->area.min_m.x == doctest::Approx(1.0 + 1.8 * 9));
+    CHECK_FALSE(weak[0]->part.empty());
+    CHECK(contains(t, "Walk: FAIL (weak area: " + weak[0]->floor_name + ", "));
+    CHECK(contains(t, "Weak areas of \"Walk\": the measured points below -110.0 dBm"));
+    CHECK(contains(t, "x 17.2 to 17.2 m, y 2.0 to 2.0 m|1|-120.0 dBm|"));
     CHECK(contains(t, "Share of measured points (%)"));  // IND-43: both shares, side by side
     CHECK(contains(t, "Share of floor area (interpolated) (%)"));
     CHECK(contains(t, "1 serving-cell changes on this floor."));

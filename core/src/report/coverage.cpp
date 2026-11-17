@@ -227,6 +227,23 @@ AcceptanceRow area_row(const Ctx& c, const survey::AcceptanceProfile& p, const s
     return r;
 }
 
+// "First floor, centre of the plan" (DEMO-16): the floor and the area's
+// label (manual points' labels) or its part of the plan.
+std::string weak_area_name(const Ctx& c, const WeakAreaRow& w) {
+    std::string where;
+    if (!w.area.label.empty()) where = w.area.label;
+    else if (w.part == "top-left") where = c.tr("top-left corner of the plan");
+    else if (w.part == "top") where = c.tr("top of the plan");
+    else if (w.part == "top-right") where = c.tr("top-right corner of the plan");
+    else if (w.part == "left") where = c.tr("left side of the plan");
+    else if (w.part == "centre") where = c.tr("centre of the plan");
+    else if (w.part == "right") where = c.tr("right side of the plan");
+    else if (w.part == "bottom-left") where = c.tr("bottom-left corner of the plan");
+    else if (w.part == "bottom") where = c.tr("bottom of the plan");
+    else if (w.part == "bottom-right") where = c.tr("bottom-right corner of the plan");
+    return where.empty() ? w.floor_name : c.fill("{}, {}", {w.floor_name, where});
+}
+
 void acceptance_table(Document& doc, const Ctx& c, const std::vector<AcceptanceRow>& rows) {
     TableBlock t;
     t.header = {c.tr("Profile"), c.tr("Basis"), c.tr("Criterion"), c.tr("Reached"), c.tr("Assessed"), c.tr("Result")};
@@ -537,6 +554,33 @@ CoverageReport coverage_report(const project::Project& project, const CoverageOp
         }
     }
 
+    // Weak areas of each failing profile (DEMO-16): the points below its
+    // first failed threshold, grouped per floor.
+    for (const survey::AcceptanceProfile& p : rep.profiles) {
+        const AcceptanceRow* decides = nullptr;
+        for (const AcceptanceRow& r : rep.acceptance)
+            if (r.profile == p.name && r.decides) decides = &r;
+        if (decides == nullptr || decides->result.pass) continue;
+        const auto failed = std::find_if(decides->result.criteria.begin(), decides->result.criteria.end(),
+                                         [](const survey::CriterionResult& cr) { return !cr.pass; });
+        if (failed == decides->result.criteria.end()) continue;
+        survey::WeakAreaOptions wo;
+        wo.threshold = failed->criterion.threshold;
+        wo.unit = p.unit;
+        std::vector<WeakAreaRow> rows;
+        for (const FloorSection& s : rep.floors) {
+            const building::Floor* bf = building.find_floor(s.floor_id);
+            const std::optional<building::Point2> size = bf ? building.plan_size_m(*bf) : std::nullopt;
+            for (survey::WeakArea& a : survey::weak_areas(s.points.points, wo)) {
+                const std::string part = size ? survey::plan_part(a.min_m, a.max_m, *size) : std::string{};
+                rows.push_back(WeakAreaRow{p.name, s.floor_id, s.name, wo.threshold, p.unit, std::move(a), part});
+            }
+        }
+        std::stable_sort(rows.begin(), rows.end(),
+                         [](const WeakAreaRow& x, const WeakAreaRow& y) { return x.area.points > y.area.points; });
+        for (WeakAreaRow& r : rows) rep.weak_areas.push_back(std::move(r));
+    }
+
     // Verification and cross-check (DB-04, DB-05).
     const celldb::CellDatabase db = project.cell_database();
     const celldb::Technologies techs = o.technologies != nullptr ? *o.technologies : celldb::Technologies{};
@@ -659,7 +703,34 @@ CoverageReport coverage_report(const project::Project& project, const CoverageOp
             bool pass = false;
             for (const AcceptanceRow& r : rep.acceptance)
                 if (r.profile == p.name && r.decides) pass = r.result.pass;
-            d.paragraph(c.fill("{}: {}", {p.name, pass ? c.tr("PASS") : c.tr("FAIL")}), pass ? Tone::Pass : Tone::Fail);
+            std::vector<const WeakAreaRow*> weak;
+            for (const WeakAreaRow& w : rep.weak_areas)
+                if (w.profile == p.name) weak.push_back(&w);
+            if (pass || weak.empty()) {
+                d.paragraph(c.fill("{}: {}", {p.name, pass ? c.tr("PASS") : c.tr("FAIL")}), pass ? Tone::Pass : Tone::Fail);
+                continue;
+            }
+            // DEMO-16: the verdict names the weak areas (the three largest).
+            std::string names;
+            for (std::size_t i = 0; i < weak.size() && i < 3; ++i) names += (i ? "; " : "") + weak_area_name(c, *weak[i]);
+            if (weak.size() > 3) names += "; " + c.fill("{} more", {std::to_string(weak.size() - 3)});
+            d.paragraph(weak.size() == 1 ? c.fill("{}: {} (weak area: {})", {p.name, c.tr("FAIL"), names})
+                                         : c.fill("{}: {} (weak areas: {})", {p.name, c.tr("FAIL"), names}),
+                        Tone::Fail);
+            d.paragraph(c.fill("Weak areas of \"{}\": the measured points below {} {}, grouped where they are at most {} m "
+                               "apart (positions from the plan's top-left corner).",
+                               {p.name, num(weak.front()->threshold, 1), weak.front()->unit,
+                                num(survey::WeakAreaOptions{}.link_m, 1)}));
+            TableBlock wt;
+            wt.header = {c.tr("Weak area"), c.tr("Where"), c.tr("Points"), c.tr("Lowest")};
+            wt.numeric = {false, false, true, true};
+            wt.widths = {2.2, 2.0, 0.7, 1.0};
+            for (const WeakAreaRow* w : weak)
+                wt.rows.push_back({weak_area_name(c, *w),
+                                  c.fill("x {} to {} m, y {} to {} m", {num(w->area.min_m.x, 1), num(w->area.max_m.x, 1),
+                                                                      num(w->area.min_m.y, 1), num(w->area.max_m.y, 1)}),
+                                  std::to_string(w->area.points), num(w->area.lowest, 1) + " " + w->unit});
+            d.table(std::move(wt));
         }
     }
 
