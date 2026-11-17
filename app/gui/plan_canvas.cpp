@@ -136,45 +136,6 @@ void PlanCanvas::draw_binned(ImDrawList* dl, ImVec2 origin, const FloorContent& 
     }
 }
 
-void PlanCanvas::draw_walls(ImDrawList* dl, ImVec2 origin, const FloorContent& c) {
-    const float thick = std::clamp(static_cast<float>(view_.zoom()) * 2.0F, 2.0F, 6.0F);
-    for (const PlanWall& w : c.walls) {
-        std::vector<ImVec2> pts;
-        pts.reserve(w.points.size());
-        for (const Point2& p : w.points) pts.push_back(to_screen(origin, p));
-        dl->AddPolyline(pts.data(), static_cast<int>(pts.size()), rgb_colour(w.rgb), thick);
-        ++stats_.walls;
-    }
-}
-
-void PlanCanvas::draw_antennas(ImDrawList* dl, ImVec2 origin, const FloorContent& c) {
-    const float k = ImGui::GetFontSize() / 13.0F;  // marks grow with the font (UI scale, touch)
-    const float r = 9.0F * k;
-    const float th = ImGui::GetTextLineHeight();
-    for (const PlanAntenna& a : c.antennas) {
-        const ImVec2 p = to_screen(origin, a.position);
-        if (a.outdoor) {
-            // An outdoor donor: a triangle with an arrow towards the site
-            // (degrees clockwise from "up" on the plan).
-            dl->AddTriangleFilled(ImVec2(p.x, p.y - r), ImVec2(p.x - r, p.y + r * 0.8F), ImVec2(p.x + r, p.y + r * 0.8F),
-                                  IM_COL32(40, 90, 200, 255));
-            if (a.direction_deg) {
-                const double rad = *a.direction_deg * 3.14159265358979323846 / 180.0;
-                const ImVec2 tip(p.x + static_cast<float>(std::sin(rad)) * r * 3.0F,
-                                 p.y - static_cast<float>(std::cos(rad)) * r * 3.0F);
-                dl->AddLine(p, tip, IM_COL32(40, 90, 200, 255), 2.5F);
-                dl->AddCircleFilled(tip, 3.5F, IM_COL32(40, 90, 200, 255));
-            }
-        } else {
-            dl->AddCircleFilled(p, r, IM_COL32(30, 110, 230, 255));
-            dl->AddCircle(p, r, IM_COL32(255, 255, 255, 255), 0, 2.0F);
-            dl->AddText(ImVec2(p.x - ImGui::CalcTextSize("A").x * 0.5F, p.y - th * 0.5F), IM_COL32(255, 255, 255, 255), "A");
-        }
-        dl->AddText(ImVec2(p.x + r + 3.0F * k, p.y - th * 0.5F), IM_COL32(20, 40, 120, 255), a.label.c_str());
-        ++stats_.antennas;
-    }
-}
-
 void PlanCanvas::draw_points(ImDrawList* dl, ImVec2 origin, ImVec2 size, const FloorContent& c) {
     const std::size_t n = c.points.count();
     if (n == 0) return;
@@ -334,17 +295,15 @@ void PlanCanvas::draw(ProjectWindow& window, const FloorContent& c, const LayerS
     dl->AddRectFilled(f0, f1, c.has_plan ? IM_COL32(255, 255, 255, 255) : IM_COL32(236, 236, 230, 255));
     for (Layer l : layers.order) {
         if (!layers.visible(l)) continue;
-        const std::size_t before = stats_.tiles + stats_.walls + stats_.antennas + stats_.points + stats_.bins +
+        const std::size_t before = stats_.tiles + stats_.points + stats_.bins +
                                    (stats_.interpolation ? 1U : 0U);
         switch (l) {
         case Layer::Plan: draw_tiles(dl, origin); break;
         case Layer::Interpolation: draw_interpolation(dl, origin, c); break;
         case Layer::Binned: draw_binned(dl, origin, c); break;
-        case Layer::Walls: draw_walls(dl, origin, c); break;
-        case Layer::Antennas: draw_antennas(dl, origin, c); break;
         case Layer::Points: draw_points(dl, origin, size, c); break;
         }
-        const std::size_t after = stats_.tiles + stats_.walls + stats_.antennas + stats_.points + stats_.bins +
+        const std::size_t after = stats_.tiles + stats_.points + stats_.bins +
                                   (stats_.interpolation ? 1U : 0U);
         if (after > before) stats_.drawn.push_back(l);
     }

@@ -31,18 +31,6 @@ std::string plural(std::size_t n, const char* one, const char* many) {
     return std::to_string(n) + " " + (n == 1 ? one : many);
 }
 
-/// Heavier walls darker: light grey (plasterboard) to near black
-/// (concrete, metal), slightly warm so walls stand out from a grey plan.
-std::uint32_t wall_rgb(double attenuation_db) {
-    const double t = std::clamp(attenuation_db / 20.0, 0.0, 1.0);
-    const auto v = static_cast<std::uint32_t>(std::lround(200.0 - 170.0 * t));
-    const std::uint32_t r = std::min<std::uint32_t>(255U, v + 40U);
-    return (r << 16U) | (v << 8U) | (v / 2U);
-}
-
-/// The frequency the wall colours use: the model's default band.
-constexpr double kWallColourMhz = 400.0;
-
 bool has_plan(const building::Floor& f) { return !f.source.empty() && f.trim.shape != building::Trim::Shape::None; }
 
 }  // namespace
@@ -207,16 +195,7 @@ FloorContent ProjectWindow::build_content(const std::string& floor_id, double bi
     c.metres_per_unit = b.metres_per_unit(*floor);
     c.has_plan = has_plan(*floor);
     if (!c.has_plan)
-        c.plan_note = tr("This floor has no plan picture yet: the walls, antennas and points are drawn on a blank sheet.");
-
-    for (const building::Wall& w : floor->walls) {
-        const double att = b.wall_attenuation_db(w, kWallColourMhz).value_or(0.0);
-        const std::string cls = w.wall_class.empty() ? std::string(tr("own value")) : w.wall_class;
-        c.walls.push_back(PlanWall{w.points, wall_rgb(att), cls + ", " + fixed(att, 1, " dB")});
-    }
-    for (const building::Antenna& a : floor->antennas)
-        c.antennas.push_back(PlanAntenna{a.position, a.name.empty() ? a.id : a.name,
-                                         a.type == building::AntennaType::OutdoorDonor, a.direction_deg});
+        c.plan_note = tr("This floor has no plan picture yet: the points are drawn on a blank sheet.");
 
     survey::PointQuery q;
     q.floor_id = floor_id;
@@ -251,9 +230,6 @@ FloorContent ProjectWindow::build_content(const std::string& floor_id, double bi
             w = std::max(w, p.x);
             h = std::max(h, p.y);
         };
-        for (const PlanWall& pw : c.walls)
-            for (const Point2& p : pw.points) grow(p);
-        for (const PlanAntenna& a : c.antennas) grow(a.position);
         for (const survey::SurveyPoint& p : c.points.points) grow(p.plan);
         c.width = w > 0.0 ? w * 1.1 : 1000.0;
         c.height = h > 0.0 ? h * 1.1 : 700.0;
@@ -374,17 +350,6 @@ std::vector<LayerRow> ProjectWindow::layer_rows(const LayerSettings& layers) {
             r.tooltip = tr("The trimmed floor plan (the part of the source sheet that is this floor).");
             r.available = c && c->has_plan;
             if (c && !c->has_plan) r.note = c->plan_note;
-            break;
-        case Layer::Walls:
-            r.label = tr("Walls (") + std::to_string(c ? c->walls.size() : 0) + ")";
-            r.tooltip = tr("Walls drawn on this floor; darker lines attenuate more.");
-            r.available = c && !c->walls.empty();
-            break;
-        case Layer::Antennas:
-            r.label = tr("Antennas (") + std::to_string(c ? c->antennas.size() : 0) + ")";
-            r.tooltip = tr("Antennas placed on this floor: indoor DAS antennas (circles) and outdoor donor directions "
-                        "(triangles with an arrow).");
-            r.available = c && !c->antennas.empty();
             break;
         case Layer::Points:
             r.label = tr("Measured points (") + std::to_string(c ? c->points.count() : 0) + ")";
@@ -568,8 +533,7 @@ Result ProjectWindow::request_remove(const std::string& id) {
     q.floor_id = id;
     q.title = tr("Remove floor?");
     q.question = tr("Remove the floor \"") + f->name + "\" (level " + std::to_string(f->level) + tr(") with its ") +
-                 plural(f->walls.size(), "wall", "walls") + ", " + plural(f->antennas.size(), "antenna", "antennas") +
-                 ", " + plural(sessions, tr("walk test"), tr("walk tests")) + " and " +
+                 plural(sessions, tr("walk test"), tr("walk tests")) + " and " +
                  plural(points, tr("measured point"), tr("measured points")) +
                  tr("? This cannot be undone. The plan source stays in the project; recording files are not deleted.");
     pending_remove_ = q;

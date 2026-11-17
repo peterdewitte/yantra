@@ -30,12 +30,13 @@ inline constexpr std::size_t kMaxRecentFolders = 8;
 
 /// The layers of the project window's plan view (IND-04, IND-30, IND-43,
 /// PP-05).
-enum class Layer { Plan, Interpolation, Binned, Walls, Antennas, Points };
+/// (The walls and antennas layers of 0.3 are gone; their keys in a
+/// settings file are ignored.)
+enum class Layer { Plan, Interpolation, Binned, Points };
 /// Every layer in the default drawing order, bottom first.
-inline constexpr Layer kLayers[] = {Layer::Plan,  Layer::Interpolation, Layer::Binned,
-                                    Layer::Walls, Layer::Antennas,      Layer::Points};
-/// "plan", "interpolation", "binned", "walls", "antennas", "points"
-/// (settings keys, ImGui ids "layer.<key>").
+inline constexpr Layer kLayers[] = {Layer::Plan, Layer::Interpolation, Layer::Binned, Layer::Points};
+/// "plan", "interpolation", "binned", "points" (settings keys, ImGui ids
+/// "layer.<key>").
 const char* layer_key(Layer layer);
 std::optional<Layer> parse_layer(std::string_view key);
 

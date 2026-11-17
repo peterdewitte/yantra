@@ -73,26 +73,13 @@ struct FloorTab {
 struct LayerRow {
     Layer layer = Layer::Plan;
     std::string id;       ///< "layer.<layer_key>"
-    std::string label;    ///< "Walls (34)"
+    std::string label;    ///< "Measured points (34)"
     std::string tooltip;  ///< what it shows (DOC-07 b)
     bool visible = true;
     bool available = true;  ///< the floor has something for this layer
     std::string note;       ///< why it is empty, or e.g. "Stale: measured points changed. ..."
     bool can_move_up = false;
     bool can_move_down = false;
-};
-
-struct PlanWall {
-    std::vector<Point2> points;  ///< plan units
-    std::uint32_t rgb = 0;       ///< by attenuation: heavier walls darker
-    std::string label;           ///< class and attenuation
-};
-
-struct PlanAntenna {
-    Point2 position;  ///< plan units
-    std::string label;
-    bool outdoor = false;                 ///< donor/macro direction marker
-    std::optional<double> direction_deg;  ///< outdoor donor: bearing (building/model.h convention)
 };
 
 /// One square of the binned layer, in plan units.
@@ -154,8 +141,6 @@ struct FloorContent {
     std::optional<double> metres_per_unit;  ///< nullopt: "not to scale" (IND-08)
     bool has_plan = false;
     std::string plan_note;  ///< why there is no plan picture, when there is none
-    std::vector<PlanWall> walls;
-    std::vector<PlanAntenna> antennas;
     survey::PointList points;  ///< survey::point_list() (IND-30)
     std::optional<BinnedLayer> binned;
     std::string binned_note;  ///< why there is no binned layer

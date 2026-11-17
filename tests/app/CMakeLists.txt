@@ -25,7 +25,7 @@ endif()
 set(_scratch ${CMAKE_CURRENT_BINARY_DIR}/scratch)
 file(MAKE_DIRECTORY ${_scratch})
 
-add_executable(test_app test_app_model.cpp test_file_browser.cpp test_floor_editor.cpp test_interpolation_runner.cpp test_plan_import_window.cpp test_project_window.cpp
+add_executable(test_app test_app_model.cpp test_file_browser.cpp test_interpolation_runner.cpp test_plan_import_window.cpp test_project_window.cpp
                         test_radio_windows.cpp test_settings_plugins.cpp test_survey_monitor.cpp test_network.cpp test_i18n_sound.cpp
                         test_tour.cpp test_report_export.cpp test_app_control.cpp)
 # Step 9.10: the tour's sheet download through libcurl (file:// and loopback only).

@@ -41,7 +41,7 @@ std::vector<ShotScene> make_scenes() {
         v.push_back(s);
     }
     v.push_back(scene("walk_test", "indoor project window: floor tabs and a walk test's points with legend (IND-10)"));
-    v.push_back(scene("interpolation", "ray-tracing interpolation map with walls and antennas (IND-43)"));
+    v.push_back(scene("interpolation", "interpolated coverage map with its confidence mask (IND-41, IND-43)"));
     v.push_back(scene("about", "About dialog with the Yantra and curtat.be logos (UI-15)", false));
     v.push_back(scene("reset_settings", "Reset all settings dialog (UI-16)", false));
     v.push_back(scene("radio_list", "radios: choosing and connecting a radio (PLG-16)"));

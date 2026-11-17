@@ -60,12 +60,11 @@ struct ActionDef {
 // action they describe so they change with it.
 const ActionDef kActions[] = {
     {Action::NewProject, "file.new_project", tr_mark("New indoor project..."), "Ctrl+N",
-     tr_mark("Create a project file for one building: floors, plans, walls, antennas and walk tests are kept in it."), nullptr},
+     tr_mark("Create a project file for one building: floors, plans and walk tests are kept in it."), nullptr},
     {Action::OpenProject, "file.open_project", tr_mark("Open project..."), "Ctrl+O", tr_mark("Open an existing project file (.yantra)."),
      nullptr},
     {Action::OpenDemo, "file.open_demo", tr_mark("Open demo project"), "",
-     tr_mark("Open the demo project (Fraunces Tavern, New York: two floors with walls, antennas, walk tests and coverage "
-     "maps). A copy is made in your own folder, so you can change it freely. Its measurements are simulated."),
+     tr_mark("Open the demo project (Fraunces Tavern, New York: two floors with walk tests and coverage maps). A copy is made in your own folder, so you can change it freely. Its measurements are simulated."),
      nullptr},
     {Action::Save, "file.save", tr_mark("Save"), "Ctrl+S",
      tr_mark("Changes are stored in the project file as you work; Save makes the file complete on its own, ready to copy."),
@@ -212,7 +211,6 @@ AppState::~AppState() {
     tour_.reset();
     drop_tools();
     drop_network();
-    proposals_.reset();
     window_.reset();
     try {
         if (project_) project_->close();
@@ -549,7 +547,6 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     import_window_.reset();
     drop_tools();
     drop_network();
-    proposals_.reset();
     window_.reset();
     if (project_) {
         try {
@@ -561,9 +558,6 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     project_ = std::move(p);
     window_ = std::make_unique<ProjectWindow>(*project_);
     window_->set_sheet_folder(paths_.sheet_cache);  // DEMO-13: a referenced MAK sheet in the cache
-    proposals_.reset();
-    editor_ = std::make_unique<FloorEditor>(*project_);
-    proposals_ = std::make_unique<WallProposals>(*project_, *window_, *editor_);
     runner_ = std::make_unique<InterpolationRunner>(project_, InterpolationRunner::Options{paths_.interpolation_threads});
     RadioPaths radios = paths_.radios;
     if (radios.scene_folders.empty())
@@ -938,12 +932,11 @@ Result AppState::close_project() {
     if (dialog_ == Dialog::AddFloor || dialog_ == Dialog::Browse || dialog_ == Dialog::FloorProperties ||
         dialog_ == Dialog::RemoveFloor || dialog_ == Dialog::PlanImport)
         cancel_dialog();
-    if (dialog_ == Dialog::AntennaProperties || dialog_ == Dialog::Materials || dialog_ == Dialog::InterpolationSettings)
+    if (dialog_ == Dialog::InterpolationSettings)
         dialog_ = Dialog::None;
     import_window_.reset();
     drop_tools();
     drop_network();
-    proposals_.reset();
     window_.reset();
     demo_label_.clear();
     try {
@@ -1198,28 +1191,6 @@ void AppState::drop_tools() {
     live_.reset();
     monitor_->clear();
     runner_.reset();
-    proposals_.reset();
-    editor_.reset();
-}
-
-Result AppState::edit_antenna() {
-    if (!editor_ || !editor_->selected_antenna()) return fail(tr("Select an antenna first."));
-    dialog_ = Dialog::AntennaProperties;
-    return {};
-}
-
-Result AppState::confirm_antenna() {
-    if (!editor_) return fail(tr("No project is open."));
-    const Result r = editor_->apply_antenna_form();
-    if (!r.ok) return fail(r.message);
-    dialog_ = Dialog::None;
-    return done(tr("Antenna properties stored."));
-}
-
-Result AppState::edit_materials() {
-    if (!editor_) return fail(tr("No project is open."));
-    dialog_ = Dialog::Materials;
-    return {};
 }
 
 Result AppState::edit_interpolation_settings() {
@@ -1277,8 +1248,6 @@ void AppState::tick() {
     } else {
         alerts_.reset();
     }
-    if (editor_ && window_) editor_->set_floor(window_->selected());
-    if (proposals_) proposals_->tick();
     if (replay_) replay_->tick();
     if (output_) {
         if (const auto r = output_->tick()) (void)show(*r);

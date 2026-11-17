@@ -5,7 +5,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # 13 Indoor projects
 
-A project is one building: its floors with their plans, walls and antennas, the cell database, the walk tests with their points, the stored coverage maps and the acceptance profiles. It is one file (`*.yantra`); recordings, exports and reports go into folders next to it. The [first indoor project](../quickstart/01-first-indoor-project.md) quick start goes through the whole chain in one page.
+A project is one building: its floors with their plans, the cell database, the walk tests with their points, the stored coverage maps and the acceptance profiles. It is one file (`*.yantra`); recordings, exports and reports go into folders next to it. The [first indoor project](../quickstart/01-first-indoor-project.md) quick start goes through the whole chain in one page.
 
 ![The indoor workflow: plan import, walk test, coverage map, report](../img/indoor_workflow.gif)
 
@@ -31,38 +31,26 @@ The plan import window shows the sheet (choose the page of a PDF) and cuts the f
 - Scale bar: drag along the plan's scale bar end to end, type its length and Apply. When the page has a paper size (a PDF, or an image with its resolution), you can also type the drawing scale as 1:N.
 - Reference: click a point found on every floor (a staircase corner) to line the floors up above each other.
 
-Add as floor... adds the trim as a floor with its name, level and height; the window stays open for the next floor. The floors of this sheet are listed: Edit changes a trim (walls, antennas and points move with it, so they stay on the same spot of the plan), Remove deletes the floor after a question. Floors of the same sheet can share one scale. Not to scale removes the scale; a floor without a scale can be drawn on, but has no distances, binning or interpolation.
+Add as floor... adds the trim as a floor with its name, level and height; the window stays open for the next floor. The floors of this sheet are listed: Edit changes a trim (points move with it, so they stay on the same spot of the plan), Remove deletes the floor after a question. Floors of the same sheet can share one scale. Not to scale removes the scale; a floor without a scale can be drawn on, but has no distances, binning or interpolation.
 
 The plan file is copied into the project, unchanged: trims and drawings are applied when the plan is shown, never to the file. Licence-restricted plans (the MAK sheets of the tour, 1.3) are recognised by their SHA-256 and kept as a reference to your cached copy instead, with their credit, licence and the note that the scale is approximate.
 
 ![Two floors trimmed from one sheet](../img/plan_import_dark.png) [light theme](../img/plan_import_light.png)
 
-## 13.3 Walls and antennas
+## 13.3 Projects of Yantra 0.3 and earlier
 
-The Edit page draws the building model of the shown floor. The tools (with their keys):
-
-- Pan (P): look around without changing anything.
-- Select (S): click a wall, a wall corner or an antenna to select it and drag to move it; a double click on the selected wall adds a corner, Split cuts a wall at a corner, Delete removes the selection.
-- Draw wall (W): click the corners of a wall; double click or Enter ends it, Backspace removes the last corner, Esc drops it. Corners snap to the corners of other walls. New walls get the class chosen under New walls.
-- Place antenna (A): click to place an antenna, then set its properties.
-- Aim: click where the selected directional antenna points, or the direction of an outdoor donor site.
-
-A selected wall has its class and, if you want, its own attenuation in dB. Classes... edits the wall classes: each class has a loss per frequency band (for example concrete, brick, plasterboard, glass), with defaults from published ranges; a class in use cannot be removed, and Reset defaults puts the defaults back. The antenna properties: name, model, height, gain, pattern, azimuth and beamwidth (directional antennas), front-to-back ratio and direction, the EIRP when it is known, the cable loss, the cell it serves (or a new cell), and whether it is an outdoor donor or macro direction rather than an indoor antenna. Undo and Redo (Ctrl+Z, Ctrl+Y) step through the edits of the floor.
-
-### Propose walls
-
-Propose walls looks for long straight dark lines on a floor's plan and shows them dashed and numbered. It needs a plan picture and a scale. The search runs in the background and can be cancelled. Shortest wall sets the shortest line it proposes (1.5 m by default). Lines close to an existing wall are left out. Accept a proposal and it becomes an ordinary wall of the class chosen under New walls, which you can edit and undo like any other; Accept all and Reject all take the whole list. Reject it and it is forgotten. Nothing is stored in the project until you accept it, and changing floor forgets the list. Dimension lines, furniture and text can be proposed too, so check each one against the plan.
+Yantra 0.4 has no walls, antennas or propagation model: the coverage map comes from the measured points alone (13.5). A project file of Yantra 0.3 or earlier still opens. Its walls, wall classes, antennas and ray-tracing maps are left out, a copy of the old file is kept next to it (`<file>.schema<N>.bak`), and a note says so once. Its floors, plans, scales, walk tests and points stay as they were; run the interpolation again to get the floor's map.
 
 ## 13.4 Layers
 
-The Layers page shows or hides the plan, the interpolation, the binned squares, the walls, the antennas and the points, and sets their drawing order with the arrows. The binned layer groups the points into squares of the size you set (Square, 2 m by default), each with the percentile of its points (11.1); it is labelled as binned and never replaces the points. When several coverage maps are stored, choose the one to show. The layer settings are kept for the next start; they are not part of the project.
+The Layers page shows or hides the plan, the interpolation, the binned squares and the points, and sets their drawing order with the arrows. The binned layer groups the points into squares of the size you set (Square, 2 m by default), each with the percentile of its points (11.1); it is labelled as binned and never replaces the points. When several coverage maps are stored, choose the one to show. The layer settings are kept for the next start; they are not part of the project.
 
 ## 13.5 Interpolation
 
-The Map page fits the propagation model to the measured points of the floor and computes a coverage map: Run starts it in the background (with a progress bar; Cancel stops it), and the map is stored in the project. A floor needs a scale and measured points in dBm (from a calibrated radio or one that reports dBm, such as the simulator, 7.1). In a mouse survey, a click on the plan runs it too.
+The Map page computes a coverage map of the floor from its measured points: Run starts it in the background (with a progress bar; Cancel stops it), and the map is stored in the project. A floor needs a scale and measured points in dBm (from a calibrated radio or one that reports dBm, such as the simulator, 7.1). In a mouse survey, a click on the plan runs it too.
 
-How it works, in short: a ray tracer predicts the level of every antenna over the floor through the walls drawn (with reflections), the model is fitted to the measured points (antenna power, wall losses), the differences that remain at the points are spread over the floor (limited by walls), and every spot gets a confidence that fades from 1 within 2 m of a measured point to 0 beyond 10 m. Unmeasured areas therefore fade out on the plan. When no antenna of the building reaches the floor, Yantra estimates sources from the points and draws them dashed with their fitted power, labelled "estimated sources". The [measurement method note](../METHOD.md) gives the details and the limits of the model.
+How it works, in short: the floor is divided into squares of 0.5 m. A square that holds measured points takes their level (the median when there are several), so the map equals the measurement where you measured. Every other square takes the mean of the points within 10 m, each weighted by one over its distance squared (inverse-distance weighting). Every square gets a confidence that is 1 within 2 m of a measured point and fades to 0 at 10 m, so unmeasured areas fade out on the plan; squares with no point within 10 m stay empty. The map knows nothing about walls: walk both sides of a wall that matters. The [interpolation note](../INTERPOLATION.md) gives the details and the limits.
 
-The map is always labelled "interpolated" and kept apart from the measured points: the hover readout says whether the value is measured or interpolated, with the model value, the confidence and the nearest measured point. When the walls, antennas or points change after a run, the map is marked stale; Run again computes it again. Settings... sets the propagation parameters: grid size, reflections (0 to 3), path-loss exponent, reference distance, reflection loss, receiver height, default EIRP, whether antennas on other floors count and the attenuation per floor; Defaults puts them back.
+The map is always labelled "interpolated" and kept apart from the measured points: the hover readout says whether the value is measured or interpolated, with the confidence and the nearest measured point. When the floor's scale or its points change after a run, the map is marked stale; Run again computes it again. Settings... sets the grid size, the power, the search radius and the full-confidence distance; Defaults puts them back.
 
-![The interpolated map with walls and antennas](../img/interpolation_dark.png) [light theme](../img/interpolation_light.png)
+![The interpolated map](../img/interpolation_dark.png) [light theme](../img/interpolation_light.png)

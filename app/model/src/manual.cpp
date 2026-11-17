@@ -65,7 +65,7 @@ const std::vector<ManualSection>& manual_sections() {
         {"13", tr_mark("Indoor projects"), "13-indoor-projects.md"},
         {"13.1", tr_mark("Projects and floors"), "13-indoor-projects.md"},
         {"13.2", tr_mark("Plan import and trimming"), "13-indoor-projects.md"},
-        {"13.3", tr_mark("Walls and antennas"), "13-indoor-projects.md"},
+        {"13.3", tr_mark("Projects of Yantra 0.3 and earlier"), "13-indoor-projects.md"},
         {"13.4", tr_mark("Layers"), "13-indoor-projects.md"},
         {"13.5", tr_mark("Interpolation"), "13-indoor-projects.md"},
         {"14", tr_mark("Plugins"), "14-plugins.md"},

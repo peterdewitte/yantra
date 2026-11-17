@@ -56,22 +56,14 @@ const StepDef kSteps[] = {
      tr_mark("Select each floor in the plan import window and give its scale: two points with their distance, the "
              "sheet's scale bar, or the drawing scale. A floor without a scale is marked \"not to scale\"."),
      "13.2"},
-    {TourStep::Walls, "walls", tr_mark("Draw the walls"),
-     tr_mark("On the Edit page choose the Wall tool and a wall class, then click the corners of a wall on the plan; "
-             "a double click ends it. Walls make the radio levels and the coverage map realistic."),
-     "13.3"},
-    {TourStep::Antennas, "antennas", tr_mark("Place the DAS antennas"),
-     tr_mark("Choose the Antenna tool and click where an antenna hangs; its properties (cell, EIRP, height) are in "
-             "the Antenna properties dialog."),
-     "13.3"},
     {TourStep::MouseSurvey, "mouse_survey", tr_mark("Measure with the mouse survey"),
      tr_mark("On the Walk page find the radios (the simulator is \"Demo (simulated network)\"), choose Mouse survey "
              "and Start. Move the mouse slowly over the plan to measure: each point is where the simulator measured. "
              "Click on the plan to start the interpolation. Esc stops."),
      "7.1"},
     {TourStep::Results, "results", tr_mark("Look at the points and the coverage map"),
-     tr_mark("The measured points are coloured by level; the interpolated layer is the ray-tracing coverage map, "
-             "always labelled \"interpolated\". Rest the pointer on the plan for the values; the Layers page shows "
+     tr_mark("The measured points are coloured by level; the interpolated layer is the coverage map between "
+             "them, always labelled \"interpolated\". Rest the pointer on the plan for the values; the Layers page shows "
              "or hides each layer."),
      "13.4"},
     {TourStep::SwitchFloors, "switch_floors", tr_mark("Switch floors"),
@@ -520,14 +512,6 @@ bool Tour::step_done(TourStep s) const {
         return !b.floors.empty() &&
                std::all_of(b.floors.begin(), b.floors.end(), [&](const building::Floor& f) { return b.has_scale(f); });
     }
-    case TourStep::Walls:
-    case TourStep::Antennas: {
-        if (!is_tour_project()) return false;
-        const auto floors = p->floors();
-        return std::any_of(floors.begin(), floors.end(), [&](const building::Floor& f) {
-            return s == TourStep::Walls ? !f.walls.empty() : !f.antennas.empty();
-        });
-    }
     case TourStep::MouseSurvey: {
         if (!is_tour_project()) return false;
         // The survey's points are stored and a click interpolated them.
@@ -635,8 +619,6 @@ TourView Tour::view() const {
         break;
     case TourStep::TrimFloors: v.targets = {"pi.add", "tool.rectangle"}; break;
     case TourStep::Scale: v.targets = {"pi.scale_apply", "tool.scale_line"}; break;
-    case TourStep::Walls: v.targets = {"edit.tool.wall", "panel.edit"}; break;
-    case TourStep::Antennas: v.targets = {"edit.tool.antenna", "panel.edit"}; break;
     case TourStep::MouseSurvey: v.targets = {"walk.stop", "walk.start", "walk.find_radios", "panel.walk"}; break;
     case TourStep::Results: v.targets = {"layer.interpolation", "layer.points", "panel.layers"}; break;
     case TourStep::SwitchFloors: v.targets = {"floors"}; break;
@@ -713,8 +695,6 @@ Result Tour::show_me() {
     case TourStep::TrimFloors: return show_import(*first_sheet(), true);
     case TourStep::SecondSource: return show_import(*second_sheet(), true);
     case TourStep::Scale: return show_scale();
-    case TourStep::Walls: return show_walls(false);
-    case TourStep::Antennas: return show_walls(true);
     case TourStep::MouseSurvey: return show_mouse_survey();
     case TourStep::Results: {
         app_.request_panel("layers");
@@ -836,59 +816,29 @@ Result Tour::show_scale() {
     return Result{true, trf("The scale of {} floors is set.", {std::to_string(set)})};
 }
 
-Result Tour::show_walls(bool antennas) {
+Result Tour::show_mouse_survey() {
     if (app_.plan_import() != nullptr) app_.close_plan_import();
-    app_.request_panel("edit");
+    LiveSurvey& live = *app_.live();
+    if (live.running()) return Result{true, tr("The mouse survey runs: move the mouse slowly over the plan.")};
+    ProjectWindow& w = *app_.project_window();
     project::Project& p = *app_.project();
     assign_example_ids();
-    if (antennas && !desc_->cell_database.empty() && p.building().cells.empty()) {
-        // The cells the antennas serve (IND-12), as the example has them.
+    if (!desc_->cell_database.empty() && p.building().cells.empty()) {
+        // The example's cells, as the simulator's scenario has them.
         std::vector<std::string> problems;
         const celldb::CellDatabase db =
             celldb::read_csv_file((desc_->folder / desc_->cell_database).string(), {}, &problems);
         if (!problems.empty()) return Result{false, desc_->cell_database + ": " + problems.front()};
         p.set_cell_database(db);
     }
-    std::size_t n = 0;
-    for (const building::Floor& f : p.floors()) {
-        const auto df = std::find_if(desc_->floors.begin(), desc_->floors.end(),
-                                     [&](const demo::DemoFloor& x) { return x.example_id == f.example_id; });
-        if (f.example_id.empty() || df == desc_->floors.end()) continue;
-        try {
-            if (!antennas && f.walls.empty()) {
-                std::vector<building::Wall> walls = df->walls;
-                for (building::Wall& w : walls) {
-                    w.id.clear();
-                    for (building::Point2& q : w.points) q = remap(*df, f, q);
-                }
-                n += p.add_walls(f.id, std::move(walls)).size();
-            }
-            if (antennas && f.antennas.empty()) {
-                for (building::Antenna a : df->antennas) {
-                    a.id.clear();
-                    a.position = remap(*df, f, a.position);
-                    (void)p.add_antenna(f.id, std::move(a));
-                    ++n;
-                }
-            }
-        } catch (const std::exception& e) {
-            return Result{false, e.what()};
-        }
-    }
-    return Result{true, antennas ? trf("{} antennas placed.", {std::to_string(n)}) : trf("{} walls drawn.", {std::to_string(n)})};
-}
-
-Result Tour::show_mouse_survey() {
-    if (app_.plan_import() != nullptr) app_.close_plan_import();
-    LiveSurvey& live = *app_.live();
-    if (live.running()) return Result{true, tr("The mouse survey runs: move the mouse slowly over the plan.")};
-    ProjectWindow& w = *app_.project_window();
-    const building::Building b = app_.project()->building();
+    const building::Building b = p.building();
+    // A floor with a scale and a fixed demo scene (its example id).
+    auto fits = [&](const building::Floor& f) { return b.has_scale(f) && !f.example_id.empty(); };
     std::string floor;
-    if (const building::Floor* f = b.find_floor(w.selected()); f && b.has_scale(*f) && !f->antennas.empty()) floor = f->id;
+    if (const building::Floor* f = b.find_floor(w.selected()); f && fits(*f)) floor = f->id;
     for (const building::Floor& f : b.floors)
-        if (floor.empty() && b.has_scale(f) && !f.antennas.empty()) floor = f.id;
-    if (floor.empty()) return Result{false, tr("No floor has a scale and antennas yet: do the steps before first.")};
+        if (floor.empty() && fits(f)) floor = f.id;
+    if (floor.empty()) return Result{false, tr("No floor has a scale yet: do the steps before first.")};
     (void)w.select(floor);
     app_.request_panel("walk");
     live.show_floor(floor);

@@ -56,7 +56,6 @@ add_library(yantra_core STATIC
   src/plan/source.cpp
   src/plan/tiles.cpp
   src/plan/trim.cpp
-  src/plan/wall_detect.cpp
   src/plugin/abi.cpp
   src/plugin/descriptor.cpp
   src/plugin/folders.cpp

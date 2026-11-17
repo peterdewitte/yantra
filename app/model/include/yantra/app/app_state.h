@@ -43,8 +43,6 @@
 #include "yantra/app/cell_db_editor.h"
 #include "yantra/app/credits.h"
 #include "yantra/app/file_browser.h"
-#include "yantra/app/floor_editor.h"
-#include "yantra/app/wall_proposals.h"
 #include "yantra/app/interpolation_runner.h"
 #include "yantra/app/live_survey.h"
 #include "yantra/app/network_checks.h"
@@ -160,8 +158,6 @@ enum class Dialog {
     About,       ///< name, version, licence, links, logos, credits, plugins (UI-15)
     FloorProperties,  ///< rename a floor, its level and height (IND-04)
     RemoveFloor,      ///< the confirmation before a floor is removed (IND-04)
-    AntennaProperties,  ///< the selected antenna's properties (IND-12): floor_editor()->antenna_form()
-    Materials,          ///< the wall-class table (IND-11): floor_editor()->materials()
     InterpolationSettings,  ///< the interpolation settings (IND-41, UI-19): interpolation()->settings_form()
     Settings,           ///< the settings window (general, survey, plugins): settings_form()
     ResetSettings,      ///< Reset all settings (UI-16): reset_form()
@@ -347,9 +343,6 @@ public:
     project::Project* project() { return project_.get(); }
     /// The project window's model (nullptr on the start screen).
     ProjectWindow* project_window() { return window_.get(); }
-    /// The wall and antenna editing of the project window (IND-11, IND-12).
-    FloorEditor* floor_editor() { return editor_.get(); }
-    WallProposals* wall_proposals() { return proposals_.get(); }
     /// The interpolation commands (IND-41..45) and the settings dialog.
     InterpolationRunner* interpolation() { return runner_.get(); }
     /// The walk-test view's model (IND-20, GEO-02, GEO-05, DEMO-14).
@@ -540,14 +533,10 @@ public:
     Result move_layer(Layer layer, int steps);
     Result set_bin_size(double size_m);
 
-    // -- editing, walk test, interpolation (IND-11, IND-12, IND-20, IND-41..45) --
-    /// Opens the antenna properties of the selected antenna, the wall-class
-    /// table or the interpolation settings (their dialogs).
-    Result edit_antenna();
-    Result edit_materials();
+    // -- walk test, interpolation (IND-20, IND-41, IND-43, IND-45) --
+    /// Opens the interpolation settings dialog.
     Result edit_interpolation_settings();
-    /// Applies the open dialog's form (antenna, interpolation settings) and closes it on success.
-    Result confirm_antenna();
+    /// Applies the interpolation settings form and closes the dialog on success.
     Result confirm_interpolation_settings();
     /// Runs the interpolation of the selected floor (again with the shown
     /// map's request when `again`, e.g. a stale map).
@@ -652,8 +641,6 @@ private:
     NetworkWindows network_windows_;
     HelpView help_;
     AudibleAlerts alerts_;
-    std::unique_ptr<FloorEditor> editor_;
-    std::unique_ptr<WallProposals> proposals_;  // needs window_ and editor_
     std::unique_ptr<InterpolationRunner> runner_;
     std::unique_ptr<LiveSurvey> live_;
     std::unique_ptr<RadioWindows> radios_;  // uses live_: dropped first

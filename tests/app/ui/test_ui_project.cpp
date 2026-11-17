@@ -13,7 +13,9 @@
 
 #include <algorithm>
 #include <filesystem>
+#include <cstdint>
 #include <string>
+#include <vector>
 
 #include "gui.h"
 #include "ui_harness.h"
@@ -59,10 +61,23 @@ void make_depot(const fs::path& file) {
         f.plan_width = 400;
         f.plan_height = 200;
         const std::string id = p->add_floor(f);
-        bm::Wall w;
-        w.wall_class = "brick";
-        w.points = {{10, 10}, {390, 10}, {390, 190}};
-        (void)p->add_wall(id, w);
+        // Three manual points (no scale: the plan units are the map).
+        pj::Session s;
+        s.floor_id = id;
+        s.kind = "manual";
+        const std::int64_t sid = p->add_session(s);
+        std::vector<pj::StoredPoint> pts;
+        for (int n = 1; n <= 3; ++n) {
+            pj::StoredPoint sp;
+            sp.sequence = n;
+            sp.time_ns = n * 1'000'000'000LL;
+            sp.plan = {100.0 * n, 100.0};
+            sp.kind = "manual";
+            sp.group = static_cast<std::uint32_t>(n);
+            sp.sample = R"({"carriers":[{"role":"serving","f":390000000,"level":-70,"unit":"dBm"}]})";
+            pts.push_back(sp);
+        }
+        p->add_points(sid, pts);
     }
     p->close();
 }
@@ -153,27 +168,30 @@ TEST_CASE("project window: layer panel toggles and order, zoom and pan, scale ba
     REQUIRE(s.state.open_project(dir / "depot.yantra").ok);
     REQUIRE(s.ui.frames(3));
     const PlanCanvas& cv = s.gui.canvas();
-    CHECK(cv.stats().walls == 1);
+    CHECK(cv.stats().points == 3);
     CHECK(cv.stats().scale.label == "not to scale");
     CHECK(cv.stats().scale.pixels == 0.0);
 
-    // Toggle walls off and on.
-    REQUIRE_MESSAGE(s.ui.has("layer.walls"), s.ui.dump());
-    REQUIRE(s.ui.click("layer.walls"));
+    // Toggle the points off and on.
+    REQUIRE_MESSAGE(s.ui.has("layer.points"), s.ui.dump());
+    REQUIRE(s.ui.click("layer.points"));
     REQUIRE(s.ui.frames(2));
-    CHECK_FALSE(s.state.settings().layers.visible(Layer::Walls));
-    CHECK(cv.stats().walls == 0);
-    CHECK(std::find(cv.stats().drawn.begin(), cv.stats().drawn.end(), Layer::Walls) == cv.stats().drawn.end());
-    REQUIRE(s.ui.click("layer.walls"));
+    CHECK_FALSE(s.state.settings().layers.visible(Layer::Points));
+    CHECK(cv.stats().points == 0);
+    CHECK(std::find(cv.stats().drawn.begin(), cv.stats().drawn.end(), Layer::Points) == cv.stats().drawn.end());
+    REQUIRE(s.ui.click("layer.points"));
     REQUIRE(s.ui.frames(2));
-    CHECK(cv.stats().walls == 1);
+    CHECK(cv.stats().points == 3);
 
-    // Order: the walls one place down (below the binned layer).
-    const std::size_t before = s.state.settings().layers.position(Layer::Walls);
-    REQUIRE(s.ui.click("layer.walls.down"));
-    REQUIRE(s.ui.frames(2));
-    CHECK(s.state.settings().layers.position(Layer::Walls) == before - 1);
+    // Order: the points one place down (below the binned layer) and back.
     CHECK(s.ui.find("layer.points.up")->disabled);  // already on top
+    const std::size_t before = s.state.settings().layers.position(Layer::Points);
+    REQUIRE(s.ui.click("layer.points.down"));
+    REQUIRE(s.ui.frames(2));
+    CHECK(s.state.settings().layers.position(Layer::Points) == before - 1);
+    REQUIRE(s.ui.click("layer.points.up"));
+    REQUIRE(s.ui.frames(2));
+    CHECK(s.state.settings().layers.position(Layer::Points) == before);
     CHECK(s.ui.find("layer.plan.down")->disabled);  // already at the bottom
 
     // Zoom buttons and the wheel change the zoom; Fit restores it; a drag pans.
@@ -236,8 +254,6 @@ TEST_CASE("project window on the demo: plan tiles, points, map, stale badge, DEM
         REQUIRE(c);
         CHECK_MESSAGE(cv.stats().tiles > 0, cv.tile_error());
         CHECK(cv.stats().points == c->points.count());
-        CHECK(cv.stats().walls == c->walls.size());
-        CHECK(cv.stats().antennas == c->antennas.size());
         CHECK(cv.stats().interpolation);
         CHECK_FALSE(cv.stats().stale_badge);
         CHECK(cv.stats().scale.pixels > 0.0);
@@ -253,11 +269,15 @@ TEST_CASE("project window on the demo: plan tiles, points, map, stale badge, DEM
         REQUIRE(cv.hover().point);
         CHECK(cv.hover().text.find("Measured point") != std::string::npos);
 
-        // A change to the walls makes the map stale: still drawn, with the badge.
+        // A change of the scale makes the map stale: still drawn, with the badge.
         const std::string fid = c->floor_id;
-        const auto walls = s.state.project()->walls(fid);
-        REQUIRE_FALSE(walls.empty());
-        s.state.project()->remove_wall(fid, walls.front().id);
+        {
+            const bm::Building b = s.state.project()->building();
+            bm::Scale sc;
+            sc.method = bm::Scale::Method::Factor;
+            sc.metres_per_unit = *b.metres_per_unit(*b.find_floor(fid)) * 1.01;
+            s.state.project()->set_scale(fid, sc);
+        }
         REQUIRE(s.ui.frames(3));
         CHECK(cv.stats().interpolation);
         CHECK(cv.stats().stale_badge);

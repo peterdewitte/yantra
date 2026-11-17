@@ -49,15 +49,13 @@ enum class TourStep {
     TrimFloors,    ///< trim several floors from the sheet (plan import window)
     SecondSource,  ///< a floor from a second plan source
     Scale,         ///< the floors' scale (approximate for the MAK sheets)
-    Walls,         ///< draw walls (Edit page)
-    Antennas,      ///< place DAS antennas
     MouseSurvey,   ///< DEMO-14: move slowly, click to interpolate
     Results,       ///< the measured points and the interpolated layer
     SwitchFloors,  ///< another floor tab
     Report,        ///< File > Report (phase 10)
     Finish,        ///< the end: the finished example project (DEMO-13)
 };
-inline constexpr int kTourStepCount = 13;
+inline constexpr int kTourStepCount = 11;
 const char* tour_step_key(TourStep s) noexcept;  ///< "choose", "new_project", ...
 std::optional<TourStep> parse_tour_step(std::string_view key) noexcept;
 
@@ -200,7 +198,6 @@ private:
     Result show_new_project();
     Result show_import(const demo::DemoSheet& sheet, bool trim_all);
     Result show_scale();
-    Result show_walls(bool antennas);
     Result show_mouse_survey();
     Result show_finished();
 

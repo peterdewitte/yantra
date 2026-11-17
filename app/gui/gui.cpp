@@ -40,8 +40,6 @@ const char* dialog_id(Dialog d, const AppState& state) {
     case Dialog::About: return tr("About Yantra###dlg.about");
     case Dialog::FloorProperties: return tr("Floor properties###dlg.floor_properties");
     case Dialog::RemoveFloor: return tr("Remove floor?###dlg.remove_floor");
-    case Dialog::AntennaProperties: return tr("Antenna properties###dlg.antenna");
-    case Dialog::Materials: return tr("Wall classes###dlg.materials");
     case Dialog::InterpolationSettings: return tr("Interpolation settings###dlg.interpolation");
     case Dialog::Settings: return tr("Settings###dlg.settings");
     case Dialog::ResetSettings: return tr("Reset all settings?###dlg.reset_settings");
@@ -378,7 +376,7 @@ void Gui::draw_project_screen() {
                          : tr("Move the floor one place up in the level order (the floors swap levels)."));
     same_line_if(label_w(tr("Remove...###floor.remove")));
     if (ImGui::Button(tr("Remove...###floor.remove"))) (void)state_.request_remove_floor(id);
-    text_tooltip(tr("Remove the floor with its walls, antennas and walk tests (you are asked first)."));
+    text_tooltip(tr("Remove the floor with its walk tests (you are asked first)."));
     // The view's buttons stay together (the bar, Fit, + and -).
     same_line_if(ImGui::CalcTextSize("|").x + ImGui::GetStyle().ItemSpacing.x * 4.0F + label_w(tr("Fit###plan.fit")) +
                  label_w("+") + label_w("-"));
@@ -405,9 +403,7 @@ void Gui::draw_project_screen() {
     }
     {
         // The hint after the buttons when it fits there, else on a line of its own.
-        const char* hint = state_.floor_editor() && state_.floor_editor()->wants_left_button()
-                               ? tr("Middle or right drag pans, wheel zooms")
-                               : tr("Drag to pan, wheel to zoom");
+        const char* hint = tr("Drag to pan, wheel to zoom");
         same_line_if(ImGui::CalcTextSize(hint).x);
         ImGui::TextDisabled("%s", hint);
     }
@@ -434,7 +430,6 @@ void Gui::draw_project_screen() {
     };
     const Page pages[] = {
         {"layers", tr("Layers###panel.layers"), tr("The layers of the plan: what is shown and in which order."), true},
-        {"edit", tr("Edit###panel.edit"), tr("Draw walls and place antennas on the floor."), c != nullptr},
         {"walk", tr("Walk###panel.walk"), tr("Walk tests: measure the floor while you walk it."), c != nullptr},
         {"map", tr("Map###panel.map"), tr("The interpolated coverage map of the floor."), c != nullptr},
         {"survey", tr("Survey###panel.survey"), tr("The live survey: levels, cells, graphs, events and recording."), true},
@@ -474,9 +469,6 @@ void Gui::draw_project_screen() {
     if (page_ == "layers") {
         help_button("13.4");
         draw_layer_panel(*w, c);
-    } else if (page_ == "edit") {
-        help_button("13.3");
-        draw_edit_section();
     } else if (page_ == "walk") {
         help_button("7.1");
         draw_walk_section(c);
@@ -500,8 +492,7 @@ void Gui::draw_project_screen() {
     c = w->content(state_.settings().layers.bin_size_m);
     if (c != nullptr) {
         const bool walking = state_.live() != nullptr && state_.live()->running();
-        const bool editing = state_.floor_editor() != nullptr && state_.floor_editor()->wants_left_button();
-        canvas_->set_left_pans(!walking && !editing);
+        canvas_->set_left_pans(!walking);
         canvas_->set_overlay([this](ImDrawList* dl) { draw_plan_overlay(dl); });
         canvas_->draw(*w, *c, state_.settings().layers, ImGui::GetContentRegionAvail());
         handle_canvas_input();
@@ -705,7 +696,7 @@ void Gui::draw_status_bar(const std::vector<StatusPiece>& pieces, float h) {
 void Gui::draw_new_project() {
     NewProjectForm& f = state_.new_project_form();
     ImGui::PushTextWrapPos(0.0F);
-    ImGui::TextDisabled(tr("One project file holds one building: its floors, plans, walls, antennas and walk tests."));
+    ImGui::TextDisabled(tr("One project file holds one building: its floors, plans and walk tests."));
     ImGui::PopTextWrapPos();
     if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
     input_text(tr("Project name###name"), f.name);
@@ -1078,8 +1069,6 @@ const char* dialog_section(Dialog d) {
     case Dialog::RemoveFloor: return "13.1";
     case Dialog::PlanImport: return "13.2";
     case Dialog::About: return "1.2";
-    case Dialog::AntennaProperties:
-    case Dialog::Materials: return "13.3";
     case Dialog::InterpolationSettings: return "13.5";
     case Dialog::Settings: return "15";
     case Dialog::ResetSettings: return "15.4";
@@ -1108,8 +1097,6 @@ void Gui::draw_dialog_body(Dialog d) {
     case Dialog::About: draw_about(); break;
     case Dialog::FloorProperties: draw_floor_properties(); break;
     case Dialog::RemoveFloor: draw_remove_floor(); break;
-    case Dialog::AntennaProperties: draw_antenna_dialog(); break;
-    case Dialog::Materials: draw_materials_dialog(); break;
     case Dialog::InterpolationSettings: draw_interpolation_dialog(); break;
     case Dialog::Settings: draw_settings(); break;
     case Dialog::ResetSettings: draw_reset_settings(); break;
@@ -1145,12 +1132,12 @@ void Gui::draw_dialogs() {
         ImGui::SetNextWindowSize(ImVec2(vp->WorkSize.x * 0.96F, vp->WorkSize.y * 0.94F), ImGuiCond_Appearing);
     } else {
         // Dialogs fit small windows too (UI-13).
-        const bool wide = d == Dialog::Browse || d == Dialog::Materials || d == Dialog::Settings || d == Dialog::About ||
+        const bool wide = d == Dialog::Browse || d == Dialog::Settings || d == Dialog::About ||
                           d == Dialog::Export || d == Dialog::Report;
         const float width = std::min(em(wide ? 820.0F : 600.0F), vp->WorkSize.x * 0.95F);
-        // Dialogs whose content grows (the class form, the walls' own
-        // value, the settings tabs) fit their height every frame.
-        const bool grows = d == Dialog::Materials || d == Dialog::AntennaProperties || d == Dialog::Settings ||
+        // Dialogs whose content grows (the settings tabs) fit their height
+        // every frame.
+        const bool grows = d == Dialog::Settings ||
                            d == Dialog::Export || d == Dialog::Report || d == Dialog::AcceptanceProfiles ||
                            d == Dialog::Sharing;
         ImGui::SetNextWindowSize(ImVec2(width, 0.0F), grows ? ImGuiCond_Always : ImGuiCond_Appearing);

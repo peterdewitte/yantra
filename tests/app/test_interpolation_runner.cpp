@@ -33,8 +33,8 @@ fs::path scratch(const std::string& name) {
     return d;
 }
 
-/// A 20 x 10 m floor (0.05 m per unit) with a wall and an antenna, and
-/// optionally a walk with points falling off from the antenna.
+/// A 20 x 10 m floor (0.05 m per unit), optionally with a walk whose
+/// points fall off from (4, 5) m.
 struct Rig {
     std::shared_ptr<pj::Project> project;
     std::string floor;
@@ -49,15 +49,6 @@ struct Rig {
             f.scale.metres_per_unit = 0.05;
         }
         floor = project->add_floor(f);
-        bm::Wall w;
-        w.wall_class = "brick";
-        w.points = {{200, 0}, {200, 120}};
-        (void)project->add_wall(floor, w);
-        bm::Antenna a;
-        a.name = "DAS 1";
-        a.position = {80, 100};
-        a.height_m = 2.7;
-        (void)project->add_antenna(floor, a);
         if (!points) return;
         pj::Session s;
         s.floor_id = floor;

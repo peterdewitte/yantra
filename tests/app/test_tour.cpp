@@ -259,7 +259,7 @@ TEST_CASE("DEMO-11 the tour's steps, keys and settings round trip") {
     AppSettings a;
     a.tour.offered = true;
     a.tour.building = "fraunces";
-    a.tour.step = "walls";
+    a.tour.step = "scale";
     a.tour.done = {"choose", "new_project"};
     std::string error;
     const AppSettings b = settings_from_json(settings_to_json(a), error);
@@ -320,7 +320,7 @@ TEST_CASE("DEMO-11 DEMO-08 the tour with the Fraunces Tavern: every step by Show
 
     // Import, trim, second source, scale.
     CHECK_FALSE(t.view().done);
-    show_through(st, TourStep::Walls);
+    show_through(st, TourStep::MouseSurvey);
     const auto floors = st.project()->floors();
     REQUIRE(floors.size() == 2);  // one from each of the two sheets
     CHECK(st.project()->sources().size() == 2);
@@ -328,13 +328,6 @@ TEST_CASE("DEMO-11 DEMO-08 the tour with the Fraunces Tavern: every step by Show
         CHECK_FALSE(f.example_id.empty());
         CHECK(st.project()->building().has_scale(f));
     }
-    // Walls and antennas, with the cells the antennas serve.
-    show_through(st, TourStep::MouseSurvey);
-    for (const auto& f : st.project()->floors()) {
-        CHECK_FALSE(f.walls.empty());
-        CHECK_FALSE(f.antennas.empty());
-    }
-    CHECK_FALSE(st.project()->building().cells.empty());
     CHECK(st.project()->check().empty());
     // The Fraunces plans are bundled: no MAK credit line.
     CHECK_FALSE(st.plan_credit(floors[0].id));
@@ -345,12 +338,12 @@ TEST_CASE("DEMO-11 DEMO-08 the tour with the Fraunces Tavern: every step by Show
     CHECK(st.settings().tour.step == "mouse_survey");
     CHECK(st.settings().tour.building == "fraunces");
     const auto done = st.settings().tour.done;
-    CHECK(std::find(done.begin(), done.end(), "walls") != done.end());
+    CHECK(std::find(done.begin(), done.end(), "scale") != done.end());
     REQUIRE(st.trigger(Action::Tour).ok);
     CHECK(t.view().step == TourStep::MouseSurvey);
     // Back repeats a step.
     REQUIRE(t.back().ok);
-    CHECK(t.view().step == TourStep::Antennas);
+    CHECK(t.view().step == TourStep::Scale);
     CHECK(t.view().done);
     // Skip to the report (step 10.4): available, not done before a report.
     REQUIRE(t.go_to(TourStep::Report).ok);
@@ -432,10 +425,7 @@ TEST_CASE("DEMO-12 a MAK example: consent first, then the stand-in sheet fetched
     REQUIRE(t.view().step == TourStep::Scale);
     CHECK(t.view().text.find("approximate") != std::string::npos);
     show_through(st, TourStep::MouseSurvey);
-    for (const auto& f : st.project()->floors()) {
-        CHECK(st.project()->building().has_scale(f));
-        CHECK_FALSE(f.walls.empty());
-    }
+    for (const auto& f : st.project()->floors()) CHECK(st.project()->building().has_scale(f));
     // DEMO-12: credit, licence and the approximate scale with the plan.
     const auto c = st.plan_credit(floors[0].id);
     REQUIRE(c);

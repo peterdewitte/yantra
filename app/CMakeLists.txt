@@ -75,7 +75,6 @@ add_library(yantra_app_model STATIC
   model/src/file_browser.cpp
   model/src/i18n.cpp
   ${CMAKE_CURRENT_BINARY_DIR}/i18n_tables.cpp
-  model/src/floor_editor.cpp
   model/src/interpolation_runner.cpp
   model/src/live_survey.cpp
   model/src/manual.cpp
@@ -87,7 +86,6 @@ add_library(yantra_app_model STATIC
   model/src/network_checks.cpp
   model/src/post_processing.cpp
   model/src/project_window.cpp
-  model/src/wall_proposals.cpp
   model/src/report_export.cpp
   model/src/radio_windows.cpp
   model/src/replay_session.cpp

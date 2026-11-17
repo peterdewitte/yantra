@@ -50,8 +50,6 @@ const char* layer_key(Layer layer) {
     case Layer::Plan: return "plan";
     case Layer::Interpolation: return "interpolation";
     case Layer::Binned: return "binned";
-    case Layer::Walls: return "walls";
-    case Layer::Antennas: return "antennas";
     case Layer::Points: return "points";
     }
     return "?";

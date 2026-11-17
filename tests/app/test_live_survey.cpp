@@ -80,7 +80,7 @@ struct Rig {
         project = pj::Project::open(d / "demo.yantra");
         const bm::Building b = project->building();
         for (const bm::Floor& f : b.floors)
-            if (b.has_scale(f) && !f.antennas.empty()) {
+            if (b.has_scale(f) && !f.example_id.empty()) {
                 floor = f.id;
                 break;
             }

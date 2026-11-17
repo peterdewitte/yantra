@@ -63,11 +63,11 @@ TEST_CASE("DEMO-14 in the app: the mouse survey with the simulator, move slowly,
     ui.set_display_size(1400.0F, 1000.0F);
     REQUIRE(ui.frames(3));
     REQUIRE(state.open_project(d / "demo.yantra").ok);
-    // The first floor with a scale and antennas.
+    // The first floor with a scale and a fixed demo scene.
     const bm::Building b = state.project()->building();
     std::string floor;
     for (const bm::Floor& f : b.floors)
-        if (b.has_scale(f) && !f.antennas.empty() && floor.empty()) floor = f.id;
+        if (b.has_scale(f) && !f.example_id.empty() && floor.empty()) floor = f.id;
     REQUIRE_FALSE(floor.empty());
     REQUIRE(state.project_window()->select(floor));
     REQUIRE(ui.frames(3));
@@ -158,7 +158,7 @@ TEST_CASE("UI-01..04, UI-08, UI-11, REC-01, REC-05, REC-07, REC-08, REC-11 in th
     const bm::Building b = state.project()->building();
     std::string floor;
     for (const bm::Floor& f : b.floors)
-        if (b.has_scale(f) && !f.antennas.empty() && floor.empty()) floor = f.id;
+        if (b.has_scale(f) && !f.example_id.empty() && floor.empty()) floor = f.id;
     REQUIRE(state.project_window()->select(floor));
     REQUIRE(ui.frames(3));
     // UI-08: the status bar has the radio, recording, disk and power items.

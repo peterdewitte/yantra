@@ -35,8 +35,8 @@ fs::path scratch(const std::string& name) {
     return d;
 }
 
-/// A project with three floors given out of level order, walls, an
-/// antenna and a walk test with points on the ground floor.
+/// A project with three floors given out of level order and a walk test
+/// with points on the ground floor.
 std::unique_ptr<pj::Project> make_building(const fs::path& file) {
     auto p = pj::Project::create(file, pj::ProjectInfo{"Depot", "Site", "", ""});
     bm::Floor up;
@@ -53,17 +53,6 @@ std::unique_ptr<pj::Project> make_building(const fs::path& file) {
     cellar.name = "Basement";
     cellar.level = -1;
     (void)p->add_floor(cellar);
-    bm::Wall w;
-    w.wall_class = "concrete";
-    w.points = {{10, 10}, {390, 10}};
-    (void)p->add_wall(g, w);
-    w.wall_class = "plasterboard";
-    w.points = {{200, 10}, {200, 190}};
-    (void)p->add_wall(g, w);
-    bm::Antenna a;
-    a.name = "Hall";
-    a.position = {100, 100};
-    (void)p->add_antenna(g, a);
     pj::Session s;
     s.floor_id = g;
     const std::int64_t id = p->add_session(s);
@@ -95,13 +84,13 @@ TEST_CASE("layer settings: defaults, order, visibility and their JSON (IND-04)")
     CHECK(l.order.front() == Layer::Plan);
     CHECK(l.order.back() == Layer::Points);
     CHECK_FALSE(l.visible(Layer::Binned));  // an extra view (IND-30)
-    for (Layer x : {Layer::Plan, Layer::Walls, Layer::Antennas, Layer::Points, Layer::Interpolation})
+    for (Layer x : {Layer::Plan, Layer::Points, Layer::Interpolation})
         CHECK(l.visible(x));
     CHECK_FALSE(l.move(Layer::Points, +1));  // already on top
     CHECK_FALSE(l.move(Layer::Plan, -1));
     CHECK(l.move(Layer::Points, -1));
     CHECK(l.position(Layer::Points) == l.order.size() - 2);
-    l.set_visible(Layer::Walls, false);
+    l.set_visible(Layer::Points, false);
     l.set_visible(Layer::Binned, true);
     l.bin_size_m = 5.0;
     for (Layer x : kLayers) CHECK(parse_layer(layer_key(x)) == x);
@@ -114,14 +103,16 @@ TEST_CASE("layer settings: defaults, order, visibility and their JSON (IND-04)")
     CHECK(error.empty());
     CHECK(back.layers == l);
 
-    // Unknown and doubled keys are dropped; missing layers come back in
-    // their default place; a bad square size keeps the default.
+    // Unknown and doubled keys are dropped (also the walls layer of 0.3);
+    // missing layers come back in their default place; a bad square size
+    // keeps the default.
     const AppSettings odd = settings_from_json(
-        R"({"layers":{"order":["points","maps","points","plan"],"hidden":["walls",3,"nope"],"bin_size_m":0.1}})",
+        R"({"layers":{"order":["points","maps","points","plan"],"hidden":["walls","interpolation",3,"nope"],"bin_size_m":0.1}})",
         error);
     CHECK(odd.layers.order.size() == std::size(kLayers));
     CHECK(odd.layers.position(Layer::Points) < odd.layers.position(Layer::Plan));
-    CHECK_FALSE(odd.layers.visible(Layer::Walls));
+    CHECK_FALSE(odd.layers.visible(Layer::Interpolation));
+    CHECK(odd.layers.hidden.size() == 1);
     CHECK(odd.layers.visible(Layer::Binned));
     CHECK(odd.layers.bin_size_m == 2.0);
 }
@@ -167,10 +158,6 @@ TEST_CASE("project window: floor tabs by level, content of the layers, notes (IN
     const FloorContent* c = w.content();
     REQUIRE(c);
     CHECK(c->floor_id == g);
-    CHECK(c->walls.size() == 2);
-    CHECK(c->walls[0].rgb != c->walls[1].rgb);  // concrete darker than plasterboard
-    CHECK(c->antennas.size() == 1);
-    CHECK(c->antennas[0].label == "Hall");
     // IND-30: exactly the shared point list.
     yantra::survey::PointQuery q;
     q.floor_id = g;
@@ -193,7 +180,6 @@ TEST_CASE("project window: floor tabs by level, content of the layers, notes (IN
     const auto row = [&](Layer l) {
         return *std::find_if(rows.begin(), rows.end(), [&](const LayerRow& r) { return r.layer == l; });
     };
-    CHECK(row(Layer::Walls).label == "Walls (2)");
     CHECK_FALSE(row(Layer::Plan).available);
     CHECK(row(Layer::Plan).note.find("no plan picture") != std::string::npos);
     CHECK(row(Layer::Interpolation).label == "Map (interpolated)");
@@ -233,7 +219,6 @@ TEST_CASE("project window: floor tabs by level, content of the layers, notes (IN
     c = w.content();
     CHECK(c->points.count() == 0);
     CHECK(c->width > 0.0);  // a blank sheet of a default size
-    CHECK(c->walls.empty());
 }
 
 TEST_CASE("project window: rename, level, reorder and remove with confirmation (IND-04)") {
@@ -275,8 +260,6 @@ TEST_CASE("project window: rename, level, reorder and remove with confirmation (
     REQUIRE(w.pending_remove());
     const std::string& qn = w.pending_remove()->question;
     CHECK(qn.find("\"Hall level\"") != std::string::npos);
-    CHECK(qn.find("2 walls") != std::string::npos);
-    CHECK(qn.find("1 antenna") != std::string::npos);
     CHECK(qn.find("1 walk test") != std::string::npos);
     CHECK(qn.find("30 measured points") != std::string::npos);
     w.cancel_remove();
@@ -339,11 +322,15 @@ TEST_CASE("project window: the stored interpolation layer, its readout and the s
     layers.set_visible(Layer::Interpolation, false);
     CHECK_FALSE(w.hover(mid, 1.0, layers).any);
 
-    // A changed wall makes it stale: shown, marked, with the reason.
+    // A changed scale makes it stale: shown, marked, with the reason.
     const std::string fid = c->floor_id;
-    std::vector<bm::Wall> walls = p->walls(fid);
-    REQUIRE_FALSE(walls.empty());
-    p->remove_wall(fid, walls.front().id);
+    {
+        const bm::Building b = p->building();
+        bm::Scale sc;
+        sc.method = bm::Scale::Method::Factor;
+        sc.metres_per_unit = *b.metres_per_unit(*b.find_floor(fid)) * 1.01;
+        p->set_scale(fid, sc);
+    }
     c = w.content();
     REQUIRE(c->interpolation);
     CHECK(c->interpolation->stale);
@@ -412,8 +399,8 @@ TEST_CASE("app: floor properties, reorder and remove through the dialogs; layers
     CHECK(w->selected() == w->tabs().back().id);
 
     // Layers are settings, not project data.
-    st.set_layer_visible(Layer::Walls, false);
-    CHECK_FALSE(st.settings().layers.visible(Layer::Walls));
+    st.set_layer_visible(Layer::Points, false);
+    CHECK_FALSE(st.settings().layers.visible(Layer::Points));
     CHECK(st.settings_changed());
     CHECK_FALSE(st.move_layer(Layer::Points, +1).ok);
     REQUIRE(st.move_layer(Layer::Plan, +1).ok);

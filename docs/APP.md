@@ -77,8 +77,8 @@ rebuilds what changed on the next call:
 
 - `tabs()`: the floors ordered by level (`Name (level)`, points and scale
   in the tooltip); `select()`, `selected()`.
-- `content(bin_size_m)`: the selected floor's layers in plan units - walls
-  (colour by attenuation), antennas, the measured points
+- `content(bin_size_m)`: the selected floor's layers in plan units - the
+  measured points
   (`survey::point_list`, exactly the shared list, IND-30), the binned view
   (`survey::bin_points`, with its label, PP-05; needs a scale) and the
   newest stored interpolation (or the one `show_interpolation()` chose)
@@ -97,7 +97,7 @@ rebuilds what changed on the next call:
 Layer order, visibility and the square size are app settings
 (`AppSettings::layers`, JSON `"layers"`), not project data. Layers,
 bottom first by default: `plan`, `interpolation`, `binned` (hidden),
-`walls`, `antennas`, `points`.
+`points` (the `walls` and `antennas` keys of 0.3 settings are ignored).
 
 The Gui draws it (`draw_project_screen`): DEMO banner (`demo_banner`,
 label from the demo description, `AppState::demo_label()`), floor tabs
@@ -141,7 +141,7 @@ floor's sheet with that floor selected.
   page units (`pointer_down/move/up`), trim commands, Add as floor
   (`begin_add_floor`/`confirm_add_floor`, the window stays open), floors
   of this sheet (`placed()`, select, edit with `apply_edit` reanchoring
-  walls/antennas/scale points/reference in core, remove after a question),
+  scale points/reference in core, remove after a question),
   scale (`ScaleForm`: two points, scale bar, drawing scale 1:N when
   `drawing_scale_available()`), sharing within one sheet, the reference
   point. `trim_generation()` changes with every trim change (the view
@@ -174,55 +174,20 @@ floor's sheet with that floor selected.
   click its lower items use a tall display (clipped items are not
   clickable). Fixtures are generated (`yantra_plan_fixtures`: `fx::png`,
   `fx::png_with_dpi`, `fx::pdf`); PDF cases return early without PDFium.
-- Hooks: 9.4 edits walls and antennas on the floor in the project window
-  (the trim's reanchoring already moves them); phase 10 exports must use
+- Hooks: phase 10 exports must use
   `PlanImportWindow::restricted()`/`SourceFile::plan.embedded == false`
   to leave a restricted plan's image out and print its credit.
 
-## Editing, walk test and interpolation (step 9.4)
+## Walk test and interpolation (step 9.4)
 
 The side panel of the project window has pages `panel.layers` (above),
-`panel.edit`, `panel.walk` and `panel.map`. Their logic is in three
+`panel.walk` and `panel.map` (the Edit page with the wall and antenna
+editor of 0.3 is gone, IND-46). Their logic is in two
 `app/model` classes that `AppState` creates with the project (the project
 is a `shared_ptr` now) and drops before it; `AppState::tick()` runs each
 frame.
 
-`WallProposals` (`wall_proposals()`, IND-11 S) proposes walls from the plan
-image for the wall editor: `start_reason`, `start`, `cancel`, `view`,
-`accept`, `accept_all`, `reject`, `reject_all`, `set_min_length_m`. Controls
-`edit.propose`, `edit.propose_cancel`, `edit.propose_min`,
-`edit.proposal.accept|reject.<n>`, `edit.proposal.accept_all|reject_all`.
-Proposals stay in memory until accepted (docs/BUILDING_MODEL.md).
-
-`FloorEditor` (`floor_editor()`, IND-11, IND-12) edits the selected floor
-through the project and core `building/edit`:
-
-- tools `edit.tool.pan|select|wall|antenna|aim` (keys P, S, W, A; Aim
-  needs a selected directional antenna or outdoor donor); `pointer_down /
-  move / up`, `double_click`, `hover` in plan units with a hit tolerance
-  (8 screen pixels);
-- draw wall: a click per corner (snaps to other walls' corners), Enter or
-  double click ends it, Backspace removes the last corner, Esc drops it;
-  the class of new walls is `edit.draw_class`;
-- select: an antenna, a corner of the selected wall, or a wall; a drag
-  moves it (preview `drag_wall()` / `drag_antenna()`, one stored change
-  on release); double click on the selected wall adds a corner;
-  `edit.split` at an inner corner; `edit.delete` / Delete (a corner; a
-  wall of two corners goes as a whole);
-- forms: `wall_form()` (class, own value 0..100 dB), `antenna_form()`
-  (dialog `dlg.antenna`: name, model, outdoor, height, gain, pattern,
-  azimuth, beamwidth, front-to-back, direction, EIRP known, cable loss,
-  cell, `add_cell`), the wall-class table (dialog `dlg.materials`:
-  `mat.new`, `mat.edit.<id>`, `mat.remove.<id>` (disabled while used),
-  `mat.reset`, the form `mat.id`, `mat.name`, `mat.band.<n>.mhz|db`,
-  `mat.apply`);
-- undo / redo (`edit.undo`, `edit.redo`, Ctrl+Z, Ctrl+Y): each edit is a
-  snapshot of the floor's walls and antennas and the project's classes
-  and cells, put back with `Project::update_floor` (ids and order kept).
-  When the floor was changed elsewhere the history is dropped with a
-  note (`undo_note()`).
-
-`InterpolationRunner` (`interpolation()`, IND-41..45, OA-03) runs
+`InterpolationRunner` (`interpolation()`, IND-41, IND-43, IND-45, OA-03) runs
 `survey::InterpolationJob` in the background: `run(floor)` (metric: the
 serving carrier's level), `run(floor, &shown)` (the shown map's request,
 `interp.rerun`, marked "(stale)" when stale), `cancel` (`interp.cancel`),
@@ -734,7 +699,7 @@ Help > Tour, the first-start offer on the start screen (`start.tour_offer.yes/no
 `app/gui/tour_view.cpp`; manual 1.3.
 
 - Steps (`TourStep`, keys in `tour_step_key`): choose, new_project, import_sheet, trim_floors, second_source,
-  scale, walls, antennas, mouse_survey, results, switch_floors, report, finish. Each `TourView` has the title and
+  scale, mouse_survey, results, switch_floors, report, finish. Each `TourView` has the title and
   text, `targets` (control ids, most specific first; the Gui frames the first one the UiProbe saw in the last
   frame, `Gui::tour_overlay().target`), `done` (from the app state), `progress`, "Show me" (`can_show`,
   `show_reason`) and the DEMO-07 label. Back, Skip/Next, Leave; progress in `AppSettings::tour`
@@ -742,8 +707,7 @@ Help > Tour, the first-start offer on the start screen (`start.tour_offer.yes/no
 - Show me goes through the same commands as the controls: `AppState::new_project` (the tour's project
   `<user_data>/tour/<id>.yantra`), `import_plan_file`/`import_plan_source`, the plan import window's rectangle and
   Add as floor per described floor (several floors from one sheet), the described scale (factor or scale bar,
-  mapped through the page), walls and antennas mapped from the description's trim to the user's trim, the
-  description's cell database, the mouse survey with the simulated radio (`request_panel("walk")`), the layers,
+  mapped through the page), the description's cell database, the mouse survey with the simulated radio (`request_panel("walk")`), the layers,
   the next floor tab, and at the end the finished example (Fraunces: Open demo; MAK: a copy of the DEMO-13
   project in `<user_data>/demo/mak/<id>`). New floors on a described sheet get its `example_id` (trim centre
   inside the user's trim), so the DEMO-07 label and the simulator's scenario follow.

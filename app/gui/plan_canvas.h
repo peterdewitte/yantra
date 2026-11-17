@@ -32,8 +32,6 @@ namespace yantra::app {
 /// What the last frame drew (tests and the screenshot check).
 struct CanvasStats {
     std::size_t tiles = 0;        ///< plan tiles drawn (all levels)
-    std::size_t walls = 0;
-    std::size_t antennas = 0;
     std::size_t points = 0;       ///< markers drawn: always every point of the list when shown
     float point_radius_px = 0.0F;
     std::size_t bins = 0;
@@ -89,8 +87,6 @@ private:
     void draw_tiles(ImDrawList* dl, ImVec2 origin);
     void draw_interpolation(ImDrawList* dl, ImVec2 origin, const FloorContent& c);
     void draw_binned(ImDrawList* dl, ImVec2 origin, const FloorContent& c);
-    void draw_walls(ImDrawList* dl, ImVec2 origin, const FloorContent& c);
-    void draw_antennas(ImDrawList* dl, ImVec2 origin, const FloorContent& c);
     void draw_points(ImDrawList* dl, ImVec2 origin, ImVec2 size, const FloorContent& c);
     void draw_overlay(ImDrawList* dl, ImVec2 origin, ImVec2 size, const FloorContent& c, const LayerSettings& layers);
     ImVec2 to_screen(ImVec2 origin, Point2 plan) const;
