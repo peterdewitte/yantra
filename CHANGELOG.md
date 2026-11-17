@@ -32,6 +32,37 @@ well; they change independently of the radio API version.
 
 ## [Unreleased]
 
+## [0.3.2] - 2026-11-17
+
+Tag v0.3.2 (RAD-98). "No scene": `get_scene` returning `YR_ERR_NOT_FOUND`
+for the floor shown means "no scene, use the defaults" (owner decision
+2026-11-17; Yantra 0.4 gives scenes only for its bundled example floors).
+Radio API 1.1, record files 1, scene JSON 1.1 and scenario files 1
+unchanged. Simulator 0.3.1, yantra-radio-host 0.2.2; pei 0.2.0, hackrf
+and soapysdr as in 0.2.6.
+
+### Changed
+- Simulator: a floor without a scene (`get_scene` NOT_FOUND) gets the
+  scenario's own levels, logged once per plugin instance and plan at INFO
+  ("the floor shown has no scene; the scenario's own levels are used")
+  instead of a WARNING at every start and context change; a scene removed
+  while streaming (`SCENE_CHANGED`, then NOT_FOUND) rebuilds with the
+  defaults. Other statuses and a scene that is not valid JSON keep their
+  warnings (RAD-18, RAD-36, RAD-61).
+
+### Added
+- `yantra-radio-host stream --no-scene` (`ContextOptions::no_scene`): the
+  emulated plan's floors have no scene, so `get_scene` gives NOT_FOUND.
+- Conformance kit: the `context` check also streams on a floor without a
+  scene and expects records (RAD-18).
+
+### Tests
+- `test_simulator`: NOT_FOUND gives the scenario's levels, exactly one
+  INFO line and no warning, also after PLAN_CHANGED, SCENE_CHANGED and a
+  second stream; another plan gets its own line.
+- `simulator_cli_no_scene`: the same through the `yantra-radio-host` command
+  line; `test_radio_host`: the emulated NOT_FOUND.
+
 ## [0.3.1] - 2026-11-12
 
 Tag v0.3.1 (RAD-98). A fix release: no shipped program or library names a

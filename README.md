@@ -58,8 +58,10 @@ and how: [DEVICES.md](DEVICES.md) (none on real hardware yet).
 
 ## Status
 
-Release 0.3.1 (2026-11-12, tag v0.3.1; [CHANGELOG.md](CHANGELOG.md)): a fix
-release of 0.3.0 (`yantra-gen` finds its scenarios relative to itself; no
+Release 0.3.2 (2026-11-17, tag v0.3.2; [CHANGELOG.md](CHANGELOG.md)): the
+simulator treats a floor without a scene (`get_scene` NOT_FOUND) as "no
+scene, use the defaults", logged once at INFO. Release 0.3.1 (2026-11-12,
+tag v0.3.1): a fix release of 0.3.0 (`yantra-gen` finds its scenarios relative to itself; no
 shipped file names a folder of the build machine). Release 0.3.0
 (2026-11-10, tag v0.3.0): radio API 1.1
 (levels in dBm without SELF_CALIBRATED), the simulator's "Levels" setting
