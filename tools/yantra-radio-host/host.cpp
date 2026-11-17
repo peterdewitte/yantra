@@ -138,6 +138,7 @@ int64_t api_utc(yr_host*)
 }
 
 yr_status api_push(yr_stream* stream, const yr_record* record);
+yr_status api_push_spectrum(yr_stream* stream, const yr_spectrum* spectrum);
 void api_event(yr_stream* stream, uint32_t event, int64_t value);
 
 void api_devices_changed(yr_host* h)
@@ -489,6 +490,60 @@ yr_status StreamSink::push(const yr_record* record)
     return YR_OK;
 }
 
+yr_status StreamSink::push_spectrum(const yr_spectrum* spectrum)
+{
+    {
+        std::lock_guard lock(mutex_);
+        ++pushes_;
+        ++in_push_;
+    }
+    push_cv_.notify_all();
+    struct Leave {
+        std::atomic<uint32_t>& n;
+        ~Leave() { --n; }
+    } leave{in_push_};
+    if (options_.push_hold.count() > 0)
+        std::this_thread::sleep_for(options_.push_hold);
+    if (spectrum == nullptr)
+        return YR_ERR_INVALID_ARGUMENT;
+    {
+        std::lock_guard lock(mutex_);
+        if (!active_) {
+            if (stopped_)
+                ++late_;
+            return YR_ERR_BUSY;
+        }
+    }
+    std::vector<std::string> problems = radio::validate_spectrum(host_.descriptor(), *spectrum);
+    if (!problems.empty()) {
+        std::lock_guard lock(mutex_);
+        ++invalid_;
+        for (std::string& p : problems)
+            if (problems_.size() < 10)
+                problems_.push_back(std::move(p));
+        return YR_ERR_INVALID_ARGUMENT;
+    }
+    Item item;
+    item.is_record = false;
+    item.is_spectrum = true;
+    item.spectrum = spectrum_from_c(*spectrum, monotonic_now());
+    {
+        std::lock_guard lock(mutex_);
+        if (!active_) {
+            if (stopped_)
+                ++late_;
+            return YR_ERR_BUSY;
+        }
+        if (queue_.size() >= options_.capacity) {
+            ++dropped_;
+            return YR_OK;
+        }
+        queue_.push_back(std::move(item));
+    }
+    cv_.notify_one();
+    return YR_OK;
+}
+
 void StreamSink::event(uint32_t event, int64_t value)
 {
     Item item;
@@ -563,6 +618,17 @@ yr_status api_push(yr_stream* stream, const yr_record* record)
     }
 }
 
+yr_status api_push_spectrum(yr_stream* stream, const yr_spectrum* spectrum)
+{
+    if (stream == nullptr || stream->sink == nullptr)
+        return YR_ERR_INVALID_ARGUMENT;
+    try {
+        return stream->sink->push_spectrum(spectrum);
+    } catch (...) {
+        return YR_ERR_NO_MEMORY;
+    }
+}
+
 void api_event(yr_stream* stream, uint32_t event, int64_t value)
 {
     if (stream == nullptr || stream->sink == nullptr)
@@ -629,6 +695,7 @@ std::unique_ptr<Host> Host::load(const std::filesystem::path& path, const HostCo
     api.stream_event = api_event;
     api.devices_changed = api_devices_changed;
     api.settings_changed = api_settings_changed;
+    api.push_spectrum = config.spectrum_sink ? api_push_spectrum : nullptr;
     if (scene) {
         api.get_floor_plan = api_floor_plan;
         api.get_cursor = api_cursor;
@@ -975,13 +1042,66 @@ std::string format_value(const Value& v, const std::vector<radios::EnumItem>& it
     }
 }
 
+// --- spectra (API 1.2, RAD-140) ------------------------------------------------
+
+Spectrum spectrum_from_c(const yr_spectrum& s, int64_t received_ns)
+{
+    Spectrum out;
+    out.flags = s.flags;
+    out.monotonic_ns = s.time.monotonic_ns;
+    out.utc_ns = s.time.utc_ns;
+    out.utc_source = s.time.utc_source;
+    out.received_ns = received_ns;
+    out.start_hz = s.start_hz;
+    out.stop_hz = s.stop_hz;
+    out.bin_width_hz = s.bin_width_hz;
+    out.power_db.assign(s.power_db, s.power_db + s.bin_count);
+    return out;
+}
+
+std::string spectrum_summary(const Spectrum& s, bool dbm)
+{
+    const char* unit = dbm ? " dBm" : " dBFS";
+    char buf[256];
+    if (s.power_db.empty())
+        return "spectrum: no bins";
+    const auto peak = std::max_element(s.power_db.begin(), s.power_db.end());
+    std::vector<double> sorted = s.power_db;
+    std::nth_element(sorted.begin(), sorted.begin() + static_cast<std::ptrdiff_t>(sorted.size() / 2),
+                     sorted.end());
+    const double peak_hz =
+        s.start_hz + (static_cast<double>(peak - s.power_db.begin()) + 0.5) * s.bin_width_hz;
+    std::snprintf(buf, sizeof buf,
+                  "spectrum %.4f-%.4f MHz, %zu bins of %.3f kHz, peak %.1f%s at %.4f MHz, "
+                  "median %.1f%s%s",
+                  s.start_hz / 1e6, s.stop_hz / 1e6, s.power_db.size(), s.bin_width_hz / 1e3,
+                  *peak, unit, peak_hz / 1e6, sorted[sorted.size() / 2], unit,
+                  (s.flags & YR_RECORD_SIMULATED) != 0 ? ", simulated" : "");
+    return buf;
+}
+
+std::string spectrum_csv(const Spectrum& s)
+{
+    std::string line = std::to_string(s.utc_ns);
+    char buf[64];
+    std::snprintf(buf, sizeof buf, ",%.3f,%.6f,%zu,%u", s.start_hz, s.bin_width_hz,
+                  s.power_db.size(), s.flags);
+    line += buf;
+    for (double p : s.power_db) {
+        std::snprintf(buf, sizeof buf, ",%.2f", p);
+        line += buf;
+    }
+    return line;
+}
+
 // --- streaming ------------------------------------------------------------------
 
 StreamResult run_stream(Host& host, yr_device* device, const yr_plan& plan,
                         const StreamLimits& limits,
                         const std::function<void(const radios::Record&)>& on_record,
                         const std::function<void(const radios::Event&)>& on_event,
-                        const SinkOptions& sink_options)
+                        const SinkOptions& sink_options,
+                        const std::function<void(const Spectrum&)>& on_spectrum)
 {
     using clock = std::chrono::steady_clock;
     StreamResult result;
@@ -1006,7 +1126,11 @@ StreamResult run_stream(Host& host, yr_device* device, const yr_plan& plan,
 
     auto handle_items = [&](std::deque<StreamSink::Item>& items) {
         for (StreamSink::Item& item : items) {
-            if (item.is_record) {
+            if (item.is_spectrum) {
+                ++result.spectra;
+                if (on_spectrum)
+                    on_spectrum(item.spectrum);
+            } else if (item.is_record) {
                 if (limits.max_records != 0 && result.records >= limits.max_records) {
                     ++result.records_beyond_limit;
                     continue;

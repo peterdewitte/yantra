@@ -28,10 +28,11 @@ std::string scene_text()
     return s.str();
 }
 
-std::unique_ptr<Host> load_fake(const ContextOptions& ctx = {})
+std::unique_ptr<Host> load_fake(const ContextOptions& ctx = {}, bool spectrum_sink = true)
 {
     HostConfig cfg;
     cfg.context = ctx;
+    cfg.spectrum_sink = spectrum_sink;
     std::string error;
     auto host = Host::load(FAKE_PLUGIN, cfg, error);
     REQUIRE_MESSAGE(host != nullptr, error);
@@ -459,4 +460,52 @@ TEST_CASE("host: values are parsed and shown by type")
     CHECK(parse_value(d, "5", v, error));
     CHECK_FALSE(parse_value(d, "six", v, error));
     CHECK(format_value(Value{}) == "-");
+}
+
+TEST_CASE("host: spectra come with YR_PLAN_SPECTRUM and only through a sink (RAD-140)")
+{
+    yr_plan plan = serving_plan();
+    plan.flags = YR_PLAN_SPECTRUM;
+    plan.spectrum_first_hz = 390'000'000;
+    plan.spectrum_last_hz = 394'000'000;
+    StreamLimits limits;
+    limits.max_seconds = 1.3;
+    SUBCASE("the host table has the spectrum sink") {
+        auto host = load_fake();
+        CHECK(host->host_api().struct_size == sizeof(yr_host_api));
+        CHECK(yr_host_spectrum_sink(&host->host_api()) != nullptr);
+        yr_device* dev = open_fake(*host);
+        std::vector<Spectrum> spectra;
+        const StreamResult r = run_stream(*host, dev, plan, limits, {}, {}, SinkOptions{},
+                                          [&](const Spectrum& s) { spectra.push_back(s); });
+        CHECK(r.start_status == YR_OK);
+        CHECK(r.invalid == 0);
+        CHECK(r.spectra == spectra.size());
+        REQUIRE(spectra.size() >= 1);
+        const Spectrum& s = spectra.front();
+        CHECK(s.start_hz == 390e6);
+        CHECK(s.stop_hz == doctest::Approx(394e6));
+        CHECK(s.power_db.size() == 800);
+        CHECK((s.flags & YR_RECORD_SIMULATED) != 0);
+        CHECK(s.received_ns >= s.monotonic_ns);
+        CHECK(spectrum_summary(s, false).find("390.0000-394.0000 MHz, 800 bins") != std::string::npos);
+        const std::string csv = spectrum_csv(s);
+        CHECK(csv.find(",390000000.000,5000.000000,800,8,") != std::string::npos);
+        // Without the plan flag: records only.
+        const StreamResult plain = run_stream(*host, dev, serving_plan(), limits, {}, {},
+                                              SinkOptions{}, [](const Spectrum&) {});
+        CHECK(plain.records > 0);
+        CHECK(plain.spectra == 0);
+        host->descriptor().stream->close(dev);
+    }
+    SUBCASE("a host without a spectrum sink gets records only") {
+        auto host = load_fake({}, false);
+        CHECK(yr_host_spectrum_sink(&host->host_api()) == nullptr);
+        yr_device* dev = open_fake(*host);
+        const StreamResult r = run_stream(*host, dev, plan, limits, {}, {});
+        CHECK(r.start_status == YR_OK);
+        CHECK(r.records > 0);
+        CHECK(r.spectra == 0);
+        host->descriptor().stream->close(dev);
+    }
 }

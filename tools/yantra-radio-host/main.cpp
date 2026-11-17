@@ -100,6 +100,11 @@ Plan (stream, default --serving):
   --carriers HZ[,HZ...]     measure these carriers
   --scan FIRST:LAST[:STEP]  sweep a band (SCAN plugins)
   --neighbours              also measure the announced neighbours
+  --spectrum                ask for spectra (SPECTRUM plugins, radio API 1.2,
+                            RAD-140): one summary line per spectrum on stderr
+  --spectrum-band FIRST:LAST  spectrum band in Hz (default 380-400 MHz)
+  --spectrum-out FILE       also write the spectra as CSV lines: utc_ns,
+                            start_hz,bin_width_hz,bin_count,flags,power...
 Limits (stream; without them it runs until the stream ends or Ctrl+C):
   --records N               stop after N records
   --duration S              stop after S seconds
@@ -143,6 +148,7 @@ struct Options {
     uint64_t max_records = 0;
     double duration = 0.0;
     std::string out = "-";
+    std::string spectrum_out;
     bool quiet = false;
     bool sensors = false;
     bool no_plan = false;
@@ -240,7 +246,8 @@ std::string caps_text(uint32_t caps)
                             {YR_CAP_RETUNE_LIVE, "retune_live"},
                             {YR_CAP_SIMULATED, "simulated"},
                             {YR_CAP_SCENE, "scene"},
-                            {YR_CAP_SELF_CALIBRATED, "self_calibrated"}});
+                            {YR_CAP_SELF_CALIBRATED, "self_calibrated"},
+                            {YR_CAP_SPECTRUM, "spectrum"}});
 }
 
 std::string setting_flags_text(uint32_t flags)
@@ -586,6 +593,17 @@ int cmd_stream(const Options& o)
         writer->write_header(header);
     }
 
+    std::ofstream spectrum_file;
+    if (!o.spectrum_out.empty()) {
+        spectrum_file.open(o.spectrum_out, std::ios::binary | std::ios::trunc);
+        if (!spectrum_file) {
+            std::cerr << "error: cannot write " << o.spectrum_out << "\n";
+            host->descriptor().stream->close(device);
+            return kExitUsage;
+        }
+    }
+    const bool spectrum_dbm = (host->descriptor().capabilities & YR_CAP_SELF_CALIBRATED) != 0;
+
     StreamLimits limits;
     limits.max_records = o.max_records;
     limits.max_seconds = o.duration;
@@ -601,6 +619,14 @@ int cmd_stream(const Options& o)
         [&](const radios::Event& ev) {
             if (writer)
                 writer->write_event(ev);
+        },
+        SinkOptions{},
+        [&](const Spectrum& sp) {
+            std::cerr << spectrum_summary(sp, spectrum_dbm ||
+                                                  (sp.flags & YR_RECORD_LEVEL_DBM) != 0)
+                      << "\n";
+            if (spectrum_file.is_open())
+                spectrum_file << spectrum_csv(sp) << "\n";
         });
     std::signal(SIGINT, SIG_DFL);
     std::signal(SIGTERM, SIG_DFL);
@@ -627,7 +653,9 @@ int cmd_stream(const Options& o)
     host->descriptor().stream->close(device);
     host->wait_notifications_idle();
 
-    std::cerr << "stream: records " << r.records << ", events " << r.events << ", invalid "
+    std::cerr << "stream: records " << r.records << ", events " << r.events
+              << ((o.plan.flags & YR_PLAN_SPECTRUM) != 0 ? ", spectra " + std::to_string(r.spectra) : "")
+              << ", invalid "
               << r.invalid << ", dropped " << r.dropped << ", late " << r.late << ", stop "
               << (r.stop_reason.empty() ? "?" : r.stop_reason) << "\n";
     if (r.stats_ok)
@@ -882,6 +910,8 @@ int main(int argc, char** argv)
             o.uncalibrated = true;
         } else if (a == "--neighbours") {
             o.plan.flags |= YR_PLAN_MEASURE_NEIGHBOURS;
+        } else if (a == "--spectrum") {
+            o.plan.flags |= YR_PLAN_SPECTRUM;
         } else if (a == "--no-plan") {
             o.no_plan = true;
         } else if (a == "--no-scene") {
@@ -934,6 +964,16 @@ int main(int argc, char** argv)
                 return usage_error("--duration needs seconds above 0");
         } else if (a == "--out") {
             o.out = v;
+        } else if (a == "--spectrum-out") {
+            o.spectrum_out = v;
+            o.plan.flags |= YR_PLAN_SPECTRUM;
+        } else if (a == "--spectrum-band") {
+            const auto parts = split(v, ':');
+            o.plan.flags |= YR_PLAN_SPECTRUM;
+            if (parts.size() != 2 || !parse_u64(parts[0], o.plan.spectrum_first_hz) ||
+                !parse_u64(parts[1], o.plan.spectrum_last_hz) ||
+                o.plan.spectrum_last_hz <= o.plan.spectrum_first_hz)
+                return usage_error("--spectrum-band needs FIRST:LAST in Hz");
         } else if (a == "--scene") {
             std::string json;
             if (!read_text(v, json)) {

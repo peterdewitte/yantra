@@ -6,7 +6,8 @@
 // pulls the scene and the walk/cursor position through the host's context
 // callbacks (RAD-18, RAD-36) and delivers SIMULATED records with
 // sim_position (RAD-19) at a level from the distance to the cell's
-// nearest antenna. Settings of every type, a preset, sensors, an action
+// nearest antenna, and with YR_PLAN_SPECTRUM one spectrum per second
+// (SPECTRUM, radio API 1.2, RAD-140). Settings of every type, a preset, sensors, an action
 // and a self-test exercise device control (RAD-40..46). Not an example to
 // copy: the example beacon plugin (RAD-64) is that.
 //
@@ -118,7 +119,10 @@ struct Plugin {
     /** Faults for the conformance kit's own tests (YANTRA_FAKE_FAULT, a
      *  comma list read at init): no_settings_changed, off_raster, no_busy,
      *  slow_stop, any_plan, level_dbm (records flagged LEVEL_DBM while the
-     *  device entry says dBFS). */
+     *  device entry says dBFS); spectra (RAD-140): no_spectrum (none
+     *  delivered), spectrum_slow (one per 3 s), spectrum_bins (5000 bins),
+     *  spectrum_flags (SIMULATED missing), spectrum_unasked (also without
+     *  YR_PLAN_SPECTRUM). */
     std::string faults;
     bool fault(const char* name) const
     {
@@ -145,6 +149,7 @@ struct Device {
     std::condition_variable cv;
     bool stop = false;
     std::atomic<uint64_t> delivered{0};
+    std::atomic<uint64_t> spectra{0};
     // scene
     yantra::radios::Scene scene;
     bool have_scene = false;
@@ -239,11 +244,53 @@ void load_scene(Device& d)
 
 // --- stream thread -------------------------------------------------------------
 
+// One spectrum per second (fault spectrum_slow: per 3 s) of the plan's band
+// with a peak at each carrier, when the plan asks for it (RAD-140).
+void maybe_spectrum(Device* d, const yr_plan& plan, const std::vector<uint64_t>& carriers,
+                    double level, int64_t& next_ns)
+{
+    const Plugin& p = *d->plugin;
+    const yr_host_api* h = p.host;
+    const yr_push_spectrum_fn push = yr_host_spectrum_sink(h);
+    if (push == nullptr || p.fault("no_spectrum"))
+        return;
+    if ((plan.flags & YR_PLAN_SPECTRUM) == 0 && !p.fault("spectrum_unasked"))
+        return;
+    const int64_t now = h->monotonic_ns(h->host);
+    if (next_ns != 0 && now < next_ns)
+        return;
+    next_ns = now + (p.fault("spectrum_slow") ? 3'000'000'000 : 1'000'000'000);
+    double first = 0.0, last = 0.0;
+    yantra::radio::spectrum_band(plan, first, last);
+    const uint32_t bins = p.fault("spectrum_bins") ? 5000u : 800u;
+    const double width = (last - first) / bins;
+    std::vector<double> power(bins, -120.0);
+    for (uint64_t hz : carriers) {
+        const double at = (static_cast<double>(hz) - first) / width;
+        if (at >= 0.0 && at < bins)
+            power[static_cast<std::size_t>(at)] = level;
+    }
+    yr_spectrum sp{};
+    sp.struct_size = sizeof sp;
+    sp.flags = p.fault("spectrum_flags") ? 0u : YR_RECORD_SIMULATED;
+    sp.time.monotonic_ns = now;
+    sp.time.utc_ns = h->utc_now_ns(h->host);
+    sp.time.utc_source = YR_TIME_SOURCE_SYSTEM;
+    sp.start_hz = first;
+    sp.bin_width_hz = width;
+    sp.bin_count = bins;
+    sp.stop_hz = first + bins * width;
+    sp.power_db = power.data();
+    if (push(d->sink, &sp) == YR_OK)
+        ++d->spectra;
+}
+
 void stream_main(Device* d)
 {
     const yr_host_api* h = d->plugin->host;
     bool first = true;
     uint64_t pushed = 0;
+    int64_t next_spectrum_ns = 0;
     std::unique_lock lock(d->mutex);
     while (!d->stop) {
         // A consistent copy of what the control thread may change.
@@ -334,6 +381,10 @@ void stream_main(Device* d)
                     ++d->delivered;
             }
         }
+        std::vector<uint64_t> hz;
+        for (const Cell& c : cells)
+            hz.push_back(c.hz);
+        maybe_spectrum(d, plan, hz, -50.0 + (gain_db - 20.0), next_spectrum_ns);
         lock.lock();
         if (stop_after != 0 && pushed >= stop_after) {
             d->state = YR_DEVICE_OPEN;
@@ -472,7 +523,7 @@ yr_status fake_set_plan(yr_device* device, const yr_plan* plan)
     if (plan == nullptr || (plan->type != YR_PLAN_SERVING && plan->type != YR_PLAN_CARRIERS &&
                             !d->plugin->fault("any_plan")))
         return YR_ERR_UNSUPPORTED;
-    d->plan = *plan;
+    yr_plan_read(plan, &d->plan);
     d->carriers.assign(plan->carriers_hz, plan->carriers_hz + plan->carrier_count);
     d->plan.carriers_hz = nullptr;
     return YR_OK;
@@ -502,7 +553,7 @@ yr_status fake_start(yr_device* device, const yr_plan* plan, yr_stream* sink)
             return YR_ERR_BUSY;
         if (d->thread.joinable())
             d->thread.join(); // a stream that ended by itself
-        d->plan = *plan;
+        yr_plan_read(plan, &d->plan);
         d->carriers.clear();
         if (plan->type == YR_PLAN_CARRIERS)
             d->carriers.assign(plan->carriers_hz, plan->carriers_hz + plan->carrier_count);
@@ -734,7 +785,7 @@ extern "C" YR_EXPORT const yr_descriptor* yantra_radio_entry(void)
         sizeof(yr_descriptor),
         // fake_radio_v2 is a plugin of radio API 2.0 (the host refuses it).
         {FAKE_API_MAJOR, FAKE_API_MAJOR == YR_API_VERSION_MAJOR ? YR_API_VERSION_MINOR : 0u},
-        YR_CAP_SIMULATED | YR_CAP_SCENE,
+        YR_CAP_SIMULATED | YR_CAP_SCENE | (FAKE_API_MAJOR == YR_API_VERSION_MAJOR ? YR_CAP_SPECTRUM : 0u),
         "fake-radio",
         "Fake radio (tests)",
         "0.1.0",

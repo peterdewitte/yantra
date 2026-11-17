@@ -65,11 +65,14 @@ TEST_CASE("the beacon example plugin passes the kit")
     CHECK(r.device == "beacon:0");
     for (const char* id : {"load", "version", "enumerate", "open_close", "settings", "persistence",
                            "actions", "presets", "sensors", "self_test", "plans", "records",
-                           "plan_change", "state_machine", "stop_during_push", "sink_full",
+                           "spectrum", "plan_change", "state_machine", "stop_during_push", "sink_full",
                            "completeness", "scope", "cleanup"})
         CHECK_MESSAGE(result_of(r, id) == "pass", id);
     CHECK(result_of(r, "hotplug") == "skip"); // no HOTPLUG capability
     CHECK(result_of(r, "context") == "skip"); // no SCENE capability
+    const CheckResult* spectrum = find(r, "spectrum"); // no SPECTRUM: none delivered (RAD-140)
+    REQUIRE(spectrum != nullptr);
+    CHECK(spectrum->detail.find("no SPECTRUM capability") != std::string::npos);
 
     const auto j = nlohmann::json::parse(conformance_json(r));
     CHECK(j["format"] == "yantra-radio-conformance");
@@ -88,6 +91,7 @@ TEST_CASE("the fake SCENE plugin passes the kit, context check included")
     CHECK(r.passed());
     CHECK(result_of(r, "context") == "pass");
     CHECK(result_of(r, "settings") == "pass");
+    CHECK(result_of(r, "spectrum") == "pass"); // SPECTRUM, radio API 1.2 (RAD-140)
 }
 
 TEST_CASE("without a device the kit checks the diagnostic and skips the device checks")
@@ -125,6 +129,37 @@ TEST_CASE("the kit finds injected faults")
         {"no_busy", "state_machine", "RESTART setting while streaming"},
         {"any_plan", "plans", "unsupported plan type"},
         {"level_dbm", "records", "with LEVEL_DBM from a device whose entry lacks it"},
+    };
+    for (const Case& c : cases) {
+        const std::string fault = c.fault;
+        CAPTURE(fault);
+        ScopedEnv env("YANTRA_FAKE_FAULT", c.fault);
+        const ConformanceReport r = run_conformance(FAKE_PLUGIN, quick());
+        INFO(problems_of(r));
+        CHECK_FALSE(r.passed());
+        const CheckResult* check = find(r, c.check);
+        REQUIRE(check != nullptr);
+        CHECK(check->result == "fail");
+        bool named = false;
+        for (const std::string& p : check->problems)
+            named = named || p.find(c.problem) != std::string::npos;
+        CHECK(named);
+    }
+}
+
+TEST_CASE("the kit finds injected spectrum faults (RAD-140)")
+{
+    struct Case {
+        const char* fault;
+        const char* check;
+        const char* problem;
+    };
+    const Case cases[] = {
+        {"no_spectrum", "spectrum", "one per second is due"},
+        {"spectrum_slow", "spectrum", "one per second is due"},
+        {"spectrum_bins", "spectrum", "bin_count 5000"},
+        {"spectrum_flags", "spectrum", "SIMULATED flag"},
+        {"spectrum_unasked", "records", "without YR_PLAN_SPECTRUM"},
     };
     for (const Case& c : cases) {
         const std::string fault = c.fault;

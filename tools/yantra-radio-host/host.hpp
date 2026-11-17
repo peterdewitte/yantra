@@ -139,6 +139,9 @@ struct HostConfig {
     std::ostream* log = nullptr;           ///< Where to print log lines (nullptr: nowhere).
     ContextOptions context;                ///< Emulated context (SCENE plugins only).
     bool initialise = true;                ///< Call init after loading.
+    /** Offer the spectrum sink (yr_host_api::push_spectrum, API 1.2,
+     *  RAD-140); false: the table has it NULL, as a host that wants none. */
+    bool spectrum_sink = true;
 };
 
 class StreamSink;
@@ -279,6 +282,26 @@ std::string test_result_text(uint32_t result);
 /** \name Streaming
  * @{ */
 
+/** A copy of one ::yr_spectrum (API 1.2, RAD-140). */
+struct Spectrum {
+    uint32_t flags = 0;          ///< YR_RECORD_* bits.
+    int64_t monotonic_ns = 0;    ///< yr_spectrum::time.
+    int64_t utc_ns = 0;
+    uint32_t utc_source = YR_TIME_SOURCE_NONE;
+    int64_t received_ns = 0;     ///< Host monotonic time of the push.
+    double start_hz = 0.0;
+    double stop_hz = 0.0;
+    double bin_width_hz = 0.0;
+    std::vector<double> power_db; ///< One value per bin.
+};
+
+/** A copy of `s` (which validate_spectrum accepted). */
+Spectrum spectrum_from_c(const yr_spectrum& s, int64_t received_ns);
+/** One line about a spectrum: band, bins, peak and median level. */
+std::string spectrum_summary(const Spectrum& s, bool dbm);
+/** One CSV line: utc_ns,start_hz,bin_width_hz,bin_count,flags,p0,p1,... */
+std::string spectrum_csv(const Spectrum& s);
+
 /** When run_stream stops (whichever comes first). */
 struct StreamLimits {
     uint64_t max_records = 0; ///< Records handed to on_record; 0 = no limit.
@@ -295,6 +318,7 @@ struct StreamResult {
     uint64_t records = 0;           ///< Handed to on_record.
     uint64_t records_beyond_limit = 0; ///< Accepted after max_records was reached.
     uint64_t events = 0;            ///< Handed to on_event.
+    uint64_t spectra = 0;           ///< Handed to on_spectrum (API 1.2).
     uint64_t invalid = 0;           ///< Refused: did not match the schema (RAD-21).
     uint64_t dropped = 0;           ///< Dropped by the host: queue full (RAD-24).
     uint64_t late = 0;              ///< Pushes after stop_stream returned (RAD-33).
@@ -326,9 +350,11 @@ struct SinkOptions {
 class StreamSink {
 public:
     struct Item {
-        bool is_record = true;
+        bool is_record = true;    ///< A record (else an event or a spectrum).
+        bool is_spectrum = false; ///< A spectrum (API 1.2, RAD-140).
         radios::Record record;
         radios::Event event;
+        Spectrum spectrum;
     };
 
     StreamSink(Host& host, const SinkOptions& options = {});
@@ -339,8 +365,10 @@ public:
     /** The handle to pass to start_stream (valid as long as this sink). */
     yr_stream* handle() const { return handle_; }
 
-    /** yr_host_api::push_record and stream_event of this stream. */
+    /** yr_host_api::push_record, push_spectrum and stream_event of this
+     *  stream. */
     yr_status push(const yr_record* record);
+    yr_status push_spectrum(const yr_spectrum* spectrum);
     void event(uint32_t event, int64_t value);
 
     /** Before start_stream: active; right after stop_stream returned:
@@ -354,7 +382,7 @@ public:
     /** Copies invalid, dropped, late and the first problems into `r`. */
     void counters(StreamResult& r) const;
 
-    /** push_record calls so far, whatever their result. */
+    /** push_record and push_spectrum calls so far, whatever their result. */
     uint64_t pushes() const { return pushes_.load(); }
     /** push_record calls that have not returned yet. */
     uint32_t pushes_in_progress() const { return in_push_.load(); }
@@ -385,7 +413,8 @@ StreamResult run_stream(Host& host, yr_device* device, const yr_plan& plan,
                         const StreamLimits& limits,
                         const std::function<void(const radios::Record&)>& on_record,
                         const std::function<void(const radios::Event&)>& on_event,
-                        const SinkOptions& sink_options = {});
+                        const SinkOptions& sink_options = {},
+                        const std::function<void(const Spectrum&)>& on_spectrum = {});
 /** @} */
 
 } // namespace yantra::radio_host

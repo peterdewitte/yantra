@@ -61,7 +61,7 @@ add_test(NAME host_cli_usage COMMAND ${_host})
 set_tests_properties(host_cli_usage PROPERTIES WILL_FAIL TRUE)
 add_test(NAME host_cli_info COMMAND ${_host} info --plugin ${_fake})
 set_tests_properties(host_cli_info PROPERTIES
-  PASS_REGULAR_EXPRESSION "plugin: fake-radio 0.1.0.*capabilities: simulated scene.*fake_cell v1 measurement, 12 fields.*problems: none")
+  PASS_REGULAR_EXPRESSION "plugin: fake-radio 0.1.0.*capabilities: simulated scene spectrum.*fake_cell v1 measurement, 12 fields.*problems: none")
 add_test(NAME host_cli_refuse COMMAND ${_host} info --plugin $<TARGET_FILE:fake_radio_v2>)
 set_tests_properties(host_cli_refuse PROPERTIES WILL_FAIL TRUE)
 add_test(NAME host_cli_refuse_text COMMAND ${_host} info --plugin $<TARGET_FILE:fake_radio_v2>)
@@ -96,6 +96,13 @@ add_test(NAME host_cli_stream_end COMMAND ${_host} stream --plugin ${_fake} --qu
          --set stop_after=5 --carriers 392012500,392037500)
 set_tests_properties(host_cli_stream_end PROPERTIES
   PASS_REGULAR_EXPRESSION "stream: records 6, events 2, invalid 0, dropped 0, late 0, stop end_of_stream")
+# Spectra (radio API 1.2, RAD-140): a summary line each and the CSV file.
+add_test(NAME host_cli_stream_spectrum COMMAND ${_host} stream --plugin ${_fake} --quiet
+         --duration 1.5 --spectrum-band 390000000:394000000
+         --spectrum-out ${CMAKE_CURRENT_BINARY_DIR}/host_cli.spectra.csv)
+set_tests_properties(host_cli_stream_spectrum PROPERTIES
+  PASS_REGULAR_EXPRESSION "spectrum 390\\.0000-394\\.0000 MHz, 800 bins of 5\\.000 kHz, peak -50\\.0 dBFS at 392\\.0125 MHz.*simulated.*stream: records [0-9]+, events 1, spectra [1-9][0-9]*, invalid 0"
+  FAIL_REGULAR_EXPRESSION "invalid record")
 add_test(NAME host_cli_read_bad COMMAND ${_host} read ${_scene})
 set_tests_properties(host_cli_read_bad PROPERTIES
   PASS_REGULAR_EXPRESSION "two_rooms_v1.json:1: header is not valid JSON")
@@ -129,5 +136,5 @@ set_tests_properties(host_cli_conformance_usage PROPERTIES
 set_tests_properties(completeness_fake_radio host_cli_usage host_cli_conformance_usage host_cli_info host_cli_refuse
   host_cli_refuse_text host_cli_devices host_cli_no_device host_cli_settings
   host_cli_settings_refused host_cli_selftest host_cli_stream host_cli_read host_cli_stream_end
-  host_cli_read_bad host_cli_decode_iq host_cli_capture_iq
+  host_cli_read_bad host_cli_decode_iq host_cli_capture_iq host_cli_stream_spectrum
   PROPERTIES LABELS fast TIMEOUT 120)

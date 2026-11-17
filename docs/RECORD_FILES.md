@@ -45,9 +45,9 @@ conversions from the C structs, library `yantra::radios_common`). Example:
 | `created_utc_ns` | int | When the file was started, ns since 1970-01-01 UTC; 0 if unknown |
 | `plugin.id`, `name`, `version`, `technology_id`, `licence` | string | From the plugin's descriptor (RAD-12) |
 | `plugin.api_version` | string | Radio API version of the plugin, e.g. `"1.1"` (RAD-11) |
-| `plugin.capabilities` | array of names | `scan`, `hotplug`, `retune_live`, `simulated`, `scene`, `self_calibrated` (RAD-13) |
+| `plugin.capabilities` | array of names | `scan`, `hotplug`, `retune_live`, `simulated`, `scene`, `self_calibrated`, `spectrum` (radio API 1.2, RAD-13, RAD-140) |
 | `device` | object, optional | The device streamed: `key`, `label`, `driver`, `serial`, `module_version`, `flags` (`in_use`, `no_permission`, `simulated`, `level_dbm` since radio API 1.1) (RAD-30) |
-| `plan` | object, optional | The plan of the stream: `type` (`serving`, `carriers`, `scan`), `serving_hz`, `carriers_hz` (array), `flags` (`measure_neighbours`), `scan_first_hz`, `scan_last_hz`, `scan_step_hz` (RAD-32) |
+| `plan` | object, optional | The plan of the stream: `type` (`serving`, `carriers`, `scan`), `serving_hz`, `carriers_hz` (array), `flags` (`measure_neighbours`, `spectrum`), `scan_first_hz`, `scan_last_hz`, `scan_step_hz` (RAD-32) |
 | `schemas` | array | Every record schema of the plugin, in descriptor order |
 
 A schema: `id`, `kind` (`measurement`, `scan`, `neighbour`), `label`,

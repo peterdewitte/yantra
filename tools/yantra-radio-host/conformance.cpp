@@ -145,6 +145,7 @@ const char* const kKitExampleId = "kit-example-z9";
 struct Collected {
     std::vector<Record> records;
     std::vector<Event> events;
+    std::vector<Spectrum> spectra; // API 1.2 (RAD-140)
     bool has_event(uint32_t e) const
     {
         return std::any_of(events.begin(), events.end(),
@@ -227,6 +228,7 @@ private:
     void check_plans(Check& c);
     void check_records(Check& c);
     void check_plan_change(Check& c);
+    void check_spectrum(Check& c);
     void check_state_machine(Check& c);
     void check_stop_during_push(Check& c);
     void check_sink_full(Check& c);
@@ -406,7 +408,9 @@ bool Kit::drain(StreamSink& sink, Collected& out, double seconds,
             return false;
         const auto wake = std::min(deadline, clock::now() + std::chrono::milliseconds(50));
         for (StreamSink::Item& item : sink.take(wake)) {
-            if (item.is_record)
+            if (item.is_spectrum)
+                out.spectra.push_back(std::move(item.spectrum));
+            else if (item.is_record)
                 out.records.push_back(std::move(item.record));
             else
                 out.events.push_back(item.event);
@@ -1092,6 +1096,8 @@ void Kit::check_records(Check& c)
     for (const std::string& p : r.problems)
         c.fail(p);
     c.expect(r.late == 0, "push after stop_stream returned (RAD-33)");
+    c.expect(r.spectra == 0, std::to_string(r.spectra) +
+                                 " spectrum record(s) for a plan without YR_PLAN_SPECTRUM (RAD-140)");
     c.expect(r.stop_reason != "error" && r.stop_reason != "device_lost",
              "the stream stopped with " + r.stop_reason + ": " + error_text(device_));
     c.expect(!records.empty(), "no record in " + radio::number_text(limits.max_seconds) + " s");
@@ -1152,6 +1158,88 @@ void Kit::check_records(Check& c)
            " measurements) on " + std::to_string(times.size()) + " carrier(s), " +
            std::to_string(r.events) + " events in " + radio::number_text(limits.max_seconds) +
            " s");
+}
+
+// Spectrum records (API 1.2, RAD-140): a plugin with SPECTRUM delivers,
+// for a plan with YR_PLAN_SPECTRUM, valid spectra (bins, band, flags, time:
+// the sink checks validate_spectrum) about once a second within the
+// requested band; a plugin without it delivers none, flag or not.
+void Kit::check_spectrum(Check& c)
+{
+    const bool has = (caps() & YR_CAP_SPECTRUM) != 0;
+    if (has && host_->descriptor().api_version.minor < 2) {
+        c.fail("SPECTRUM capability in a plugin of radio API " + report_.api_version);
+        return;
+    }
+    uint32_t device_flags = 0;
+    sc().device_info(
+        device_,
+        [](void* user, const yr_device_info* info) {
+            if (info != nullptr)
+                *static_cast<uint32_t*>(user) = info->flags;
+        },
+        &device_flags);
+    const bool dbm = (device_flags & YR_DEVICE_LEVEL_DBM) != 0 ||
+                     (caps() & YR_CAP_SELF_CALIBRATED) != 0;
+    yr_plan plan = default_plan();
+    plan.flags |= YR_PLAN_SPECTRUM;
+    double first = 0.0, last = 0.0;
+    radio::spectrum_band(plan, first, last);
+    std::vector<Spectrum> spectra;
+    uint64_t records = 0;
+    StreamLimits limits;
+    // Two to three spectra at one per second; without the capability the
+    // records check's minimum (1.5 s) shows that none come.
+    limits.max_seconds = has ? 3.5 : 1.5;
+    const int64_t mono0 = mono();
+    const StreamResult r = run_stream(
+        *host_, device_, plan, limits, [&](const Record&) { ++records; }, {}, SinkOptions{},
+        [&](const Spectrum& s) { spectra.push_back(s); });
+    const int64_t mono1 = mono();
+    if (r.start_status != YR_OK) {
+        c.fail("start_stream with YR_PLAN_SPECTRUM returned " + status_text(r.start_status) +
+               ": " + r.start_error + " (a plan flag the plugin does not use is ignored)");
+        return;
+    }
+    c.expect(r.stop_status == YR_OK, "stop_stream returned " + status_text(r.stop_status));
+    c.expect(r.late == 0, "push after stop_stream returned (RAD-33)");
+    c.expect(r.invalid == 0, std::to_string(r.invalid) + " record(s) or spectra refused (RAD-21, RAD-140)");
+    for (const std::string& p : r.problems)
+        c.fail(p);
+    c.expect(records > 0, "no record while spectra were asked for: measuring goes on (RAD-140)");
+    if (!has) {
+        c.expect(spectra.empty(), std::to_string(spectra.size()) +
+                                      " spectrum record(s) from a plugin without the SPECTRUM "
+                                      "capability (RAD-140)");
+        c.note("no SPECTRUM capability: no spectra, also with YR_PLAN_SPECTRUM");
+        return;
+    }
+    c.expect(spectra.size() >= 2, "only " + std::to_string(spectra.size()) +
+                                      " spectrum record(s) in 3.5 s: one per second is due (RAD-140)");
+    std::size_t bins = 0;
+    for (std::size_t i = 0; i < spectra.size(); ++i) {
+        const Spectrum& s = spectra[i];
+        bins = std::max(bins, s.power_db.size());
+        c.expect(s.monotonic_ns >= mono0 && s.monotonic_ns <= mono1,
+                 "a spectrum's monotonic_ns lies outside the stream (RAD-27)");
+        c.expect(((s.flags & YR_RECORD_LEVEL_DBM) != 0) == dbm,
+                 dbm ? "a spectrum without LEVEL_DBM from a device that measures in dBm (RAD-21)"
+                     : "a spectrum with LEVEL_DBM from a device whose entry lacks it (RAD-21)");
+        c.expect(s.start_hz >= first - s.bin_width_hz && s.stop_hz <= last + s.bin_width_hz,
+                 "the spectrum " + radio::number_text(s.start_hz / 1e6) + "-" +
+                     radio::number_text(s.stop_hz / 1e6) + " MHz is outside the band asked for, " +
+                     radio::number_text(first / 1e6) + "-" + radio::number_text(last / 1e6) +
+                     " MHz (RAD-140)");
+        if (i > 0) {
+            const double gap = static_cast<double>(s.monotonic_ns - spectra[i - 1].monotonic_ns) / 1e9;
+            c.expect(gap >= 0.5 && gap <= 1.6, "two spectra " + radio::number_text(gap) +
+                                                   " s apart: about one per second is due (RAD-140)");
+        }
+    }
+    if (!spectra.empty())
+        c.note(std::to_string(spectra.size()) + " spectra of up to " + std::to_string(bins) +
+               " bins, " + radio::number_text(spectra.front().start_hz / 1e6) + "-" +
+               radio::number_text(spectra.front().stop_hz / 1e6) + " MHz");
 }
 
 void Kit::check_plan_change(Check& c)
@@ -1691,6 +1779,7 @@ ConformanceReport Kit::run()
         {"self_test", "self-test"},
         {"plans", "plan ranges and plan types"},
         {"records", "records, time rules, stream counters"},
+        {"spectrum", "spectrum records (radio API 1.2)"},
         {"plan_change", "plan changes"},
         {"state_machine", "state machine and BUSY"},
         {"stop_during_push", "stop while a push is in progress"},
@@ -1718,6 +1807,8 @@ ConformanceReport Kit::run()
         check("records", "records, time rules, stream counters",
               {"RAD-20", "RAD-21", "RAD-22", "RAD-24", "RAD-25", "RAD-27", "RAD-30"},
               [&](Check& c) { check_records(c); });
+        check("spectrum", "spectrum records (radio API 1.2)", {"RAD-140", "RAD-21", "RAD-26", "RAD-27"},
+              [&](Check& c) { check_spectrum(c); });
         check("plan_change", "plan changes", {"RAD-23", "RAD-32"},
               [&](Check& c) { check_plan_change(c); });
         check("state_machine", "state machine and BUSY", {"RAD-31", "RAD-33", "RAD-34", "RAD-15"},

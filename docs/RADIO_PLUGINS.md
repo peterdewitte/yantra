@@ -337,7 +337,7 @@ yr_status beacon_start(yr_device* device, const yr_plan* plan, yr_stream* sink)
             return YR_ERR_BUSY;
         if (d->thread.joinable())
             d->thread.join(); // a stream that stopped on an error
-        d->plan = *plan;
+        yr_plan_read(plan, &d->plan); // only what the host's struct_size holds (RAD-10)
         d->carriers.clear();
         if (plan->type == YR_PLAN_CARRIERS)
             d->carriers.assign(plan->carriers_hz, plan->carriers_hz + plan->carrier_count);

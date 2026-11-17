@@ -65,17 +65,19 @@ constexpr std::array<Name, 5> kRecordFlags{{{YR_RECORD_NO_SYNC, "no_sync"},
                                             {YR_RECORD_SIMULATED, "simulated"},
                                             {YR_RECORD_LEVEL_DBM, "level_dbm"}}};
 constexpr std::array<Name, 2> kFieldFlags{{{YR_FIELD_KEY, "key"}, {YR_FIELD_DEFAULT, "default"}}};
-constexpr std::array<Name, 6> kCaps{{{YR_CAP_SCAN, "scan"},
+constexpr std::array<Name, 7> kCaps{{{YR_CAP_SCAN, "scan"},
                                      {YR_CAP_HOTPLUG, "hotplug"},
                                      {YR_CAP_RETUNE_LIVE, "retune_live"},
                                      {YR_CAP_SIMULATED, "simulated"},
                                      {YR_CAP_SCENE, "scene"},
-                                     {YR_CAP_SELF_CALIBRATED, "self_calibrated"}}};
+                                     {YR_CAP_SELF_CALIBRATED, "self_calibrated"},
+                                     {YR_CAP_SPECTRUM, "spectrum"}}};
 constexpr std::array<Name, 4> kDeviceFlags{{{YR_DEVICE_IN_USE, "in_use"},
                                             {YR_DEVICE_NO_PERMISSION, "no_permission"},
                                             {YR_DEVICE_SIMULATED, "simulated"},
                                             {YR_DEVICE_LEVEL_DBM, "level_dbm"}}};
-constexpr std::array<Name, 1> kPlanFlags{{{YR_PLAN_MEASURE_NEIGHBOURS, "measure_neighbours"}}};
+constexpr std::array<Name, 2> kPlanFlags{{{YR_PLAN_MEASURE_NEIGHBOURS, "measure_neighbours"},
+                                          {YR_PLAN_SPECTRUM, "spectrum"}}};
 
 template <std::size_t N>
 std::string_view name_of(const std::array<Name, N>& table, uint32_t value)
