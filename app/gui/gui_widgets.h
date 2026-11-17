@@ -11,6 +11,7 @@
 #include <imgui_internal.h>
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <initializer_list>
 #include <string>
@@ -139,6 +140,58 @@ inline float button_w(const char* label, float min_w) {
 }
 inline const ImVec4 kBannerColour{0.95F, 0.62F, 0.07F, 1.0F};
 inline const ImVec4 kErrorColour{1.0F, 0.45F, 0.40F, 1.0F};
+
+/// DEMO-15: the colours of a demo explanation (the tour's window, its strip
+/// in a dialog, its offer on the start screen, the mouse-survey hint on the
+/// plan): a green background in every theme, with text colours of at least
+/// 4.5:1 contrast on it (checked by the UI lint, tests/app/ui/ui_lint.h).
+/// The DEMO banner (DEMO-07) keeps its own colour.
+struct DemoColours {
+    ImVec4 bg, text, muted, warn, error, ok;
+};
+inline DemoColours demo_colours(Theme theme) {
+    auto c = [](int r, int g, int b) { return ImVec4(r / 255.0F, g / 255.0F, b / 255.0F, 1.0F); };
+    if (theme_is_light(theme))
+        return {c(215, 242, 220), c(11, 41, 18), c(46, 79, 54), c(107, 69, 0), c(160, 21, 21), c(11, 93, 30)};
+    // Dark and high contrast.
+    return {c(24, 84, 44), c(255, 255, 255), c(200, 230, 201), c(255, 213, 79), c(255, 205, 210), c(185, 246, 202)};
+}
+/// The WCAG contrast ratio of two opaque colours (1 to 21).
+inline double contrast_ratio(const ImVec4& a, const ImVec4& b) {
+    auto lum = [](const ImVec4& c) {
+        auto f = [](float v) { return v <= 0.03928F ? v / 12.92 : std::pow((v + 0.055) / 1.055, 2.4); };
+        return 0.2126 * f(c.x) + 0.7152 * f(c.y) + 0.0722 * f(c.z);
+    };
+    const double la = lum(a), lb = lum(b);
+    return (std::max(la, lb) + 0.05) / (std::min(la, lb) + 0.05);
+}
+/// The demo explanations drawn in a frame, with their background and the
+/// text colours drawn on it (the UI lint checks them when it sets a record).
+struct DemoRecord {
+    struct Box {
+        std::string what;
+        ImVec4 bg;
+        std::vector<ImVec4> texts;
+    };
+    std::vector<Box> boxes;
+};
+inline DemoRecord*& demo_record() {
+    static DemoRecord* r = nullptr;
+    return r;
+}
+/// Notes a demo explanation drawn with `c` (and the style's text colours
+/// in use, which the box pushes).
+inline void note_demo_box(const char* what, const DemoColours& c) {
+    if (DemoRecord* r = demo_record())
+        r->boxes.push_back({what, c.bg,
+                            {ImGui::GetStyleColorVec4(ImGuiCol_Text), ImGui::GetStyleColorVec4(ImGuiCol_TextDisabled),
+                             c.text, c.muted, c.warn, c.error, c.ok}});
+}
+/// Text colours of a demo explanation (pop with ImGui::PopStyleColor(2)).
+inline void push_demo_text(const DemoColours& c) {
+    ImGui::PushStyleColor(ImGuiCol_Text, c.text);
+    ImGui::PushStyleColor(ImGuiCol_TextDisabled, c.muted);
+}
 
 /// UI lint (DOC-20) and the GUI text-overflow test (TST-52): when a test
 /// sets a record, every hover text notes the rectangle of the item it

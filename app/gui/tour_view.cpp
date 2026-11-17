@@ -33,8 +33,23 @@ void report(AppState& state, const Result& r) { (void)state.show(r); }
 void Gui::draw_tour_body(const TourView& v, bool strip) {
     Tour& tour = state_.tour();
     if (strip) tour_.strip = true;
-    // DEMO-07: the tour runs in demo mode.
-    ImGui::TextColored(kBannerColour, "%s", v.demo_label.c_str());
+    // DEMO-15: the caller drew the green background and pushed its text colours.
+    const DemoColours dc = demo_colours(layout().theme);
+    note_demo_box(strip ? "tour strip" : "tour window", dc);
+    // DEMO-07: the tour runs in demo mode; the label keeps the banner's colour.
+    {
+        const ImVec2 ts = ImGui::CalcTextSize(v.demo_label.c_str());
+        const ImVec2 a = ImGui::GetCursorScreenPos();
+        const ImVec2 pad(px(6.0F), px(2.0F));
+        ImGui::GetWindowDrawList()->AddRectFilled(a, ImVec2(a.x + ts.x + 2.0F * pad.x, a.y + ts.y + 2.0F * pad.y),
+                                                  ImGui::GetColorU32(kBannerColour), 3.0F);
+        ImGui::SetCursorScreenPos(ImVec2(a.x + pad.x, a.y + pad.y));
+        ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(20, 20, 20, 255));
+        ImGui::TextUnformatted(v.demo_label.c_str());
+        ImGui::PopStyleColor();
+        ImGui::SetCursorScreenPos(ImVec2(a.x, a.y + ts.y + 2.0F * pad.y + ImGui::GetStyle().ItemSpacing.y));
+        ImGui::Dummy(ImVec2(ts.x + 2.0F * pad.x, 0.0F));
+    }
     tour_.banner = true;
     const std::string step = trf("Tour, step {} of {}", {std::to_string(v.index + 1), std::to_string(v.count)});
     same_line_if(ImGui::CalcTextSize(step.c_str()).x + ImGui::CalcTextSize("(?)").x + ImGui::GetStyle().ItemSpacing.x);
@@ -47,11 +62,11 @@ void Gui::draw_tour_body(const TourView& v, bool strip) {
     ImGui::PopFont();
     ImGui::PushTextWrapPos(0.0F);
     ImGui::TextUnformatted(v.text.c_str());
-    if (!v.available) ImGui::TextColored(kBannerColour, "%s", v.unavailable.c_str());
+    if (!v.available) ImGui::TextColored(dc.warn, "%s", v.unavailable.c_str());
     if (!v.progress.empty()) ImGui::TextDisabled("%s", v.progress.c_str());
-    if (v.done && v.step != TourStep::Finish && v.available) ImGui::TextColored(ImVec4(0.45F, 0.85F, 0.45F, 1.0F), "%s", tr("Done: go on with Next."));
+    if (v.done && v.step != TourStep::Finish && v.available) ImGui::TextColored(dc.ok, "%s", tr("Done: go on with Next."));
     if (!v.message.empty()) {
-        if (v.message_error) ImGui::TextColored(kErrorColour, "%s", v.message.c_str());
+        if (v.message_error) ImGui::TextColored(dc.error, "%s", v.message.c_str());
         else ImGui::TextDisabled("%s", v.message.c_str());
     }
     if (v.credit && !strip) {
@@ -140,11 +155,17 @@ void Gui::draw_tour() {
     const ImGuiWindowFlags flags = ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoCollapse |
                                    ImGuiWindowFlags_AlwaysAutoResize;
     bool open = true;
+    // DEMO-15: a green window.
+    const DemoColours dc = demo_colours(layout().theme);
+    ImGui::PushStyleColor(ImGuiCol_WindowBg, dc.bg);
+    push_demo_text(dc);
     if (ImGui::Begin(tr("Guided tour###tour"), &open, flags)) {
         tour_.window = true;
+        tour_.green = true;
         draw_tour_body(v, false);
     }
     ImGui::End();
+    ImGui::PopStyleColor(3);
     if (!open) tour.leave();
 }
 
@@ -199,6 +220,14 @@ void Gui::draw_tour_consent() {
 void Gui::draw_tour_offer() {
     if (!state_.tour_offer()) return;
     tour_.offer = true;
+    // DEMO-15: a green box.
+    const DemoColours dc = demo_colours(layout().theme);
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, dc.bg);
+    push_demo_text(dc);
+    ImGui::BeginChild("###tour_offer", ImVec2(0.0F, 0.0F), ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_Borders |
+                                                                ImGuiChildFlags_AlwaysUseWindowPadding);
+    wrap_texts();
+    note_demo_box("tour offer", dc);
     ImGui::SeparatorText(tr("First time here?"));
     ImGui::PushTextWrapPos(0.0F);
     ImGui::TextUnformatted(tr("The guided tour walks you through an indoor survey with an example building and the "
@@ -209,6 +238,8 @@ void Gui::draw_tour_offer() {
     ImGui::SameLine();
     if (ImGui::Button(tr("Not now###start.tour_offer.no"), ImVec2(0.0F, target_h()))) report(state_, state_.answer_tour_offer(false));
     text_tooltip(tr("Hide this offer; Help > Tour starts the tour whenever you want."));
+    ImGui::EndChild();
+    ImGui::PopStyleColor(3);
     ImGui::Spacing();
 }
 

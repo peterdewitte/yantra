@@ -9,7 +9,9 @@
 //     squashed or show only part of their label (also run by the GUI
 //     text-overflow test TST-52 at every size, scale and theme),
 //   - in the touch layout, controls lower than 48 px (UI-13),
-//   - texts tr() found no translation for in the language (UI-12, DOC-07 f).
+//   - texts tr() found no translation for in the language (UI-12, DOC-07 f),
+//   - a demo explanation (DEMO-15) whose background is not green or whose
+//     text colours have less than 4.5:1 contrast on it.
 // A control is every item the probe saw with a label (buttons, fields,
 // switches, menu items, tabs, rows); its hover text is found by the
 // rectangle the Gui's tooltip helpers note (gui_widgets.h help_record).
@@ -45,6 +47,7 @@ struct UiLint {
     std::set<std::string> seen;  // each issue once
     int frames_checked = 0;
     int items_checked = 0;
+    int demo_boxes_checked = 0;
     /// TST-52 (tests/app/overflow): called just before the checked frame is
     /// drawn, and after it with the frame's hover texts.
     std::function<void()> before_frame;
@@ -60,9 +63,12 @@ struct UiLint {
         app::record_missing_translations(app::language() != app::Language::En);
         (void)app::take_missing_translations();
         app::gui_detail::help_record() = &rec;
+        app::gui_detail::DemoRecord demo;
+        app::gui_detail::demo_record() = &demo;
         if (before_frame) before_frame();
         const bool ok = ui.frame();
         app::gui_detail::help_record() = nullptr;
+        app::gui_detail::demo_record() = nullptr;
         app::record_missing_translations(false);
         if (!ok) {
             add(where, "the frame failed: " + ui.last_error());
@@ -72,7 +78,27 @@ struct UiLint {
         for (const std::string& m : app::take_missing_translations())
             add(where, std::string("no ") + app::language_key(app::language()) + " translation: \"" + m + "\"");
         analyse(where, rec);
+        check_demo(where, demo);
         if (after_frame) after_frame(where, rec);
+    }
+
+    /// DEMO-15: green (hue 90..170 degrees, saturated) and >= 4.5:1 text.
+    static bool green(const ImVec4& c) {
+        float h = 0.0F, sat = 0.0F, v = 0.0F;
+        ImGui::ColorConvertRGBtoHSV(c.x, c.y, c.z, h, sat, v);
+        return h * 360.0F >= 90.0F && h * 360.0F <= 170.0F && sat >= 0.08F && c.w >= 0.99F;
+    }
+    void check_demo(const std::string& where, const app::gui_detail::DemoRecord& demo) {
+        for (const auto& b : demo.boxes) {
+            ++demo_boxes_checked;
+            if (!green(b.bg)) add(where, "demo explanation without a green background: " + b.what);
+            for (const ImVec4& t : b.texts)
+                if (const double r = app::gui_detail::contrast_ratio(t, b.bg); r < 4.5) {
+                    std::ostringstream o;
+                    o << "demo explanation text contrast " << r << ":1 below 4.5:1: " << b.what;
+                    add(where, o.str());
+                }
+        }
     }
 
 private:

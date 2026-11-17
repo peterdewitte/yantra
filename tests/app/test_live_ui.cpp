@@ -24,6 +24,7 @@
 #include <vector>
 
 #include "gui.h"
+#include "gui_widgets.h"
 #include "ui_harness.h"
 #include "yantra/app/app_state.h"
 #include "yantra/core/calibration/table.h"
@@ -106,6 +107,23 @@ TEST_CASE("DEMO-14 in the app: the mouse survey with the simulator, move slowly,
     REQUIRE(ui.frames(3));
     CHECK(gui.tool_overlay().hint.find("click to interpolate") != std::string::npos);
     CHECK_FALSE(gui.tool_overlay().move_slower);
+    {
+        // DEMO-15: the hint is a demo explanation: green, readable text.
+        namespace gd = yantra::app::gui_detail;
+        gd::DemoRecord demo;
+        gd::demo_record() = &demo;
+        REQUIRE(ui.frame());
+        gd::demo_record() = nullptr;
+        bool hint = false;
+        for (const gd::DemoRecord::Box& box : demo.boxes)
+            if (box.what == "mouse survey hint") {
+                hint = true;
+                CHECK(box.bg.y > box.bg.x);
+                CHECK(box.bg.y > box.bg.z);
+                for (const ImVec4& t : box.texts) CHECK(gd::contrast_ratio(t, box.bg) >= 4.5);
+            }
+        CHECK(hint);
+    }
     CHECK(gui.canvas().stats().points > drawn0);  // the new points are drawn (live colouring)
 
     // A fast sweep: "move slower".

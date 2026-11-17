@@ -48,3 +48,36 @@ void run_lint(const char* tag, bool touch) {
 TEST_CASE("DOC-20 UI lint: every window in every language, desktop layout") { run_lint("desktop", false); }
 
 TEST_CASE("DOC-20 UI lint: every window in every language, touch layout (UI-13)") { run_lint("touch", true); }
+
+TEST_CASE("DEMO-15 UI lint: the demo explanations are green with >= 4.5:1 text in every theme") {
+    for (Theme theme : {Theme::Dark, Theme::Light, Theme::HighContrast}) {
+        CAPTURE(theme_key(theme));
+        AppSettings settings;
+        settings.theme = theme;
+        Shell s(lint_paths(scratch(std::string("demo15_") + theme_key(theme))), settings);
+        UiLint lint{s.ui, false};
+        lint.check("start screen with the tour offer");
+        CHECK(s.gui.tour_overlay().offer);
+        REQUIRE(s.state.trigger(Action::Tour).ok);
+        REQUIRE(s.ui.frames(2));
+        lint.check("tour window");
+        CHECK(s.gui.tour_overlay().green);
+        REQUIRE(s.state.tour().choose("fraunces").ok);
+        REQUIRE(s.state.tour().next().ok);
+        REQUIRE(s.state.tour().show_me().ok);  // the tour's project
+        REQUIRE(s.ui.run_until([&] { return s.state.screen() == Screen::Project; }, 10));
+        REQUIRE(s.state.tour().next().ok);
+        REQUIRE(s.state.trigger(Action::AddFloor).ok);
+        REQUIRE(s.ui.frames(3));
+        lint.check("tour strip in a dialog");
+        CHECK(s.gui.tour_overlay().strip);
+        s.state.cancel_dialog();
+        s.state.tour().leave();
+        CHECK(lint.demo_boxes_checked >= 3);
+        CHECK_MESSAGE(lint.issues.empty(), [&] {
+            std::string all;
+            for (const std::string& i : lint.issues) all += i + "\n";
+            return all;
+        }());
+    }
+}

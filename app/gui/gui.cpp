@@ -980,7 +980,18 @@ void Gui::draw_dialog_body(Dialog d) {
     if (d != Dialog::PlanImport) help_button(dialog_section(d));
     // DEMO-11: the tour goes on inside a dialog (the dialog blocks the
     // tour window behind it).
-    if (d != Dialog::TourConsent && state_.tour().active()) draw_tour_body(state_.tour().view(), true);
+    if (d != Dialog::TourConsent && state_.tour().active()) {
+        // DEMO-15: the tour's strip in a green box.
+        const gui_detail::DemoColours dc = gui_detail::demo_colours(gui_detail::layout().theme);
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, dc.bg);
+        gui_detail::push_demo_text(dc);
+        ImGui::BeginChild("###tour_strip", ImVec2(0.0F, 0.0F),
+                          ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_Borders | ImGuiChildFlags_AlwaysUseWindowPadding);
+        gui_detail::wrap_texts();
+        draw_tour_body(state_.tour().view(), true);
+        ImGui::EndChild();
+        ImGui::PopStyleColor(3);
+    }
     switch (d) {
     case Dialog::NewProject: draw_new_project(); break;
     case Dialog::Browse: draw_browser(); break;

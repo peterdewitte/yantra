@@ -63,11 +63,11 @@ void wrapped(const std::string& text, bool warn = false) {
     ImGui::PopTextWrapPos();
 }
 
-ImVec2 plan_badge(ImDrawList* dl, ImVec2 pos, const char* text, ImU32 bg) {
+ImVec2 plan_badge(ImDrawList* dl, ImVec2 pos, const char* text, ImU32 bg, ImU32 fg = IM_COL32(255, 255, 255, 255)) {
     const ImVec2 ts = ImGui::CalcTextSize(text);
     const ImVec2 end(pos.x + ts.x + 16.0F, pos.y + ts.y + 10.0F);
     dl->AddRectFilled(pos, end, bg, 4.0F);
-    dl->AddText(ImVec2(pos.x + 8.0F, pos.y + 5.0F), IM_COL32(255, 255, 255, 255), text);
+    dl->AddText(ImVec2(pos.x + 8.0F, pos.y + 5.0F), fg, text);
     return ImVec2(end.x - pos.x, end.y - pos.y);
 }
 
@@ -326,7 +326,18 @@ void Gui::draw_plan_overlay(ImDrawList* dl) {
     const ImVec2 max = ImGui::GetItemRectMax();
     const float w = ImGui::CalcTextSize(v.hint.c_str()).x + 16.0F;
     ImVec2 at((min.x + max.x - w) * 0.5F, max.y - 80.0F);
-    const ImVec2 sz = plan_badge(dl, at, v.hint.c_str(), IM_COL32(20, 90, 70, 220));
+    // DEMO-15: the hint is a demo explanation: the green box of the theme.
+    const DemoColours dc = demo_colours(layout().theme);
+    ImVec2 sz;
+    if (v.kind == WalkKind::MouseSurvey) {
+        ImGui::PushStyleColor(ImGuiCol_Text, dc.text);
+        ImGui::PushStyleColor(ImGuiCol_TextDisabled, dc.muted);
+        note_demo_box("mouse survey hint", dc);
+        ImGui::PopStyleColor(2);
+        sz = plan_badge(dl, at, v.hint.c_str(), ImGui::GetColorU32(dc.bg), ImGui::GetColorU32(dc.text));
+    } else {
+        sz = plan_badge(dl, at, v.hint.c_str(), IM_COL32(20, 90, 70, 220));
+    }
     if (v.too_fast) {
         char buf[96];
         std::snprintf(buf, sizeof buf, tr("Move slower (%.1f m/s): the points cannot follow"), v.speed_mps);
