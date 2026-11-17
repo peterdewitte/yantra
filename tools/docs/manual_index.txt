@@ -52,6 +52,7 @@ Zadig and WinUSB: Zadig; WinUSB
 
 [Windows and menus]
 About: About
+Advanced dropdown: Advanced dropdown
 Calibration wizard: calibration wizard
 Cell database window: cell database
 Debug window: debug window
@@ -61,20 +62,19 @@ File menu: File >
 Graphs: graphs
 Help menu: Help >
 Layers: layers
+Map tab: Map tab
 Network menu: Network >
 Plan import window: plan import window
 Plugin manager: plugin manager
-Post page: Post page
 Radio menu: Radio menu; Radio >
 Remote probes: remote probes
 Report dialog: Report
 Reselection simulator: reselection simulator
 Scanner: scanner
 Settings: settings
-Side panel: side panel
 Start screen: start screen
 Status bar: status bar
-Survey panels: survey panels; survey page
+Survey windows: survey windows; Window menu; Window >
 Tour: guided tour; tour
 Verification window: verification
-Walk page: Walk page
+Walk tab: Walk tab

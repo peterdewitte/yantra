@@ -43,14 +43,14 @@ Yantra 0.4 has no walls, antennas or propagation model: the coverage map comes f
 
 ## 13.4 Layers
 
-The Layers page shows or hides the plan, the interpolation, the binned squares and the points, and sets their drawing order with the arrows. The binned layer groups the points into squares of the size you set (Square, 2 m by default), each with the percentile of its points (11.1); it is labelled as binned and never replaces the points. When several coverage maps are stored, choose the one to show. The layer settings are kept for the next start; they are not part of the project.
+The Show row of the Map tab shows or hides the plan, the measured points and the map, with the map's opacity; the binned squares are switched on in its Advanced dropdown. The binned layer groups the points into squares of the size you set (Square, 2 m by default), each with the percentile of its points (11.1); it is labelled as binned and never replaces the points. When several coverage maps are stored, choose the one to show. The layer settings are kept for the next start; they are not part of the project.
 
 ## 13.5 Interpolation
 
-The Map page computes a coverage map of the floor from its measured points: Run starts it in the background (with a progress bar; Cancel stops it), and the map is stored in the project. A floor needs a scale and measured points in dBm (from a calibrated radio or one that reports dBm, such as the simulator, 7.1). In a mouse survey, a click on the plan runs it too.
+The Map tab computes a coverage map of the floor from its measured points: Compute map starts it in the background (with a progress bar; Cancel stops it), and the map is stored in the project. A floor needs a scale and measured points in dBm (from a calibrated radio or one that reports dBm, such as the simulator, 7.1). In a mouse survey, a click on the plan runs it too.
 
 How it works, in short: the floor is divided into squares of 0.5 m. A square that holds measured points takes their level (the median when there are several), so the map equals the measurement where you measured. Every other square takes the mean of the points within 10 m, each weighted by one over its distance squared (inverse-distance weighting). Every square gets a confidence that is 1 within 2 m of a measured point and fades to 0 at 10 m, so unmeasured areas fade out on the plan; squares with no point within 10 m stay empty. The map knows nothing about walls: walk both sides of a wall that matters. The [interpolation note](../INTERPOLATION.md) gives the details and the limits.
 
-The map is always labelled "interpolated" and kept apart from the measured points: the hover readout says whether the value is measured or interpolated, with the confidence and the nearest measured point. When the floor's scale or its points change after a run, the map is marked stale; Run again computes it again. Settings... sets the grid size, the power, the search radius and the full-confidence distance; Defaults puts them back.
+The map is always labelled "interpolated" and kept apart from the measured points: the hover readout says whether the value is measured or interpolated, with the confidence and the nearest measured point. When the floor's scale or its points change after a run, the map is marked stale; Compute again computes it again. Settings... (in the Advanced dropdown) sets the grid size, the power, the search radius and the full-confidence distance; Defaults puts them back.
 
 ![The interpolated map](../img/interpolation_dark.png) [light theme](../img/interpolation_light.png)

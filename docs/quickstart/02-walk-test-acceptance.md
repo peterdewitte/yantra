@@ -13,9 +13,9 @@ Walk a building against agreed acceptance criteria and hand over a PASS or FAIL 
 
 3. **Before you walk.** Connect the radio and check it in the Radio menu: no self-interference warning, no overload, levels in dBm (not dBFS). Keep the antenna away from the laptop; a USB extension cable helps. Start a recording if you want the way to the building too (Survey page).
 
-4. **Walk every floor.** On the Walk page choose Point and click or Continuous and Start. Click at every turn, walk at a steady pace through every room and corridor the acceptance covers, and use Manual points for rooms you cannot walk through. Stop at the end of each floor, then walk the next floor's tab. Every walk test is recorded.
+4. **Walk every floor.** In the Walk tab choose Point and click or Continuous and Start. Click at every turn, walk at a steady pace through every room and corridor the acceptance covers, and use Manual points for rooms you cannot walk through. Stop at the end of each floor, then walk the next floor's tab. Every walk test is recorded.
 
-5. **Check the coverage.** On the Post page look at Good/bad against the threshold and at the Acceptance figures per floor; walk again where the plan shows gaps. On the Map page press Run per floor for the floor-area figures.
+5. **Check the coverage.** In the Map tab's Advanced dropdown look at Good/bad against the threshold and at the Acceptance figures per floor; walk again where the plan shows gaps. On the Map page press Run per floor for the floor-area figures.
 
 6. **Verify the network.** Network > Verification... (live or on a replay) lists cells that differ from the database, new and missing cells, and the neighbour cross-check. They are also in the report.
 

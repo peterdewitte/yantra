@@ -9,7 +9,7 @@ Recordings keep every measurement record of a survey with its time, its calibrat
 
 ## 6.1 Recording
 
-The recording controls are on the Survey page of the side panel:
+The recording controls are in the Walk tab of the project window:
 
 - Name and notes of the recording; split (start a new file every so many minutes, 0 for one file) and zstd (compress the files).
 - Record starts a recording with these settings; Quick record starts one at once with a name from the time; Stop recording ends it.
@@ -25,11 +25,11 @@ With Ring buffer on, Yantra keeps the last minutes (2 to 60) of measurements whi
 
 ## 6.2 Replay
 
-Choose a recording of the project on the Survey page and press Open; a running radio stops first. The replay plays the recording through the same processing as a live survey, so the panels, graphs, events and statistics show what was measured then. Play, Pause, Stop and Again control it; the speed field sets how fast (1 = real time, 0 = as fast as possible); the position slider and a click in a graph move to any moment; a marker in the list jumps to it. Voice notes are played at their moment. Close replay ends it.
+Open Replay in the Walk tab, choose a recording of the project and press Open; a running radio stops first. The replay plays the recording through the same processing as a live survey, so the panels, graphs, events and statistics show what was measured then. Play, Pause, Stop and Again control it; the speed field sets how fast (1 = real time, 0 = as fast as possible); the position slider and a click in a graph move to any moment; a marker in the list jumps to it. Voice notes are played at their moment. Close replay ends it.
 
 Cut: start to cursor and Cut: cursor to end save that part of the recording as a new recording with the name you typed, for example to remove the walk to the building.
 
-To place a recording's measurements on a floor afterwards, load it on the Post page (11.1).
+To place a recording's measurements on a floor afterwards, load it in the Map tab's Advanced dropdown (11.1).
 
 ## 6.3 Markers and voice notes
 

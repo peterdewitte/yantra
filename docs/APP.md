@@ -180,9 +180,10 @@ floor's sheet with that floor selected.
 
 ## Walk test and interpolation (step 9.4)
 
-The side panel of the project window has pages `panel.layers` (above),
-`panel.walk` and `panel.map` (the Edit page with the wall and antenna
-editor of 0.3 is gone, IND-46). Their logic is in two
+The project window has two tabs (UI-18, UI-19; 0.4): `panel.walk`
+(`draw_walk_page`: walk test, radio, live values, recording, replay) and
+`panel.map` (`draw_map_page`: Show row `layer.plan|points|interpolation`,
+`map.opacity`, `interp.run`, the Advanced dropdown `map.advanced`). Their logic is in two
 `app/model` classes that `AppState` creates with the project (the project
 is a `shared_ptr` now) and drops before it; `AppState::tick()` runs each
 frame.
@@ -251,24 +252,24 @@ Rows hold the technology schema's fields as text (PLG-01); threshold
 lines are the serving record's SYSTEM_INFO fields in dBm (level graph)
 or dB (C1 graph).
 
-Panels (`Gui::draw_survey_panels`, under the plan; `survey.panels`
-shows or hides them, they open by themselves when a radio or a replay
-starts): tabs `survey.cells` (UI-01 large values, UI-02 serving cell and
+Survey windows (`Gui::draw_survey_windows`, opened from the Window menu
+`window.neighbours|graphs|scanner|events|statistics`, UI-18): `win.neighbours` (UI-01 large values, UI-02 serving cell and
 broadcast parameters, UI-03 neighbours: listed and received, received
-only, listed only in different colours), `survey.graphs` (UI-04:
+only, listed only in different colours), `win.graphs` (UI-04:
 `graph.level|c1|quality`, threshold lines `graph.th.<field>`; a click
 or drag on `graph.level_plot` etc. sets the cursor: live
 `SurveyMonitor::set_cursor`, replay `ReplaySession::seek_mono`;
-`graph.live` follows the newest again), `survey.scanner` (scan channels
-and other carriers by frequency), `survey.events` (newest first),
-`survey.stats`. The NFR-07 warning is a line above the tabs and an item
-of the status bar.
+`graph.live` follows the newest again), `win.scanner` (scan channels
+and other carriers by frequency), `win.events` (newest first),
+`win.statistics` (with the coverage threshold). The NFR-07 warning is a
+line in the Walk tab's live values and an item of the status bar.
 
-Side panel page `panel.survey` (`draw_survey_section`):
+The Walk tab `panel.walk` (`draw_walk_page`):
 
-- radio: `survey.find_radios`, `survey.radio_start` /
-  `survey.radio_stop` (monitoring without a walk:
-  `LiveSurvey::start_radio()`; the Walk page still chooses the radio);
+- radio: `walk.find_radios`, `walk.radio_start` /
+  `walk.radio_stop` (monitoring without a walk:
+  `LiveSurvey::start_radio()`); live values (`draw_live_values`, the
+  compact graph `walk.level_plot`); replay in `walk.replay`;
 - recording (`LiveSurvey`, core `recording::Recorder`, files in
   `<project folder>/recordings/`, listed in the project when they stop):
   `rec.name`, `rec.notes`, `rec.split` (minutes), `rec.compress`,
@@ -555,7 +556,7 @@ as `celldb::Technologies`.
   is the plugin's as it is (`celldb::simulate`; its check against
   EN 300 392-2 clause 18.3.4 is an open owner question).
 
-The **Post** page of the side panel `panel.post` (`PostProcessing`,
+The Map tab's **Advanced** dropdown `map.advanced` (`PostProcessing`,
 PP-01..05) sets `ProjectWindow::set_post(PostSettings)`, so the plan's
 points, the binned layer, the legend and the figures show the same view;
 the default `PostSettings{}` is the plain serving level of 9.2.
@@ -580,7 +581,7 @@ the default `PostSettings{}` is the plain serving level of 9.2.
 - PP-04: `post.offset` adds dB to every level (`survey::with_offset`);
   the view's label ("Simulation: ...") is a badge on the plan.
 - PP-05: `post.percentile` is the binned layer's percentile (the square
-  size stays the Layers page's).
+  size is `layer.bin_size` next to `layer.binned`).
 - EXP-06 view: `post.basis.{points,tested,floor}`, `post.acc_threshold`,
   `post.acc_percent`: one criterion evaluated on the measured points, the
   tested squares or the shown interpolation's confident area
@@ -590,7 +591,7 @@ the default `PostSettings{}` is the plain serving level of 9.2.
 Hooks for the next steps: 9.9 translates the texts of `network_view.cpp`
 and `post_view.cpp`, gives the windows touch sizes and help pages
 (`network.*` tooltips are the in-app help, DOC-07); 9.10's tour can open
-`win.cell_db` and `panel.post` by their ids; 9.11's screenshots use the
+`win.cell_db` and `map.advanced` by their ids; 9.11's screenshots use the
 same ids; phase 10 reports the same views (`NetworkChecks::verification`,
 `PostProcessing::stats`) and adds stored acceptance profiles and the
 exports.
@@ -867,7 +868,7 @@ The documentation's screenshot set (SCR-01..05, SCR-07) is made by the app itsel
   `report::PdfOptions::layout_issues` notes any PDF text past its cell, column, axis or the page, over
   another text or cut inside a word; the HTML style sheet must let words wrap. Known exceptions go in
   `tests/app/overflow/exceptions.txt` with a reason; the list is empty (a test checks it).
-- The side panel's pages (`panel.layers/edit/walk/map/survey/post`) are a wrapping row of buttons, not
+- The project window's tabs (`panel.walk/map`) are a wrapping row of buttons, not
   tabs, so their labels stay readable on narrow and touch layouts.
 
 ## Headless UI tests (tests/app/harness)

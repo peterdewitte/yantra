@@ -176,7 +176,7 @@ go through the caller's `translate` (the app's tr()). Content, in order:
   is stale or of another metric; the floor statistics (min, median, max,
   means, percentiles) and a table of "Share of measured points (%)" next
   to "Share of floor area (interpolated) (%)" per threshold, never mixed
-  (IND-43; the same wording as the Post page's figures and in NL/FR/DE); the
+  (IND-43; the same wording as the figures in the Map tab's Advanced dropdown and in NL/FR/DE); the
   acceptance table; the histogram and CDF of the values with the
   threshold marked; per-cell statistics; the serving-cell changes per
   pair of cells; optionally the point list as a table.

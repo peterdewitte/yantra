@@ -32,7 +32,7 @@ The PC did not keep up with the radio. Close other programs, lower the radio's s
 
 ### The interpolation cannot run
 
-Rest the pointer on Run: it needs a floor with a scale (13.2), measured points with levels in dBm, and no other run going on. A map marked stale was made before the last change of the floors, scales, points or interpolation settings: Run again.
+Rest the pointer on Compute map (Map tab): it needs a floor with a scale (13.2), measured points with levels in dBm, and no other run going on. A map marked stale was made before the last change of the floors, scales, points or interpolation settings: Run again.
 
 ### The mouse survey asks me to move slower
 

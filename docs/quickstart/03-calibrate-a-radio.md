@@ -13,7 +13,7 @@ An SDR measures levels relative to its own full scale (dBFS). A calibration turn
 
 3. **Plan the points.** In Radio > Calibration... type the frequencies in MHz (for example the lowest, middle and highest carrier of the network), the levels in dBm (for example -90, -70, -50), how many days the calibration stays valid and the readings per point. Choose Signal generator (or Reference radio).
 
-4. **Measure.** Start the radio (Survey page, Start radio), then Start in the wizard. For each point set the generator to the frequency and level shown and press Measure. A reading too close to full scale, too weak above the noise or overloaded is refused with the reason: change the level or the gain and measure again. Skip leaves a point out.
+4. **Measure.** Start the radio (Walk tab, Start radio), then Start in the wizard. For each point set the generator to the frequency and level shown and press Measure. A reading too close to full scale, too weak above the noise or overloaded is refused with the reason: change the level or the gain and measure again. Skip leaves a point out.
 
 5. **Save.** Save stores one offset per frequency in your calibration table. The calibration window now shows the key as valid; the survey panels show levels in dBm without the uncalibrated flag.
 
