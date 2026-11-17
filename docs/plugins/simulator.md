@@ -107,8 +107,10 @@ floor plan.
 
 ## Known issues
 
-- Without a floor plan or position the levels are the scenario's own
-  (fixed per cell), not the multi-wall model.
+- Without a floor plan, a scene (`get_scene` NOT_FOUND, a user's own
+  floor in Yantra 0.4; one INFO log line per plan, no warning) or a
+  position the levels are the scenario's own (fixed per cell), not the
+  multi-wall model.
 - The bundled scenarios assume the example ids `fraunces-*`,
   `mak-beer-house-*`, `mak-haus-claeson-*` and `mak-villa-bunzl-*`
   (owner question: which ids Yantra sends).

@@ -12,6 +12,13 @@ through the host callback `get_scene` (RAD-18). Yantra never pushes it: the
 plugin pulls it on start and again after a `YR_CONTEXT_SCENE_CHANGED`
 notification.
 
+A floor may have no scene: `get_scene` then returns `YR_ERR_NOT_FOUND`
+for the floor shown, which means "no scene, use the defaults" (RAD-18).
+Yantra 0.4 gives the fixed demo scenes of its bundled example floors and
+no scene for a user's own floor. The simulator then uses its scenario's
+own levels and logs this once at INFO, not as a warning (RAD-61); the
+test host shows such a floor with `yantra-radio-host stream --no-scene`.
+
 Defined in `include/yantra/radio.h` (`YR_SCENE_FORMAT`, `YR_SCENE_VERSION`,
 documentation of `get_scene`). Parser and writer:
 `common/include/yantra/radios/scene.hpp` (library `yantra::radios_common`).

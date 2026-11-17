@@ -826,7 +826,11 @@ callbacks (RAD-18), all NULL for other plugins:
 - `get_walk_position`: the walk-test position, or `YR_ERR_NO_POSITION`;
 - `get_scene`: the scene JSON of a floor (docs/SCENE_FORMAT.md), with
   `YR_ERR_BUFFER_TOO_SMALL` and the needed length when the buffer is too
-  small.
+  small; `YR_ERR_NO_PLAN` without a plan; `YR_ERR_NOT_FOUND` for an
+  unknown floor or a floor without a scene. For the floor shown that
+  means "no scene, use the defaults" and is not an error: Yantra 0.4
+  gives scenes only for its bundled example floors, none for the user's
+  own (RAD-18, RAD-36).
 
 Yantra also calls the descriptor's `on_context_event` with
 `YR_CONTEXT_PLAN_CHANGED`, `SCENE_CHANGED`, `CURSOR_MOVED` (at most 30
@@ -839,7 +843,9 @@ The only exception is the `sim_position` group of a simulated record: the
 floor id and the plan position the record was simulated at.
 
 The radio test host emulates these callbacks (`yantra-radio-host stream
---scene FILE --cursor X,Y;... --walk X,Y;... --path-step N`).
+--scene FILE --cursor X,Y;... --walk X,Y;... --path-step N`; `--no-scene`
+shows a plan whose floors have no scene, so `get_scene` gives
+`YR_ERR_NOT_FOUND`).
 
 ## The simulator plugin (RAD-61)
 
@@ -879,7 +885,13 @@ position, the levels come from the multi-wall model (RAD-73,
 docs/CHANNEL_MODEL.md) on the scene of the floor (`get_scene`), and each
 record has the `sim_position` group with the floor id and the point.
 Without one (`YR_ERR_NO_POSITION`) the scenario's own levels are used and
-records carry no `sim_position`. `SCENE_CHANGED` reloads the scene,
+records carry no `sim_position`. A floor without a scene (`get_scene`
+gives `YR_ERR_NOT_FOUND`, e.g. a user's own floor in Yantra 0.4) also
+gets the scenario's own levels: "no scene, use the defaults", logged
+once at INFO per plugin instance and plan, not as a warning at every
+start and context change (RAD-18, RAD-61). Any other status and a scene
+that is not valid JSON stay warnings (the scenario's levels, or the
+previous scene after `SCENE_CHANGED`). `SCENE_CHANGED` reloads the scene,
 `CURSOR_MOVED` and `WALK_POSITION` move the receiver from the next
 interval (within 1 s), `PLAN_CHANGED` rebuilds the scenario. The context
 events only set a flag; the stream thread asks the host again.
@@ -1220,7 +1232,7 @@ pass, fail or skip:
 | `stop_during_push` | The host holds each push 100 ms; stop comes during a push and must wait for it | RAD-33 |
 | `sink_full` | The host keeps one record and drops the rest; the plugin must carry on | RAD-24 |
 | `hotplug` | With `--unplug CMD --replug CMD`: DEVICE_LOST, state LOST, DEVICE_LOST from calls, `devices_changed`, DEVICE_BACK, reopen | RAD-34, RAD-35 |
-| `context` | SCENE plugins: no plan, then a plan with its scene and scripted cursor and walk paths, plan hidden and shown; sim_position on the shown floor at a given point; context texts never in records or logs above debug | RAD-14, RAD-18, RAD-19, RAD-36 |
+| `context` | SCENE plugins: no plan, then a plan with its scene and scripted cursor and walk paths, plan hidden and shown, then a plan whose floor has no scene (`get_scene` NOT_FOUND: records keep flowing); sim_position on the shown floor at a given point; context texts never in records or logs above debug | RAD-14, RAD-18, RAD-19, RAD-36 |
 | `completeness` | Labels and help texts everywhere; groups; every translation key names something | RAD-48, RAD-49 |
 | `scope` | No schema, field, setting, sensor, preset or item name outside the scope | RAD-17, RAD-26 |
 | `cleanup` | No plugin thread left after close and shutdown (leaks: run the kit in the asan-ubsan build) | RAD-15, RAD-31 |
