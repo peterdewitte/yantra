@@ -21,7 +21,10 @@
 // "Show me", which does it with the example's data through the same
 // commands the controls call. Steps can be skipped, repeated (Back) or
 // the tour left; the progress is kept in AppSettings::tour (reset by
-// UI-16). The report step comes with phase 10 (File > Report).
+// UI-16). After the building is chosen, a step shows where the MAK plans
+// were saved (the cache folder, "Open folder"), or that the bundled
+// Fraunces Tavern is used. The workflow: Walk tab (mouse survey), Map tab
+// (points, map, Advanced), File > Report (UI-18, UI-19).
 //
 // Threading: the UI thread; the download runs on SheetFetch's worker.
 #pragma once
@@ -44,6 +47,7 @@ class AppState;
 
 enum class TourStep {
     Choose,        ///< pick the example building (MAK: consent and download)
+    Downloaded,    ///< where the MAK plans were saved (path, Open folder), or the fallback
     NewProject,    ///< File > New indoor project
     ImportSheet,   ///< File > Add floor > plan file: the sheet
     TrimFloors,    ///< trim several floors from the sheet (plan import window)
@@ -55,7 +59,7 @@ enum class TourStep {
     Report,        ///< File > Report (phase 10)
     Finish,        ///< the end: the finished example project (DEMO-13)
 };
-inline constexpr int kTourStepCount = 11;
+inline constexpr int kTourStepCount = 12;
 const char* tour_step_key(TourStep s) noexcept;  ///< "choose", "new_project", ...
 std::optional<TourStep> parse_tour_step(std::string_view key) noexcept;
 
@@ -122,6 +126,10 @@ struct TourView {
     std::string demo_label;  ///< DEMO-07, always shown in the tour
     std::string building;    ///< the chosen building's title ("" none yet)
     std::optional<PlanCreditView> credit;  ///< the chosen MAK sheet's credit
+    /// Downloaded: the cache folder of the MAK plans ("" when the tour uses
+    /// no downloaded plan) and whether it can be opened.
+    std::string folder;
+    bool can_open_folder = false;
     std::vector<TourBuildingView> buildings;  ///< Choose
     bool downloading = false;
     double fraction = -1.0;  ///< < 0 unknown
@@ -172,6 +180,9 @@ public:
     /// The credit of a restricted source by SHA-256 (any description in the
     /// data folders); nullopt for another plan.
     std::optional<PlanCreditView> credit_for(const std::string& sha256) const;
+
+    /// Downloaded: shows the cache folder of the MAK plans in the file manager.
+    Result open_folder();
 
     /// Tests: waits for a running download.
     void wait_download();

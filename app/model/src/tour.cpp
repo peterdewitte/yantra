@@ -40,6 +40,10 @@ const StepDef kSteps[] = {
              "needed. The MAK buildings use a plan sheet of the MAK collection in Vienna, downloaded once after you "
              "agree; the Fraunces Tavern comes with Yantra."),
      "1.3"},
+    {TourStep::Downloaded, "download_folder", tr_mark("Where the plans are kept"),
+     tr_mark("The MAK plan sheet was saved unchanged in this folder and stays there for next time: the tour and the "
+             "finished example project use it without a new download. Open folder shows it in your file manager."),
+     "1.3"},
     {TourStep::NewProject, "new_project", tr_mark("Make a new indoor project"),
      tr_mark("File > New indoor project makes the project file of the building. Give it a name and a file, then OK. "
              "Show me makes the tour's project for you."),
@@ -57,15 +61,17 @@ const StepDef kSteps[] = {
              "sheet's scale bar, or the drawing scale. A floor without a scale is marked \"not to scale\"."),
      "13.2"},
     {TourStep::MouseSurvey, "mouse_survey", tr_mark("Measure with the mouse survey"),
-     tr_mark("On the Walk page find the radios (the simulator is \"Demo (simulated network)\"), choose Mouse survey "
-             "and Start. Move the mouse slowly over the plan to measure: each point is where the simulator measured. "
-             "Click on the plan to start the interpolation. Esc stops."),
+     tr_mark("Measuring is done in the Walk tab: find the radios (the simulator is \"Demo (simulated network)\"), "
+             "choose Mouse survey and Start. Move the mouse slowly over the plan to measure: each point is where the "
+             "simulator measured, and the live values show the serving cell. Click on the plan to start the "
+             "interpolation. Esc stops."),
      "7.1"},
-    {TourStep::Results, "results", tr_mark("Look at the points and the coverage map"),
-     tr_mark("The measured points are coloured by level; the interpolated layer is the coverage map between "
-             "them, always labelled \"interpolated\". Rest the pointer on the plan for the values; the Layers page shows "
-             "or hides each layer."),
-     "13.4"},
+    {TourStep::Results, "results", tr_mark("The Map tab: points and coverage map"),
+     tr_mark("The Map tab shows the measured points, coloured by level, and the interpolated coverage map between "
+             "them, always labelled \"interpolated\". Its Show row switches the plan, the points and the map on or "
+             "off; Compute map makes the map again. Advanced holds the post-processing settings. Rest the pointer on "
+             "the plan for the values."),
+     "13.5"},
     {TourStep::SwitchFloors, "switch_floors", tr_mark("Switch floors"),
      tr_mark("Each floor has its own tab above the plan: click another floor's tab."), "13.1"},
     {TourStep::Report, "report", tr_mark("Make the report"),
@@ -394,7 +400,7 @@ Result Tour::use_building(const std::string& id, std::string message, bool error
     TourProgress p = app_.settings().tour;
     p.done.clear();
     app_.set_tour_progress(p);
-    enter(TourStep::NewProject);
+    enter(TourStep::Downloaded);
     return Result{!error, message_};
 }
 
@@ -500,6 +506,7 @@ bool Tour::step_done(TourStep s) const {
     const project::Project* p = app_.project();
     switch (s) {
     case TourStep::Choose: return desc_.has_value();
+    case TourStep::Downloaded: return desc_.has_value();
     case TourStep::NewProject: return is_tour_project();
     case TourStep::ImportSheet: return is_tour_project() && first_sheet() && !source_of(*first_sheet()).empty();
     case TourStep::TrimFloors:
@@ -590,6 +597,22 @@ TourView Tour::view() const {
     std::string text = tr(d.text);
     switch (step_) {
     case TourStep::ImportSheet: text = trf(d.text, {file_name(first_sheet())}); break;
+    case TourStep::Downloaded: {
+        const bool mak = desc_ && std::any_of(desc_->sheets.begin(), desc_->sheets.end(),
+                                              [](const demo::DemoSheet& sh) { return sh.restricted; });
+        if (mak) {
+            v.folder = app_.paths().sheet_cache.string();
+            std::error_code ec;
+            v.can_open_folder = !v.folder.empty() && fs::is_directory(app_.paths().sheet_cache, ec);
+        } else if (message_error_) {
+            text = tr("The MAK plan sheet could not be used (the reason is below), so the tour uses the Fraunces "
+                      "Tavern project that comes with Yantra: nothing was downloaded or saved.");
+        } else {
+            text = tr("The Fraunces Tavern comes with Yantra: nothing is downloaded. The MAK buildings' plan sheets, "
+                      "once downloaded, are kept in your cache folder for next time.");
+        }
+        break;
+    }
     case TourStep::SecondSource:
         if (second_sheet() != nullptr) {
             text = trf(d.text, {file_name(second_sheet())});
@@ -608,6 +631,7 @@ TourView Tour::view() const {
     const Dialog dlg = app_.dialog();
     switch (step_) {
     case TourStep::Choose: v.targets = {"tour.building.mak_beer_house"}; break;
+    case TourStep::Downloaded: v.targets = {"tour.open_folder", "tour.next"}; break;
     case TourStep::NewProject:
         v.targets = dlg == Dialog::NewProject ? std::vector<std::string>{"dlg.ok"}
                                               : std::vector<std::string>{"file.new_project", "start.file.new_project", "menu.file"};
@@ -620,7 +644,7 @@ TourView Tour::view() const {
     case TourStep::TrimFloors: v.targets = {"pi.add", "tool.rectangle"}; break;
     case TourStep::Scale: v.targets = {"pi.scale_apply", "tool.scale_line"}; break;
     case TourStep::MouseSurvey: v.targets = {"walk.stop", "walk.start", "walk.find_radios", "panel.walk"}; break;
-    case TourStep::Results: v.targets = {"layer.interpolation", "layer.points", "panel.map"}; break;
+    case TourStep::Results: v.targets = {"map.advanced", "layer.interpolation", "panel.map"}; break;
     case TourStep::SwitchFloors: v.targets = {"floors"}; break;
     case TourStep::Report: v.targets = {"dlg.ok", "file.report", "menu.file"}; break;
     case TourStep::Finish: v.targets = {"tour.show_me"}; break;
@@ -638,6 +662,8 @@ TourView Tour::view() const {
         greyed(tr("Choose one of the example buildings above."));
     } else if (!desc_) {
         greyed(tr("Choose an example building first."));
+    } else if (step_ == TourStep::Downloaded) {
+        greyed(tr("Nothing to do here: read where the plans are kept, then go on with Next."));
     } else if (step_ == TourStep::NewProject && app_.paths().user_data.empty()) {
         greyed(tr("No user folder for the tour's project: set HOME or XDG_DATA_HOME."));
     } else if (needs_project && !is_tour_project()) {
@@ -697,6 +723,7 @@ Result Tour::show_me() {
     case TourStep::Scale: return show_scale();
     case TourStep::MouseSurvey: return show_mouse_survey();
     case TourStep::Results: {
+        if (app_.plan_import() != nullptr) app_.close_plan_import();
         app_.request_panel("map");
         app_.set_layer_visible(Layer::Points, true);
         app_.set_layer_visible(Layer::Interpolation, true);
@@ -705,7 +732,7 @@ Result Tour::show_me() {
                 (void)app_.project_window()->select(f.id);
                 break;
             }
-        return Result{true, tr("The points and the interpolated layer are shown.")};
+        return Result{true, tr("The Map tab shows the points and the interpolated map.")};
     }
     case TourStep::SwitchFloors: {
         ProjectWindow* w = app_.project_window();
@@ -728,6 +755,12 @@ Result Tour::show_me() {
     default: break;
     }
     return Result{false, v.show_reason};
+}
+
+Result Tour::open_folder() {
+    const TourView v = view();
+    if (v.step != TourStep::Downloaded || !v.can_open_folder) return Result{false, tr("No downloaded plan to show.")};
+    return app_.open_folder(app_.paths().sheet_cache);
 }
 
 Result Tour::show_new_project() {

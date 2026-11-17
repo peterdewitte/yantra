@@ -305,6 +305,14 @@ TEST_CASE("DEMO-11 DEMO-08 the tour with the Fraunces Tavern: every step by Show
     Tour& t = st.tour();
     REQUIRE(t.choose("fraunces").ok);
     CHECK(st.dialog() == Dialog::None);  // bundled: nothing to ask
+    // DEMO-11: the plans step says that nothing was downloaded (no folder).
+    REQUIRE(t.view().step == TourStep::Downloaded);
+    CHECK(t.view().done);
+    CHECK(t.view().folder.empty());
+    CHECK_FALSE(t.view().can_show);
+    CHECK(t.view().text.find("nothing is downloaded") != std::string::npos);
+    CHECK_FALSE(t.open_folder().ok);
+    REQUIRE(t.next().ok);
     REQUIRE(t.view().step == TourStep::NewProject);
     CHECK(t.view().building == "Fraunces Tavern");
     CHECK(t.view().targets.front() == "file.new_project");
@@ -401,7 +409,18 @@ TEST_CASE("DEMO-12 a MAK example: consent first, then the stand-in sheet fetched
     CHECK_FALSE(v.message_error);
     REQUIRE(t.description() != nullptr);
     CHECK(t.description()->id == kMak);
-    CHECK(v.step == TourStep::NewProject);
+    // DEMO-11: the step after the download shows the cache folder and opens it.
+    CHECK(v.step == TourStep::Downloaded);
+    CHECK(v.folder == s.cache.string());
+    CHECK(v.can_open_folder);
+    CHECK(v.targets.front() == "tour.open_folder");
+    std::vector<fs::path> opened;
+    st.set_document_opener([&](const fs::path& f, std::string&) {
+        opened.push_back(f);
+        return true;
+    });
+    REQUIRE(t.open_folder().ok);
+    CHECK(opened == std::vector<fs::path>{s.cache});
     const fs::path kept = s.cache / s.sheet_file();
     REQUIRE(fs::exists(kept));
     CHECK(sha256_of(kept) == s.desc["sheets"][0]["sha256"].get<std::string>());  // unchanged
@@ -489,7 +508,10 @@ TEST_CASE("DEMO-12 offline: the tour says why and continues with the Fraunces Ta
     CHECK(v.message.find("Fraunces Tavern") != std::string::npos);
     REQUIRE(st.tour().description() != nullptr);
     CHECK(st.tour().description()->id == "fraunces");
-    CHECK(v.step == TourStep::NewProject);
+    // DEMO-11: the plans step says the bundled Fraunces Tavern is used.
+    CHECK(v.step == TourStep::Downloaded);
+    CHECK(v.folder.empty());
+    CHECK(v.text.find("Fraunces Tavern") != std::string::npos);
     CHECK(cache_clean(s));
 }
 #endif

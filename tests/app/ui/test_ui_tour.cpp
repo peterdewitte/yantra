@@ -115,6 +115,11 @@ TEST_CASE("DEMO-11 the tour by clicks: the offer, the tour window, the framed co
     CHECK(s.state.tour().view().message.find("Fraunces Tavern") != std::string::npos);
     CHECK_FALSE(fs::exists(dir / "cache" / "mak_beer_house.jpg"));
 
+    // DEMO-11: the plans step (the Fraunces Tavern: nothing downloaded), then Next.
+    REQUIRE(s.ui.frames(2));
+    CHECK(s.state.tour().view().step == TourStep::Downloaded);
+    CHECK_FALSE(s.ui.has("tour.open_folder"));
+    REQUIRE(s.ui.click("tour.next"));
     // New indoor project: its start-screen button is framed, Show me makes it.
     REQUIRE(s.ui.frames(2));
     CHECK(s.gui.tour_overlay().target == "start.file.new_project");
@@ -170,6 +175,13 @@ TEST_CASE("DEMO-12 a MAK plan shows its credit, licence and approximate scale wi
     REQUIRE(s.state.tour().description() != nullptr);
     REQUIRE(s.state.tour().description()->id == "mak_beer_house");
     Tour& t = s.state.tour();
+    // DEMO-11: the folder of the downloaded plan, with Open folder.
+    REQUIRE(t.view().step == TourStep::Downloaded);
+    REQUIRE(s.ui.frames(2));
+    REQUIRE_MESSAGE(s.ui.has("tour.open_folder"), s.ui.dump());
+    CHECK(s.gui.tour_overlay().folder == (dir / "cache").string());
+    CHECK(s.gui.tour_overlay().target == "tour.open_folder");
+    REQUIRE(t.next().ok);
     for (TourStep step : {TourStep::NewProject, TourStep::ImportSheet, TourStep::TrimFloors}) {
         REQUIRE(t.view().step == step);
         REQUIRE(t.show_me().ok);

@@ -437,6 +437,15 @@ std::optional<ProjectView> AppState::project_view() const {
     return v;
 }
 
+Result AppState::open_folder(const fs::path& folder) {
+    std::error_code ec;
+    if (folder.empty() || !fs::is_directory(folder, ec)) return fail(trf("The folder {} is not there.", {folder.string()}));
+    std::string error;
+    const bool opened = document_opener_ ? document_opener_(folder, error) : platform::open_document(folder, error);
+    if (!opened) return fail(trf("The folder could not be opened: {}", {error}));
+    return done(trf("The folder opens in your file manager: {}", {folder.string()}));
+}
+
 fs::path AppState::manual_pdf() const {
     if (!manual_pdf_) {
         const auto f = find_manual_pdf(paths_.data_folders, core::build_info().version_string);

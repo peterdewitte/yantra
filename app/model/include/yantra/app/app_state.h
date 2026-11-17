@@ -393,6 +393,9 @@ public:
     /// own, so no viewer starts.
     using DocumentOpener = std::function<bool(const std::filesystem::path&, std::string& error)>;
     void set_document_opener(DocumentOpener opener) { document_opener_ = std::move(opener); }
+    /// Shows a folder in the system's file manager, through the document
+    /// opener (DEMO-11: where the MAK plans were downloaded).
+    Result open_folder(const std::filesystem::path& folder);
     /// The PDF manual this copy of Yantra has (empty: none); looked up
     /// once (the menu asks every frame).
     std::filesystem::path manual_pdf() const;

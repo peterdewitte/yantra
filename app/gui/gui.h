@@ -129,6 +129,7 @@ public:
         bool consent = false;    ///< the download question (DEMO-12)
         bool banner = false;     ///< the DEMO label in the tour (DEMO-07)
         std::string target;      ///< the control pointed at ("" none drawn)
+        std::string folder;      ///< the download folder shown (DEMO-11)
         bool credit = false;     ///< a MAK sheet's credit with the plan (DEMO-12)
         std::string credit_text;
     };

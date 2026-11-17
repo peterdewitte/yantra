@@ -138,7 +138,8 @@ inline void visit_all(Shell& s, const std::function<void(const std::string&)>& c
     REQUIRE(s.state.dialog() == Dialog::TourConsent);
     settle_check("tour consent");
     s.state.cancel_dialog();  // no: the Fraunces Tavern, with the message
-    settle_check("tour fallback");
+    settle_check("tour fallback");  // the plans step: the Fraunces Tavern instead (DEMO-11)
+    REQUIRE(s.state.tour().next().ok);
     REQUIRE(s.state.tour().show_me().ok);  // the tour's project
     REQUIRE(s.ui.run_until([&] { return s.state.screen() == Screen::Project; }, 10));
     settle_check("tour project");

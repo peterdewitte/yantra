@@ -71,6 +71,20 @@ void Gui::draw_tour_body(const TourView& v, bool strip) {
                              !b.available ? b.reason : std::string(tr("A download is running.")));
         }
     }
+    // DEMO-11: where the MAK plans were saved, with Open folder.
+    if (v.step == TourStep::Downloaded && !strip && !v.folder.empty()) {
+        // Screenshots show no folder of this machine (SCR-02).
+        const std::string shown = screenshot_mode_ ? std::string("~/.cache/yantra/mak") : v.folder;
+        ImGui::PushTextWrapPos(0.0F);
+        ImGui::TextUnformatted(trf("Folder: {}", {shown}).c_str());
+        ImGui::PopTextWrapPos();
+        tour_.folder = shown;
+        ImGui::BeginDisabled(!v.can_open_folder);
+        if (ImGui::Button(tr("Open folder###tour.open_folder"), ImVec2(0.0F, target_h()))) report(state_, tour.open_folder());
+        ImGui::EndDisabled();
+        disabled_tooltip(tr("Show the folder with the downloaded plan sheet in your file manager."), v.can_open_folder,
+                         tr("The folder is not there (yet)."));
+    }
     if (v.downloading) {
         const float f = v.fraction < 0.0 ? 0.0F : static_cast<float>(v.fraction);
         char bytes[48];
