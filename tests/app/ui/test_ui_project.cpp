@@ -84,9 +84,17 @@ void make_depot(const fs::path& file) {
 
 std::string tab_key(const std::string& floor_id) { return "tab." + floor_id; }
 
+// A right click on a floor tab opens its menu (IND-04: move, remove).
+bool tab_menu(Shell& s, const std::string& floor_id) {
+    const auto t = s.ui.find(tab_key(floor_id));
+    if (!t) return false;
+    s.ui.drag(t->cx(), t->cy(), t->cx(), t->cy(), 1, 1);
+    return s.ui.frames(2);
+}
+
 }  // namespace
 
-TEST_CASE("project window: floor tabs, \"+\", properties, reorder and remove by clicking (IND-04, IND-10)") {
+TEST_CASE("project window: floor tabs, \"+\", properties, reorder by dragging a tab and remove from its menu (IND-04, IND-10)") {
     const fs::path dir = scratch("tabs");
     make_depot(dir / "depot.yantra");
     Shell s({});
@@ -100,14 +108,27 @@ TEST_CASE("project window: floor tabs, \"+\", properties, reorder and remove by 
     REQUIRE(s.ui.has(tab_key(up)));
     CHECK(s.ui.find(tab_key(g))->x0 < s.ui.find(tab_key(up))->x0);  // by level
     CHECK(s.ui.has("plan.canvas"));
+    // No Move or Remove buttons in the main window: the tab's menu has them.
+    CHECK_FALSE(s.ui.has("floor.down"));
+    CHECK_FALSE(s.ui.has("floor.up"));
+    CHECK_FALSE(s.ui.has("floor.remove"));
+    REQUIRE(tab_menu(s, g));
+    REQUIRE_MESSAGE(s.ui.has("floor.down"), s.ui.dump());
     CHECK(s.ui.find("floor.down")->disabled);  // the lowest floor
     CHECK_FALSE(s.ui.find("floor.up")->disabled);
+    CHECK(s.ui.has("floor.remove"));
+    s.ui.click_at(s.ui.find(tab_key(g))->cx(), s.ui.find(tab_key(g))->cy());  // outside the menu: it closes
+    REQUIRE(s.ui.frames(2));
+    CHECK_FALSE(s.ui.has("floor.remove"));
 
     // A click on a tab selects its floor.
     REQUIRE(s.ui.click(tab_key(up)));
     REQUIRE(s.ui.frames(2));
     CHECK(w->selected() == up);
-    CHECK(s.ui.find("floor.up")->disabled);
+    REQUIRE(tab_menu(s, up));
+    CHECK(s.ui.find("floor.up")->disabled);  // the highest floor
+    s.ui.click_at(s.ui.find(tab_key(up))->cx(), s.ui.find(tab_key(up))->cy());
+    REQUIRE(s.ui.frames(2));
 
     // "+" opens Add floor; the new floor becomes the selected tab.
     REQUIRE(s.ui.click("floors.add"));
@@ -132,19 +153,40 @@ TEST_CASE("project window: floor tabs, \"+\", properties, reorder and remove by 
     REQUIRE(s.ui.frames(2));
     CHECK(s.ui.find(tab_key(roof))->label.find("Plant room") == 0);
 
-    // Move down: it swaps places with the first floor.
-    REQUIRE(s.ui.click("floor.down"));
-    REQUIRE(s.ui.frames(2));
-    CHECK(w->tabs()[1].id == roof);
-    CHECK(s.ui.find(tab_key(roof))->x0 < s.ui.find(tab_key(up))->x0);
+    // Drag the roof's tab onto the ground floor's: it becomes the lowest
+    // floor, stored in the project (one move, as the menu does it).
+    {
+        const auto from = s.ui.find(tab_key(roof));
+        const auto to = s.ui.find(tab_key(g));
+        REQUIRE(from);
+        REQUIRE(to);
+        s.ui.drag(from->cx(), from->cy(), to->x0 + 2.0F, to->cy(), 0, 12);
+        REQUIRE(s.ui.frames(4));
+    }
+    REQUIRE(w->tabs().size() == 3);
+    CHECK(w->tabs()[0].id == roof);
+    CHECK(s.state.project()->floors()[0].id == roof);
+    CHECK(s.state.project()->floors()[0].level < s.state.project()->floors()[1].level);
+    CHECK(s.ui.find(tab_key(roof))->x0 < s.ui.find(tab_key(g))->x0);
     CHECK(w->selected() == roof);
 
-    // Remove asks first; "Keep it" keeps it, "Remove" removes it.
+    // The tab's menu: Move up, it swaps places with the next floor.
+    REQUIRE(tab_menu(s, roof));
+    REQUIRE(s.ui.click("floor.up"));
+    REQUIRE(s.ui.frames(3));
+    CHECK(w->tabs()[1].id == roof);
+    CHECK(s.state.project()->floors()[1].id == roof);
+    CHECK(s.ui.find(tab_key(roof))->x0 < s.ui.find(tab_key(up))->x0);
+    CHECK(s.ui.find(tab_key(g))->x0 < s.ui.find(tab_key(roof))->x0);
+
+    // Remove (the tab's menu) asks first; "Keep it" keeps it, "Remove" removes it.
+    REQUIRE(tab_menu(s, roof));
     REQUIRE(s.ui.click("floor.remove"));
     REQUIRE(s.ui.wait_window("dlg.remove_floor"));
     REQUIRE(s.ui.click("dlg.cancel", "dlg.remove_floor"));
     REQUIRE(s.ui.wait_window_closed("dlg.remove_floor"));
     CHECK(s.state.project()->floors().size() == 3);
+    REQUIRE(tab_menu(s, roof));
     REQUIRE(s.ui.click("floor.remove"));
     REQUIRE(s.ui.wait_window("dlg.remove_floor"));
     REQUIRE(s.ui.click("dlg.ok", "dlg.remove_floor"));

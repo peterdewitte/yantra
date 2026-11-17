@@ -9,11 +9,12 @@
 #include "yantra/app/app_icon.h"
 
 #include <imgui.h>
-#include <imgui_internal.h>  // ImGuiTabBar::TabsAddedNew (tab order)
+#include <imgui_internal.h>  // ImGuiTabBar (the floor tabs' order, IND-04)
 
 #include <algorithm>
 #include <cstring>
 #include <optional>
+#include <utility>
 #include <vector>
 
 namespace yantra::app {
@@ -345,10 +346,6 @@ void Gui::draw_project_screen() {
     }
     // Floor commands (IND-04).
     const std::string id = c->floor_id;
-    const auto& tabs = w->tabs();
-    const auto it = std::find_if(tabs.begin(), tabs.end(), [&](const FloorTab& t) { return t.id == id; });
-    const bool lowest = it == tabs.begin();
-    const bool highest = it != tabs.end() && std::next(it) == tabs.end();
     if (ImGui::Button(tr("Properties...###floor.properties"))) (void)state_.edit_floor(id);
     text_tooltip(tr("Rename the floor, or change its level number and floor-to-floor height."));
     same_line_if(label_w(tr("Plan and scale...###floor.plan")));
@@ -359,21 +356,9 @@ void Gui::draw_project_screen() {
     text_tooltip(no_plan.empty() ? tr("Open the floor's plan in the plan import window: adjust its trim, rotation, "
                                    "scale and reference point, or trim more floors from the same sheet.")
                                  : (tr("Adjust the floor's trim and scale. ") + no_plan).c_str());
-    same_line_if(label_w(tr("Move down###floor.down")));
-    ImGui::BeginDisabled(lowest);
-    if (ImGui::Button(tr("Move down###floor.down"))) (void)state_.move_floor(id, -1);
-    ImGui::EndDisabled();
-    text_tooltip(lowest ? tr("Move the floor one place down in the level order. It is already the lowest.")
-                        : tr("Move the floor one place down in the level order (the floors swap levels)."));
-    same_line_if(label_w(tr("Move up###floor.up")));
-    ImGui::BeginDisabled(highest);
-    if (ImGui::Button(tr("Move up###floor.up"))) (void)state_.move_floor(id, +1);
-    ImGui::EndDisabled();
-    text_tooltip(highest ? tr("Move the floor one place up in the level order. It is already the highest.")
-                         : tr("Move the floor one place up in the level order (the floors swap levels)."));
-    same_line_if(label_w(tr("Remove...###floor.remove")));
-    if (ImGui::Button(tr("Remove...###floor.remove"))) (void)state_.request_remove_floor(id);
-    text_tooltip(tr("Remove the floor with its walk tests (you are asked first)."));
+    // IND-04, UI-20: no Move or Remove buttons here: a floor tab is dragged
+    // to its place, and its right-click menu moves or removes it
+    // (draw_floor_tabs).
     // The view's buttons stay together (the bar, Fit, + and -).
     same_line_if(ImGui::CalcTextSize("|").x + ImGui::GetStyle().ItemSpacing.x * 4.0F + label_w(tr("Fit###plan.fit")) +
                  label_w("+") + label_w("-"));
@@ -467,26 +452,93 @@ void Gui::draw_project_screen() {
     ImGui::EndChild();
 }
 
+namespace {
+
+// IND-04: the floor whose tab the user dragged and by how many places
+// (+ up, - down), comparing the tab bar's order with the floors' order.
+std::optional<std::pair<std::string, int>> dragged_floor(const ImGuiTabBar& bar, const std::vector<FloorTab>& tabs,
+                                                         const std::vector<ImGuiID>& ids) {
+    std::vector<std::size_t> shown;  // the floors' indices in the bar's order
+    for (const ImGuiTabItem& item : bar.Tabs) {
+        const auto it = std::find(ids.begin(), ids.end(), item.ID);
+        if (it != ids.end()) shown.push_back(static_cast<std::size_t>(it - ids.begin()));
+    }
+    if (shown.size() != tabs.size()) return std::nullopt;  // a tab is new or gone
+    std::size_t a = 0;
+    while (a < shown.size() && shown[a] == a) ++a;
+    if (a == shown.size()) return std::nullopt;
+    std::size_t b = shown.size() - 1;
+    while (shown[b] == b) --b;
+    // One tab moved from b to a (left, down) or from a to b (right, up).
+    const int places = static_cast<int>(b - a);
+    if (shown[a] == b) return std::make_pair(tabs[b].id, -places);
+    return std::make_pair(tabs[a].id, places);
+}
+
+}  // namespace
+
 void Gui::draw_floor_tabs(ProjectWindow& w) {
     const std::string model = w.selected();
     const bool force = model != shown_floor_;
     std::string visible;
-    if (ImGui::BeginTabBar("###floors", ImGuiTabBarFlags_FittingPolicyScroll | ImGuiTabBarFlags_NoCloseWithMiddleMouseButton)) {
-        for (const FloorTab& t : w.tabs()) {
+    // IND-04: the tabs are reorderable: a floor is moved by dragging its tab.
+    // A frame without the flag after the floors' order changed: Dear ImGui
+    // then sorts the tabs by their order of the last frame (BeginTabBarEx).
+    const ImGuiTabBarFlags bar_flags = ImGuiTabBarFlags_FittingPolicyScroll | ImGuiTabBarFlags_NoCloseWithMiddleMouseButton |
+                                       (tab_resort_ ? 0 : ImGuiTabBarFlags_Reorderable);
+    tab_resort_ = false;
+    if (ImGui::BeginTabBar("###floors", bar_flags)) {
+        const std::vector<FloorTab>& tabs = w.tabs();
+        std::vector<ImGuiID> tab_ids;
+        tab_ids.reserve(tabs.size());
+        std::optional<std::pair<std::string, int>> move;  // from the tab's menu
+        for (std::size_t i = 0; i < tabs.size(); ++i) {
+            const FloorTab& t = tabs[i];
             const ImGuiTabItemFlags f = (force && t.id == model) ? ImGuiTabItemFlags_SetSelected : 0;
             const bool open = ImGui::BeginTabItem((t.label + "###tab." + t.id).c_str(), nullptr, f);
+            tab_ids.push_back(ImGui::GetItemID());
             text_tooltip(t.tooltip.c_str());
+            // The tab's menu (right click): Move down, Move up, Remove....
+            if (ImGui::BeginPopupContextItem(("###floor_menu." + t.id).c_str())) {
+                // Touch layout: entries of a touch target's height, as in the menus (UI-13).
+                const ImVec2 sp = ImGui::GetStyle().ItemSpacing;
+                ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,
+                                    ImVec2(sp.x, layout().touch ? std::max(sp.y, px(static_cast<float>(kTouchTargetPx)) -
+                                                                               ImGui::GetFontSize() + 0.5F)
+                                                                : sp.y));
+                const bool lowest = i == 0;
+                const bool highest = i + 1 == tabs.size();
+                if (ImGui::MenuItem(tr("Move down###floor.down"), nullptr, false, !lowest)) move.emplace(t.id, -1);
+                text_tooltip(tr("Move the floor one place down in the level order (the floors swap levels)."));
+                if (ImGui::MenuItem(tr("Move up###floor.up"), nullptr, false, !highest)) move.emplace(t.id, +1);
+                text_tooltip(tr("Move the floor one place up in the level order (the floors swap levels)."));
+                ImGui::Separator();
+                if (ImGui::MenuItem(tr("Remove...###floor.remove"))) (void)state_.request_remove_floor(t.id);
+                text_tooltip(tr("Remove the floor with its walk tests (you are asked first)."));
+                ImGui::PopStyleVar();
+                ImGui::EndPopup();
+            }
             if (open) {
                 visible = t.id;
                 ImGui::EndTabItem();
             }
         }
-        // A floor moved: Dear ImGui keeps a tab bar's first order unless a
-        // tab is new, so have it sort the tabs by this frame's order.
+        // A tab dragged to another place (applied when the mouse is up):
+        // the same model call as the menu, once per drag.
+        ImGuiTabBar* bar = ImGui::GetCurrentTabBar();
+        if (bar != nullptr && bar->ReorderRequestTabId != 0) tab_dragged_ = true;
+        if (tab_dragged_ && bar != nullptr && !ImGui::IsMouseDown(ImGuiMouseButton_Left) && bar->ReorderRequestTabId == 0) {
+            tab_dragged_ = false;
+            if (!move) move = dragged_floor(*bar, tabs, tab_ids);
+        }
+        if (move && !state_.move_floor(move->first, move->second).ok)
+            tab_resort_ = true;  // refused: back to the floors' order
+        // A floor moved: Dear ImGui keeps a tab bar's own order, so have it
+        // sort the tabs by this frame's order on the next frame.
         std::string order;
         for (const FloorTab& t : w.tabs()) order += t.id + '\n';
         if (order != tab_order_) {
-            if (ImGuiTabBar* bar = ImGui::GetCurrentTabBar()) bar->TabsAddedNew = true;
+            tab_resort_ = true;
             tab_order_ = order;
         }
         // IND-10: "+" next to the floor tabs.

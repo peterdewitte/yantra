@@ -254,6 +254,8 @@ private:
     PlanImportView import_view_;
     std::string shown_floor_;  // the floor tab shown last frame
     std::string tab_order_;    // the floor ids of the tabs, in order
+    bool tab_dragged_ = false; // a floor tab is being dragged (IND-04)
+    bool tab_resort_ = false;  // sort the floor tabs by the floors' order next frame
     ToolOverlay overlay_;
     // Survey panels (step 9.5).
     SurveyOverlay survey_;

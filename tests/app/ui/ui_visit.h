@@ -194,6 +194,17 @@ inline void visit_all(Shell& s, const std::function<void(const std::string&)>& c
         REQUIRE(s.ui.frames(2));
     }
     const std::string floor = s.state.project_window()->selected();
+    {
+        // IND-04: the floor tab's menu (right click): Move down, Move up, Remove....
+        const auto t = s.ui.find("tab." + floor);
+        REQUIRE_MESSAGE(t, s.ui.dump());
+        s.ui.drag(t->cx(), t->cy(), t->cx(), t->cy(), 1, 1);
+        REQUIRE(s.ui.frames(2));
+        REQUIRE_MESSAGE(s.ui.has("floor.remove"), s.ui.dump());
+        settle_check("floor tab menu");
+        s.ui.click_at(t->cx(), t->cy());
+        REQUIRE(s.ui.frames(2));
+    }
     auto floor_dialog = [&](const std::function<Result()>& open, const char* where) {
         REQUIRE(open().ok);
         settle_check(where);
