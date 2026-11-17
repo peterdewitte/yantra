@@ -111,7 +111,7 @@ those libraries in their own radios build instead, instrumented.
 Example with a yantra-radios release built next to yantra:
 
     cmake -S . -B build -G Ninja \
-      -DYANTRA_RADIOS_PREBUILT=../yantra-radios/build/release/v0.3.1
+      -DYANTRA_RADIOS_PREBUILT=../yantra-radios/build/release/v0.3.2
 
 ### Other options
 

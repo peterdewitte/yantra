@@ -69,6 +69,17 @@ own changes are in its CHANGELOG.md.
   cycle N: time"); the mismatch message now shows the recorded and
   replayed times (OA-13, REC-07).
 
+### Radio plugins
+
+- 2026-11-17: pinned to yantra-radios **v0.3.2** (commit d6e8c41): a
+  floor without a scene (a user's own floor, PLG-27) means "no scene, use
+  the defaults" to the simulator, which says so once in its log at INFO
+  instead of a warning at every start; `yantra-radio-host --no-scene` and
+  a kit check for it. Radio API 1.1, record files and scene files are
+  unchanged. The sample report names yantra-gen 0.3.2 and was regenerated
+  (DEMO-06): its floor maps no longer draw the walls and antennas
+  removed above.
+
 ## [0.2.0] - 2026-11-12
 
 Yantra for Windows x64 next to Linux, built with clang from one pinned
