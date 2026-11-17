@@ -11,6 +11,8 @@ configure_file(src/build_config.h.in
   ${CMAKE_CURRENT_BINARY_DIR}/generated/yantra/core/build_config.h @ONLY)
 
 add_library(yantra_core STATIC
+  src/about/osm.cpp
+  src/about/photo.cpp
   src/build_info.cpp
   src/calibration/antenna.cpp
   src/calibration/corrector.cpp
