@@ -12,7 +12,7 @@ Exports and reports use the same points and statistics as the project window: th
 File > Export writes the points in one of four ways:
 
 - **CSV table**: one row per point with the columns you tick (time, floor, position, serving cell, channel, frequency, level, C1, quality, neighbours, markers and more), the separator (a semicolon suits spreadsheets with a decimal comma) and the time in UTC or in the computer's local time. *All floors* puts every floor into one file; otherwise the floor shown is written.
-- **DXF drawing**: the floor's walls, antennas and coloured points on their own layers, in metres, for a CAD program. With *All floors* each floor gets its own file.
+- **DXF drawing**: the floor's measured points in their colours on their own layers, in metres, for a CAD program. With *All floors* each floor gets its own file.
 - **Floor picture**: the plan with the coloured points, the legend and optionally the stored coverage map under the points, as PNG or JPG.
 - **Batch**: every recording in a folder and its subfolders, merged into one file or one file per recording, as CSV or in the format of an exporter plugin.
 

@@ -79,8 +79,6 @@ with `\n`; every group is a code line and a value line.
 | `POINTS_<i>` | `POINT` per measured point in colour band i (1 = the lowest band) |
 | `POINTS_OUTSIDE`, `POINTS_NO_VALUE` | `POINT`s outside every band, or without a value |
 | `VALUES` | `TEXT` with the point's value, rounded to 0.1 (optional, on by default) |
-| `WALLS_<CLASS>` | `POLYLINE` with `VERTEX`es and `SEQEND` per wall, per wall class (class id in capitals, other characters `_`; `WALLS_OWN` for walls with their own attenuation) |
-| `ANTENNAS`, `ANTENNA_NAMES` | `POINT` per antenna, `TEXT` with its name |
 | `LABEL` | `TEXT` with the optional label (e.g. the demo label, DEMO-07) |
 
 Text height is 0.2 m by default (label 0.4 m).
@@ -103,12 +101,6 @@ POINTS_OUTSIDE: outside every band
 POINTS_NO_VALUE: no value
 999
 VALUES: point values (dBm)
-999
-WALLS_CONCRETE: walls of class concrete
-999
-ANTENNAS: antennas
-999
-ANTENNA_NAMES: antenna names
 0
 SECTION
 2
@@ -122,15 +114,15 @@ $EXTMIN
 10
 1.4
 20
--20
+-7
 30
 0
 9
 $EXTMAX
 10
-14
+2.1
 20
--2
+-7
 30
 0
 0
@@ -144,7 +136,7 @@ TABLE
 2
 LAYER
 70
-8
+5
 0
 LAYER
 2
@@ -196,36 +188,6 @@ VALUES
 6
 CONTINUOUS
 0
-LAYER
-2
-WALLS_CONCRETE
-70
-0
-62
-8
-6
-CONTINUOUS
-0
-LAYER
-2
-ANTENNAS
-70
-0
-62
-5
-6
-CONTINUOUS
-0
-LAYER
-2
-ANTENNA_NAMES
-70
-0
-62
-5
-6
-CONTINUOUS
-0
 ENDTAB
 0
 ENDSEC
@@ -233,44 +195,6 @@ ENDSEC
 SECTION
 2
 ENTITIES
-0
-POLYLINE
-8
-WALLS_CONCRETE
-66
-1
-10
-0
-20
-0
-30
-0
-70
-0
-0
-VERTEX
-8
-WALLS_CONCRETE
-10
-14
-20
--2
-30
-0
-0
-VERTEX
-8
-WALLS_CONCRETE
-10
-14
-20
--20
-30
-0
-0
-SEQEND
-8
-WALLS_CONCRETE
 0
 POINT
 8
@@ -289,16 +213,6 @@ POINTS_1
 2.1
 20
 -7
-30
-0
-0
-POINT
-8
-ANTENNAS
-10
-3
-20
--5
 30
 0
 0
@@ -330,20 +244,6 @@ VALUES
 1
 -91.5
 0
-TEXT
-8
-ANTENNA_NAMES
-10
-3.1
-20
--5.3
-30
-0
-40
-0.2
-1
-DAS 1
-0
 ENDSEC
 0
 EOF
@@ -351,8 +251,8 @@ EOF
 
 ## Floor image (EXP-08)
 
-A picture of one floor: the trimmed plan, walls, points in their colours,
-antennas, a title, an optional banner and a legend with the count per
+A picture of one floor: the trimmed plan, the points in their colours,
+a title, an optional banner and a legend with the count per
 band; or, for reports, an interpolated map (IND-43) laid over the plan.
 PNG (8-bit RGBA) or JPEG (quality 90), chosen by the file extension
 (`.png`, `.jpg`, `.jpeg`); written with stb_image_write. The size is

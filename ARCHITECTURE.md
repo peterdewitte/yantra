@@ -138,11 +138,11 @@ Details: [docs/SURVEY.md](docs/SURVEY.md).
 
 ### Indoor core: building, plans, project, cell database, calibration
 
-- `building/`: floors, scale, reference point, slabs, walls with
-  per-band wall classes, antennas, cells; JSON `yantra-building`
+- `building/`: floors, scale, reference point, cells; JSON
+  `yantra-building`
   ([docs/BUILDING_MODEL.md](docs/BUILDING_MODEL.md)).
 - `plan/`: plan sources (images through stb_image, PDF through PDFium),
-  trims, tiles with a memory budget, dark-line wall proposals
+  trims, tiles with a memory budget
   ([docs/PLANS.md](docs/PLANS.md)).
 - `project/`: the project file, one live SQLite database with schema
   migrations ([docs/formats/PROJECT.md](docs/formats/PROJECT.md)).

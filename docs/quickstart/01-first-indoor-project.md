@@ -15,14 +15,12 @@ Import a plan, trim the floors, walk, report. About 15 minutes. You need a floor
 
 4. **Scale and reference.** Select a floor, choose Scale bar and drag along the plan's scale bar, type its length in metres and Apply (or Scale line over a known distance). Floors of the same sheet can share the scale. With Reference click a spot found on every floor, such as a staircase corner. Close the window.
 
-5. **Walls and antennas.** On the Edit page choose the wall class under New walls and draw the main walls with Draw wall (W): a click per corner, Enter to end. Propose walls can suggest walls from the plan; accept only the real ones. Place the DAS antennas with Place antenna (A) and set their cell and power in the properties.
+5. **Walk.** On the Walk page choose the radio and the kind Point and click, then Start. Click where you stand, walk straight at a steady pace and click where you are at every turn. Stop at the end. The points appear coloured by level. With the simulator choose Mouse survey instead and move the mouse slowly over the plan.
 
-6. **Walk.** On the Walk page choose the radio and the kind Point and click, then Start. Click where you stand, walk straight at a steady pace and click where you are at every turn. Stop at the end. The points appear coloured by level. With the simulator choose Mouse survey instead and move the mouse slowly over the plan.
+6. **Coverage map.** On the Map page press Run. The map is interpolated from your points and fades out where nobody measured. Rest the pointer on the plan to see measured and interpolated values.
 
-7. **Coverage map.** On the Map page press Run. The map is fitted to your points and fades out where nobody measured. Rest the pointer on the plan to see measured and interpolated values.
+7. **Next floor.** Choose the next floor's tab and repeat steps 5 and 6.
 
-8. **Next floor.** Choose the next floor's tab and repeat steps 6 and 7.
+8. **Report.** File > Report: type your name as the surveyor, keep PDF and HTML, and press Make report. The report is written into the `reports` folder next to the project.
 
-9. **Report.** File > Report: type your name as the surveyor, keep PDF and HTML, and press Make report. The report is written into the `reports` folder next to the project.
-
-Next: [Indoor walk test with acceptance report](02-walk-test-acceptance.md). Manual: chapters 13 (projects, plans, walls, interpolation), 7 (walk tests) and 10 (reports).
+Next: [Indoor walk test with acceptance report](02-walk-test-acceptance.md). Manual: chapters 13 (projects, plans, interpolation), 7 (walk tests) and 10 (reports).

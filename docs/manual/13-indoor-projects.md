@@ -17,7 +17,7 @@ File > New indoor project asks for the project name, the site, the network opera
 
 File > Add floor adds a floor in one of three ways: from a new plan file (PDF or image; Choose a plan file...), from a plan already in the project (another floor of the same sheet, Use), or as a blank floor without a plan. A new plan opens the plan import window (13.2).
 
-The floor tabs above the plan switch between floors, ordered by level; the tooltip of a tab gives its points and scale. Properties... sets the floor's name, level and floor-to-floor height; Move up and Move down swap its level with the next floor; Remove... deletes the floor after a question that lists its walls, antennas, walk tests and points (the recordings stay on disk). Plan and scale... opens the plan import window again for the floor's sheet. Fit, zoom in and zoom out frame the plan; drag pans, the mouse wheel zooms and a double click fits.
+The floor tabs above the plan switch between floors, ordered by level; the tooltip of a tab gives its points and scale. Properties... sets the floor's name, level and floor-to-floor height; Move up and Move down swap its level with the next floor; Remove... deletes the floor after a question that lists its walk tests and points (the recordings stay on disk). Plan and scale... opens the plan import window again for the floor's sheet. Fit, zoom in and zoom out frame the plan; drag pans, the mouse wheel zooms and a double click fits.
 
 ## 13.2 Plan import and trimming
 

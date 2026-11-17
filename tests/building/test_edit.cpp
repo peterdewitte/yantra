@@ -3,7 +3,7 @@
 //
 // Editing the building model (core/building/edit.h): scale measurements
 // and "not to scale" (IND-08), alignment between floors (IND-09). The
-// wall, wall-class and antenna edits of 0.3 (IND-11, IND-12) are removed
+// wall, wall-class and antenna edits of 0.3 are removed
 // with their requirements.
 
 #include <doctest/doctest.h>

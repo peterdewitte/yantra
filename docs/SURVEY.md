@@ -11,7 +11,7 @@ points and statistics from them (IND-20, IND-30, GEO-02, GEO-05, GEO-06,
 EXP-05, EXP-06, PP-01..PP-05, TST-32, TST-34). Code: `core/survey/`
 (namespace `yantra::survey`). The points are stored in the project file
 (schema 4, [formats/PROJECT.md](formats/PROJECT.md) `sessions` and
-`points`). The interpolated coverage map (IND-40..45) is not covered
+`points`). The interpolated coverage map (IND-41, IND-43, IND-45) is not covered
 here.
 
 ## Walk test

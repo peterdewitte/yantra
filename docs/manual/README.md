@@ -7,7 +7,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Yantra user manual
 
-Yantra measures TETRA coverage inside buildings, floor by floor: import the floor plans, draw walls and antennas, walk the floors with a radio, and get coverage maps and an acceptance report. Yantra is made by curtat.be (https://curtat.be) as a reference on building new programs with Claude, Anthropic's AI assistant.
+Yantra measures TETRA coverage inside buildings, floor by floor: import the floor plans, scale and line them up, walk the floors with a radio, and get coverage maps and an acceptance report. Yantra is made by curtat.be (https://curtat.be) as a reference on building new programs with Claude, Anthropic's AI assistant.
 
 This manual describes Yantra as it is today. It is installed with the app and opened from the Help button of every window, with F1 and from Help > User manual, so it works offline. Each section has a number, the number the in-app help names ("See manual 13.2").
 

@@ -7,11 +7,10 @@
     "name": "Haus Claeson, Falsterbo (example)",
     "site": "Falsterbo (historic plan; fictitious network)",
     "operator_name": "Demo network (fictitious, MCC 901 MNC 1)",
-    "notes": "Example building of the guided tour (DEMO-11, DEMO-12, DEMO-13). Every measurement is simulated (yantra-radios scenario mak_haus_claeson); the network and its DAS are fictitious. The floor plan is not part of Yantra: it is downloaded unaltered from the MAK collection on first use, after you agree, and kept in your cache. Plan: MAK - Museum of Applied Arts, Vienna, Josef Frank, inv. KI 23497-359, CC BY-NC-ND 4.0. The scales are approximate. Walls and DAS antennas are hand-traced main walls only."
+    "notes": "Example building of the guided tour (DEMO-11, DEMO-12, DEMO-13). Every measurement is simulated (yantra-radios scenario mak_haus_claeson); the network and its DAS are fictitious. The floor plan is not part of Yantra: it is downloaded unaltered from the MAK collection on first use, after you agree, and kept in your cache. Plan: MAK - Museum of Applied Arts, Vienna, Josef Frank, inv. KI 23497-359, CC BY-NC-ND 4.0. The scales are approximate. The simulator's scenes of these plans are hand-traced (main walls only)."
   },
   "building": {
-    "name": "Haus Claeson, Falsterbo",
-    "floor_attenuation_db": 15.0
+    "name": "Haus Claeson, Falsterbo"
   },
   "start_utc": "2026-11-03T09:05:00Z",
   "cell_database": "cells.csv",
@@ -54,32 +53,6 @@
         "note": "about 0.028 m per pixel, from the drawn 12.00 m width of the house (sheet at 1:50)"
       },
       "reference_point": [43, 18],
-      "walls": [
-        {
-          "id": "w1",
-          "class": "concrete",
-          "points": [[43, 18], [574, 18], [574, 65], [450, 65], [450, 200], [43, 200], [43, 18]]
-        },
-        {
-          "id": "w2",
-          "class": "brick",
-          "points": [[300, 18], [300, 200]]
-        }
-      ],
-      "antennas": [
-        {
-          "id": "das-1",
-          "name": "Basement",
-          "model": "Omni ceiling antenna",
-          "position": [170, 110],
-          "height_m": 2.7,
-          "gain_dbi": 2,
-          "feed_power_dbm": 20.8,
-          "cable_loss_db": 3,
-          "splitter_loss_db": 7.8,
-          "cell": "T1"
-        }
-      ],
       "walk": {
         "name": "Basement (Källarvåning) walk",
         "speed_mps": 1.0,
@@ -100,59 +73,6 @@
         "note": "about 0.028 m per pixel, from the drawn 12.00 m width of the house (sheet at 1:50)"
       },
       "reference_point": [25, 40],
-      "walls": [
-        {
-          "id": "w1",
-          "class": "brick",
-          "points": [[25, 40], [450, 40], [450, 255], [25, 255], [25, 40]]
-        },
-        {
-          "id": "w2",
-          "class": "brick",
-          "points": [[170, 40], [170, 255]]
-        },
-        {
-          "id": "w3",
-          "class": "brick",
-          "points": [[305, 40], [305, 255]]
-        },
-        {
-          "id": "w4",
-          "class": "plasterboard",
-          "points": [[305, 115], [450, 115]]
-        },
-        {
-          "id": "w5",
-          "class": "plasterboard",
-          "points": [[170, 165], [305, 165]]
-        }
-      ],
-      "antennas": [
-        {
-          "id": "das-2",
-          "name": "Living room",
-          "model": "Omni ceiling antenna",
-          "position": [95, 145],
-          "height_m": 2.7,
-          "gain_dbi": 2,
-          "feed_power_dbm": 20.8,
-          "cable_loss_db": 3,
-          "splitter_loss_db": 7.8,
-          "cell": "T1"
-        },
-        {
-          "id": "das-3",
-          "name": "Kitchen",
-          "model": "Omni ceiling antenna",
-          "position": [375, 175],
-          "height_m": 2.7,
-          "gain_dbi": 2,
-          "feed_power_dbm": 20.8,
-          "cable_loss_db": 3,
-          "splitter_loss_db": 7.8,
-          "cell": "T1"
-        }
-      ],
       "walk": {
         "name": "Ground floor (Bottenvåning) walk",
         "speed_mps": 1.0,
@@ -173,54 +93,6 @@
         "note": "about 0.028 m per pixel, from the drawn 12.00 m width of the house (sheet at 1:50)"
       },
       "reference_point": [30, 80],
-      "walls": [
-        {
-          "id": "w1",
-          "class": "brick",
-          "points": [[30, 80], [450, 80], [450, 280], [30, 280], [30, 80]]
-        },
-        {
-          "id": "w2",
-          "class": "brick",
-          "points": [[175, 80], [175, 280]]
-        },
-        {
-          "id": "w3",
-          "class": "brick",
-          "points": [[305, 80], [305, 280]]
-        },
-        {
-          "id": "w4",
-          "class": "plasterboard",
-          "points": [[175, 135], [305, 135]]
-        }
-      ],
-      "antennas": [
-        {
-          "id": "das-4",
-          "name": "Bedroom west",
-          "model": "Omni ceiling antenna",
-          "position": [105, 180],
-          "height_m": 2.7,
-          "gain_dbi": 2,
-          "feed_power_dbm": 20.8,
-          "cable_loss_db": 3,
-          "splitter_loss_db": 7.8,
-          "cell": "T1"
-        },
-        {
-          "id": "das-5",
-          "name": "Bedroom east",
-          "model": "Omni ceiling antenna",
-          "position": [375, 180],
-          "height_m": 2.7,
-          "gain_dbi": 2,
-          "feed_power_dbm": 20.8,
-          "cable_loss_db": 3,
-          "splitter_loss_db": 7.8,
-          "cell": "T1"
-        }
-      ],
       "walk": {
         "name": "First floor (Våning 1 trapp upp) walk",
         "speed_mps": 1.0,
@@ -241,27 +113,6 @@
         "note": "about 0.028 m per pixel, from the drawn 12.00 m width of the house (sheet at 1:50)"
       },
       "reference_point": [18, 17],
-      "walls": [
-        {
-          "id": "w1",
-          "class": "brick",
-          "points": [[168, 55], [385, 55], [385, 170], [168, 170], [168, 55]]
-        }
-      ],
-      "antennas": [
-        {
-          "id": "das-6",
-          "name": "Attic room",
-          "model": "Omni ceiling antenna",
-          "position": [275, 115],
-          "height_m": 2.7,
-          "gain_dbi": 2,
-          "feed_power_dbm": 20.8,
-          "cable_loss_db": 3,
-          "splitter_loss_db": 7.8,
-          "cell": "T1"
-        }
-      ],
       "walk": {
         "name": "Roof floor (Takvåning) walk",
         "speed_mps": 1.0,

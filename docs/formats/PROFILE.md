@@ -43,7 +43,7 @@ it is and read by that file's reader when the plugins load again
     "format": "yantra-app-settings/1",
     "language": "fr",
     "layers": {"bin_size_m": 2.0, "hidden": ["binned"],
-               "order": ["plan", "interpolation", "binned", "walls", "antennas", "points"]},
+               "order": ["plan", "interpolation", "binned", "points"]},
     "sharing": {"folder": "", "mail_from": "", "mail_to": "", "method": "off", "on_walk_end": false,
                 "smtp_server": "", "url": "", "user": ""},
     "sound": {"alert_popup": true, "alerts": [], "enabled": false, "level_interval_s": 10.0,

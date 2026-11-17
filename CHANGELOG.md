@@ -33,12 +33,29 @@ own changes are in its CHANGELOG.md.
   with the demo data (DEMO-05, DEMO-12, DEMO-13, PLG-27): one scene file
   per bundled example floor (the Fraunces Tavern and the three MAK
   buildings) in `data/demo/scenes`, exported once from the example
-  descriptions (`yantra-demo --export-scenes`) and installed to
+  descriptions with the scene exporter of Yantra 0.2.0 and installed to
   `share/yantra/demo/scenes`. `get_scene` serves them by the floor's
   example id; a user's own floor has no scene (NOT_FOUND: the simulator
   uses its own defaults) and its walls and antennas no longer reach the
   simulator. The demo recordings and the simulator's demo levels are
   unchanged (byte-identical). `yantra-demo` needs `--scene-dir`.
+
+### Removed
+
+- Walls, wall classes (and their attenuation tables), antennas, slab
+  attenuations, the ray tracer and the inter-floor propagation are gone
+  (spec 0.4 drops IND-11, IND-12, IND-40, IND-42, IND-44 and TST-36): no
+  Edit page, no wall or antenna layers, no proposed walls, no estimated
+  sources. The demo descriptions no longer hold walls or antennas (the
+  simulator keeps them in its fixed demo scenes); a cell can be removed
+  from the cell database at any time. The DXF drawing (EXP-03) and the
+  floor image hold the measured points only; `yantra-building` JSON
+  ignores the old members.
+- Opening a project of Yantra 0.3 or earlier (IND-46) drops its walls,
+  wall classes, antennas and ray-tracing maps, after a byte-for-byte copy
+  of the old file (`<file>.schema<N>.bak`), and says once in the status
+  line how many of each were dropped and where the copy is. Floors,
+  plans, scales, reference points, cells, walk tests and points are kept.
 
 ### Fixed
 

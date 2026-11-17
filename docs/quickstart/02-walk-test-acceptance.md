@@ -5,7 +5,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Quick start: indoor walk test with acceptance report
 
-Walk a building against agreed acceptance criteria and hand over a PASS or FAIL report. You need a project with its floors, scales and antennas (see [First indoor project](01-first-indoor-project.md)), the cell database of the network, and a radio calibrated at the gains you will use (see [Calibrate a radio](03-calibrate-a-radio.md)).
+Walk a building against agreed acceptance criteria and hand over a PASS or FAIL report. You need a project with its floors and scales (see [First indoor project](01-first-indoor-project.md)), the cell database of the network, and a radio calibrated at the gains you will use (see [Calibrate a radio](03-calibrate-a-radio.md)).
 
 1. **Cell database.** Network > Cell database...: import the operator's cell list as CSV (or type the cells) and Apply. Received cells are then named, and the report checks them.
 

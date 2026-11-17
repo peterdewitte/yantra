@@ -5,50 +5,49 @@ SPDX-License-Identifier: GPL-3.0-or-later
 # Building model
 
 The building of an indoor project (spec section 21): floors with their plan
-source and trim, scale and alignment point, walls with wall classes, antennas
-and the cells they serve. The model is plain data in the core library
-(`core/include/yantra/core/building/model.h`, no UI); what the scale,
-reference, wall and antenna tools do with it is in
-`core/include/yantra/core/building/edit.h` (the windows come in a later
-phase and call it); the project file stores all of it (schema 3).
+source and trim, scale and alignment point, and the building's cells. The
+model is plain data in the core library
+(`core/include/yantra/core/building/model.h`, no UI); what the scale and
+reference tools do with it is in `core/include/yantra/core/building/edit.h`;
+the project file stores all of it.
 
 Users of the model:
 
-- the ray-tracing propagation model (IND-40) and its wall geometry
-  (`building/geometry.h`: wall segments in metres, walls crossed by a path);
-- the scene export (RAD-36, `radio/scene_export.h`), now only the export
-  tool of the fixed demo scenes (`yantra-demo --export-scenes`,
-  [DEMO.md](DEMO.md) "Fixed demo scenes") and its tests: the simulator
-  gets the fixed scene of a bundled example floor, never a scene made
-  from a user's walls and antennas (DEMO-05);
 - the context callbacks of the radio plugins (PLG-27,
   `context/building_context.h`): floor plan shown, cursor and walk
   position in metres, and the fixed demo scene of an example floor;
 - the project file (IND-01, NFR-05), which stores the model in its tables
   ([formats/PROJECT.md](formats/PROJECT.md); `project/project.h`
-  `Project::building()`).
+  `Project::building()`);
 - the plan import (IND-02, IND-05..07, IND-10; [PLANS.md](PLANS.md),
   `plan/import.h`), which renders a floor from its source, page and trim
-  (`plan/trim.h`, `plan::Trim` is `building::Trim`).
+  (`plan/trim.h`, `plan::Trim` is `building::Trim`);
+- the walk tests and the coverage map, whose points are in the plan frame
+  of their floor ([SURVEY.md](SURVEY.md), [INTERPOLATION.md](INTERPOLATION.md)).
 
-The core is technology-neutral (PLG-01): wall classes and antennas are
-generic RF data, and a cell's identity is a set of named key values of a
-technology schema that only the technology plugin interprets.
+Yantra 0.4 has no walls, wall classes, antennas or slab attenuations: the
+coverage map is an interpolation of the measured points (IND-41). A
+project of 0.3 or earlier opens with them dropped (IND-46,
+[formats/PROJECT.md](formats/PROJECT.md) version 8). The simulator's walls
+and antennas of a bundled example floor are in its fixed demo scene
+([DEMO.md](DEMO.md) "Fixed demo scenes"), never in the model.
+
+The core is technology-neutral (PLG-01): a cell's identity is a set of
+named key values of a technology schema that only the technology plugin
+interprets.
 
 ## Frames and units
 
 | Frame | Origin and axes | Used for |
 |---|---|---|
 | page units | top left of the source page (PDF points or image pixels), x right, y down | trim outlines (IND-05, IND-07) |
-| plan units | top left of the trimmed floor plan, x right, y down, the page's unit length | plan size, walls, antennas, scale points |
-| plan frame, metres | plan units x metres per unit | context positions and scenes (RAD-18, RAD-36) |
-| building frame, metres | (plan units - reference point) x metres per unit | the same point on every aligned floor (IND-09, IND-44) |
+| plan units | top left of the trimmed floor plan, x right, y down, the page's unit length | plan size, scale points, reference point, measured points |
+| plan frame, metres | plan units x metres per unit | context positions (RAD-18), points in metres |
+| building frame, metres | (plan units - reference point) x metres per unit | the same point on every aligned floor (IND-09) |
 
-Walls and antennas are kept in plan units so they stay on the plan when the
-scale changes, and so a floor without scale can still be drawn on (IND-08:
-allowed, but marked "not to scale"). Angles are degrees clockwise from the
-plan's -y axis ("up" on the plan), as in the scene format. Heights are
-metres above the floor, levels dB and dBm, wall-class frequencies MHz,
+Points are kept in plan units so they stay on the plan when the scale
+changes, and so a floor without scale can still be measured on (IND-08:
+allowed, but marked "not to scale"). Heights are metres above the floor,
 carriers Hz.
 
 ## Scale (IND-08)
@@ -61,7 +60,7 @@ A floor's scale is one of:
 - `shared`: the scale of another floor (floors trimmed from one sheet);
   that floor must have its own scale (no chains);
 - `none`: no scale. The floor has no positions in metres: the context
-  callbacks answer NO_POSITION and the scene has no walls or antennas.
+  callbacks answer NO_POSITION.
 
 ### Setting the scale
 
@@ -82,121 +81,16 @@ example a staircase corner) clicked on every floor. A floor with a scale
 and a reference point is aligned; a point of one aligned floor maps to
 the same building point on another (`point_on_floor`), whatever their
 sources and scales. Alignment is a translation: floors are turned alike by
-their trims (quarter turns and deskew), so no rotation is stored. The
-scene export puts the antennas of other aligned floors above or below the
-shown floor at their building position (IND-44).
+their trims (quarter turns and deskew), so no rotation is stored.
 
-## Wall classes (IND-11)
-
-A wall class has an attenuation table: the loss of one crossing at one or
-more frequencies, ascending. At another frequency the loss is linear in
-log(frequency) between the two neighbouring entries, and the first or last
-entry's value outside the table. A wall may have its own attenuation, which
-holds at every frequency. The table is editable per project; a project that
-gives its table replaces the defaults.
-
-Default table (estimates for one crossing of a typical wall, 400 MHz for
-the 380-470 MHz TETRA bands, 900 MHz for the 800/900 MHz bands):
-
-| id | name | dB at 400 MHz | dB at 900 MHz |
-|---|---|---|---|
-| `concrete` | Concrete | 12 | 23 |
-| `brick` | Brick | 8 | 10 |
-| `plasterboard` | Plasterboard | 3 | 6 |
-| `glass` | Glass | 2 | 4.5 |
-| `wood` | Wood | 3 | 6.5 |
-| `door` | Door | 4 | 9 |
-| `metal` | Metal | 25 | 25 |
-| `coated_glass` | Coated glass | 20 | 20 |
-
-They are estimates, not measurements: the values are in the range of the
-indoor wall losses published for the multi-wall model (COST 231 final
-report) and ITU-R P.1238, and the 900 MHz values follow the frequency trend
-of the material conductivity in ITU-R P.2040 (concrete, plasterboard, glass
-and wood lossier with frequency, brick nearly flat, metal and metallised
-glass taken as frequency-independent). Real walls differ by thickness,
-reinforcement and moisture; the interpolation fits per-class losses to the
-measurements (IND-41). A class may also give the loss of a specular
-reflection (`reflection_loss_db`, IND-40); without it the propagation
-model's default applies.
-
-### Drawing and editing walls
-
-A wall is a polyline in plan units (at least two points) with a class of
-the project's table or its own attenuation. The wall tool picks the wall
-nearest to a click within a tolerance (`nearest_wall`, the wall drawn last
-wins a tie), and edits it: add, move and remove corners (a wall keeps two
-points), move the whole wall, split it at a corner (`split_wall`). The
-project stores each change at once (`Project::add_wall`, `add_walls` for
-accepted proposals, `update_wall`, `remove_wall`; ids `wall-<n>`). The
-table is edited with `Project::set_wall_class` (add or change a class),
-`remove_wall_class` (only when no wall uses it) and `reset_wall_classes`
-(the defaults back to their default values, the project's own classes
-kept).
-
-### Walls proposed from the plan
-
-`plan::propose_walls` (`core/plan/wall_detect.h`, IND-11 S) looks at the
-floor's raster, rendered through its trim, so turns and deskew are respected
-and what lies outside the outline is ignored. The raster is bounded (at most
-6 Mpx, at most 50 pixels per metre, at most the plan's own detail).
-`detect_dark_lines` is deterministic and has no library beyond the plan
-sources:
-
-1. dark pixels: luminance below 110, alpha at least one half;
-2. connected groups (8-neighbours) smaller than half the minimum length are
-   removed: noise and text;
-3. a Hough transform (0.5 degrees, 1 pixel) gives the strongest lines first;
-   the dark run along each, with small breaks bridged, becomes a segment on
-   the centre of its drawn width, and its pixels stop voting. A width above
-   the maximum is a filled area, not a wall;
-4. collinear segments merge across small gaps (a door stays open), and two
-   parallel faces of one wall become their centre line;
-5. segments below the minimum length (default 1.5 m) are dropped.
-
-Tests hold a found wall within 3 pixels of the drawn one at each end and
-within 1 degree. It is an image operation on the drawing, with no radio data:
-a dimension line or a stair can be proposed, which is why a person decides.
-
-`WallProposals` (app model) runs it as a job and keeps the result in memory;
-proposals along a wall that is already there are not offered. Accepting calls
-`Project::add_walls` through `FloorEditor` as one undo step, with the class
-for new walls.
-
-## Antennas and cells (IND-12)
-
-An antenna has an id (unique in the building), name, model text, type
-(`indoor_das` or `outdoor_donor`), plan position, height, gain, pattern,
-optional EIRP, optional feed power with cable and splitter losses, the cell
-it serves and, for an outdoor donor direction, the bearing and elevation
-towards the outdoor site. Its effective EIRP is the EIRP when known, else
-feed power - cable loss - splitter loss + gain, else unknown (IND-42
-estimates it from the measurements).
-
-Patterns, the same as in the scene format:
-
-- `omni`: 0 dB in every direction;
-- `sector`: `-min(12 (off / beamwidth)^2, front_to_back)` dB, `off` the
-  angle from the azimuth;
-- `table`: gains relative to the main direction, one per `step_deg`
-  clockwise from the azimuth, linear in between and from the last entry
-  back to the first at 360 degrees.
+## Cells
 
 A cell has an id, label, technology id, schema id, main carrier and its
 identity as named integer key values of the technology schema (for a TETRA
-cell `mcc`, `mnc`, `la`, `colour_code`). One cell may have several antennas
-(DAS).
-
-### Placing antennas
-
-An antenna is placed at a plan point of a floor (`Project::add_antenna`,
-id `antenna-<n>`), moved on the floor or to another floor
-(`move_antenna`), and aimed by clicking where it points
-(`aim_antenna`): a directional antenna (`directional_pattern`: sector
-with azimuth, beamwidth and front-to-back ratio) gets its azimuth, an
-outdoor donor direction its bearing. Cells are added once
-(`Project::add_cell`, id `cell-<n>`) and chosen per antenna; a cell an
-antenna serves cannot be removed.
+cell `mcc`, `mnc`, `la`, `colour_code`). Cells are added once
+(`Project::add_cell`, id `cell-<n>`); they are the project's cell database
+([CELL_DATABASE.md](CELL_DATABASE.md)), and the demo names the cell of its
+coverage map by its id.
 
 ## Plan sources and trims (IND-02, IND-03, IND-05..07)
 
@@ -208,6 +102,10 @@ corners, `polygon` with 3 or more points) as an outline in page units,
 quarter turns (0..3, clockwise) and a fine deskew (-45..45 degrees). The
 plan image is rendered from the source each time and never stored. A floor
 of a bundled example plan carries its stable example id (DEMO-05, RAD-18).
+When a trim is edited, the scale points, the reference point and the
+measured points move with it so they stay at the same place on the sheet
+(`plan::reanchor_floor`; the project moves the points,
+[PLANS.md](PLANS.md)).
 
 ## JSON form (`yantra-building`, version 1)
 
@@ -219,12 +117,6 @@ All file formats: [formats/README.md](formats/README.md).
   "format": "yantra-building",
   "version": 1,
   "name": "Example office",
-  "floor_attenuation_db": 15.0,
-  "wall_classes": [
-    {"id": "concrete", "name": "Concrete",
-     "bands": [{"frequency_mhz": 400.0, "attenuation_db": 12.0},
-               {"frequency_mhz": 900.0, "attenuation_db": 23.0}]}
-  ],
   "cells": [
     {"id": "T1", "label": "Indoor DAS", "technology": "tetra", "schema": "tetra_cell",
      "carrier_hz": 390000000,
@@ -238,11 +130,7 @@ All file formats: [formats/README.md](formats/README.md).
               "quarter_turns": 0, "deskew_deg": 0.0},
      "plan_size": [400.0, 200.0],
      "scale": {"method": "two_points", "a": [0.0, 0.0], "b": [400.0, 0.0], "distance_m": 20.0},
-     "reference_point": [0.0, 0.0],
-     "walls": [{"id": "w1", "class": "concrete", "points": [[200.0, 0.0], [200.0, 200.0]]}],
-     "antennas": [{"id": "a1", "type": "indoor_das", "position": [60.0, 100.0],
-                   "height_m": 2.8, "gain_dbi": 2.0, "pattern": {"type": "omni"},
-                   "eirp_dbm": 10.0, "cell": "T1"}]}
+     "reference_point": [0.0, 0.0]}
   ]
 }
 ```
@@ -253,8 +141,6 @@ The complete example is `tests/fixtures/building/example_office.building.json`.
 |---|---|---|
 | `format`, `version` | `"yantra-building"`, 1 | required |
 | `name` | building name; plan names are "<name>, <floor name>" | `""` |
-| `floor_attenuation_db` | default slab attenuation per floor crossed (IND-44) | 15 |
-| `wall_classes[]` | `id`, `name` (default the id), `bands[]` (`frequency_mhz` > 0 ascending, `attenuation_db` >= 0), optional `reflection_loss_db` | the default table |
 | `cells[]` | `id`, `label`, `technology`, `schema`, `carrier_hz` (0: unknown), `identity` (name -> integer) | none |
 | `sources[]` | `id`, `file_name`, optional `sha256` (64 lower-case hex digits; required when not embedded), `embedded` | none; `embedded` true |
 | `floors[].id`, `name`, `level` | unique id, name (default the id), unique level (0 ground, -1 basement) | id and level required |
@@ -263,86 +149,17 @@ The complete example is `tests/fixtures/building/example_office.building.json`.
 | `floors[].plan_size` | `[width, height]` in plan units | `[0, 0]` |
 | `floors[].scale` | `method` `none`, `two_points`/`scale_bar` (`a`, `b`, `distance_m`), `factor` (`metres_per_unit`), `shared` (`floor`) | none |
 | `floors[].reference_point` | alignment point in plan units (IND-09) | none ((0, 0) for the building frame) |
-| `floors[].slab_attenuation_db` | slab between this floor and the one above | `floor_attenuation_db` |
-| `floors[].walls[]` | optional `id`, `class` (may be empty only with `attenuation_db`), `points` (>= 2 `[x, y]`), optional `attenuation_db` | |
-| `floors[].antennas[]` | `id`, `name`, `model`, `type`, `position`, `height_m` (2.7), `gain_dbi` (2), `pattern` (omni), `eirp_dbm`, `feed_power_dbm`, `cable_loss_db`, `splitter_loss_db`, `cell`, `direction_deg`, `elevation_deg` | |
 
 Reading refuses another format, a newer version, missing required members,
 wrong types and values out of range, and validates the model (unique ids
-and levels, known wall classes, cells, sources and shared floors, polylines
-with two points or more, valid scales, trims and patterns). The first
-problem is reported as one line with its place, e.g.
-`floors[0].walls[2]: unknown wall class "steel"`. Unknown members are
-ignored at every level, so version 1 may gain members compatibly; a
-breaking change raises the version. Writing and reading again gives an
-equal model.
-
-## Scene export (RAD-36)
-
-`export_scene(building, floor_id)` writes the floor as scene JSON in the
-format defined by yantra-radios (`yantra-radio-scene` version 1.1,
-`YR_SCENE_FORMAT` in `yantra/radio.h`, documented in the submodule's
-`docs/SCENE_FORMAT.md`; `"minor_version": 1` whenever a 1.1 member is
-written, so a scene without walls and other floors stays 1.0). The radio
-host does not answer `get_scene` with it any more: the export made the
-fixed demo scenes in `data/demo/scenes` once (DEMO-05, see below and
-[DEMO.md](DEMO.md) "Fixed demo scenes"), and the ctests
-`demo_scenes_*` check that those files are still its output.
-
-- `floor`: id, name, `scale_set` (a scale and a plan size above 0), plan
-  size in metres, `slab_attenuation_db` = `floor_attenuation_db`,
-  `storey_height_m` = the floor's height (both for 1.0 readers and for
-  floors without a storey).
-- `floor.storeys` (1.1): every other floor with antennas in the scene,
-  with `floor_offset` = level difference, `level_m` = its level above
-  this floor (the floor-to-floor heights of the floors in between,
-  negative below; a level without a floor counts this floor's height) and
-  `slab_attenuation_db` = the model's slab sum in between
-  (`inter_floor_attenuation_db`, IND-44).
-- `wall_classes`: every class, with its attenuation at the scene frequency.
-- `walls`: one entry per polyline segment, in plan-frame metres, with the
-  class and the effective attenuation at the scene frequency (what a 1.0
-  reader uses), the `polyline` id (1.1: the wall id, else
-  `<floor id>/<index>`, the same on every segment of the wall) and, for a
-  wall of a class without its own loss, the class table as `bands` (1.1:
-  frequencies in Hz, the same log-f interpolation as
-  `WallClass::attenuation_at_db`). A wall with its own loss has no bands:
-  that loss holds at every frequency.
-- Scene frequency: the mean carrier of the exported cells (or an explicit
-  option); without cells the classes' first band.
-- `antennas`: the indoor antennas of the floor with a cell and an EIRP
-  (or `SceneExportOptions::default_eirp_dbm`, a nominal value, for those
-  without). Antennas of other floors are added with `floor_offset` =
-  level difference when both floors have a scale and a reference point,
-  with their own EIRP: their storey gives the height and the slabs.
-- `cells`: the cells of the exported antennas, identity by the radio API's
-  core field names `mcc`, `mnc`, `la`, `colour_code`, and the carrier.
-
-Left out, with a warning each: outdoor donor directions, antennas without a
-cell or without EIRP (unless a default EIRP is given), cells without a
-carrier or without the four identity values, and the walls and antennas of
-a floor without scale. Numbers are rounded to 1e-6 so the text is the same
-on every platform. The golden scenes
-`tests/fixtures/building/example_office.f0.scene.json` and `.f1.scene.json`
-are also read by yantra-radios' own scene parser (ctests
-`scene_radios_check_*`, which also check that it refuses a broken 1.0 and
-a broken 1.1 member), and the simulator's levels are checked against the
-model end to end (`tests/scene_sim`: a wall, a storey slab, a per-band
-wall at the simulated carrier and a path through a polyline vertex).
-
-Known differences between the model and the scene:
-
-- Outdoor donor directions have no place in the scene: outdoor coverage
-  is the simulator scenario's outdoor site (yantra-radios RAD-74).
-- An unknown EIRP (IND-12) has no place in the scene either: such an
-  antenna is left out, or written with the nominal
-  `default_eirp_dbm`; for a bundled example plan the simulator's scenario
-  replaces antenna EIRPs by antenna id. Estimating it is Yantra's job on
-  its own model (IND-41, IND-42).
-- A 1.0 reader (yantra-radios 0.1.0) ignores the 1.1 members: it applies
-  the uniform `slab_attenuation_db` and `storey_height_m` to other floors,
-  one attenuation per wall at the scene frequency, and both segments of a
-  polyline crossed exactly at a vertex.
+and levels, known sources and shared floors, valid scales and trims). The
+first problem is reported as one line with its place, e.g.
+`floors[0].trim.outline[1]: expected [x, y]`. Unknown members are ignored
+at every level, so version 1 may gain members compatibly; a breaking
+change raises the version. The members a building of 0.3 may still hold
+(`floor_attenuation_db`, `wall_classes`, `floors[].slab_attenuation_db`,
+`floors[].walls`, `floors[].antennas`) are unknown members now and are
+ignored (IND-46). Writing and reading again gives an equal model.
 
 ## Context from the model (PLG-27)
 
@@ -361,9 +178,9 @@ Known differences between the model and the scene:
   floor id is set to the floor's when they differ, e.g. a tour floor
   trimmed by the user); a user's own floor has no scene and `get_scene`
   answers NOT_FOUND, "no scene, use the defaults" (the simulator then
-  uses its scenario's own levels). The walls and antennas of the model
-  are not used. Tests of the exporter with the simulator pass a source
-  that exports the model (`tests/model_scenes.hpp`).
+  uses its scenario's own levels). Scenes are never made from the model.
+  Tests that need a simulator scene serve a checked-in scene file
+  (`tests/fixture_scene.hpp`, `tests/fixtures/building/office_wall.scene.json`).
 
 `set_building` takes every floor's scene from the source again; a
 changed scene of the shown floor gives SCENE_CHANGED, another floor

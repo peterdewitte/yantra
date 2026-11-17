@@ -20,13 +20,12 @@ projects:
 
 - import floor plans (PDF or image), cut several floors out of one sheet,
   scale them and line them up;
-- draw walls (or accept walls Yantra proposes from the plan) and antennas;
 - walk the floors with a radio and click your position on the plan (or
   practise with the mouse and the simulated radio);
 - watch the cells live: levels, C1, quality, the decoded broadcast
   information and the neighbour lists;
 - check the network against its cell database;
-- get a coverage map fitted to your measurements by a ray tracer, with a
+- get a coverage map interpolated from your measured points, with a
   confidence mask where nobody measured;
 - write a coverage and acceptance report (PDF and HTML) per floor and for
   the building, against acceptance profiles on the measured points, the
@@ -133,7 +132,7 @@ plan import, the walk test and the coverage map to the report (also as
   French and German (DOC-06).
 - [Quick starts](docs/quickstart/README.md): one page each.
 - [Measurement method note](docs/METHOD.md): what is measured and how,
-  calibration and its uncertainty, the ray-tracing model and its limits.
+  calibration and its uncertainty, the interpolation and its limits.
 - [Legal and scope note](docs/LEGAL.md): receive-only, what is decoded,
   privacy and licences.
 - For developers: [architecture](ARCHITECTURE.md),

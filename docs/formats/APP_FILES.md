@@ -29,7 +29,7 @@ without `format` is read leniently.
 | --- | --- | --- |
 | `format` | `"yantra-app-settings/1"` | |
 | `recent_projects`, `recent_folders` | lists of paths, newest first; at most 10 and 8 | `[]` |
-| `layers.order` | the six layers `plan`, `interpolation`, `binned`, `walls`, `antennas`, `points` in drawing order (missing ones are added in their default place) | as listed |
+| `layers.order` | the four layers `plan`, `interpolation`, `binned`, `points` in drawing order (missing ones are added in their default place; the `walls` and `antennas` of 0.3 are ignored) | as listed |
 | `layers.hidden` | layers switched off | `["binned"]` |
 | `layers.bin_size_m` | 0.5..50 m (PP-05) | `2` |
 | `window_system` | `auto`, `x11`, `wayland` | `auto` |
@@ -48,7 +48,7 @@ without `format` is read leniently.
  "format": "yantra-app-settings/1",
  "language": "nl",
  "layers": {"bin_size_m": 2.0, "hidden": ["binned"],
-            "order": ["plan", "interpolation", "binned", "walls", "antennas", "points"]},
+            "order": ["plan", "interpolation", "binned", "points"]},
  "recent_folders": [],
  "recent_projects": [],
  "sharing": {"folder": "", "mail_from": "", "mail_to": "", "method": "off", "on_walk_end": false,

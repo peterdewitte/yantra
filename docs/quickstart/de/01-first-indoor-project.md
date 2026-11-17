@@ -15,14 +15,12 @@ Grundriss importieren, Etagen zuschneiden, begehen, Bericht. Etwa 15 Minuten. Si
 
 4. **Maßstab und Referenz.** Wählen Sie eine Etage, wählen Sie die Maßstabsleiste und ziehen Sie entlang der Maßstabsleiste des Grundrisses, geben Sie ihre Länge in Metern ein und Übernehmen (oder eine Maßstabslinie über eine bekannte Strecke). Etagen desselben Blatts können den Maßstab teilen. Klicken Sie mit Referenz auf einen Punkt, der auf jeder Etage zu finden ist, etwa eine Treppenhausecke. Schließen Sie das Fenster.
 
-5. **Wände und Antennen.** Wählen Sie auf der Seite Bearbeiten die Wandklasse unter Neue Wände und zeichnen Sie die Hauptwände mit Wand zeichnen (W): ein Klick pro Ecke, Enter zum Beenden. Wände vorschlagen kann Wände aus dem Grundriss vorschlagen; übernehmen Sie nur die echten. Platzieren Sie die DAS-Antennen mit Antenne platzieren (A) und stellen Sie Zelle und Leistung in den Eigenschaften ein.
+5. **Begehen.** Wählen Sie auf der Seite Begehung den Empfänger und die Art Punkt und Klick, dann Starten. Klicken Sie dort, wo Sie stehen, gehen Sie geradeaus in gleichmäßigem Tempo und klicken Sie an jeder Abzweigung dort, wo Sie sind. Stoppen am Ende. Die Punkte erscheinen nach Pegel eingefärbt. Wählen Sie mit dem Simulator stattdessen Mausmessung und bewegen Sie die Maus langsam über den Grundriss.
 
-6. **Begehen.** Wählen Sie auf der Seite Begehung den Empfänger und die Art Punkt und Klick, dann Starten. Klicken Sie dort, wo Sie stehen, gehen Sie geradeaus in gleichmäßigem Tempo und klicken Sie an jeder Abzweigung dort, wo Sie sind. Stoppen am Ende. Die Punkte erscheinen nach Pegel eingefärbt. Wählen Sie mit dem Simulator stattdessen Mausmessung und bewegen Sie die Maus langsam über den Grundriss.
+6. **Versorgungskarte.** Drücken Sie auf der Seite Karte Ausführen. Die Karte wird aus Ihren Punkten interpoliert und blendet dort aus, wo niemand gemessen hat. Lassen Sie den Zeiger auf dem Grundriss ruhen, um gemessene und interpolierte Werte zu sehen.
 
-7. **Versorgungskarte.** Drücken Sie auf der Seite Karte Ausführen. Die Karte wird an Ihre Punkte angepasst und blendet dort aus, wo niemand gemessen hat. Lassen Sie den Zeiger auf dem Grundriss ruhen, um gemessene und interpolierte Werte zu sehen.
+7. **Nächste Etage.** Wählen Sie den Reiter der nächsten Etage und wiederholen Sie die Schritte 5 und 6.
 
-8. **Nächste Etage.** Wählen Sie den Reiter der nächsten Etage und wiederholen Sie die Schritte 6 und 7.
+8. **Bericht.** Datei > Bericht: Geben Sie Ihren Namen als Messtechniker ein, behalten Sie PDF und HTML bei und drücken Sie Bericht erstellen. Der Bericht wird in den Ordner `reports` neben dem Projekt geschrieben.
 
-9. **Bericht.** Datei > Bericht: Geben Sie Ihren Namen als Messtechniker ein, behalten Sie PDF und HTML bei und drücken Sie Bericht erstellen. Der Bericht wird in den Ordner `reports` neben dem Projekt geschrieben.
-
-Weiter: [Innen-Begehungstest mit Abnahmebericht](02-walk-test-acceptance.md). Handbuch (englisch): Kapitel 13 (Projekte, Grundrisse, Wände, Interpolation), 7 (Begehungsmessungen) und 10 (Berichte).
+Weiter: [Innen-Begehungstest mit Abnahmebericht](02-walk-test-acceptance.md). Handbuch (englisch): Kapitel 13 (Projekte, Grundrisse, Interpolation), 7 (Begehungsmessungen) und 10 (Berichte).

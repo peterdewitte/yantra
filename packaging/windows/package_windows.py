@@ -107,7 +107,7 @@ def readme(version: str, source_url: str) -> str:
 ==============================
 
 Yantra measures TETRA coverage inside buildings, floor by floor: import
-the floor plans, draw walls and antennas, walk the floors with a radio,
+the floor plans, scale and line them up, walk the floors with a radio,
 and get interpolated coverage maps and an acceptance report. It records
 broadcast and system information, received levels and signal quality
 only: no voice, short data, subscriber addresses or decryption.

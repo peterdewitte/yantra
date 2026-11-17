@@ -24,8 +24,7 @@ holds the image URL and catalogue page, its size and SHA-256, the licence
 and credit ("MAK - Museum of Applied Arts, Vienna", designer, inventory
 number), and per floor the trim rectangle on the sheet, name, level, an
 approximate scale (marked `"approximate": true`, with how it was found),
-the reference point, the walls, the DAS antennas and the demo walk route.
-The walls and antennas are the main walls only, traced for the demo; the
+the reference point and the demo walk route, traced for the demo. The
 network (`cells.csv`, fictitious cells T1 and M1) and every measurement
 are simulated.
 

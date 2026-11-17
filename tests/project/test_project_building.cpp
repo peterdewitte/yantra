@@ -6,7 +6,7 @@
 // (IND-08); the alignment point between floors of different sources and
 // scales (IND-09); cells; units and precision; the round trip through the
 // file of all of it and the migration of schema 1 and 2 files. The walls,
-// wall classes and antennas of 0.3 (IND-11, IND-12) are removed with their
+// wall classes and antennas of 0.3 are removed with their
 // requirements; test_project_migration.cpp covers dropping them (IND-46).
 
 #include "example_building.h"

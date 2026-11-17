@@ -23,7 +23,7 @@ fictitious (MCC 901, MNC 1):
 
 | Cell | Carrier | Identity | What it is |
 |---|---|---|---|
-| T1 | 390.0 MHz | LA 100, colour code 1 | The DAS cell: 3 ceiling antennas on the first floor, 2 on the second (10 dBm at the feed, cable and splitter losses) |
+| T1 | 390.0 MHz | LA 100, colour code 1 | The DAS cell, simulated from the floors' fixed demo scenes |
 | M1 | 390.2 MHz | LA 200, colour code 2 | A macro site outside, weak indoors (about -98 dBm) |
 
 ### The description
@@ -33,17 +33,14 @@ The project is made from one file, `data/demo/fraunces/fraunces.json`
 `yantra/core/demo/demo_project.h`). It holds, in plan units of each floor
 unless noted:
 
-- `project` (name, site, operator, notes), `building` (name, slab
-  attenuation), `start_utc` (the walks' clock), `cell_database` (a CSV
+- `project` (name, site, operator, notes), `building` (name), `start_utc` (the walks' clock), `cell_database` (a CSV
   file next to it, [CELL_DATABASE.md](CELL_DATABASE.md)) and
   `interpolation.cell` (the cell whose level the maps show);
 - `sheets`: id, file, SHA-256, the URL it was fetched from and its
   catalogue page;
 - `floors`: id, `example_id` (RAD-18, e.g. `fraunces-1`), name, level,
   height, the sheet, the trim rectangle (page units of the sheet), the
-  scale bar (ends and length in metres), the reference point, the walls
-  (class and points), the DAS antennas (position, height, gain, feed
-  power and losses, cell) and one walk route (`name`, `speed_mps`,
+  scale bar (ends and length in metres), the reference point and one walk route (`name`, `speed_mps`,
   `waypoints`).
 
 ### How it is made
@@ -54,7 +51,7 @@ are built):
 
 1. The project file with the building: the sheets copied in unchanged
    (their SHA-256 checked), the floors trimmed from them, with scale,
-   reference point, walls, antennas and the cell database.
+   reference point and the cell database.
 2. Per floor, the radios' scenario that the floor's example id selects
    (`example_ids` of `data/scenarios/*.json` in yantra-radios, here
    `fraunces.json`) gets the floor's fixed demo scene
@@ -70,8 +67,9 @@ are built):
    (REC-01). The recording has a fixed session id (the first 16 hex
    digits of SHA-256 of `fraunces/<floor id>`), so it is the same file on
    every build.
-4. Each floor is interpolated with the ray tracer (IND-40..45) and the
-   result is stored in the project.
+4. Each floor is interpolated from its walk's points (IDW, IND-41,
+   [INTERPOLATION.md](INTERPOLATION.md)) and the map is stored in the
+   project (IND-45).
 
 The result is `build/demo/fraunces/fraunces.yantra` and
 `build/demo/fraunces/recordings/<floor id>_walk_0000.yrec`, installed to
@@ -87,24 +85,22 @@ yantra-demo --description data/demo/fraunces/fraunces.json --out DIR \
 
 Options: `--work DIR` (the generated scenarios and record files, default
 `DIR/work`, removed afterwards unless `--keep-work`), `--truth-interval S`
-(ground-truth rows per second, default 0.25 s), `--threads N` (ray
-tracing; 0 = all cores).
+(ground-truth rows per second, default 0.25 s), `--threads N` (the
+interpolation; 0 = all cores).
 
 The same description, sheets, scenario and tools give the same recording
 files (byte for byte) and the same project content; only the project's
 creation times differ. The tests check both
 (`tests/measure_host/test_measure_demo.cpp`).
 
-### Simulator and project agree
+### Simulator and project
 
 On a Fraunces floor the simulator (RAD-61) picks the `fraunces` scenario
 by the floor's example id and computes its levels from the floor's fixed
-demo scene (walls and DAS antennas), which Yantra hands it through the
-context (PLG-27, see "Fixed demo scenes"). At the
-walk points they are the ray tracer's levels with no reflections within
-0.5 dB (TST-36). The stored maps use the project's default settings (two
-reflections) and the fit (IND-41), so they differ from the walk by the
-fit's rms error (about 1.4 dB).
+demo scene, which Yantra hands it through the context (PLG-27, see
+"Fixed demo scenes"). The walk records those levels at its points, and
+the stored maps interpolate the points (IND-41): Yantra itself knows
+nothing of the scene.
 
 ## The MAK example buildings (DEMO-12, DEMO-13)
 
@@ -119,17 +115,16 @@ per building, `data/demo/mak/<id>.json` (installed to
 `share/yantra/demo/mak/`), in the same `yantra-demo-project` format, and
 the projects and walk recordings made from it.
 
-| Id | Floors (example ids) | DAS antennas | Image (SHA-256 in the description) |
-|---|---|---|---|
-| `mak_beer_house` | basement, ground floor, upper floor, attic (`mak-beer-house-1..4`) | 8 | 1680 x 1565 px JPEG, KI 23126-36 |
-| `mak_haus_claeson` | basement, ground floor, first floor, roof floor (`mak-haus-claeson-1..4`) | 6 | 1274 x 1680 px JPEG, KI 23497-359 |
-| `mak_villa_bunzl` | basement, ground floor, upper floor (`mak-villa-bunzl-1..3`) | 5 | 1680 x 1262 px JPEG, KI 23126-41 |
+| Id | Floors (example ids) | Image (SHA-256 in the description) |
+|---|---|---|
+| `mak_beer_house` | basement, ground floor, upper floor, attic (`mak-beer-house-1..4`) | 1680 x 1565 px JPEG, KI 23126-36 |
+| `mak_haus_claeson` | basement, ground floor, first floor, roof floor (`mak-haus-claeson-1..4`) | 1274 x 1680 px JPEG, KI 23497-359 |
+| `mak_villa_bunzl` | basement, ground floor, upper floor (`mak-villa-bunzl-1..3`) | 1680 x 1262 px JPEG, KI 23126-41 |
 
-The floors are trimmed from the one sheet of each building. The walls
-are the main walls only and, like the antennas and walk routes, were
-traced for the demo (copied from yantra-v2 68ea20a, `data/demo/mak/`).
+The floors are trimmed from the one sheet of each building. The walk
+routes were traced for the demo (copied from yantra-v2 68ea20a, `data/demo/mak/`).
 The network is the fictitious one of the Fraunces project (T1 on
-390.0 MHz with every antenna at 12 dBm EIRP, as the radios' scenarios
+390.0 MHz as the radios' scenarios
 `mak_beer_house`, `mak_haus_claeson` and `mak_villa_bunzl` set them;
 M1 on 390.2 MHz).
 
@@ -146,7 +141,7 @@ What the description adds for a licence-restricted sheet:
   instead of `scale_bar`.
 
 Every description is checked when read: each trim lies on its sheet and
-every wall point, antenna, walk waypoint and reference point on its
+every walk waypoint and reference point on its
 floor's trimmed plan.
 
 ### Projects and the image
@@ -208,7 +203,7 @@ edited in Yantra.
   the user trimmed from a MAK sheet with the description's trim and
   scale). For a user's own floor `get_scene` answers NOT_FOUND ("no
   scene, use the defaults"): the simulator then uses its scenario's own
-  levels. The walls and antennas of the building model are not used.
+  levels.
 - The demo builds (`yantra-demo --scene-dir data/demo/scenes`) put each
   floor's scene into the yantra-gen scenario of its walk (DEMO-13).
 - The build copies the files to `build/demo/scenes` and installs them to

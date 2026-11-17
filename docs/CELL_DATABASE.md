@@ -32,7 +32,7 @@ addresses, spec 16.5) and is not built.
 ## The model (DB-01)
 
 A `CellDatabase` is a list of `CellEntry`. An entry is the project's cell
-(`building::Cell`, IND-12: id, label, technology, schema, main carrier,
+(`building::Cell`, DB-01: id, label, technology, schema, main carrier,
 the identity fields) plus:
 
 | Part | Meaning |
@@ -54,8 +54,7 @@ identity, the others as parameters.
 **Ids.** An entry added without an id gets `cell-<n>`. In a project the
 cell database *is* the project's cells (one list, schema 5,
 [formats/PROJECT.md](formats/PROJECT.md)): `Project::cell_database()` and
-`Project::set_cell_database()`. A cell that an antenna serves cannot be
-dropped from it.
+`Project::set_cell_database()`.
 
 **Match fields** (DB-01 "identified by LA, by channel, or by both"): per
 technology the database names the fields a received cell is paired with

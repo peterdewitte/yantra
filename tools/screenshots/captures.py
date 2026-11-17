@@ -36,7 +36,7 @@ FRAMES = [
     ("start_menu", "start screen: New indoor project"),
     ("plan_import", "plan import: floors trimmed from one sheet"),
     ("walk_test", "walk test: the measured points on the floor"),
-    ("interpolation", "coverage map from the points, walls and antennas"),
+    ("interpolation", "coverage map interpolated from the points"),
     ("report", "File > Report: the coverage and acceptance report"),
 ]
 NAME = "indoor_workflow"

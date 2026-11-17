@@ -5,7 +5,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Démarrage rapide : test de parcours intérieur avec rapport de réception
 
-Parcourez un bâtiment selon des critères de réception convenus et remettez un rapport PASS ou FAIL. Il vous faut un projet avec ses étages, ses échelles et ses antennes (voir [Premier projet intérieur](01-first-indoor-project.md)), la base de données de cellules du réseau et un récepteur étalonné aux gains que vous utiliserez (voir [Étalonner un récepteur](03-calibrate-a-radio.md)).
+Parcourez un bâtiment selon des critères de réception convenus et remettez un rapport PASS ou FAIL. Il vous faut un projet avec ses étages et ses échelles (voir [Premier projet intérieur](01-first-indoor-project.md)), la base de données de cellules du réseau et un récepteur étalonné aux gains que vous utiliserez (voir [Étalonner un récepteur](03-calibrate-a-radio.md)).
 
 1. **Base de données de cellules.** Réseau > Base de données de cellules... : importez la liste de cellules de l'opérateur en CSV (ou saisissez les cellules) et Appliquer. Les cellules reçues sont alors nommées et le rapport les vérifie.
 

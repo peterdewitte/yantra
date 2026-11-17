@@ -171,8 +171,8 @@ go through the caller's `translate` (the app's tr()). Content, in order:
   metric and scale, IND-30) with its legend and count; the newest stored
   interpolated map of the report's metric (else the newest) drawn over
   the plan, with the share of the assessed floor area per colour band,
-  its label ("interpolated", "estimated sources"), fit quality (rms over
-  the measured points, before the fit), grid and areas, and notes when it
+  its label, method (IDW with its point count, power and search radius,
+  IND-41), grid and areas, and notes when it
   is stale or of another metric; the floor statistics (min, median, max,
   means, percentiles) and a table of "Share of measured points (%)" next
   to "Share of floor area (interpolated) (%)" per threshold, never mixed

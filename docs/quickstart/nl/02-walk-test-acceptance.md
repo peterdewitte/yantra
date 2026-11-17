@@ -5,7 +5,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Snel starten: indoor-looptest met acceptatierapport
 
-Loop een gebouw af tegen afgesproken acceptatiecriteria en lever een rapport met PASS of FAIL op. Je hebt een project nodig met zijn verdiepingen, schalen en antennes (zie [Eerste indoorproject](01-first-indoor-project.md)), de celdatabase van het netwerk en een ontvanger die gekalibreerd is bij de versterkingen die je gaat gebruiken (zie [Een ontvanger kalibreren](03-calibrate-a-radio.md)).
+Loop een gebouw af tegen afgesproken acceptatiecriteria en lever een rapport met PASS of FAIL op. Je hebt een project nodig met zijn verdiepingen en schalen (zie [Eerste indoorproject](01-first-indoor-project.md)), de celdatabase van het netwerk en een ontvanger die gekalibreerd is bij de versterkingen die je gaat gebruiken (zie [Een ontvanger kalibreren](03-calibrate-a-radio.md)).
 
 1. **Celdatabase.** Netwerk > Celdatabase...: importeer de cellijst van de operator als CSV (of typ de cellen in) en Toepassen. Ontvangen cellen krijgen dan een naam en het rapport controleert ze.
 

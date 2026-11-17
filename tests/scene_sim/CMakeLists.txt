@@ -1,11 +1,12 @@
 # SPDX-FileCopyrightText: 2026 The Yantra contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# End to end (RAD-36, PLG-27, IND-11/12): the simulator plugin built from
+# End to end (RAD-36, PLG-27): the simulator plugin built from
 # yantra-radios, loaded by the RadioHost with the SCENE capability, gets
-# its scene and positions from the building model through the context
+# a checked-in scene (tests/fixtures/building/office_wall.scene.json) and
+# the positions of the building model through the context
 # (BuildingContext -> ContextPublisher -> get_scene / get_cursor), and its
-# records follow the model (a wall between antenna and position lowers the
+# records follow the scene (a wall between antenna and position lowers the
 # level by the wall class's attenuation). The cases skip when the
 # simulator is not built. One ctest per case.
 set(_dir ${CMAKE_CURRENT_SOURCE_DIR})

@@ -195,12 +195,9 @@ serving carrier's level), `run(floor, &shown)` (the shown map's request,
 progress bar), `poll()` (the message once; `tick()` then shows the new
 map). `run_reason()` says why a floor cannot run (no scale, no points, a
 run going on). A run with the same request replaces the stored map of
-that key. The settings dialog `dlg.propagation` (`interp.settings`) edits
-`PropagationSettings` and the dB per floor (`grid`, `reflections`,
-`exponent`, `ref_distance`, `reflection_loss`, `rx_height`,
-`default_eirp`, `other_floors`, `floor_attenuation`; `prop.defaults`).
-Maps with estimated sources (IND-42) draw them as dashed markers with
-their fitted EIRP (`InterpolationLayer::sources`).
+that key. The settings dialog `dlg.interpolation` (`interp.settings`)
+edits the project's `InterpolationSettings` (`grid`, `power`, `radius`,
+`full_confidence`; `prop.defaults`), [INTERPOLATION.md](INTERPOLATION.md).
 
 `LiveSurvey` (`live()`, IND-20, GEO-02, GEO-05, PLG-27, DEMO-14) holds
 the radios and one walk test:
@@ -531,7 +528,7 @@ as `celldb::Technologies`.
   (one `name=value/name=value` line per neighbour, at most 31),
   `cells.add_field` for another field; `cells.apply` stores the whole
   database at once (`Project::set_cell_database`), `cells.cancel`,
-  `cells.remove` (refused while an antenna serves the cell). CSV
+  `cells.remove`. CSV
   `cells.csv.*`: file, `la` in hexadecimal, semicolons, import replaces
   or merges, `cells.import` / `cells.export`; skipped rows are listed.
   Pairing `cells.match.<technology>` / `cells.match_apply.<technology>`:

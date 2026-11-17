@@ -48,7 +48,6 @@ Trimming: trim; trimming; trimmed
 udev rules: udev
 Voice note: voice note; voice notes
 Walk test: walk test; walk tests
-Wall: wall; walls
 Zadig and WinUSB: Zadig; WinUSB
 
 [Windows and menus]

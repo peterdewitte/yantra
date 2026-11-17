@@ -7,11 +7,10 @@
     "name": "Beer house, Vienna (example)",
     "site": "Wenzgasse 12, Vienna 13 (historic plan; fictitious network)",
     "operator_name": "Demo network (fictitious, MCC 901 MNC 1)",
-    "notes": "Example building of the guided tour (DEMO-11, DEMO-12, DEMO-13). Every measurement is simulated (yantra-radios scenario mak_beer_house); the network and its DAS are fictitious. The floor plan is not part of Yantra: it is downloaded unaltered from the MAK collection on first use, after you agree, and kept in your cache. Plan: MAK - Museum of Applied Arts, Vienna, Josef Frank and Oskar Wlach, inv. KI 23126-36, CC BY-NC-ND 4.0. The scales are approximate. Walls and DAS antennas are hand-traced main walls only."
+    "notes": "Example building of the guided tour (DEMO-11, DEMO-12, DEMO-13). Every measurement is simulated (yantra-radios scenario mak_beer_house); the network and its DAS are fictitious. The floor plan is not part of Yantra: it is downloaded unaltered from the MAK collection on first use, after you agree, and kept in your cache. Plan: MAK - Museum of Applied Arts, Vienna, Josef Frank and Oskar Wlach, inv. KI 23126-36, CC BY-NC-ND 4.0. The scales are approximate. The simulator's scenes of these plans are hand-traced (main walls only)."
   },
   "building": {
-    "name": "Beer house, Vienna",
-    "floor_attenuation_db": 15.0
+    "name": "Beer house, Vienna"
   },
   "start_utc": "2026-11-03T09:05:00Z",
   "cell_database": "cells.csv",
@@ -54,64 +53,6 @@
         "note": "about 0.03 m per pixel, estimated from the size of the rooms (drawn at 1:100; the sheet has no scale bar)"
       },
       "reference_point": [25, 25],
-      "walls": [
-        {
-          "id": "w1",
-          "class": "brick",
-          "points": [[25, 25], [561, 25], [561, 155], [333, 155], [333, 266], [25, 266], [25, 25]]
-        },
-        {
-          "id": "w2",
-          "class": "brick",
-          "points": [[25, 155], [333, 155]]
-        },
-        {
-          "id": "w3",
-          "class": "plasterboard",
-          "points": [[157, 25], [157, 155]]
-        },
-        {
-          "id": "w4",
-          "class": "plasterboard",
-          "points": [[210, 155], [210, 266]]
-        },
-        {
-          "id": "w5",
-          "class": "plasterboard",
-          "points": [[268, 155], [268, 266]]
-        },
-        {
-          "id": "w6",
-          "class": "brick",
-          "points": [[436, 25], [436, 155]]
-        }
-      ],
-      "antennas": [
-        {
-          "id": "das-1",
-          "name": "Basement west",
-          "model": "Omni ceiling antenna",
-          "position": [115, 95],
-          "height_m": 2.7,
-          "gain_dbi": 2,
-          "feed_power_dbm": 22.0,
-          "cable_loss_db": 3,
-          "splitter_loss_db": 9.0,
-          "cell": "T1"
-        },
-        {
-          "id": "das-2",
-          "name": "Basement east",
-          "model": "Omni ceiling antenna",
-          "position": [385, 95],
-          "height_m": 2.7,
-          "gain_dbi": 2,
-          "feed_power_dbm": 22.0,
-          "cable_loss_db": 3,
-          "splitter_loss_db": 9.0,
-          "cell": "T1"
-        }
-      ],
       "walk": {
         "name": "Basement (Keller) walk",
         "speed_mps": 1.0,
@@ -132,59 +73,6 @@
         "note": "about 0.03 m per pixel, estimated from the size of the rooms (drawn at 1:100; the sheet has no scale bar)"
       },
       "reference_point": [29, 33],
-      "walls": [
-        {
-          "id": "w1",
-          "class": "brick",
-          "points": [[29, 33], [566, 33], [566, 280], [29, 280], [29, 33]]
-        },
-        {
-          "id": "w2",
-          "class": "brick",
-          "points": [[29, 165], [566, 165]]
-        },
-        {
-          "id": "w3",
-          "class": "plasterboard",
-          "points": [[215, 165], [215, 270]]
-        },
-        {
-          "id": "w4",
-          "class": "brick",
-          "points": [[340, 33], [340, 280]]
-        },
-        {
-          "id": "w5",
-          "class": "plasterboard",
-          "points": [[162, 33], [162, 165]]
-        }
-      ],
-      "antennas": [
-        {
-          "id": "das-3",
-          "name": "Kitchen wing",
-          "model": "Omni ceiling antenna",
-          "position": [125, 100],
-          "height_m": 2.7,
-          "gain_dbi": 2,
-          "feed_power_dbm": 22.0,
-          "cable_loss_db": 3,
-          "splitter_loss_db": 9.0,
-          "cell": "T1"
-        },
-        {
-          "id": "das-4",
-          "name": "Dining room",
-          "model": "Omni ceiling antenna",
-          "position": [445, 220],
-          "height_m": 2.7,
-          "gain_dbi": 2,
-          "feed_power_dbm": 22.0,
-          "cable_loss_db": 3,
-          "splitter_loss_db": 9.0,
-          "cell": "T1"
-        }
-      ],
       "walk": {
         "name": "Ground floor (Erdgeschoss) walk",
         "speed_mps": 1.0,
@@ -205,64 +93,6 @@
         "note": "about 0.03 m per pixel, estimated from the size of the rooms (drawn at 1:100; the sheet has no scale bar)"
       },
       "reference_point": [78, 76],
-      "walls": [
-        {
-          "id": "w1",
-          "class": "brick",
-          "points": [[78, 76], [275, 76], [275, 10], [420, 10], [420, 76], [612, 76], [612, 210], [330, 210], [330, 320], [78, 320], [78, 76]]
-        },
-        {
-          "id": "w2",
-          "class": "brick",
-          "points": [[78, 210], [330, 210]]
-        },
-        {
-          "id": "w3",
-          "class": "plasterboard",
-          "points": [[155, 76], [155, 210]]
-        },
-        {
-          "id": "w4",
-          "class": "plasterboard",
-          "points": [[323, 76], [323, 210]]
-        },
-        {
-          "id": "w5",
-          "class": "plasterboard",
-          "points": [[445, 76], [445, 210]]
-        },
-        {
-          "id": "w6",
-          "class": "plasterboard",
-          "points": [[230, 210], [230, 320]]
-        }
-      ],
-      "antennas": [
-        {
-          "id": "das-5",
-          "name": "Bedrooms west",
-          "model": "Omni ceiling antenna",
-          "position": [200, 150],
-          "height_m": 2.7,
-          "gain_dbi": 2,
-          "feed_power_dbm": 22.0,
-          "cable_loss_db": 3,
-          "splitter_loss_db": 9.0,
-          "cell": "T1"
-        },
-        {
-          "id": "das-6",
-          "name": "Bedrooms east",
-          "model": "Omni ceiling antenna",
-          "position": [480, 150],
-          "height_m": 2.7,
-          "gain_dbi": 2,
-          "feed_power_dbm": 22.0,
-          "cable_loss_db": 3,
-          "splitter_loss_db": 9.0,
-          "cell": "T1"
-        }
-      ],
       "walk": {
         "name": "Upper floor (Obergeschoss) walk",
         "speed_mps": 1.0,
@@ -283,59 +113,6 @@
         "note": "about 0.03 m per pixel, estimated from the size of the rooms (drawn at 1:100; the sheet has no scale bar)"
       },
       "reference_point": [18, 80],
-      "walls": [
-        {
-          "id": "w1",
-          "class": "brick",
-          "points": [[18, 80], [555, 80], [555, 213], [18, 213], [18, 80]]
-        },
-        {
-          "id": "w2",
-          "class": "plasterboard",
-          "points": [[152, 80], [152, 213]]
-        },
-        {
-          "id": "w3",
-          "class": "plasterboard",
-          "points": [[235, 80], [235, 213]]
-        },
-        {
-          "id": "w4",
-          "class": "plasterboard",
-          "points": [[310, 80], [310, 213]]
-        },
-        {
-          "id": "w5",
-          "class": "plasterboard",
-          "points": [[408, 80], [408, 213]]
-        }
-      ],
-      "antennas": [
-        {
-          "id": "das-7",
-          "name": "Attic west",
-          "model": "Omni ceiling antenna",
-          "position": [105, 150],
-          "height_m": 2.7,
-          "gain_dbi": 2,
-          "feed_power_dbm": 22.0,
-          "cable_loss_db": 3,
-          "splitter_loss_db": 9.0,
-          "cell": "T1"
-        },
-        {
-          "id": "das-8",
-          "name": "Attic east",
-          "model": "Omni ceiling antenna",
-          "position": [425, 150],
-          "height_m": 2.7,
-          "gain_dbi": 2,
-          "feed_power_dbm": 22.0,
-          "cable_loss_db": 3,
-          "splitter_loss_db": 9.0,
-          "cell": "T1"
-        }
-      ],
       "walk": {
         "name": "Attic floor (Dachgeschoss) walk",
         "speed_mps": 1.0,

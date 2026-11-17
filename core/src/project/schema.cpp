@@ -260,7 +260,7 @@ CREATE INDEX points_by_group ON points (session, grp);
 )sql";
 
 // Version 5 (step 7.6): the cell database (DB-01) in the project's cells
-// (IND-12): the entry columns, the parameters and the neighbour lists
+// (DB-01): the entry columns, the parameters and the neighbour lists
 // (values typed as stored: integer, real or text). The match fields are
 // meta keys celldb_match:<technology>.
 const char* const kV5 = R"sql(

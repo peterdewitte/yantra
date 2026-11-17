@@ -10,7 +10,7 @@ The network, the levels and the walks of the demo project are simulated
 (see [docs/DEMO.md](../../../docs/DEMO.md)).
 
 - `fraunces.json`: the demo project description (floors, trims, scale
-  bars, walls, DAS antennas, walk routes; format `yantra-demo-project`).
+  bars, walk routes; format `yantra-demo-project`).
 - `cells.csv`: the demo cell database (fictitious cells T1 and M1, with
   the access parameters the simulated network broadcasts, so the reselection
   simulator can decide, DB-08).
@@ -45,6 +45,6 @@ Scale: the metric scale bar (0-3 m) at the bottom right of each sheet is
 984 px long on sheet 3 and 981.5 px on sheet 4 (about 328 px/m). North is
 given by the arrow next to it.
 
-The walls, antennas, trims and walk routes were drawn on these sheets
+The trims and walk routes were drawn on these sheets
 for the demo; they follow the drawn rooms but are not a survey of the
 building.

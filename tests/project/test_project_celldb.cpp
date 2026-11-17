@@ -4,7 +4,7 @@
 // Project schema 5 (step 7.6; docs/formats/PROJECT.md): the cell database
 // in the project's cells (DB-01): round trip of every column, parameters
 // typed as stored, neighbour lists with inherited fields, match fields;
-// cells served by antennas are not removed; building edits keep the
+// any cell can be removed (no antennas in 0.4); building edits keep the
 // database columns; the file's constraints; the migration of schema 1..4
 // files.
 
@@ -130,7 +130,7 @@ TEST_CASE("DB-01 project 7.6: the cell database round-trips through the project 
         p->set_cell_database(db);
         CHECK(changes == 1);
         CHECK(p->cell_database() == db);
-        // The project's cells are the entries' cells (IND-12, one list).
+        // The project's cells are the entries' cells (DB-01, one list).
         REQUIRE(p->cells().size() == 2);
         CHECK(p->cells()[0] == db.entries()[0].cell);
         // A new cell continues the numbering after cell-1.

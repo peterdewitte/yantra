@@ -9,7 +9,7 @@ The Network menu holds the cell database and the checks against it; they need an
 
 ## 8.1 The cell database
 
-Network > Cell database... lists the network's cells: name, technology, site and sector, carrier in MHz, channel number, identity (the LA in hexadecimal) and the number of neighbours, with a filter field. New (per technology) starts an entry: the fields that identify the cell and the broadcast parameters to verify (typed as decimal, `0x..` hexadecimal, a number or a text), the label, site, sector, azimuth, colour and notes, and the neighbour list, one neighbour per line as `name=value/name=value` (at most 31). Add field adds another field. Apply stores the whole database in the project; Cancel drops the edit; Remove deletes a cell (not while an antenna of the building serves it).
+Network > Cell database... lists the network's cells: name, technology, site and sector, carrier in MHz, channel number, identity (the LA in hexadecimal) and the number of neighbours, with a filter field. New (per technology) starts an entry: the fields that identify the cell and the broadcast parameters to verify (typed as decimal, `0x..` hexadecimal, a number or a text), the label, site, sector, azimuth, colour and notes, and the neighbour list, one neighbour per line as `name=value/name=value` (at most 31). Add field adds another field. Apply stores the whole database in the project; Cancel drops the edit; Remove deletes a cell.
 
 CSV import and export: choose the file, whether the LA is in hexadecimal and whether the separator is a semicolon; with Import replaces ticked the import replaces the database, else it merges into it, and lists the rows it skipped with the reason. The format is in `docs/CELL_DATABASE.md`.
 

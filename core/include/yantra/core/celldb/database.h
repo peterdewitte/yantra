@@ -8,7 +8,7 @@
 // the desktop app's, phase 9; this is its model and API).
 //
 // A cell entry is the project's cell (building::Cell: id, label,
-// technology, schema, main carrier, identity; IND-12) with the database
+// technology, schema, main carrier, identity; DB-01) with the database
 // columns around it: site name, sector, azimuth, graph colour, notes,
 // origin, plugin version, the other technology fields by name
 // (`parameters`) and a neighbour list of up to 31 references. A project
@@ -25,7 +25,7 @@
 // both", DB-01) is a per-technology setting (match_fields).
 // Copied in part from yantra-v2 68ea20a:
 // core/include/yantra/core/celldb/database.h, adapted for DB-01 indoor (no
-// geographic position), the project's cells (IND-12) and string ids.
+// geographic position), the project's cells (DB-01) and string ids.
 #pragma once
 
 #include <cstddef>

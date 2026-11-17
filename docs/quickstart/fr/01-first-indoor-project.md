@@ -15,14 +15,12 @@ Importer un plan, découper les étages, parcourir, rapport. Environ 15 minutes.
 
 4. **Échelle et référence.** Sélectionnez un étage, choisissez la barre d'échelle et tracez le long de la barre d'échelle du plan, saisissez sa longueur en mètres et Appliquer (ou une ligne d'échelle sur une distance connue). Les étages d'une même feuille peuvent partager l'échelle. Avec Référence, cliquez sur un point présent à chaque étage, comme l'angle d'une cage d'escalier. Fermez la fenêtre.
 
-5. **Murs et antennes.** Sur la page Modifier, choisissez la classe de mur sous Nouveaux murs et dessinez les murs principaux avec Dessiner un mur (W) : un clic par angle, Entrée pour terminer. Proposer des murs peut suggérer des murs à partir du plan ; n'acceptez que les vrais. Placez les antennes du DAS avec Placer une antenne (A) et réglez leur cellule et leur puissance dans les propriétés.
+5. **Parcourir.** Sur la page Parcours, choisissez le récepteur et le mode Pointer-cliquer, puis Démarrer. Cliquez là où vous êtes, marchez en ligne droite à allure régulière et cliquez là où vous êtes à chaque virage. Arrêter à la fin. Les points apparaissent colorés selon le niveau. Avec le simulateur, choisissez plutôt Relevé à la souris et déplacez lentement la souris sur le plan.
 
-6. **Parcourir.** Sur la page Parcours, choisissez le récepteur et le mode Pointer-cliquer, puis Démarrer. Cliquez là où vous êtes, marchez en ligne droite à allure régulière et cliquez là où vous êtes à chaque virage. Arrêter à la fin. Les points apparaissent colorés selon le niveau. Avec le simulateur, choisissez plutôt Relevé à la souris et déplacez lentement la souris sur le plan.
+6. **Carte de couverture.** Sur la page Carte, appuyez sur Calculer. La carte est interpolée à partir de vos points et s'estompe là où personne n'a mesuré. Laissez le pointeur sur le plan pour voir les valeurs mesurées et interpolées.
 
-7. **Carte de couverture.** Sur la page Carte, appuyez sur Calculer. La carte est ajustée à vos points et s'estompe là où personne n'a mesuré. Laissez le pointeur sur le plan pour voir les valeurs mesurées et interpolées.
+7. **Étage suivant.** Choisissez l'onglet de l'étage suivant et répétez les étapes 5 et 6.
 
-8. **Étage suivant.** Choisissez l'onglet de l'étage suivant et répétez les étapes 6 et 7.
+8. **Rapport.** Fichier > Rapport : saisissez votre nom comme technicien de mesure, gardez PDF et HTML et appuyez sur Créer le rapport. Le rapport est écrit dans le dossier `reports` à côté du projet.
 
-9. **Rapport.** Fichier > Rapport : saisissez votre nom comme technicien de mesure, gardez PDF et HTML et appuyez sur Créer le rapport. Le rapport est écrit dans le dossier `reports` à côté du projet.
-
-Ensuite : [Test de parcours intérieur avec rapport de réception](02-walk-test-acceptance.md). Manuel (en anglais) : chapitres 13 (projets, plans, murs, interpolation), 7 (tests de parcours) et 10 (rapports).
+Ensuite : [Test de parcours intérieur avec rapport de réception](02-walk-test-acceptance.md). Manuel (en anglais) : chapitres 13 (projets, plans, interpolation), 7 (tests de parcours) et 10 (rapports).

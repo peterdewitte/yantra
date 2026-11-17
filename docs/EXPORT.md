@@ -79,15 +79,14 @@ back (tests and tools).
 `floor_drawing(project, table, DxfOptions)` and `write_dxf` (dxf.h),
 Yantra's own writer: AutoCAD R12 ASCII (`AC1009`), units metres, x to the
 right and y up (y = -plan y in metres, so the drawing is not mirrored). A
-floor without a scale is refused. Layers:
+floor without a scale is refused. The drawing holds the measured points
+only (EXP-03). Layers:
 
 | Layer | Content |
 | --- | --- |
 | `POINTS_<i>` | points in colour band i of the scale (1 = lowest) |
 | `POINTS_OUTSIDE`, `POINTS_NO_VALUE` | points outside every band, or without a value |
 | `VALUES` | the value of each point as text (optional) |
-| `WALLS_<CLASS>` | each wall as a polyline, per wall class |
-| `ANTENNAS`, `ANTENNA_NAMES` | antenna positions and names |
 | `LABEL` | an optional label (e.g. the demo banner) |
 
 The layer descriptions (band limits, unit) are written as comments at the
@@ -99,8 +98,8 @@ top. `read_dxf` reads the entities back (TST-33).
 (trimmed as in the project; a plan that cannot be rendered is left out
 with a warning; a licence-restricted reference plan such as a MAK sheet
 is never drawn here, only by the report from the user's checked cached
-copy, see [REPORT.md](REPORT.md)), the
-walls, every point in its colour, the antennas, a title, an optional
+copy, see [REPORT.md](REPORT.md)),
+every point in its colour, a title, an optional
 banner, and a legend with the count per band. `write_image_file` writes
 PNG or JPEG (by extension) with stb_image_write. Text uses the Inter font
 (`data/fonts/`, installed in `share/yantra/fonts/`), passed as a path;

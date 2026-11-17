@@ -15,7 +15,7 @@ target_link_libraries(yantra-demo PRIVATE yantra::core yantra::warnings)
 
 # DEMO-05, DEMO-12, PLG-27: the fixed demo scenes of the bundled example
 # floors (data/demo/scenes/<example id>.json, RAD-36 format; made once by
-# `yantra-demo --export-scenes`, docs/DEMO.md "Fixed demo scenes"). The
+# the scene exporter of Yantra 0.2.0, docs/DEMO.md "Fixed demo scenes"). The
 # simulator gets them through get_scene and the demo builds give them to
 # yantra-gen. Copied into the build tree (a data folder of the app, as
 # share/yantra) and installed to share/yantra/demo/scenes.

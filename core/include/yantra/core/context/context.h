@@ -15,7 +15,7 @@
 // ContextEvent bits; they are called on the publishing thread and must
 // return at once (the radio host only queues them for its notifier
 // thread). The project and building model of later phases (IND-08,
-// IND-11/12, GEO-02) feeds a ContextPublisher; the tests feed one by hand.
+// IND-09, GEO-02) feeds a ContextPublisher; the tests feed one by hand.
 #pragma once
 
 #include <cstdint>

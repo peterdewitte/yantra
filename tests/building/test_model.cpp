@@ -3,8 +3,8 @@
 //
 // Building model (IND-04, IND-06..09): scale methods and frame
 // conversions, alignment, floor order and validation messages. The wall
-// classes, walls, antennas, slabs and wall geometry of 0.3 (IND-11, IND-12,
-// IND-40, IND-44) are removed with their requirements.
+// classes, walls, antennas, slabs and wall geometry of 0.3 are removed with their
+// requirements (Yantra 0.4).
 
 #include <doctest/doctest.h>
 

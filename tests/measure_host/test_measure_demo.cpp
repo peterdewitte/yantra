@@ -3,13 +3,13 @@
 //
 // The Fraunces demo project (DEMO-05, DEMO-06, DEMO-09, DEMO-13;
 // docs/DEMO.md): the project yantra-demo makes at build time
-// (DEMO_FRAUNCES_DIR) opens with its floors, trims, scales, walls, DAS
-// antennas, cell database, walk recordings and stored interpolations;
+// (DEMO_FRAUNCES_DIR) opens with its floors, trims, scales, cell
+// database, walk recordings and stored interpolations;
 // the recordings replay to the stored points and statistics; making it
 // again gives the same recordings and project content; the simulator
 // picks the Fraunces scenario by the floors' example ids (RAD-18) and,
-// with the floors' fixed demo scenes (DEMO-05), its levels at the walk
-// points agree with the project's model (TST-36, 0.5 dB); the demo scenarios of data/demo/scenarios.json can be selected
+// with the floors' fixed demo scenes (DEMO-05), it gives indoor levels
+// at the walk points; the demo scenarios of data/demo/scenarios.json can be selected
 // (DEMO-09). The cases skip without the radio tools.
 
 #include <doctest/doctest.h>

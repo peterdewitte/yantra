@@ -4,7 +4,7 @@
 // The MAK example buildings of the guided tour (DEMO-12, DEMO-13, IND-03;
 // docs/DEMO.md, data/demo/mak/): the three descriptions validate (sheet
 // URL, SHA-256, size, credit; floors with trims inside the sheet,
-// approximate scales, walls, antennas, walks and reference points inside
+// approximate scales, walks and reference points inside
 // the trims; the example ids select the radios' MAK scenarios); a sheet
 // that is not the described file is refused with a clear message; with a
 // stand-in image (same pixel size, its own hash in a copy of the

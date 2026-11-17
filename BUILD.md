@@ -119,7 +119,7 @@ Example with a yantra-radios release built next to yantra:
 |---|---|---|
 | `YANTRA_BUILD_APP` | `ON` | The desktop application (GLFW, OpenGL, libcurl). |
 | `YANTRA_BUILD_TESTS` | `ON` | The test suite under ctest. |
-| `YANTRA_SIMD` | `ON` | SIMD ray-tracing kernels; `OFF`: the plain C++ fallback (TST-03). |
+| `YANTRA_SIMD` | `ON` | SIMD kernels (the interpolation's distance kernel); `OFF`: the plain C++ fallback (TST-03). |
 | `YANTRA_WERROR` | `OFF` | Warnings are errors (CI presets). |
 | `YANTRA_PLUGIN_PROBE` | `ON` | The probe feature plugin (remote API, PLG-24); `OFF`: no network listener at all. |
 | `YANTRA_SANITIZER` | empty | `asan-ubsan` or `tsan` (TST-05). |

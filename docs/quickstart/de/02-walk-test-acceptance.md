@@ -5,7 +5,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Schnellstart: Innen-Begehungstest mit Abnahmebericht
 
-Begehen Sie ein Gebäude nach vereinbarten Abnahmekriterien und übergeben Sie einen Bericht mit PASS oder FAIL. Sie brauchen ein Projekt mit seinen Etagen, Maßstäben und Antennen (siehe [Erstes Innenprojekt](01-first-indoor-project.md)), die Zelldatenbank des Netzes und einen Empfänger, der bei den verwendeten Verstärkungen kalibriert ist (siehe [Einen Empfänger kalibrieren](03-calibrate-a-radio.md)).
+Begehen Sie ein Gebäude nach vereinbarten Abnahmekriterien und übergeben Sie einen Bericht mit PASS oder FAIL. Sie brauchen ein Projekt mit seinen Etagen und Maßstäben (siehe [Erstes Innenprojekt](01-first-indoor-project.md)), die Zelldatenbank des Netzes und einen Empfänger, der bei den verwendeten Verstärkungen kalibriert ist (siehe [Einen Empfänger kalibrieren](03-calibrate-a-radio.md)).
 
 1. **Zelldatenbank.** Netz > Zelldatenbank...: Importieren Sie die Zellliste des Betreibers als CSV (oder geben Sie die Zellen ein) und Übernehmen. Empfangene Zellen werden dann benannt, und der Bericht prüft sie.
 
