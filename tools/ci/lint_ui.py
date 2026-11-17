@@ -5,7 +5,8 @@
 # The source half of the UI lint (DOC-20, UI-12; the run-time half is
 # tests/app/ui/test_ui_lint.cpp). It finds every text the app passes to
 # tr(), trf() and tr_mark() (and the report composer's c.tr()/c.trf() in
-# core/src/report, which the app runs through tr(); step 10.4) and checks the translation tables
+# core/src/report, which the app runs through tr(); step 10.4, and its c.fill()
+# templates, which go through the same tr()) and checks the translation tables
 # data/i18n/{nl,fr,de}.json against them:
 #   - every text has a translation in every language, and no table keeps
 #     a text the app no longer has;
@@ -26,7 +27,7 @@ import sys
 
 LANGUAGES = ("nl", "fr", "de")
 SOURCE_DIRS = ("app/gui", "app/model/src", "app/model/include/yantra/app", "core/src/report")
-CALL = re.compile(r'\b(tr|trf|tr_mark)\(\s*((?:"(?:[^"\\\n]|\\.)*"\s*)+)(?=[),])')
+CALL = re.compile(r'\b(tr|trf|tr_mark|fill)\(\s*((?:"(?:[^"\\\n]|\\.)*"\s*)+)(?=[),])')
 LITERAL = re.compile(r'"((?:[^"\\\n]|\\.)*)"')
 PRINTF = re.compile(r"%(?:%|[-+ #0]*(?:\*|\d+)?(?:\.(?:\*|\d+))?(?:hh|h|ll|l|z|j|t|L)?[diouxXeEfFgGaAcspn])")
 MANUAL_REF = re.compile(r"\bmanual (\d+(?:\.\d+)?)")
@@ -42,7 +43,7 @@ def unescape(s):
             n = s[i + 1]
             if n == "x":
                 m = re.match(r"[0-9a-fA-F]+", s[i + 2:])
-                out.append(chr(int(m.group(0), 16)))
+                out.append(chr(0xDC00 + int(m.group(0), 16)))  # a byte of UTF-8
                 i += 2 + len(m.group(0))
                 continue
             if n == "u":
@@ -54,7 +55,8 @@ def unescape(s):
             continue
         out.append(c)
         i += 1
-    return "".join(out)
+    # The \x escapes are bytes of UTF-8 sequences ("m\xc2\xb2" is "m" and a superscript two).
+    return "".join(out).encode("utf-8", "surrogateescape").decode("utf-8", "surrogateescape")
 
 
 def strip_comments(src):
