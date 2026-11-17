@@ -101,8 +101,10 @@ bottom first by default: `plan`, `interpolation`, `binned` (hidden),
 
 The Gui draws it (`draw_project_screen`): DEMO banner (`demo_banner`,
 label from the demo description, `AppState::demo_label()`), floor tabs
-`tab.<floor id>` and `floors.add`, buttons `floor.properties`,
-`floor.down`, `floor.up`, `floor.remove`, `plan.fit`, `plan.zoom_in`,
+`tab.<floor id>` (reorderable: a tab dragged to its place calls
+`move_floor` once, on release; its right-click menu has `floor.down`,
+`floor.up` and `floor.remove`) and `floors.add`, buttons
+`floor.properties`, `plan.fit`, `plan.zoom_in`,
 `plan.zoom_out`, the layer panel (`layer.<key>` checkboxes,
 `layer.<key>.up` / `.down`, `layer.bin_size`,
 `layer.interpolation.choose`) and the canvas `plan.canvas` (drag pans,
