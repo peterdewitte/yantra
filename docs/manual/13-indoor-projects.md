@@ -30,7 +30,7 @@ The floor tabs above the plan switch between floors, ordered by level; the toolt
 
 ## 13.2 Plan import and trimming
 
-The plan import window shows the sheet (choose the page of a PDF) and cuts the floors out of it, so one sheet can give several floors. The panel on the left starts with the file name; Info next to it shows the file's type, page, size and resolution. Every option has a "(?)" that explains it when you rest the pointer on it or click it. The trim tools come first, then Add as floor..., the list of floors in this plan and the preview of the trim; Scale and Alignment are closed until you open them with their arrow. The tools:
+The plan import window shows the sheet (choose the page of a PDF) and cuts the floors out of it, so one sheet can give several floors. The panel on the left starts with the file name; Info next to it shows the file's type, page, size and resolution, and for a licence-restricted example plan its title, credit, licence, source link and notes (closed until you press Info). Every option has a "(?)" that explains it when you rest the pointer on it or click it. The trim tools come first, then Add as floor..., the list of floors in this plan and the preview of the trim; Scale and Alignment are closed until you open them with their arrow. The tools:
 
 - Pan/select: drag to move the sheet; click a floor's outline to select it.
 - Rectangle: drag a rectangle around one floor; drag a corner to adjust it.

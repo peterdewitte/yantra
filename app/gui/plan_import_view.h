@@ -7,7 +7,7 @@
 // trimmed, scale and reference point in a side panel; the source page as
 // tiles (zoom-dependent, turned by the trim's rotation) with the trims
 // outlined and labelled; the credit and licence of a licence-restricted
-// plan. Everything it shows and does goes through PlanImportWindow
+// plan behind Info (UI-20). Everything it shows and does goes through PlanImportWindow
 // (app/model). No OpenGL here (user_texture.h).
 //
 // Ids (docs/APP.md): the dialog "dlg.plan_import"; panel items "pi.*"

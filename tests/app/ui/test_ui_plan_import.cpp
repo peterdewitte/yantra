@@ -265,7 +265,7 @@ TEST_CASE("plan import: PDF pages as thumbnails, page choice (IND-02)") {
     CHECK(s.gui.import_view().stats().preview_height < 240);
 }
 
-TEST_CASE("plan import: a licence-restricted plan shows its credit and licence (IND-03)") {
+TEST_CASE("plan import: a licence-restricted plan shows its credit and licence behind Info (IND-03, UI-20)") {
     const fs::path d = scratch("restricted");
     const fs::path file = d / "cache" / "example_sheet.png";
     fs::create_directories(file.parent_path());
@@ -292,7 +292,14 @@ TEST_CASE("plan import: a licence-restricted plan shows its credit and licence (
     s.choose(file);
     REQUIRE(s.ui.wait_window("dlg.plan_import"));
     REQUIRE(s.ui.frames(3));
+    // UI-20: the credit, licence and notes are behind Info, closed by default.
+    CHECK_FALSE(s.gui.import_view().stats().credit);
+    REQUIRE(s.ui.click("pi.info", "dlg.plan_import"));
+    REQUIRE(s.ui.frames(2));
     CHECK(s.gui.import_view().stats().credit);
+    REQUIRE(s.ui.click("pi.info", "dlg.plan_import"));
+    REQUIRE(s.ui.frames(2));
+    CHECK_FALSE(s.gui.import_view().stats().credit);
     REQUIRE(s.state.plan_import());
     CHECK(s.state.plan_import()->referenced());
     CHECK_FALSE(s.state.project()->sources()[0].plan.embedded);

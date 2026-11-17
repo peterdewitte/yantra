@@ -153,7 +153,8 @@ floor's sheet with that floor selected.
   and looks for a restricted sheet with that SHA-256 in
   `<data folder>/demo/*/*.json` (`find_restricted_sheet`). A match is added
   with `add_source_reference` (no copy) and `restricted()` gives title,
-  credit, licence and the approximate-scale note that the window shows.
+  credit, licence and the approximate-scale note that the window shows
+  behind its Info button (UI-20, closed by default).
   `referenced()` is true for every non-embedded source.
 - View: `PlanImportView` (app/gui/plan_import_view.h) draws the side
   panel and the canvas; tiles come from `PlanImport::page_tiles()` as

@@ -1253,7 +1253,7 @@
   "Show a popup besides the sound when a level alert fires.": "Afficher une fenêtre contextuelle en plus du son lorsqu'une alerte de niveau se déclenche.",
   "Show matches": "Afficher les correspondances",
   "Show me": "Montrez-moi",
-  "Show or hide the information about the plan file: its type, page, size and resolution.": "Afficher ou masquer les informations sur le fichier de plan : type, page, taille et résolution.",
+  "Show or hide the information about the plan file: its type, page, size and resolution, and for an example plan its credit and licence.": "Afficher ou masquer les informations sur le fichier de plan : type, page, taille et résolution, et pour un plan d'exemple ses crédits et sa licence.",
   "Show or hide the window with every carrier the radios report.": "Afficher ou masquer la fenêtre avec chaque porteuse signalée par les radios.",
   "Show or hide the window with the events of the walk: cell changes, alerts and markers.": "Afficher ou masquer la fenêtre des événements du parcours : changements de cellule, alertes et repères.",
   "Show or hide the window with the level, C1 and quality graphs over time.": "Afficher ou masquer la fenêtre des graphiques de niveau, C1 et qualité dans le temps.",

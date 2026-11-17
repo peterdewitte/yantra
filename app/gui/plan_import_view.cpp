@@ -349,14 +349,17 @@ void PlanImportView::draw_panel(PlanImportWindow& w) {
     ImGui::PopTextWrapPos();
     gui_detail::same_line_if(gui_detail::label_w(tr("Info###pi.info")));
     if (gui_detail::small_button(tr("Info###pi.info"))) info_open_ = !info_open_;
-    tooltip(tr("Show or hide the information about the plan file: its type, page, size and resolution."));
+    tooltip(tr("Show or hide the information about the plan file: its type, page, size and resolution, and for "
+               "an example plan its credit and licence."));
     ImGui::PushTextWrapPos(0.0F);
     if (info_open_) {
         ImGui::TextDisabled("%s", w.description().c_str());
         if (w.large_sheet()) ImGui::TextDisabled(tr("Large sheet: shown in tiles, sharper as you zoom in."));
     }
-    if (const auto& rv = w.restricted()) {
-        // IND-03, DEMO-12: credit and licence with the plan (always shown).
+    // IND-03, DEMO-12, UI-20: a licence-restricted plan's credit, licence,
+    // source and notes are behind Info too (closed by default); the credit
+    // stays under the floor tabs, in the reports and in About.
+    if (const auto& rv = w.restricted(); rv && info_open_) {
         ImGui::Spacing();
         ImGui::TextColored(kWarnColour, "%s", rv->title.c_str());
         ImGui::TextUnformatted(rv->credit.c_str());
