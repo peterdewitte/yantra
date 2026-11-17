@@ -246,7 +246,9 @@ the radios and one walk test:
   a simulated radio that uses the context is chosen by default. Levels
   are calibrated with the user's table when present, else dBFS.
 - the plugins' context: the shown floor, the mouse (`cursor()`), the walk
-  position and the scene, re-exported when walls or antennas change.
+  position and, for a bundled example floor, its fixed demo scene
+  (`RadioPaths::scene_folders`, DEMO-05; docs/DEMO.md "Fixed demo
+  scenes"); a user's own floor has no scene.
 - kinds (`form()`): point and click, continuous (GEO-02: clicks on the
   plan close segments; `walk.pause`, `walk.delete_last`), manual (GEO-05:
   a click measures there for `walk.seconds`), mouse survey (DEMO-14: the

@@ -60,8 +60,9 @@ API from a feature plugin.
   neighbours, plus device events, settings and sensors. No IQ samples,
   PDUs or slots reach Yantra; `~/yantra` has no DSP, decoder or SoapySDR
   code. In the other direction the host gives the plugins a context
-  (building scene, floor, positions; PLG-27, `context/`), which the
-  simulator uses to compute levels.
+  (floor, positions and the fixed demo scene of a bundled example floor;
+  PLG-27, DEMO-05, `context/`), which the simulator uses to compute
+  levels.
 - The radio plugins themselves, their decoder and generator are
   described in yantra-radios (its ARCHITECTURE.md and RADIO_PLUGINS.md).
 
@@ -101,7 +102,9 @@ events through a non-blocking sink per stream. It reopens a device after
 an unplug (DEVICE_BACK), resolves the calibration key of a device at each
 record's measurement time (HW-01b) and gives control calls a time limit
 (RAD-15) on a control thread. `scene_export.cpp` writes the building as
-the yantra-radios scene format (RAD-36) for simulated radios.
+the yantra-radios scene format (RAD-36); it is used only by the export
+tool of the fixed demo scenes (`yantra-demo --export-scenes`,
+docs/DEMO.md).
 
 ### Measurement pipeline (`measure/`)
 
@@ -151,7 +154,7 @@ Details: [docs/SURVEY.md](docs/SURVEY.md).
 - `calibration/`: the calibration table, its wizard and the
   `TableCorrector` used by the pipeline.
 - `context/`: the context the radio host hands to plugins (floor, mouse
-  and walk positions, scene; PLG-27).
+  and walk positions, the fixed demo scenes; PLG-27, DEMO-05).
 
 ### Propagation (`raytrace/`, `survey/interpolation`, `util/job`)
 

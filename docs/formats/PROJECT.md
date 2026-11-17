@@ -202,7 +202,7 @@ level. Reordering hands the same set of levels out in the new order.
 | `height_m` | REAL > 0 | floor-to-floor height in metres |
 | `source` | TEXT or NULL | `sources.id` of its plan source; NULL without a plan |
 | `page` | INTEGER >= 0 | page of the source (0-based) |
-| `example_id` | TEXT | id of a bundled example plan's floor (DEMO-05, DEMO-12), else empty |
+| `example_id` | TEXT | id of a bundled example plan's floor (DEMO-05, DEMO-12; selects its fixed demo scene `data/demo/scenes/<example_id>.json`), else empty |
 | `plan_width`, `plan_height` | REAL >= 0 | trimmed plan size in plan units |
 | `slab_attenuation_db` | REAL or NULL | attenuation of the slab to the floor above (IND-44); NULL: the building's default |
 | `created_utc` | TEXT | when it was added |

@@ -16,11 +16,14 @@ Users of the model:
 
 - the ray-tracing propagation model (IND-40) and its wall geometry
   (`building/geometry.h`: wall segments in metres, walls crossed by a path);
-- the scene export for radio plugins with the SCENE capability (RAD-36,
-  `radio/scene_export.h`), such as the simulator of yantra-radios;
+- the scene export (RAD-36, `radio/scene_export.h`), now only the export
+  tool of the fixed demo scenes (`yantra-demo --export-scenes`,
+  [DEMO.md](DEMO.md) "Fixed demo scenes") and its tests: the simulator
+  gets the fixed scene of a bundled example floor, never a scene made
+  from a user's walls and antennas (DEMO-05);
 - the context callbacks of the radio plugins (PLG-27,
   `context/building_context.h`): floor plan shown, cursor and walk
-  position in metres, scene of every floor;
+  position in metres, and the fixed demo scene of an example floor;
 - the project file (IND-01, NFR-05), which stores the model in its tables
   ([formats/PROJECT.md](formats/PROJECT.md); `project/project.h`
   `Project::building()`).
@@ -281,7 +284,10 @@ format defined by yantra-radios (`yantra-radio-scene` version 1.1,
 `YR_SCENE_FORMAT` in `yantra/radio.h`, documented in the submodule's
 `docs/SCENE_FORMAT.md`; `"minor_version": 1` whenever a 1.1 member is
 written, so a scene without walls and other floors stays 1.0). The radio
-host answers `get_scene` with it.
+host does not answer `get_scene` with it any more: the export made the
+fixed demo scenes in `data/demo/scenes` once (DEMO-05, see below and
+[DEMO.md](DEMO.md) "Fixed demo scenes"), and the ctests
+`demo_scenes_*` check that those files are still its output.
 
 - `floor`: id, name, `scale_set` (a scale and a plan size above 0), plan
   size in metres, `slab_attenuation_db` = `floor_attenuation_db`,
@@ -348,8 +354,18 @@ Known differences between the model and the scene:
   to plan-frame metres with the floor scale (exactly plan units x metres
   per unit); none without a scale (NO_POSITION);
 - `get_walk_position`: the walk position (GEO-02) on its floor, likewise;
-- `get_scene`: the scene of every floor.
+- `get_scene`: the scene of a floor from the context's `SceneSource`. In
+  the app that is `context::demo_scenes(folders)` (DEMO-05, PLG-27): a
+  floor with an example id gets the fixed demo scene
+  `<data folder>/demo/scenes/<example id>.json` byte for byte (only its
+  floor id is set to the floor's when they differ, e.g. a tour floor
+  trimmed by the user); a user's own floor has no scene and `get_scene`
+  answers NOT_FOUND, "no scene, use the defaults" (the simulator then
+  uses its scenario's own levels). The walls and antennas of the model
+  are not used. Tests of the exporter with the simulator pass a source
+  that exports the model (`tests/model_scenes.hpp`).
 
-A model edit re-exports the scenes; an edit of the shown floor's scene
-gives SCENE_CHANGED, another floor shown PLAN_CHANGED, and the cursor and
-walk positions keep their plan points, so their metres follow a new scale.
+`set_building` takes every floor's scene from the source again; a
+changed scene of the shown floor gives SCENE_CHANGED, another floor
+shown PLAN_CHANGED, and the cursor and walk positions keep their plan
+points, so their metres follow a new scale.

@@ -14,6 +14,19 @@ own changes are in its CHANGELOG.md.
 
 ## [Unreleased]
 
+### Changed
+
+- The simulator gets its signal levels from fixed demo scenes shipped
+  with the demo data (DEMO-05, DEMO-12, DEMO-13, PLG-27): one scene file
+  per bundled example floor (the Fraunces Tavern and the three MAK
+  buildings) in `data/demo/scenes`, exported once from the example
+  descriptions (`yantra-demo --export-scenes`) and installed to
+  `share/yantra/demo/scenes`. `get_scene` serves them by the floor's
+  example id; a user's own floor has no scene (NOT_FOUND: the simulator
+  uses its own defaults) and its walls and antennas no longer reach the
+  simulator. The demo recordings and the simulator's demo levels are
+  unchanged (byte-identical). `yantra-demo` needs `--scene-dir`.
+
 ### Fixed
 
 - The scanner view's State column shortens a long list of flags (such as

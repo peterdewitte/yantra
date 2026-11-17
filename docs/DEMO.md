@@ -57,8 +57,9 @@ are built):
    reference point, walls, antennas and the cell database.
 2. Per floor, the radios' scenario that the floor's example id selects
    (`example_ids` of `data/scenarios/*.json` in yantra-radios, here
-   `fraunces.json`) gets the floor's scene as Yantra exports it for the
-   simulator (RAD-36) and the walk as its receiver path (`linear`, the
+   `fraunces.json`) gets the floor's fixed demo scene
+   (`data/demo/scenes/<example id>.json`, `--scene-dir`; see "Fixed demo
+   scenes") and the walk as its receiver path (`linear`, the
    walker reaching each waypoint at the walk's speed).
    yantra-gen (RAD-71) runs it and writes its ground truth as a record
    file (RAD-65): the levels of the simulator's multi-wall model (RAD-73)
@@ -81,7 +82,7 @@ path relative to itself (`recordings/...`). By hand:
 yantra-demo --description data/demo/fraunces/fraunces.json --out DIR \
   --gen build/radios/install/bin/yantra-gen \
   --scenario-dir build/radios/install/share/yantra-radios/scenarios \
-  --tetra-plugin build/lib/yantra/plugins/tetra.so
+  --scene-dir data/demo/scenes --tetra-plugin build/lib/yantra/plugins/tetra.so
 ```
 
 Options: `--work DIR` (the generated scenarios and record files, default
@@ -97,8 +98,9 @@ creation times differ. The tests check both
 ### Simulator and project agree
 
 On a Fraunces floor the simulator (RAD-61) picks the `fraunces` scenario
-by the floor's example id and computes its levels from the floor's walls
-and antennas, which Yantra hands it through the context (PLG-27). At the
+by the floor's example id and computes its levels from the floor's fixed
+demo scene (walls and DAS antennas), which Yantra hands it through the
+context (PLG-27, see "Fixed demo scenes"). At the
 walk points they are the ray tracer's levels with no reflections within
 0.5 dB (TST-36). The stored maps use the project's default settings (two
 reflections) and the fit (IND-41), so they differ from the walk by the
@@ -165,7 +167,7 @@ They contain no image data and are installed to
 
 ```sh
 yantra-demo --description data/demo/mak/mak_villa_bunzl.json --out DIR \
-  --sheets CACHE_DIR --gen ... --scenario-dir ... --tetra-plugin ...
+  --sheets CACHE_DIR --gen ... --scenario-dir ... --scene-dir data/demo/scenes --tetra-plugin ...
 ```
 
 On first use the app's guided tour (step 9.10, docs/APP.md "Guided
@@ -185,6 +187,56 @@ image: a synthetic JPEG of the same pixel size stands in for each sheet
 copy of the description with the stand-in's hash). The case that uses
 the real sheets runs only when `YANTRA_MAK_CACHE` names a folder holding
 them and is skipped with that reason otherwise.
+
+## Fixed demo scenes (DEMO-05, DEMO-12, PLG-27)
+
+The simulator's scene of every bundled example floor (the two Fraunces
+floors and the floors of the three MAK buildings) is a file in the demo
+data: `data/demo/scenes/<example id>.json`, in the yantra-radios scene
+format (RAD-36, `"format": "yantra-radio-scene"`, `"version"` 1,
+`"minor_version"` 1; the submodule's `docs/SCENE_FORMAT.md`), licensed
+GPL-3.0-or-later (`data/demo/scenes/README.md`).
+A scene holds the floor's walls, DAS antennas and cells and the storeys
+above and below, in metres in the floor's plan frame (the trim and scale
+of the description). It is used by the simulator only and never shown or
+edited in Yantra.
+
+- The app (`LiveSurvey`, `RadioPaths::scene_folders` =
+  `<data folder>/demo/scenes`) answers `get_scene` for a floor with an
+  example id with that file, byte for byte (`context::demo_scenes`; only
+  the floor id is set to the floor's when it differs, as for a tour floor
+  the user trimmed from a MAK sheet with the description's trim and
+  scale). For a user's own floor `get_scene` answers NOT_FOUND ("no
+  scene, use the defaults"): the simulator then uses its scenario's own
+  levels. The walls and antennas of the building model are not used.
+- The demo builds (`yantra-demo --scene-dir data/demo/scenes`) put each
+  floor's scene into the yantra-gen scenario of its walk (DEMO-13).
+- The build copies the files to `build/demo/scenes` and installs them to
+  `share/yantra/demo/scenes`.
+
+The files were exported once (2026-11-17, step 14.1) from the example
+descriptions with the scene exporter of Yantra 0.2.0
+(`demo::export_demo_scene`: `export_scene` with its defaults, indented
+by 2, with a final newline):
+
+```sh
+yantra-demo --export-scenes data/demo/scenes --description data/demo/fraunces/fraunces.json
+yantra-demo --export-scenes data/demo/scenes --description data/demo/mak/mak_beer_house.json
+# likewise mak_haus_claeson.json and mak_villa_bunzl.json
+```
+
+Tests: the ctests `demo_scenes_<id>` (`yantra-demo --check-scenes`)
+check that each file is still that export byte for byte, so the
+simulator and yantra-gen get exactly the scenes they got when Yantra
+exported them from the model: the demo recordings stayed byte-identical
+(checked when the files were made) and the simulator's levels are those
+of before; `scene_radios_check_demo_*` read every file with the radios'
+scene parser; `tests/building/test_building_context.cpp` checks that an
+example floor gets its file as it is and a user's own floor no scene;
+`tests/radio_host/test_radio_host.cpp` that `get_scene` then answers
+NOT_FOUND; `tests/measure_host/test_measure_demo.cpp` that the
+simulator's levels on the Fraunces floors from the fixed scenes are the
+model's (TST-36).
 
 ## Demo scenarios (DEMO-09)
 
