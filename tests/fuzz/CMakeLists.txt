@@ -17,7 +17,7 @@
 
 set(_fuzz_corpus ${PROJECT_BINARY_DIR}/fuzz-corpus)
 set(_fuzz_regress ${CMAKE_CURRENT_SOURCE_DIR}/regressions)
-set(YANTRA_FUZZ_TARGETS project recording record_file celldb_csv calibration building_scene plan_source
+set(YANTRA_FUZZ_TARGETS project recording record_file celldb_csv calibration building plan_source
     export_readers command acceptance)
 
 add_executable(yantra-fuzz-seeds seeds.cpp)

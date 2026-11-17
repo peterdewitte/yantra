@@ -30,7 +30,6 @@
 #include "yantra/core/plan/source.h"
 #include "yantra/core/plan/trim.h"
 #include "yantra/core/platform/clock.h"
-#include "yantra/core/radio/scene_export.h"
 #include "yantra/core/recording/writer.h"
 #include "yantra/core/survey/recordings.h"
 #include "yantra/core/survey/walk_test.h"
@@ -456,14 +455,6 @@ std::optional<std::string> read_demo_scene(const fs::path& scene_dir, const std:
     std::ifstream in(demo_scene_file(scene_dir, example_id), std::ios::binary);
     if (!in) return std::nullopt;
     return std::string(std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>());
-}
-
-std::string export_demo_scene(const building::Building& b, const DemoFloor& f) {
-    radio::SceneExportOptions o;
-    o.indent = 2;
-    const radio::SceneExport scene = radio::export_scene(b, f.id, o);
-    if (!scene.ok) throw DemoError("floor " + f.id + ": scene export: " + scene.error);
-    return scene.json + "\n";
 }
 
 std::string walk_session_id(const DemoDescription& d, const DemoFloor& f) {

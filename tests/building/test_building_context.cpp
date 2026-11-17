@@ -4,31 +4,43 @@
 // Context snapshots from the building model (PLG-27, RAD-18, TST-50): the
 // floor plan shown, the cursor and walk positions converted to plan-frame
 // metres with the floor scale (IND-08) exactly, the scenes of every floor
-// from a scene source (the scene exporter here, tests/model_scenes.hpp;
-// in the app the fixed demo scenes by example id, DEMO-05: a user's own
-// floor has none), and the change events.
+// from a scene source (a test source here; in the app the fixed demo
+// scenes by example id, DEMO-05: a user's own floor has none), and the
+// change events.
 
 #include <doctest/doctest.h>
 
 #include <filesystem>
 #include <fstream>
+#include <map>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include <nlohmann/json.hpp>
 
 #include <yantra/core/context/building_context.h>
 #include <yantra/core/demo/demo_project.h>
-#include <yantra/core/radio/scene_export.h>
 
 #include "example_building.h"
-#include "model_scenes.hpp"
 
 using namespace yantra::context;
 using yantra::building::Building;
 using yantra::building::Point2;
 using yantra::building::Scale;
 using yantra::tests::example_office;
+
+namespace {
+
+/// A test scene source: a scene text made of the floor's id, name and its
+/// revision in `revisions` (a test changes a floor's scene by counting up).
+SceneSource named_scenes(std::shared_ptr<std::map<std::string, int>> revisions = std::make_shared<std::map<std::string, int>>()) {
+    return [revisions](const Building&, const yantra::building::Floor& f) -> std::optional<std::string> {
+        return nlohmann::json{{"floor", {{"id", f.id}, {"name", f.name}, {"revision", (*revisions)[f.id]}}}}.dump();
+    };
+}
+
+}  // namespace
 
 TEST_CASE("floor plan of a floor (RAD-18 get_floor_plan)") {
     Building b = example_office();
@@ -50,14 +62,14 @@ TEST_CASE("floor plan of a floor (RAD-18 get_floor_plan)") {
 
 TEST_CASE("the snapshot matches the model and the converted mouse position exactly (TST-50)") {
     auto pub = std::make_shared<ContextPublisher>();
-    BuildingContext ctx(pub, yantra::test::model_scenes());
+    BuildingContext ctx(pub, named_scenes());
     const Building b = example_office();
     ctx.set_building(b);
     auto s = pub->snapshot();
     CHECK_FALSE(s->plan);  // nothing shown yet: NO_PLAN
     REQUIRE(s->scenes.size() == 2);
-    CHECK(s->scenes.at("f0") == yantra::radio::export_scene(b, "f0").json);
-    CHECK(s->scenes.at("f1") == yantra::radio::export_scene(b, "f1").json);
+    CHECK(s->scenes.at("f0") == *named_scenes()(b, *b.find_floor("f0")));
+    CHECK(s->scenes.at("f1") == *named_scenes()(b, *b.find_floor("f1")));
 
     CHECK(ctx.show_floor("f1") == kPlanChanged);
     s = pub->snapshot();
@@ -88,7 +100,8 @@ TEST_CASE("the snapshot matches the model and the converted mouse position exact
 
 TEST_CASE("edits: SCENE_CHANGED for the shown floor, positions follow a new scale") {
     auto pub = std::make_shared<ContextPublisher>();
-    BuildingContext ctx(pub, yantra::test::model_scenes());
+    auto revisions = std::make_shared<std::map<std::string, int>>();
+    BuildingContext ctx(pub, named_scenes(revisions));
     Building b = example_office();
     ctx.set_building(b);
     ctx.show_floor("f0");
@@ -100,13 +113,13 @@ TEST_CASE("edits: SCENE_CHANGED for the shown floor, positions follow a new scal
     CHECK(ctx.set_building(b) == 0);
     CHECK(pub->snapshot()->cursor == before->cursor);
 
-    // A new wall on the shown floor.
-    b.find_floor("f0")->walls.push_back({"w9", "door", {{0, 50}, {50, 50}}, std::nullopt});
+    // The shown floor's scene changes.
+    ++(*revisions)["f0"];
     CHECK(ctx.set_building(b) == kSceneChanged);
     CHECK(pub->snapshot()->scenes.at("f0") != before->scenes.at("f0"));
 
-    // A wall on the other floor: f1's scene changes, the shown one not.
-    b.find_floor("f1")->walls.clear();
+    // The other floor's scene changes, the shown one not: no event.
+    ++(*revisions)["f1"];
     CHECK(ctx.set_building(b) == 0);
 
     // A new scale: plan size, cursor and walk metres follow.

@@ -28,7 +28,6 @@
 #include <yantra/core/context/building_context.h>
 #include <yantra/core/demo/demo_project.h>
 #include <yantra/core/project/project.h>
-#include <yantra/core/radio/scene_export.h>
 #include <yantra/core/survey/interpolation.h>
 #include <yantra/core/survey/points.h>
 #include <yantra/core/survey/stats.h>
@@ -247,12 +246,10 @@ TEST_CASE("RAD-18 the simulator picks the Fraunces scenario by the floors' examp
     yc::BuildingContext context(rig.publisher, yc::demo_scenes({fs::path(DEMO_DATA_DIR) / "scenes"}));
     context.set_building(b);
     for (const yd::DemoFloor& f : d.floors) {
-        // Served byte for byte as committed, and the scene the exporter
-        // makes from the description (so the levels are those of before).
+        // Served byte for byte as committed.
         const auto snap = rig.publisher->snapshot();
         REQUIRE(snap->scenes.count(f.id));
         CHECK(snap->scenes.at(f.id) == *yd::read_demo_scene(fs::path(DEMO_DATA_DIR) / "scenes", f.example_id));
-        CHECK(nlohmann::json::parse(snap->scenes.at(f.id)) == nlohmann::json::parse(yr::export_scene(b, f.id).json));
     }
     context.show_floor(d.floors[0].id);
     context.set_cursor(d.floors[0].walk.waypoints[0]);

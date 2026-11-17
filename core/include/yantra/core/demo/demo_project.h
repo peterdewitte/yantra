@@ -212,14 +212,6 @@ std::filesystem::path demo_scene_file(const std::filesystem::path& scene_dir, co
 /// the example id is empty or has no scene file there.
 std::optional<std::string> read_demo_scene(const std::filesystem::path& scene_dir, const std::string& example_id);
 
-/// The export tool's scene of floor `f` (yantra-demo --export-scenes):
-/// the scene exporter's output (radio::export_scene with its defaults,
-/// other floors' antennas included) for the floor of `b`, indented by 2
-/// with a final newline, as committed in data/demo/scenes. DemoError when
-/// the floor cannot be exported. Used only to make (and check) the scene
-/// files: nothing else builds scenes from the building model.
-std::string export_demo_scene(const building::Building& b, const DemoFloor& f);
-
 /// The fixed recording session id of a floor's walk: the first 16 hex
 /// digits of SHA-256("<demo id>/<floor id>").
 std::string walk_session_id(const DemoDescription& d, const DemoFloor& f);

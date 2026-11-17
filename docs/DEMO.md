@@ -215,28 +215,19 @@ edited in Yantra.
   `share/yantra/demo/scenes`.
 
 The files were exported once (2026-11-17, step 14.1) from the example
-descriptions with the scene exporter of Yantra 0.2.0
-(`demo::export_demo_scene`: `export_scene` with its defaults, indented
-by 2, with a final newline):
+descriptions of Yantra 0.2.0, whose walls and antennas they keep as data
+(RAD-36 format, indented by 2, with a final newline). Since Yantra 0.4
+they are the only scenes: Yantra has no walls or antennas of its own and
+no scene exporter, so a change of a demo scene is an edit of its file
+(and the demo recordings are made again from it).
 
-```sh
-yantra-demo --export-scenes data/demo/scenes --description data/demo/fraunces/fraunces.json
-yantra-demo --export-scenes data/demo/scenes --description data/demo/mak/mak_beer_house.json
-# likewise mak_haus_claeson.json and mak_villa_bunzl.json
-```
-
-Tests: the ctests `demo_scenes_<id>` (`yantra-demo --check-scenes`)
-check that each file is still that export byte for byte, so the
-simulator and yantra-gen get exactly the scenes they got when Yantra
-exported them from the model: the demo recordings stayed byte-identical
-(checked when the files were made) and the simulator's levels are those
-of before; `scene_radios_check_demo_*` read every file with the radios'
+Tests: `scene_radios_check_demo_*` read every file with the radios'
 scene parser; `tests/building/test_building_context.cpp` checks that an
 example floor gets its file as it is and a user's own floor no scene;
 `tests/radio_host/test_radio_host.cpp` that `get_scene` then answers
 NOT_FOUND; `tests/measure_host/test_measure_demo.cpp` that the
-simulator's levels on the Fraunces floors from the fixed scenes are the
-model's (TST-36).
+simulator gets the Fraunces floors' fixed scenes and measures indoor
+levels from them.
 
 ## Demo scenarios (DEMO-09)
 

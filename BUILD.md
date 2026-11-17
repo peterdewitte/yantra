@@ -180,9 +180,8 @@ one. Labels:
 
 `tests/fuzz` has one fuzz target per parser of untrusted input: project
 files, recordings, record files through the record sink into the
-measurement pipeline, cell database CSV, calibration tables, buildings
-with their scene export, plan sources (images and PDF), the export CSV
-and DXF readers, command lines (API-01/02) and acceptance profiles. In
+measurement pipeline, cell database CSV, calibration tables, buildings,
+plan sources (images and PDF), the export CSV and DXF readers, command lines (API-01/02) and acceptance profiles. In
 every tree, ctest (label `fuzz`) writes a seed corpus with
 `yantra-fuzz-seeds` (Yantra's own writers and the repository's test data)
 and replays it with seeded mutations; the sanitizer trees run the same

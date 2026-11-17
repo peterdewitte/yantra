@@ -287,7 +287,7 @@ void check_seeds(const fs::path& out) {
         std::string e;
         return yantra::calibration::Table::parse(slurp(p), t, e);
     });
-    each("building_scene", [](const fs::path& p) {
+    each("building", [](const fs::path& p) {
         yantra::building::Building b;
         std::string e;
         return yantra::building::parse_building(slurp(p), b, e);
@@ -331,7 +331,7 @@ int main(int argc, char** argv) {
         copy_seed(src / "data/demo/mak/cells.csv", out / "celldb_csv/mak.csv");
         calibration_seeds(out / "calibration");
         copy_seed(src / "tests/fixtures/building/example_office.building.json",
-             out / "building_scene/example_office.building.json");
+             out / "building/example_office.building.json");
         plan_seeds(out / "plan_source");
         export_seeds(out / "export_readers");
         command_seeds(out / "command");

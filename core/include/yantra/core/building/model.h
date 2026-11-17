@@ -5,9 +5,7 @@
 // ordered list of floors, each a trimmed part of a plan source with its own
 // scale and alignment point, its walls (polylines with a wall class) and
 // its antennas; the editable wall-class table; the cells the antennas
-// serve. Used by the ray tracer (IND-40), the simulator scene export
-// (RAD-36, core/radio/scene_export.h), the context callbacks of the radio
-// plugins (PLG-27, core/context/building_context.h) and the project file
+// serve. Used by the context callbacks of the radio plugins (PLG-27, core/context/building_context.h) and the project file
 // (IND-01, NFR-05, core/project/project.h).
 //
 // Technology-neutral (PLG-01): wall classes and antennas are generic RF

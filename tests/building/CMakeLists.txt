@@ -1,12 +1,11 @@
 # SPDX-FileCopyrightText: 2026 The Yantra contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Building model, its wall geometry, its JSON form and the scene export
-# (IND-04..12, IND-40 input, RAD-36). The golden scenes of the example
-# building are also read by yantra-radios' own scene parser (its test host
-# configures its emulated context from them; an invalid scene exits 1), so
-# Yantra's output is checked against the format's reference reader without
-# compiling any yantra-radios source into Yantra.
+# Building model (floors, scale, trims, cells) and its JSON form
+# (IND-04..10), the context snapshots (PLG-27). The fixed demo scenes and
+# the test scene are read by yantra-radios' own scene parser (its test
+# host configures its emulated context from them; an invalid scene exits
+# 1), without compiling any yantra-radios source into Yantra.
 yantra_add_test_dir(building LIBS yantra::core yantra::json)
 target_compile_definitions(test_building PRIVATE YANTRA_TEST_SCRATCH_DIR="${CMAKE_CURRENT_BINARY_DIR}/scratch")
 
@@ -15,13 +14,12 @@ if(YANTRA_RADIOS_KIND STREQUAL "none" OR
    (YANTRA_RADIOS_KIND STREQUAL "prebuilt" AND NOT EXISTS ${_host}))
   return()
 endif()
-foreach(_floor IN ITEMS f0 f1)
-  add_test(NAME scene_radios_check_${_floor}
-           COMMAND ${_host} stream --plugin ${YANTRA_RADIO_PLUGIN_DIR}/simulator${YANTRA_RADIO_PLUGIN_SUFFIX}
-                   --scene ${PROJECT_SOURCE_DIR}/tests/fixtures/building/example_office.${_floor}.scene.json
-                   --records 1 --out ${CMAKE_CURRENT_BINARY_DIR}/scene_${_floor}.records.jsonl)
-  set_tests_properties(scene_radios_check_${_floor} PROPERTIES LABELS fast TIMEOUT 120)
-endforeach()
+# The test scene of tests/fixture_scene.hpp.
+add_test(NAME scene_radios_check_office_wall
+         COMMAND ${_host} stream --plugin ${YANTRA_RADIO_PLUGIN_DIR}/simulator${YANTRA_RADIO_PLUGIN_SUFFIX}
+                 --scene ${PROJECT_SOURCE_DIR}/tests/fixtures/building/office_wall.scene.json
+                 --records 1 --out ${CMAKE_CURRENT_BINARY_DIR}/scene_office_wall.records.jsonl)
+set_tests_properties(scene_radios_check_office_wall PROPERTIES LABELS fast TIMEOUT 120)
 # DEMO-05, PLG-27: every fixed demo scene (data/demo/scenes) is read by
 # the simulator with the radios' scene parser.
 file(GLOB _demo_scenes CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/data/demo/scenes/*.json)

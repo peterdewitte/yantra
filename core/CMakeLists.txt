@@ -83,7 +83,6 @@ add_library(yantra_core STATIC
   src/recording/writer.cpp
   src/recording/wav.cpp
   src/recording/cut.cpp
-  src/radio/scene_export.cpp
   src/survey/acceptance.cpp
   src/survey/bins.cpp
   src/survey/interpolation.cpp

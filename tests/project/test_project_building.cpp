@@ -13,7 +13,6 @@
 #include "example_building.h"
 #include "yantra/core/building/edit.h"
 #include "yantra/core/project/project.h"
-#include "yantra/core/radio/scene_export.h"
 #include "yantra/core/util/sha256.h"
 
 #include <doctest/doctest.h>
@@ -226,13 +225,7 @@ TEST_CASE("project 7.3: a reference point on every floor aligns floors of differ
         a.eirp_dbm = 10.0;
         a.cell = c;
         p->add_antenna(u, a);
-        const auto scene = yantra::radio::export_scene(p->building(), g);
-        REQUIRE_MESSAGE(scene.ok, scene.error);
-        const json j = json::parse(scene.json);
-        REQUIRE(j["antennas"].size() == 1);
-        CHECK(j["antennas"][0]["x_m"].get<double>() == doctest::Approx(15.0));  // (300 * 0.05)
-        CHECK(j["antennas"][0]["y_m"].get<double>() == doctest::Approx(5.0));
-        CHECK(j["antennas"][0]["floor_offset"].get<int>() == 1);
+        REQUIRE(p->building().find_floor(u)->antennas.size() == 1);
         CHECK(code_of([&] { p->set_reference_point("floor-99", std::nullopt); }) == Code::NotFound);
         CHECK(code_of([&] { p->set_reference_point(g, bm::Point2{std::nan(""), 0}); }) == Code::Invalid);
     }
@@ -566,21 +559,6 @@ TEST_CASE("project 7.3: the example office round trips and a reopened project ex
     bm::Building back = p->building();
     // The project orders floors by level; the example lists them so too.
     CHECK(back == office);
-    for (const bm::Floor& fl : office.floors) {
-        const auto want = yantra::radio::export_scene(office, fl.id);
-        const auto got = yantra::radio::export_scene(back, fl.id);
-        REQUIRE_MESSAGE(want.ok, want.error);
-        CHECK(got.json == want.json);
-        CHECK(got.warnings == want.warnings);
-    }
-    // The golden scene of the ground floor (also read by yantra-radios'
-    // own parser, ctest scene_radios_check_f0) comes out of the project.
-    std::ifstream in(fs::path(YANTRA_TEST_DATA_DIR) / "building" / "example_office.f0.scene.json");
-    REQUIRE(in);
-    const json golden = json::parse(in);
-    yantra::radio::SceneExportOptions o;
-    o.indent = 2;
-    CHECK(json::parse(yantra::radio::export_scene(back, "f0", o).json) == golden);
     // Ids handed out later stay clear of the example's ids.
     CHECK(p->add_wall("f0", bm::Wall{"", "brick", {{0, 0}, {1, 1}}, std::nullopt}).rfind("wall-", 0) == 0);
     CHECK(p->add_cell(bm::Cell{"", "New", "", "", 0, {}}) == "cell-1");

@@ -30,7 +30,7 @@
 #include <yantra/core/survey/walk_test.h>
 
 #include "measure_rig.h"
-#include "model_scenes.hpp"
+#include "fixture_scene.hpp"
 
 using namespace mh;
 namespace yb = yantra::building;
@@ -124,7 +124,9 @@ TEST_CASE("TST-10 simulator walk test: clicked segments give points at the inter
         MESSAGE("no simulator plugin built: skipped");
         return;
     }
-    yc::BuildingContext context(sim.rig.publisher, yantra::test::model_scenes());
+    // The floor's scene: the checked-in scene of this office (the DAS
+    // antenna and the concrete wall below), as Yantra makes no scenes.
+    yc::BuildingContext context(sim.rig.publisher, yantra::test::fixture_scene("building/office_wall.scene.json"));
     context.set_building(b);
     context.show_floor(floor_id);
     const yr::RadioPluginEntry e = sim.rig.host->load_file(so);

@@ -22,7 +22,7 @@ requirements specification.
                                         v
  +---------------------------- yantra_core (static library) -----------------------------+
  | plugin/   loader of plugin.h plugins (technology, feature, exporter), state, licence   |
- | radio/    radio host: radio plugins, devices, settings, sink queues, scene export      |
+ | radio/    radio host: radio plugins, devices, settings, sink queues                   |
  | measure/  measurement pipeline: schema mapping, level correction, C1, checks, cycles   |
  | recording/ recorder (yantra-recording/1), reader, replay, cut, voice                  |
  | survey/   walk tests, points, statistics, binning, interpolation, acceptance, viewer  |
@@ -101,10 +101,8 @@ their stored settings (RAD-47), starts streams and receives records and
 events through a non-blocking sink per stream. It reopens a device after
 an unplug (DEVICE_BACK), resolves the calibration key of a device at each
 record's measurement time (HW-01b) and gives control calls a time limit
-(RAD-15) on a control thread. `scene_export.cpp` writes the building as
-the yantra-radios scene format (RAD-36); it is used only by the export
-tool of the fixed demo scenes (`yantra-demo --export-scenes`,
-docs/DEMO.md).
+(RAD-15) on a control thread. Yantra makes no simulator scenes: the
+fixed demo scenes of the example floors are data files (docs/DEMO.md).
 
 ### Measurement pipeline (`measure/`)
 
