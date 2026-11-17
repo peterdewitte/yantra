@@ -29,3 +29,11 @@ add_test(NAME conformance_simulator_scene_v1_1
           --report ${CMAKE_BINARY_DIR}/conformance/simulator_scene_v1_1.json)
 set_tests_properties(conformance_simulator_scene_v1_1 PROPERTIES LABELS "fast;timing" TIMEOUT 300
   PASS_REGULAR_EXPRESSION "result: PASS")
+# A plan whose floor has no scene (get_scene NOT_FOUND, as Yantra 0.4 for a
+# user's own floor): records flow, one INFO line, no warning (RAD-18, RAD-61).
+add_test(NAME simulator_cli_no_scene
+  COMMAND yantra-radio-host stream --plugin $<TARGET_FILE:simulator> --no-scene
+          --example-id fraunces-1 --records 6 --quiet --log-level info)
+set_tests_properties(simulator_cli_no_scene PROPERTIES LABELS fast TIMEOUT 120
+  PASS_REGULAR_EXPRESSION "plugin info: the floor shown has no scene; the scenario's own levels are used\n.*stream: records 6, events [0-9]+, invalid 0, dropped 0"
+  FAIL_REGULAR_EXPRESSION "plugin warning|plugin error|no scene.*no scene")

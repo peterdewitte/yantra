@@ -714,6 +714,61 @@ TEST_CASE("simulator: a scene change is reloaded (RAD-36, RAD-94)")
     CHECK(sim.host->context().call_counts()["get_scene:OK"] >= 2);
 }
 
+TEST_CASE("simulator: a floor without a scene uses the defaults, logged once at INFO (RAD-18, RAD-36, RAD-61)")
+{
+    // A shown plan whose floor has no scene: get_scene gives NOT_FOUND, as
+    // Yantra 0.4 does for a user's own floor.
+    const double scenario_t1 = fraunces().find_cell("T1")->level_dbm;
+    ContextOptions ctx = fraunces_plan({{6, 5}});
+    ctx.no_scene = true;
+    Sim sim(ctx);
+    const std::string kNoScene = "the floor shown has no scene; the scenario's own levels are used";
+    auto count = [&](uint32_t level, const std::string& text) {
+        int n = 0;
+        for (const LogLine& l : sim.host->logs())
+            if (l.level == level && (text.empty() || l.message == text))
+                ++n;
+        return n;
+    };
+    int n = 0, phase = 0;
+    sim.stream(
+        [&](const Record& r) {
+            if (!sim.is_cell(r, kT1Hz) || (r.flags & YR_RECORD_NO_SYNC) != 0)
+                return false;
+            // No scene: the scenario's own level (no antenna, no walls).
+            CHECK(sim.dbm(r) == doctest::Approx(scenario_t1).epsilon(0.5 / 65.0));
+            if (++n == 3 && phase == 0) {
+                // Context changes: the plan and the scene are read again.
+                sim.host->notify({YR_CONTEXT_PLAN_CHANGED, YR_CONTEXT_SCENE_CHANGED});
+                phase = 1;
+            }
+            return n >= 8;
+        },
+        30.0);
+    CHECK(n >= 8);
+    // A second stream on the same plugin instance: no new line either.
+    int m = 0;
+    sim.stream([&](const Record& r) { return sim.is_cell(r, kT1Hz) && ++m >= 2; }, 30.0);
+    CHECK(m >= 2);
+    sim.host->wait_notifications_idle();
+    const auto calls = sim.host->context().call_counts();
+    CHECK(calls.at("get_scene:NOT_FOUND") >= 3);
+    CHECK(count(YR_LOG_INFO, kNoScene) == 1);
+    CHECK(count(YR_LOG_WARNING, "") == 0);
+    CHECK(count(YR_LOG_ERROR, "") == 0);
+
+    // Another plan without a scene is logged once too.
+    ContextOptions other = ctx;
+    other.example_id.clear();
+    std::string error;
+    REQUIRE(sim.host->context().configure(other, error));
+    sim.set_enum("scenario", "fraunces"); // the own plan's network: the same cells
+    int k = 0;
+    sim.stream([&](const Record& r) { return sim.is_cell(r, kT1Hz) && ++k >= 2; }, 30.0);
+    CHECK(count(YR_LOG_INFO, kNoScene) == 2);
+    CHECK(count(YR_LOG_WARNING, "") == 0);
+}
+
 TEST_CASE("simulator: no plan or no position gives the scenario levels (RAD-61, RAD-94)")
 {
     const double scenario_t1 = fraunces().find_cell("T1")->level_dbm; // -65 dBm

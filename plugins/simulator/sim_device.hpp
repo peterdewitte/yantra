@@ -19,6 +19,7 @@
 #include <cstdint>
 #include <mutex>
 #include <optional>
+#include <set>
 #include <string>
 #include <thread>
 #include <vector>
@@ -117,6 +118,11 @@ struct Plugin {
     std::mutex mutex;
     std::string error;
     Device* device = nullptr; ///< the one device while open
+    /// The plans (floor and example id) whose "no scene" (get_scene
+    /// NOT_FOUND) was logged: once per plugin instance and plan, at INFO
+    /// (RAD-18, RAD-61). Own mutex: the stream thread takes it alone.
+    std::mutex no_scene_mutex;
+    std::set<std::string> no_scene_logged;
 };
 
 // --- settings (sim_settings.cpp) -------------------------------------------------

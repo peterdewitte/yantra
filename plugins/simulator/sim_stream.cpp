@@ -114,11 +114,16 @@ void make_signal_generator(gen::Scenario& s, double level_dbm)
     s.channel.shadowing_sigma_db = 0.0;
 }
 
-std::optional<radios::Scene> fetch_scene(Device* d, std::string& error)
+// What get_scene gave: a scene, none (NO_PLAN, or NOT_FOUND for the shown
+// floor: "no scene, use the defaults", RAD-18, RAD-36), or an error.
+enum class SceneStatus { scene, no_plan, no_scene, error };
+
+SceneStatus fetch_scene(Device* d, std::optional<radios::Scene>& out, std::string& error)
 {
+    out.reset();
     const yr_host_api& h = *d->plugin->host;
     if (h.get_scene == nullptr)
-        return std::nullopt;
+        return SceneStatus::no_plan; // a host without scenes: silent, as before
     std::string buf(16384, '\0');
     uint32_t len = 0;
     yr_status st = h.get_scene(h.host, "", buf.data(), static_cast<uint32_t>(buf.size()), &len);
@@ -126,18 +131,36 @@ std::optional<radios::Scene> fetch_scene(Device* d, std::string& error)
         buf.assign(static_cast<std::size_t>(len) + 1, '\0');
         st = h.get_scene(h.host, "", buf.data(), static_cast<uint32_t>(buf.size()), &len);
     }
+    if (st == YR_ERR_NO_PLAN)
+        return SceneStatus::no_plan;
+    if (st == YR_ERR_NOT_FOUND)
+        return SceneStatus::no_scene;
     if (st != YR_OK) {
-        if (st != YR_ERR_NO_PLAN)
-            error = "the host gave no scene (status " + std::to_string(st) + ")";
-        return std::nullopt;
+        error = "the host gave no scene (status " + std::to_string(st) + ")";
+        return SceneStatus::error;
     }
     buf.resize(std::min<std::size_t>(len, buf.size()));
     radios::Scene scene;
     if (!radios::parse_scene(buf, scene, error)) {
         error = "the floor's scene is not valid: " + error;
-        return std::nullopt;
+        return SceneStatus::error;
     }
-    return scene;
+    out = std::move(scene);
+    return SceneStatus::scene;
+}
+
+// "No scene" for the shown plan: logged once per plugin instance and plan at
+// INFO, not at every start and context change (RAD-18, RAD-61). The text
+// names no plan or floor (RAD-19).
+void log_no_scene(Device* d, const PlanContext& pc)
+{
+    Plugin& p = *d->plugin;
+    {
+        std::lock_guard lock(p.no_scene_mutex);
+        if (!p.no_scene_logged.insert(pc.example_id + '\n' + pc.floor_id).second)
+            return;
+    }
+    log(p, d, YR_LOG_INFO, "the floor shown has no scene; the scenario's own levels are used");
 }
 
 bool knows_all_cells(const gen::Scenario& s, const radios::Scene& scene)
@@ -351,8 +374,10 @@ void Stream::build()
     scene_.reset();
     if (pc_.plan && !s_.calibration_generator) {
         std::string error;
-        scene_ = fetch_scene(d_, error);
-        if (!error.empty())
+        const SceneStatus st = fetch_scene(d_, scene_, error);
+        if (st == SceneStatus::no_scene)
+            log_no_scene(d_, pc_);
+        else if (st == SceneStatus::error)
             log(*d_->plugin, d_, YR_LOG_WARNING, error + "; the scenario's own levels are used");
         if (scene_) {
             offset_scene(*scene_, s_.signal_offset_db);
@@ -459,12 +484,18 @@ void Stream::reload_scene()
     if (!pc_.plan || s_.calibration_generator)
         return;
     std::string error;
-    std::optional<radios::Scene> scene = fetch_scene(d_, error);
-    if (!scene) {
-        if (!error.empty())
-            log(*d_->plugin, d_, YR_LOG_WARNING, error + "; the previous scene stays");
+    std::optional<radios::Scene> scene;
+    const SceneStatus st = fetch_scene(d_, scene, error);
+    if (st == SceneStatus::error)
+        log(*d_->plugin, d_, YR_LOG_WARNING, error + "; the previous scene stays");
+    if (st == SceneStatus::no_scene) {
+        log_no_scene(d_, pc_);
+        if (scene_)
+            build(); // the scene was removed: the defaults (RAD-18)
         return;
     }
+    if (!scene)
+        return;
     offset_scene(*scene, s_.signal_offset_db);
     if (!scene_ || scene->cells != scene_->cells || !knows_all_cells(scenario_, *scene)) {
         build(); // other cells: the scenario is made again (RAD-61)
