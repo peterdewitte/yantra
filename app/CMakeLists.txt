@@ -67,6 +67,7 @@ add_library(yantra_app_model STATIC
   model/src/app_icon.cpp
   model/src/audible_alerts.cpp
   model/src/audio.cpp
+  model/src/camera.cpp
   model/src/app_control.cpp
   model/src/app_state.cpp
   model/src/cli.cpp
@@ -78,6 +79,7 @@ add_library(yantra_app_model STATIC
   model/src/interpolation_runner.cpp
   model/src/live_survey.cpp
   model/src/manual.cpp
+  model/src/osm_map.cpp
   model/src/plan_import_window.cpp
   model/src/plugin_state_file.cpp
   model/src/plugin_ui.cpp
@@ -106,7 +108,16 @@ target_compile_definitions(yantra_app_model PRIVATE YANTRA_SOURCE_URL="${YANTRA_
                                                     YANTRA_BUILD_DATE="${YANTRA_BUILD_DATE}")
 target_link_libraries(yantra_app_model
   PUBLIC yantra::core yantra::json
-  PRIVATE yantra::warnings yantra_stb_image)  # stb: the logos with transparency (UI-15)
+  PRIVATE yantra::warnings yantra_stb_image)  # stb: the logos with transparency (UI-15), camera MJPEG frames
+# IND-47, spec 16.2: camera capture with Yantra's own code over the
+# operating system's interfaces, no camera library: V4L2 on Linux (kernel
+# headers only), Media Foundation on Windows (system DLLs).
+if(WIN32)
+  target_sources(yantra_app_model PRIVATE model/src/camera_mf.cpp)
+  target_link_libraries(yantra_app_model PRIVATE mfplat mf mfreadwrite mfuuid ole32)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  target_sources(yantra_app_model PRIVATE model/src/camera_v4l2.cpp)
+endif()
 
 set(_imgui ${PROJECT_SOURCE_DIR}/third_party/imgui)
 add_library(yantra_ui_probe OBJECT gui/ui_probe.cpp)
