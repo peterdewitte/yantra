@@ -29,7 +29,7 @@ without `format` is read leniently.
 | --- | --- | --- |
 | `format` | `"yantra-app-settings/1"` | |
 | `recent_projects`, `recent_folders` | lists of paths, newest first; at most 10 and 8 | `[]` |
-| `layers.order` | the four layers `plan`, `interpolation`, `binned`, `points` in drawing order (missing ones are added in their default place; the `walls` and `antennas` of 0.3 are ignored) | as listed |
+| `layers.order` | the four layers `plan`, `interpolation`, `binned`, `points` in drawing order, bottom first (missing ones are added in their default place; the `walls` and `antennas` of Yantra 0.2 are ignored). Yantra 0.4 has no control to change it (UI-19); an order stored by an earlier version is still used until Help > Reset all settings | as listed |
 | `layers.hidden` | layers switched off | `["binned"]` |
 | `layers.bin_size_m` | 0.5..50 m (PP-05) | `2` |
 | `window_system` | `auto`, `x11`, `wayland` | `auto` |

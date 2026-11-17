@@ -24,6 +24,10 @@ DXF: DXF
 F1 (help): F1
 Floor: floor; floors
 Interpolation: interpolation; interpolate
+Inverse-distance weighting (IDW): IDW; inverse-distance weighting
+Confidence (of the map): confidence
+Map opacity: opacity
+Older projects (Yantra 0.2): Yantra 0.2 or earlier; Yantra 0.2 and earlier
 Language: language; languages
 Level alert: level alert; level alerts
 Location area: location area

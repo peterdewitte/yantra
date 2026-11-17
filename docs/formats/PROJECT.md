@@ -30,12 +30,12 @@ form is the building model of [BUILDING_MODEL.md](../BUILDING_MODEL.md)
 | --- | --- |
 | 1 | `meta`, `project`, `building`, `sources`, `floors` |
 | 2 | floor trims (IND-05..07): `floors` columns `trim_shape`, `quarter_turns`, `deskew_deg` and the table `floor_outline`; the page sizes of each source (IND-02): `source_pages`. Existing floors get the whole page (`trim_shape` `none`) |
-| 3 | the rest of the building model of 0.3: `floors` scale columns (`scale_*`, IND-08) and alignment point (`reference_x/y`, IND-09); `cells` + `cell_identity`; the wall-class table `wall_classes` + `wall_class_bands` with the default classes, `walls` + `wall_points`, `antennas` + `antenna_pattern_gains` (all four dropped in version 8); meta counters `next_wall_number`, `next_antenna_number` (dropped in version 8), `next_cell_number`. Existing floors get no scale and no reference point |
+| 3 | the rest of the building model of Yantra 0.2 (spec 0.3): `floors` scale columns (`scale_*`, IND-08) and alignment point (`reference_x/y`, IND-09); `cells` + `cell_identity`; the wall-class table `wall_classes` + `wall_class_bands` with the default classes, `walls` + `wall_points`, `antennas` + `antenna_pattern_gains` (all four dropped in version 8); meta counters `next_wall_number`, `next_antenna_number` (dropped in version 8), `next_cell_number`. Existing floors get no scale and no reference point |
 | 4 | the project's recordings (`recordings`, REC-02/03), its walk tests and manual-point sets (`sessions`, IND-20, GEO-02, GEO-05) and their measured points (`points`), the one point list of the project window and the report (IND-30). Existing projects get no sessions |
 | 5 | the cell database in the project's cells (DB-01): `cells` columns `site_name`, `sector`, `azimuth_deg`, `colour`, `notes`, `origin`, `plugin_version`; the tables `cell_parameters` and `cell_neighbours`; meta keys `celldb_match:<technology>`. Existing cells become manual entries without parameters or neighbours |
-| 6 | the ray-tracing model settings of 0.3 (`propagation`, dropped in version 8) and the stored interpolation results with their parameters and input fingerprints (`interpolations`, IND-41..45). Existing projects get the default settings and no results |
+| 6 | the ray-tracing model settings of Yantra 0.2 (spec 0.3; `propagation`, dropped in version 8) and the stored interpolation results with their parameters and input fingerprints (`interpolations`, IND-41..45). Existing projects get the default settings and no results |
 | 7 | the project's acceptance profiles (`acceptance_profiles`, EXP-06), used by the report. Existing projects get none (the report then uses the default profile) |
-| 8 | Yantra 0.4, the point interpolation (IND-41, IND-45). Dropped (IND-46): the table `propagation` and the stored ray-tracing maps; the walls, wall classes and antennas (`walls`, `wall_points`, `wall_classes`, `wall_class_bands`, `antennas`, `antenna_pattern_gains`); the slab attenuations (`building.floor_attenuation_db`, `floors.slab_attenuation_db`); the meta counters `next_wall_number` and `next_antenna_number`. Yantra says once, after opening such a file, how many walls, own wall classes, antennas and ray-tracing maps it dropped; the backup keeps them. New: `interpolation_settings`, and `interpolations` again with 8 bytes per cell (value, confidence). Existing projects keep their floors, cells, sources, recordings, sessions and points and get the default settings and no maps |
+| 8 | after Yantra 0.2.0 (spec 0.4), the point interpolation (IND-41, IND-45). Dropped (IND-46): the table `propagation` and the stored ray-tracing maps; the walls, wall classes and antennas (`walls`, `wall_points`, `wall_classes`, `wall_class_bands`, `antennas`, `antenna_pattern_gains`); the slab attenuations (`building.floor_attenuation_db`, `floors.slab_attenuation_db`); the meta counters `next_wall_number` and `next_antenna_number`. Yantra says once, after opening such a file, how many walls, own wall classes, antennas and ray-tracing maps it dropped; the backup keeps them. New: `interpolation_settings`, and `interpolations` again with 8 bytes per cell (value, confidence). Existing projects keep their floors, cells, sources, recordings, sessions and points and get the default settings and no maps |
 
 Rules:
 
@@ -59,14 +59,14 @@ Rules:
 Version 1 stores the project-level and floor-level fields of the building
 model and the source files; version 2 adds the floor trims and the source
 page sizes; version 3 the rest of the building model (scale, alignment,
-cells; and the wall classes, walls and antennas of 0.3), so the whole
+cells; and the wall classes, walls and antennas of Yantra 0.2), so the whole
 model of [BUILDING_MODEL.md](../BUILDING_MODEL.md) is stored; version 4 the
 recordings, walk tests and measured points ([SURVEY.md](../SURVEY.md)); version 5 the
 cell database ([CELL_DATABASE.md](../CELL_DATABASE.md)); version 6 the
-ray-tracing settings and maps of 0.3; version 7 the acceptance
+ray-tracing settings and maps of Yantra 0.2; version 7 the acceptance
 profiles ([SURVEY.md](../SURVEY.md) "Acceptance profiles"); version 8 the
 point-interpolation settings and maps ([INTERPOLATION.md](../INTERPOLATION.md)),
-dropping the data of 0.3 that 0.4 no longer has (IND-46, noted once).
+dropping the data of Yantra 0.2 that this version no longer has (IND-46, noted once).
 Later data come as new versions in the steps that add them; until then
 the API has no call that would store them, so nothing else is ever
 dropped.

@@ -51,7 +51,7 @@ own changes are in its CHANGELOG.md.
   from the cell database at any time. The DXF drawing (EXP-03) and the
   floor image hold the measured points only; `yantra-building` JSON
   ignores the old members.
-- Opening a project of Yantra 0.3 or earlier (IND-46) drops its walls,
+- Opening a project of Yantra 0.2 or earlier (project schema 7 or lower, IND-46) drops its walls,
   wall classes, antennas and ray-tracing maps, after a byte-for-byte copy
   of the old file (`<file>.schema<N>.bak`), and says once in the status
   line how many of each were dropped and where the copy is. Floors,

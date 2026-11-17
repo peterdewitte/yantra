@@ -37,9 +37,9 @@ The plan file is copied into the project, unchanged: trims and drawings are appl
 
 ![Two floors trimmed from one sheet](../img/plan_import_dark.png) [light theme](../img/plan_import_light.png)
 
-## 13.3 Projects of Yantra 0.3 and earlier
+## 13.3 Projects of Yantra 0.2 and earlier
 
-Yantra 0.4 has no walls, antennas or propagation model: the coverage map comes from the measured points alone (13.5). A project file of Yantra 0.3 or earlier still opens. Its walls, wall classes, antennas and ray-tracing maps are left out, a copy of the old file is kept next to it (`<file>.schema<N>.bak`), and a note says so once. Its floors, plans, scales, walk tests and points stay as they were; run the interpolation again to get the floor's map.
+This version of Yantra has no walls, antennas or propagation model: the coverage map comes from the measured points alone (13.5). A project file of Yantra 0.2 or earlier (project schema 7 or lower) still opens. Its walls, wall classes, antennas and ray-tracing maps are left out, a copy of the old file is kept next to it (`<file>.schema<N>.bak`), and a note says so once. Its floors, plans, scales, walk tests and points stay as they were; run the interpolation again to get the floor's map.
 
 ## 13.4 Layers
 

@@ -97,7 +97,7 @@ rebuilds what changed on the next call:
 Layer order, visibility and the square size are app settings
 (`AppSettings::layers`, JSON `"layers"`), not project data. Layers,
 bottom first by default: `plan`, `interpolation`, `binned` (hidden),
-`points` (the `walls` and `antennas` keys of 0.3 settings are ignored).
+`points` (the `walls` and `antennas` keys of Yantra 0.2 settings are ignored).
 
 The Gui draws it (`draw_project_screen`): DEMO banner (`demo_banner`,
 label from the demo description, `AppState::demo_label()`), floor tabs

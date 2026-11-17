@@ -92,7 +92,7 @@ again. Its SHA-256 fingerprints:
 | points | a measured point of its selection was added, removed, moved or changed value |
 | settings | the interpolation settings or the request changed |
 
-Project files of Yantra 0.3 and earlier held ray-tracing maps; they are
+Project files of Yantra 0.2 and earlier (project schema 7 and lower) held ray-tracing maps; they are
 dropped when such a file is opened (IND-46) and the map is computed again
 on request.
 

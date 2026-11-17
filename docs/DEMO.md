@@ -211,7 +211,7 @@ edited in Yantra.
 
 The files were exported once (2026-11-17, step 14.1) from the example
 descriptions of Yantra 0.2.0, whose walls and antennas they keep as data
-(RAD-36 format, indented by 2, with a final newline). Since Yantra 0.4
+(RAD-36 format, indented by 2, with a final newline). Since spec 0.4
 they are the only scenes: Yantra has no walls or antennas of its own and
 no scene exporter, so a change of a demo scene is an edit of its file
 (and the demo recordings are made again from it).

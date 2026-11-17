@@ -145,7 +145,10 @@ Details: [docs/SURVEY.md](docs/SURVEY.md).
   trims, tiles with a memory budget
   ([docs/PLANS.md](docs/PLANS.md)).
 - `project/`: the project file, one live SQLite database with schema
-  migrations ([docs/formats/PROJECT.md](docs/formats/PROJECT.md)).
+  migrations ([docs/formats/PROJECT.md](docs/formats/PROJECT.md)); schema
+  8 (after Yantra 0.2.0, spec 0.4) drops the walls, wall classes, antennas and ray-tracing
+  maps of older files on open, after a `<file>.schema<N>.bak` copy, and
+  reports once what it dropped (IND-46).
 - `celldb/`: cell database, CSV import, verification, cross-check and
   reselection simulation (DB-01..07,
   [docs/CELL_DATABASE.md](docs/CELL_DATABASE.md)).

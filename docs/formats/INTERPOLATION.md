@@ -27,7 +27,7 @@ Code: `core/include/yantra/core/survey/interpolation.h` (`Interpolation`, `store
 ## Version
 
 The JSON parts carry `"format": 2` (an integer, the version of the
-parameters/result JSON; format 1 was the ray-tracing map of Yantra 0.3,
+parameters/result JSON; format 1 was the ray-tracing map of Yantra 0.2 (spec 0.3),
 dropped by project schema 8, IND-46). A row whose `parameters` or
 `result` has another `format`, misses a member, or whose BLOB size does
 not match the grid is refused when read ("damaged" project error naming

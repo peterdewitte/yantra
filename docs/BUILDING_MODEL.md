@@ -25,10 +25,11 @@ Users of the model:
 - the walk tests and the coverage map, whose points are in the plan frame
   of their floor ([SURVEY.md](SURVEY.md), [INTERPOLATION.md](INTERPOLATION.md)).
 
-Yantra 0.4 has no walls, wall classes, antennas or slab attenuations: the
-coverage map is an interpolation of the measured points (IND-41). A
-project of 0.3 or earlier opens with them dropped (IND-46,
-[formats/PROJECT.md](formats/PROJECT.md) version 8). The simulator's walls
+Yantra has no walls, wall classes, antennas or slab attenuations any more
+(spec 0.4): the coverage map is an interpolation of the measured points
+(IND-41). A project of Yantra 0.2 or earlier (schema 7 or lower) opens
+with them dropped (IND-46, [formats/PROJECT.md](formats/PROJECT.md)
+version 8). The simulator's walls
 and antennas of a bundled example floor are in its fixed demo scene
 ([DEMO.md](DEMO.md) "Fixed demo scenes"), never in the model.
 
