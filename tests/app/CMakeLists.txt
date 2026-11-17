@@ -252,11 +252,12 @@ else()
     CHECK --env WSL_DISTRO_NAME=yantra-test --env YANTRA_WINDOW_SYSTEM=x11
     COMMAND $<TARGET_FILE:yantra> --frames 1)
   # TST-04: software rendering limited to OpenGL 3.1 (Mesa llvmpipe), the
-  # start screen saved as PNG.
+  # start screen saved as PNG; on X11, asked for explicitly (in a Wayland
+  # session GLFW would choose Wayland, which the pattern does not expect).
   yantra_app_launch_test(app_screenshot_gl31
     PATTERNS "^yantra: first frame \\(x11, OpenGL 3\\.1 .*llvmpipe" "^yantra: screenshot .*gl31_start\\.png \\(1280x800\\)"
     CHECK --env LIBGL_ALWAYS_SOFTWARE=1 --env MESA_GL_VERSION_OVERRIDE=3.1
-    COMMAND $<TARGET_FILE:yantra> --screenshot ${_scratch}/gl31_start.png)
+    COMMAND $<TARGET_FILE:yantra> --window-system x11 --screenshot ${_scratch}/gl31_start.png)
 endif()
 # The About dialog and the in-app file browser render over the start screen.
 yantra_app_launch_test(app_about
