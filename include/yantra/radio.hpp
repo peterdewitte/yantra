@@ -4,7 +4,8 @@
  * \file yantra/radio.hpp
  * \brief Header-only C++20 helpers for the radio API (yantra/radio.h):
  *        version refusal (RAD-11), validation of descriptors, schemas,
- *        records and settings (RAD-12, RAD-17, RAD-20..23, RAD-40), and
+ *        records, spectra and settings (RAD-12, RAD-17, RAD-20..23,
+ *        RAD-40, RAD-140), and
  *        text copying by the buffer rules of RAD-10.
  *
  * Used by the radio test host and conformance kit (RAD-91), by C++
@@ -394,7 +395,9 @@ inline std::vector<std::string> validate_descriptor(const yr_descriptor* d)
         return out;
     }
     auto bad = [&](const std::string& what) { out.push_back("descriptor: " + what); };
-    if ((d->capabilities & ~YR_CAP_ALL_MASK) != 0)
+    // SPECTRUM came with 1.2; an older plugin knows only the 1.1 bits.
+    const uint32_t known_caps = d->api_version.minor >= 2 ? YR_CAP_ALL_MASK : YR_CAP_ALL_MASK_1_1;
+    if ((d->capabilities & ~known_caps) != 0)
         bad("unknown capability bits");
     if (!has_text(d->id) || !valid_plugin_id(d->id))
         bad("id must match [a-z0-9][a-z0-9._-]*");
@@ -609,6 +612,77 @@ inline std::vector<std::string> validate_record(const yr_descriptor& d, const yr
             bad("entry_index must be below entry_count");
     }
     return out;
+}
+
+/**
+ * Problems of one spectrum (since 1.2, RAD-140; empty when valid): the
+ * plugin has SPECTRUM, struct size, bins (1..YR_SPECTRUM_MAX_BINS, finite
+ * power, width > 0, stop = start + bins * width), time (RAD-27), the flags
+ * (within YR_SPECTRUM_FLAGS_MASK; SIMULATED as the capability, LEVEL_DBM
+ * on every spectrum of a SELF_CALIBRATED plugin, RAD-21).
+ */
+inline std::vector<std::string> validate_spectrum(const yr_descriptor& d, const yr_spectrum& sp)
+{
+    std::vector<std::string> out;
+    auto bad = [&](const std::string& what) { out.push_back("spectrum: " + what); };
+    if (!YR_HAS_FIELD(&sp, yr_spectrum, power_db)) {
+        bad("struct_size too small");
+        return out;
+    }
+    if ((d.capabilities & YR_CAP_SPECTRUM) == 0)
+        bad("the plugin has no SPECTRUM capability (RAD-140)");
+    if (sp.reserved != 0)
+        bad("reserved is not zero");
+    if ((sp.flags & ~YR_SPECTRUM_FLAGS_MASK) != 0)
+        bad("unknown flag bits (OVERLOAD, UNCALIBRATED, SIMULATED, LEVEL_DBM only)");
+    const bool simulated = (d.capabilities & YR_CAP_SIMULATED) != 0;
+    if (simulated != ((sp.flags & YR_RECORD_SIMULATED) != 0))
+        bad("SIMULATED flag must match the plugin's SIMULATED capability (RAD-21)");
+    if ((d.capabilities & YR_CAP_SELF_CALIBRATED) != 0 && (sp.flags & YR_RECORD_LEVEL_DBM) == 0)
+        bad("LEVEL_DBM missing: a SELF_CALIBRATED plugin delivers dBm (RAD-21)");
+    if (sp.time.monotonic_ns <= 0)
+        bad("time.monotonic_ns must be set (RAD-27)");
+    if (sp.time.utc_source > YR_TIME_SOURCE_DEVICE)
+        bad("unknown utc_source");
+    else if (sp.time.utc_source != YR_TIME_SOURCE_NONE && sp.time.utc_ns <= 0)
+        bad("utc_ns must be set when utc_source is not NONE (RAD-27)");
+    if (sp.bin_count == 0 || sp.bin_count > YR_SPECTRUM_MAX_BINS) {
+        bad("bin_count " + std::to_string(sp.bin_count) + " is not 1.." +
+            std::to_string(YR_SPECTRUM_MAX_BINS));
+        return out;
+    }
+    if (!(std::isfinite(sp.bin_width_hz) && sp.bin_width_hz > 0.0))
+        bad("bin_width_hz must be above 0");
+    if (!(std::isfinite(sp.start_hz) && std::isfinite(sp.stop_hz) && sp.start_hz > 0.0 &&
+          sp.start_hz < sp.stop_hz))
+        bad("start_hz must be above 0 and below stop_hz");
+    else if (std::fabs(sp.start_hz + sp.bin_count * sp.bin_width_hz - sp.stop_hz) >
+             1.0 + 1e-9 * sp.stop_hz)
+        bad("stop_hz must be start_hz + bin_count * bin_width_hz");
+    if (sp.power_db == nullptr) {
+        bad("power_db is NULL");
+        return out;
+    }
+    for (uint32_t i = 0; i < sp.bin_count; ++i)
+        if (!std::isfinite(sp.power_db[i])) {
+            bad("power_db[" + std::to_string(i) + "] is not finite");
+            break;
+        }
+    return out;
+}
+
+/** The band a spectrum plan asks for (RAD-140): yr_plan's
+ *  spectrum_first_hz..spectrum_last_hz, or the default 380-400 MHz when
+ *  both are 0 or the plan is older than 1.2. */
+inline void spectrum_band(const yr_plan& plan, double& first_hz, double& last_hz)
+{
+    first_hz = YR_SPECTRUM_DEFAULT_FIRST_HZ;
+    last_hz = YR_SPECTRUM_DEFAULT_LAST_HZ;
+    if (YR_HAS_FIELD(&plan, yr_plan, spectrum_last_hz) &&
+        (plan.spectrum_first_hz != 0 || plan.spectrum_last_hz != 0)) {
+        first_hz = static_cast<double>(plan.spectrum_first_hz);
+        last_hz = static_cast<double>(plan.spectrum_last_hz);
+    }
 }
 
 /** Problems of a setting definition (empty when valid, RAD-40, RAD-42). */

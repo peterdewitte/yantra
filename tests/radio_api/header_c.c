@@ -255,5 +255,21 @@ int yantra_test_c_helpers(void)
     ok = ok && YR_HAS_FIELD(&stats, yr_stream_stats, overflows);
     ok = ok && !YR_HAS_FIELD(&stats, yr_stream_stats, receiver_load);
     ok = ok && strcmp(yr_status_name(YR_ERR_BUSY), "BUSY") == 0;
+    {
+        /* 1.2 (RAD-140): a 1.1 host table has no spectrum sink; a 1.0/1.1
+         * plan is read with the band zero. */
+        yr_host_api h;
+        yr_plan small, kept;
+        memset(&h, 0, sizeof h);
+        h.struct_size = (uint32_t)offsetof(yr_host_api, push_spectrum);
+        ok = ok && yr_host_spectrum_sink(&h) == NULL && yr_host_spectrum_sink(NULL) == NULL;
+        memset(&small, 0xFF, sizeof small);
+        small.struct_size = (uint32_t)offsetof(yr_plan, spectrum_first_hz);
+        small.type = YR_PLAN_SERVING;
+        yr_plan_read(&small, &kept);
+        ok = ok && kept.struct_size == sizeof(yr_plan) && kept.type == YR_PLAN_SERVING &&
+             kept.spectrum_first_hz == 0 && kept.spectrum_last_hz == 0;
+        ok = ok && (YR_CAP_ALL_MASK & YR_CAP_SPECTRUM) != 0 && (YR_CAP_ALL_MASK_1_1 & YR_CAP_SPECTRUM) == 0;
+    }
     return ok;
 }

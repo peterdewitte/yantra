@@ -173,6 +173,12 @@ TEST_CASE("descriptor validation finds broken descriptors (RAD-12, RAD-13, RAD-4
         d.capabilities |= 1u << 20;
         CHECK(mentions(yr::validate_descriptor(&d), "capability"));
     }
+    SUBCASE("SPECTRUM is known from API 1.2 on (RAD-140)") {
+        d.capabilities |= YR_CAP_SPECTRUM;
+        CHECK_FALSE(mentions(yr::validate_descriptor(&d), "capability"));
+        d.api_version.minor = 1;
+        CHECK(mentions(yr::validate_descriptor(&d), "capability"));
+    }
     SUBCASE("SCAN schema without SCAN capability") {
         d.capabilities = 0;
         CHECK(mentions(yr::validate_descriptor(&d), "SCAN"));
@@ -554,4 +560,102 @@ TEST_CASE("field_index finds fields by name")
     CHECK(yr::field_index(s, YR_FIELD_LEVEL) == static_cast<int>(YR_CORE_LEVEL));
     CHECK(yr::field_index(s, YR_FIELD_C1_DB) == 10);
     CHECK(yr::field_index(s, "nothing") == -1);
+}
+
+TEST_CASE("spectrum validation: bins, band, time and flags (RAD-140, RAD-21, RAD-27)")
+{
+    yr_descriptor d = *yantra_test_c_descriptor();
+    d.capabilities |= YR_CAP_SPECTRUM;
+    std::vector<double> power(400, -110.0);
+    yr_spectrum sp{};
+    sp.struct_size = sizeof sp;
+    sp.time.monotonic_ns = 1'000'000'000;
+    sp.time.utc_ns = 1'700'000'000'000'000'000;
+    sp.time.utc_source = YR_TIME_SOURCE_SYSTEM;
+    sp.start_hz = 390e6;
+    sp.bin_width_hz = 2500.0;
+    sp.bin_count = 400;
+    sp.stop_hz = sp.start_hz + 400 * 2500.0;
+    sp.power_db = power.data();
+    CHECK_MESSAGE(yr::validate_spectrum(d, sp).empty(), joined(yr::validate_spectrum(d, sp)));
+
+    SUBCASE("only with the SPECTRUM capability") {
+        d.capabilities &= ~YR_CAP_SPECTRUM;
+        CHECK(mentions(yr::validate_spectrum(d, sp), "SPECTRUM"));
+    }
+    SUBCASE("at most 4096 bins, at least one") {
+        sp.bin_count = YR_SPECTRUM_MAX_BINS + 1;
+        CHECK(mentions(yr::validate_spectrum(d, sp), "bin_count"));
+        sp.bin_count = 0;
+        CHECK(mentions(yr::validate_spectrum(d, sp), "bin_count"));
+    }
+    SUBCASE("stop = start + bins * width") {
+        sp.stop_hz += 5000.0;
+        CHECK(mentions(yr::validate_spectrum(d, sp), "stop_hz"));
+        sp.bin_width_hz = 0.0;
+        CHECK(mentions(yr::validate_spectrum(d, sp), "bin_width_hz"));
+    }
+    SUBCASE("finite power, never NULL") {
+        power[17] = -INFINITY;
+        CHECK(mentions(yr::validate_spectrum(d, sp), "power_db[17]"));
+        sp.power_db = nullptr;
+        CHECK(mentions(yr::validate_spectrum(d, sp), "NULL"));
+    }
+    SUBCASE("time") {
+        sp.time.monotonic_ns = 0;
+        CHECK(mentions(yr::validate_spectrum(d, sp), "monotonic_ns"));
+    }
+    SUBCASE("flags: SIMULATED as the capability, LEVEL_DBM for SELF_CALIBRATED") {
+        sp.flags = YR_RECORD_SIMULATED;
+        CHECK(mentions(yr::validate_spectrum(d, sp), "SIMULATED"));
+        d.capabilities |= YR_CAP_SIMULATED;
+        CHECK(yr::validate_spectrum(d, sp).empty());
+        sp.flags |= YR_RECORD_NO_SYNC;
+        CHECK(mentions(yr::validate_spectrum(d, sp), "unknown flag"));
+        sp.flags = YR_RECORD_SIMULATED;
+        d.capabilities |= YR_CAP_SELF_CALIBRATED;
+        CHECK(mentions(yr::validate_spectrum(d, sp), "LEVEL_DBM"));
+        sp.flags |= YR_RECORD_LEVEL_DBM;
+        CHECK(yr::validate_spectrum(d, sp).empty());
+    }
+    SUBCASE("struct and reserved") {
+        sp.reserved = 1;
+        CHECK(mentions(yr::validate_spectrum(d, sp), "reserved"));
+        sp.struct_size = static_cast<uint32_t>(offsetof(yr_spectrum, power_db));
+        CHECK(mentions(yr::validate_spectrum(d, sp), "struct_size"));
+    }
+}
+
+TEST_CASE("the spectrum band of a plan: default 380-400 MHz, also for older plans (RAD-140)")
+{
+    yr_plan p{};
+    p.struct_size = sizeof p;
+    double first = 0.0, last = 0.0;
+    yr::spectrum_band(p, first, last);
+    CHECK(first == 380e6);
+    CHECK(last == 400e6);
+    p.spectrum_first_hz = 390'000'000;
+    p.spectrum_last_hz = 395'000'000;
+    yr::spectrum_band(p, first, last);
+    CHECK(first == 390e6);
+    CHECK(last == 395e6);
+    p.struct_size = static_cast<uint32_t>(offsetof(yr_plan, spectrum_first_hz)); // a 1.1 plan
+    yr::spectrum_band(p, first, last);
+    CHECK(first == 380e6);
+    CHECK(last == 400e6);
+    yr_plan kept{};
+    yr_plan_read(&p, &kept);
+    CHECK(kept.struct_size == sizeof(yr_plan));
+    CHECK(kept.spectrum_first_hz == 0);
+}
+
+TEST_CASE("the spectrum sink exists only in a 1.2 host table (RAD-140)")
+{
+    yr_host_api host{};
+    host.struct_size = sizeof host;
+    CHECK(yr_host_spectrum_sink(&host) == nullptr);
+    host.push_spectrum = [](yr_stream*, const yr_spectrum*) -> yr_status { return YR_OK; };
+    CHECK(yr_host_spectrum_sink(&host) != nullptr);
+    host.struct_size = static_cast<uint32_t>(offsetof(yr_host_api, push_spectrum));
+    CHECK(yr_host_spectrum_sink(&host) == nullptr);
 }

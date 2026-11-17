@@ -79,7 +79,8 @@ YR_TEST_OFF(yr_plan_position, moved_monotonic_ns, 24);
 YR_TEST_OFF(yr_plan_position, floor_id, 32);
 YR_TEST_OFF(yr_plan_position, floor_name, 96);
 
-YR_TEST_SIZE(yr_host_api, 112);
+/* 1.2 appended push_spectrum (112 -> 120); 112 stays the 1.0 minimum. */
+YR_TEST_SIZE(yr_host_api, 120);
 YR_TEST_OFF(yr_host_api, api_version, 4);
 YR_TEST_OFF(yr_host_api, host, 16);
 YR_TEST_OFF(yr_host_api, log, 24);
@@ -88,17 +89,32 @@ YR_TEST_OFF(yr_host_api, stream_event, 56);
 YR_TEST_OFF(yr_host_api, settings_changed, 72);
 YR_TEST_OFF(yr_host_api, get_floor_plan, 80);
 YR_TEST_OFF(yr_host_api, get_scene, 104);
+YR_TEST_OFF(yr_host_api, push_spectrum, 112);
 
 YR_TEST_SIZE(yr_device_info, 64);
 YR_TEST_OFF(yr_device_info, key, 8);
 YR_TEST_OFF(yr_device_info, flags_reason, 56);
 
-YR_TEST_SIZE(yr_plan, 56);
+/* 1.2 appended the spectrum band (56 -> 72); 56 stays the 1.0 minimum. */
+YR_TEST_SIZE(yr_plan, 72);
 YR_TEST_OFF(yr_plan, serving_hz, 8);
 YR_TEST_OFF(yr_plan, carriers_hz, 16);
 YR_TEST_OFF(yr_plan, carrier_count, 24);
 YR_TEST_OFF(yr_plan, scan_first_hz, 32);
 YR_TEST_OFF(yr_plan, scan_step_hz, 48);
+YR_TEST_OFF(yr_plan, spectrum_first_hz, 56);
+YR_TEST_OFF(yr_plan, spectrum_last_hz, 64);
+
+/* Since 1.2 (RAD-140). */
+YR_TEST_SIZE(yr_spectrum, 72);
+YR_TEST_OFF(yr_spectrum, flags, 4);
+YR_TEST_OFF(yr_spectrum, time, 8);
+YR_TEST_OFF(yr_spectrum, start_hz, 32);
+YR_TEST_OFF(yr_spectrum, stop_hz, 40);
+YR_TEST_OFF(yr_spectrum, bin_width_hz, 48);
+YR_TEST_OFF(yr_spectrum, bin_count, 56);
+YR_TEST_OFF(yr_spectrum, reserved, 60);
+YR_TEST_OFF(yr_spectrum, power_db, 64);
 
 YR_TEST_SIZE(yr_plan_ranges, 32);
 YR_TEST_OFF(yr_plan_ranges, ranges, 16);

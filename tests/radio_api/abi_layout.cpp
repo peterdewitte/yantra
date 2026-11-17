@@ -19,7 +19,7 @@ static_assert(plain_c<yr_api_version> && plain_c<yr_time> && plain_c<yr_value> &
               plain_c<yr_freq_range> && plain_c<yr_plan_ranges> && plain_c<yr_stream_stats> &&
               plain_c<yr_stream_control> && plain_c<yr_setting_def> && plain_c<yr_preset> &&
               plain_c<yr_selftest_item> && plain_c<yr_device_control> &&
-              plain_c<yr_translation> && plain_c<yr_descriptor>,
+              plain_c<yr_translation> && plain_c<yr_descriptor> && plain_c<yr_spectrum>,
               "radio API structs are plain C structs");
 static_assert(std::is_same_v<decltype(&yantra_radio_entry), yr_entry_fn>,
               "yantra_radio_entry has the type yr_entry_fn");

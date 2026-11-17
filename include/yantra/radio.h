@@ -83,7 +83,8 @@
  * subscriber identities, message content, speech or key material, and
  * nothing is decrypted. IQ samples, symbols, bursts, slots, PDUs and PDU
  * logs never cross this API: each plugin processes its own samples, and
- * receiver diagnostics a user needs are sensors (RAD-45).
+ * receiver diagnostics a user needs are sensors (RAD-45). A spectrum
+ * (since 1.2, ::yr_spectrum) carries power per frequency bin only.
  *
  * \section yr_context Context data (RAD-18, RAD-19)
  * Plugins with #YR_CAP_SCENE ask Yantra for the floor plan, the scene and
@@ -98,6 +99,7 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 
 /** Name of the only symbol a radio plugin exports (RAD-12, RAD-133), of
  *  type ::yr_entry_fn. */
@@ -112,7 +114,7 @@
  * than its own (yr_api_compatible()).
  * @{ */
 #define YR_API_VERSION_MAJOR 1u /**< Changes on any breaking change. */
-#define YR_API_VERSION_MINOR 1u /**< Changes on every compatible addition (1.1: level unit flags, #YR_RECORD_LEVEL_DBM, #YR_DEVICE_LEVEL_DBM). */
+#define YR_API_VERSION_MINOR 2u /**< Changes on every compatible addition (1.1: level unit flags, #YR_RECORD_LEVEL_DBM, #YR_DEVICE_LEVEL_DBM; 1.2: spectrum, #YR_CAP_SPECTRUM, ::yr_spectrum, #YR_PLAN_SPECTRUM). */
 /** @} */
 
 /** Marks the entry point as exported from the plugin's shared library
@@ -531,6 +533,54 @@ typedef struct yr_record {
 /** @} */
 
 /* ------------------------------------------------------------------------ */
+/** \name Spectrum (since 1.2, RAD-140)
+ * A plugin with #YR_CAP_SPECTRUM delivers, while streaming a plan with
+ * #YR_PLAN_SPECTRUM, one ::yr_spectrum about once a second through
+ * yr_host_api::push_spectrum: the power per frequency bin of the band
+ * yr_plan::spectrum_first_hz..spectrum_last_hz (default 380-400 MHz)
+ * within its plan ranges. An SDR plugin computes it from its own IQ
+ * samples (averaged FFT); the simulator synthesises it from its scene.
+ * Only power per bin crosses the API, never IQ (RAD-26).
+ * @{ */
+
+/** Most bins in one spectrum. */
+#define YR_SPECTRUM_MAX_BINS 4096u
+/** Default band of a spectrum (yr_plan::spectrum_first_hz and
+ *  spectrum_last_hz 0): the TETRA band 380-400 MHz, clipped to what the
+ *  device measures. */
+#define YR_SPECTRUM_DEFAULT_FIRST_HZ 380000000u
+/** Upper end of the default spectrum band (see #YR_SPECTRUM_DEFAULT_FIRST_HZ). */
+#define YR_SPECTRUM_DEFAULT_LAST_HZ 400000000u
+/** Record flags a spectrum may carry (yr_spectrum::flags): OVERLOAD,
+ *  UNCALIBRATED, SIMULATED (exactly when the plugin has
+ *  #YR_CAP_SIMULATED) and LEVEL_DBM (exactly as on the device's
+ *  records, RAD-21). */
+#define YR_SPECTRUM_FLAGS_MASK 0x1Eu
+
+/** One spectrum (versioned struct, since 1.2, RAD-140). Valid during
+ *  yr_host_api::push_spectrum only; the host copies what it keeps.
+ *  Bin i covers [start_hz + i * bin_width_hz, start_hz + (i + 1) *
+ *  bin_width_hz); its centre is start_hz + (i + 0.5) * bin_width_hz, and
+ *  stop_hz = start_hz + bin_count * bin_width_hz. */
+typedef struct yr_spectrum {
+    uint32_t struct_size;  /**< sizeof(yr_spectrum). */
+    uint32_t flags;        /**< YR_RECORD_* bits within #YR_SPECTRUM_FLAGS_MASK. */
+    yr_time time;          /**< When the last averaged samples were taken (RAD-27). */
+    double start_hz;       /**< Lower edge of the first bin, Hz. */
+    double stop_hz;        /**< Upper edge of the last bin, Hz. */
+    double bin_width_hz;   /**< Width of one bin, Hz (> 0). */
+    uint32_t bin_count;    /**< Number of bins, 1..#YR_SPECTRUM_MAX_BINS. */
+    uint32_t reserved;     /**< Zero. */
+    /** Power per bin (bin_count values, finite): the power inside the bin,
+     *  dBFS at the device's current settings, or dBm when
+     *  yr_record_level_is_dbm(capabilities, flags). A carrier's bins summed
+     *  (linear) give about its level. */
+    const double* power_db;
+} yr_spectrum;
+
+/** @} */
+
+/* ------------------------------------------------------------------------ */
 /** \name Stream events (RAD-25) and device states (RAD-34)
  * @{ */
 
@@ -714,7 +764,27 @@ typedef struct yr_host_api {
      *  #YR_ERR_NO_PLAN without a plan, #YR_ERR_NOT_FOUND for an unknown floor. */
     yr_status (*get_scene)(yr_host* host, const char* floor_id, char* buffer,
                            uint32_t buffer_size, uint32_t* out_length);
+
+    /** Since 1.2 (RAD-140): spectrum sink, like push_record for one
+     *  ::yr_spectrum of the stream given to start_stream. Never blocks;
+     *  #YR_ERR_BUSY outside an active stream, #YR_ERR_INVALID_ARGUMENT for
+     *  a malformed spectrum. A plugin calls it only when the host table
+     *  has it (#YR_HAS_FIELD and not NULL): a host that wants no spectra
+     *  leaves it NULL. Any plugin thread. */
+    yr_status (*push_spectrum)(yr_stream* stream, const yr_spectrum* spectrum);
 } yr_host_api;
+
+/** Type of yr_host_api::push_spectrum (since 1.2). */
+typedef yr_status (*yr_push_spectrum_fn)(yr_stream* stream, const yr_spectrum* spectrum);
+
+/** The host's spectrum sink, or NULL when the host has none (an older
+ *  host table, or a host that wants no spectra; RAD-140). */
+static inline yr_push_spectrum_fn yr_host_spectrum_sink(const yr_host_api* host)
+{
+    if (host == NULL || !YR_HAS_FIELD(host, yr_host_api, push_spectrum))
+        return NULL;
+    return host->push_spectrum;
+}
 
 /** @} */
 
@@ -759,6 +829,9 @@ typedef struct yr_device_info {
 
 /** Plan flags (yr_plan::flags). */
 #define YR_PLAN_MEASURE_NEIGHBOURS (1u << 0) /**< SERVING: also measure the announced neighbours (RAD-112). */
+/** Since 1.2: deliver a ::yr_spectrum about once a second (any plan type,
+ *  RAD-140). Only plugins with #YR_CAP_SPECTRUM deliver; others ignore it. */
+#define YR_PLAN_SPECTRUM (1u << 1)
 
 /** A measurement plan (versioned struct, RAD-32). */
 typedef struct yr_plan {
@@ -771,7 +844,21 @@ typedef struct yr_plan {
     uint64_t scan_first_hz;      /**< SCAN: first channel centre. */
     uint64_t scan_last_hz;       /**< SCAN: last channel centre. */
     uint64_t scan_step_hz;       /**< SCAN: raster, 0 = 25 kHz. */
+    /* Since 1.2 (RAD-140), read only within struct_size (yr_plan_read). */
+    uint64_t spectrum_first_hz;  /**< #YR_PLAN_SPECTRUM: lowest frequency of the band; 0 with spectrum_last_hz 0: #YR_SPECTRUM_DEFAULT_FIRST_HZ. */
+    uint64_t spectrum_last_hz;   /**< #YR_PLAN_SPECTRUM: highest frequency of the band; 0: #YR_SPECTRUM_DEFAULT_LAST_HZ. */
 } yr_plan;
+
+/** Copies the plan `in` (as large as its struct_size says) into `out`, the
+ *  fields beyond it zero, and sets out->struct_size to sizeof(yr_plan):
+ *  how a plugin keeps a plan from a host of an older minor version. */
+static inline void yr_plan_read(const yr_plan* in, yr_plan* out)
+{
+    size_t n = in->struct_size < sizeof(yr_plan) ? in->struct_size : sizeof(yr_plan);
+    memset(out, 0, sizeof(yr_plan));
+    memcpy(out, in, n);
+    out->struct_size = (uint32_t)sizeof(yr_plan);
+}
 
 /** A frequency range (frozen struct). */
 typedef struct yr_freq_range {
@@ -997,8 +1084,14 @@ typedef struct yr_translation {
 #define YR_CAP_SIMULATED (1u << 3)       /**< Simulated data, never a real measurement (Yantra DEMO-07). */
 #define YR_CAP_SCENE (1u << 4)           /**< Uses the context callbacks (RAD-18, RAD-36). */
 #define YR_CAP_SELF_CALIBRATED (1u << 5) /**< Levels already in dBm (terminal, measurement receiver). */
+/** Since 1.2: delivers spectra (::yr_spectrum) for plans with
+ *  #YR_PLAN_SPECTRUM (RAD-140): the simulator and SDR plugins, never a
+ *  terminal. */
+#define YR_CAP_SPECTRUM (1u << 6)
 /** All capability bits of this API version. */
-#define YR_CAP_ALL_MASK 0x3Fu
+#define YR_CAP_ALL_MASK 0x7Fu
+/** The capability bits of API 1.0 and 1.1. */
+#define YR_CAP_ALL_MASK_1_1 0x3Fu
 
 /** Nonzero when a record's level is in dBm (RAD-21): the plugin has
  *  #YR_CAP_SELF_CALIBRATED (also a 1.0 plugin) or the record has
