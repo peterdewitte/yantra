@@ -26,6 +26,12 @@
 // (the default) each record's level is turned into dBm with the true
 // offset of the simulated gain chain and carries LEVEL_DBM. The unit is
 // read at every push, so a change takes effect with the next record.
+//
+// Spectrum (radio API 1.2, RAD-140): with YR_PLAN_SPECTRUM, once a second
+// of host time a synthetic spectrum (sim_spectrum.cpp) of the plan's band
+// within the simulated span, from the ground truth of the interval (the
+// levels the records measure) and the scenario's noise; in the records'
+// unit and flags (SIMULATED, LEVEL_DBM). Seeded by the scenario seed.
 #include "sim_device.hpp"
 #include "sim_scenarios.hpp"
 
@@ -291,6 +297,7 @@ private:
     void start_interval();
     void annotate(EngineOutput& out);
     void deliver(EngineOutput& out);
+    void spectrum();
     std::optional<gen::ReceiverPosition> read_position(std::string& text);
     int64_t mono_at(uint64_t n) const
     {
@@ -326,6 +333,10 @@ private:
     bool warned_slow_ = false;
     bool warned_cpu_ = false;
     double sink_wait_s_ = 0.0; ///< lag caused by pushes the host held
+    plugins::SpectrumPlan spectrum_;        ///< spectra asked for (RAD-140)
+    int64_t spectrum_next_ns_ = 0;          ///< host time of the next one (0: now)
+    uint64_t spectrum_count_ = 0;           ///< spectra made (seeds the jitter)
+    double noise_dbm_ = -INFINITY;          ///< the interval's noise in 18 kHz
 };
 
 std::optional<gen::ReceiverPosition> Stream::read_position(std::string& text)
@@ -545,6 +556,7 @@ void Stream::start_interval()
     s.estimated_levels = estimate;
     s.generator = state;
     s.noise_dbm = row.noise_dbm;
+    noise_dbm_ = row.noise_dbm;
     s.clipped = gen_->clipped();
     s.signal_s = t;
 }
@@ -608,6 +620,46 @@ void Stream::deliver(EngineOutput& out)
     out.clear();
 }
 
+void Stream::spectrum()
+{
+    if (!spectrum_.on || history_.empty())
+        return;
+    const int64_t now = mono_at(n_);
+    if (spectrum_next_ns_ != 0 && now < spectrum_next_ns_)
+        return;
+    // Once a second; after a stall the next one is a second from now.
+    spectrum_next_ns_ = spectrum_next_ns_ == 0 || now - spectrum_next_ns_ > 1'000'000'000
+                            ? now + 1'000'000'000
+                            : spectrum_next_ns_ + 1'000'000'000;
+    double lo = 0.0, hi = 0.0, first = 0.0, last = 0.0;
+    scenario_span(scenario_, lo, hi); // the plan ranges (RAD-32)
+    if (!plugins::clip_band(spectrum_.first_hz, spectrum_.last_hz, lo, hi, first, last))
+        return;
+    const double width = plugins::spectrum_bin_width(last - first);
+    const auto bins = static_cast<uint32_t>(std::clamp(std::floor((last - first) / width), 1.0,
+                                                       static_cast<double>(YR_SPECTRUM_MAX_BINS)));
+    std::vector<SpectrumCarrier> carriers;
+    for (const gen::CellTruth& c : history_.back().truth)
+        if (c.on_air)
+            carriers.push_back({c.frequency_hz, std::isfinite(c.level_inst_dbm) ? c.level_inst_dbm
+                                                                               : c.level_dbm});
+    plugins::SpectrumOut out;
+    out.start_hz = first;
+    out.bin_width_hz = width;
+    out.power_db = synthetic_spectrum(first, width, bins, carriers, noise_dbm_,
+                                      scenario_.seed * 0x9E3779B97F4A7C15ull + spectrum_count_++);
+    // The records' unit (RAD-21): dBm, or dBFS through the true offset.
+    const bool dbm = d_->level_dbm.load();
+    if (!dbm)
+        for (double& p : out.power_db)
+            p -= offset_db_;
+    out.flags = YR_RECORD_SIMULATED | (dbm ? YR_RECORD_LEVEL_DBM : 0u);
+    out.time.monotonic_ns = now;
+    out.time.utc_ns = h_.utc_now_ns(h_.host) + (now - h_.monotonic_ns(h_.host));
+    out.time.utc_source = YR_TIME_SOURCE_SYSTEM;
+    plugins::push_spectrum(h_, d_->sink, out);
+}
+
 void Stream::run()
 {
     uint32_t pending = 0;
@@ -630,8 +682,10 @@ void Stream::run()
                 s_ = d_->settings;
                 version_ = d_->settings_version;
             }
-            if (!eng_)
+            if (!eng_) {
                 plan_ = d_->plan_setup;
+                spectrum_ = plugins::spectrum_plan(h_, d_->plan);
+            }
             pending |= d_->context_events;
             d_->context_events = 0;
             fault = d_->fault;
@@ -710,6 +764,7 @@ void Stream::run()
         }
         const auto t1 = Clock::now();
         deliver(out);
+        spectrum();
         sink_wait_s_ += std::chrono::duration<double>(Clock::now() - t1).count();
         in_interval_ += got;
         if (in_interval_ >= interval_len_)

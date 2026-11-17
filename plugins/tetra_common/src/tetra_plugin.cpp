@@ -118,6 +118,56 @@ void push_output(const yr_host_api& host, yr_stream* sink,
         host.stream_event(sink, e.event, e.value);
 }
 
+// --- spectra ------------------------------------------------------------------------
+
+SpectrumPlan spectrum_plan(const yr_host_api& host, const yr_plan& plan)
+{
+    SpectrumPlan out;
+    out.on = (plan.flags & YR_PLAN_SPECTRUM) != 0 && yr_host_spectrum_sink(&host) != nullptr;
+    radio::spectrum_band(plan, out.first_hz, out.last_hz);
+    return out;
+}
+
+bool clip_band(double first, double last, double lo, double hi, double& out_first,
+               double& out_last)
+{
+    if (!(lo < hi))
+        return false;
+    out_first = std::max(first, lo);
+    out_last = std::min(last, hi);
+    if (!(out_first < out_last)) {
+        out_first = lo;
+        out_last = hi;
+    }
+    return true;
+}
+
+double spectrum_bin_width(double span_hz)
+{
+    double w = 25e3 / 64.0;
+    while (span_hz / w > static_cast<double>(YR_SPECTRUM_MAX_BINS))
+        w *= 2.0;
+    return w;
+}
+
+bool push_spectrum(const yr_host_api& host, yr_stream* sink, const SpectrumOut& s)
+{
+    const yr_push_spectrum_fn push = yr_host_spectrum_sink(&host);
+    if (push == nullptr || sink == nullptr || s.power_db.empty())
+        return false;
+    yr_spectrum c{};
+    c.struct_size = sizeof c;
+    c.flags = s.flags & YR_SPECTRUM_FLAGS_MASK;
+    c.time = s.time;
+    c.start_hz = s.start_hz;
+    c.bin_width_hz = s.bin_width_hz;
+    c.bin_count = static_cast<uint32_t>(std::min<std::size_t>(s.power_db.size(), YR_SPECTRUM_MAX_BINS));
+    c.stop_hz = s.start_hz + c.bin_count * s.bin_width_hz;
+    c.power_db = s.power_db.data();
+    // Like push_record: the host drops and counts when it is busy (RAD-24).
+    return push(sink, &c) == YR_OK;
+}
+
 // --- C1 -----------------------------------------------------------------------------
 
 bool set_c1(Record& record, const RecordFiller& cell, double level_to_dbm_db,

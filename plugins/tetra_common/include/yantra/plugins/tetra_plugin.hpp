@@ -12,6 +12,8 @@
 //     search (RAD-32);
 //   - push_output: engine records and events to the host sink, never
 //     waiting (RAD-20, RAD-24, RAD-25);
+//   - spectra: the plan's spectrum band within the device's range, bin
+//     widths and the spectrum sink (radio API 1.2, RAD-140);
 //   - set_c1: C1 (EN 300 392-2 clause 23.3, RAD-22) from a record's own
 //     level and broadcast fields when the plugin knows the level in dBm
 //     (the simulator; a calibrated radio);
@@ -113,6 +115,36 @@ bool push_record(const yr_host_api& host, yr_stream* sink, const radios::Record&
 /// Pushes the records of `out` in order, then its events.
 void push_output(const yr_host_api& host, yr_stream* sink,
                  const receiver::tetra::EngineOutput& out, SinkCounters& counters);
+
+// --- spectra (radio API 1.2, RAD-140) ----------------------------------------------
+
+/// What a stream delivers as spectra.
+struct SpectrumPlan {
+    bool on = false;       ///< the plan asks (YR_PLAN_SPECTRUM) and the host has a sink
+    double first_hz = 0.0; ///< the band asked for (default 380-400 MHz)
+    double last_hz = 0.0;
+};
+/// The spectrum part of a plan kept with yr_plan_read.
+SpectrumPlan spectrum_plan(const yr_host_api& host, const yr_plan& plan);
+/// The band [first, last] clipped to what the device measures, [lo, hi];
+/// when they do not overlap, [lo, hi] itself. false when lo >= hi.
+bool clip_band(double first, double last, double lo, double hi, double& out_first,
+               double& out_last);
+/// The finest bin width 25 kHz * 2^k (k >= -6) that covers `span_hz` in
+/// at most YR_SPECTRUM_MAX_BINS bins.
+double spectrum_bin_width(double span_hz);
+
+/// One spectrum to push (power per bin over [start_hz, start_hz + n * width)).
+struct SpectrumOut {
+    double start_hz = 0.0;
+    double bin_width_hz = 0.0;
+    std::vector<double> power_db;
+    yr_time time{};
+    uint32_t flags = 0; ///< YR_RECORD_* within YR_SPECTRUM_FLAGS_MASK
+};
+/// Hands one spectrum to the host's spectrum sink, never waiting (RAD-24);
+/// true when the host took it. No sink, no bins: false.
+bool push_spectrum(const yr_host_api& host, yr_stream* sink, const SpectrumOut& s);
 
 // --- C1 (RAD-22) --------------------------------------------------------------------
 

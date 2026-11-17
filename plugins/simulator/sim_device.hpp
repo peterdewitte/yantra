@@ -166,6 +166,21 @@ void scenario_span(const gen::Scenario& s, double& first_hz, double& last_hz);
 /// The true calibration: dBm = dBFS + this, for the settings.
 double true_offset_db(const gen::Scenario& s);
 
+// --- the synthetic spectrum (sim_spectrum.cpp, RAD-140) ---------------------------
+
+/// A carrier of a synthetic spectrum: its frequency and level (dBm).
+struct SpectrumCarrier {
+    double frequency_hz = 0.0;
+    double level_dbm = 0.0;
+};
+/// Power per bin (dBm) of `bins` bins of `bin_width_hz` from `start_hz`:
+/// the carriers with the TETRA downlink's spectrum shape on the noise
+/// (`noise_dbm` in 18 kHz; -inf: the thermal floor), plus a seeded jitter.
+/// The same inputs and seed give the same spectrum.
+std::vector<double> synthetic_spectrum(double start_hz, double bin_width_hz, uint32_t bins,
+                                       const std::vector<SpectrumCarrier>& carriers,
+                                       double noise_dbm, uint64_t seed);
+
 /// The stream thread (start_stream to stop_stream).
 void stream_thread(Device* d);
 

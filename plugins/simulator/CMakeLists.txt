@@ -20,7 +20,8 @@ add_custom_command(
   VERBATIM)
 
 yantra_add_radio_plugin(simulator
-  SOURCES simulator_plugin.cpp sim_settings.cpp sim_stream.cpp sim_scenarios.cpp ${_embedded}
+  SOURCES simulator_plugin.cpp sim_settings.cpp sim_stream.cpp sim_spectrum.cpp sim_scenarios.cpp
+          ${_embedded}
   LIBS yantra::tetra_plugin yantra::gen)
 target_include_directories(simulator PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_compile_definitions(simulator PRIVATE

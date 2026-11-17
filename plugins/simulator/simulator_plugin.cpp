@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The simulator radio plugin (RAD-61): shown in Yantra as "Demo (simulated
-// network)", capabilities SIMULATED and SCENE. The TETRA test-signal
+// network)", capabilities SIMULATED, SCENE and SPECTRUM (RAD-140). The TETRA test-signal
 // generator (RAD-70) makes IQ inside the plugin and the measurement engine
 // of the SDR plugins (RAD-102) decodes it; only measurement records leave
 // the plugin (RAD-20..26). Control functions here; the stream thread in
@@ -588,7 +588,7 @@ extern "C" YR_EXPORT const yr_descriptor* yantra_radio_entry(void)
     static const yr_descriptor descriptor = {
         sizeof(yr_descriptor),
         yr_api_version_compiled(), // refused by hosts of another major version (RAD-11)
-        YR_CAP_SIMULATED | YR_CAP_SCENE,
+        YR_CAP_SIMULATED | YR_CAP_SCENE | YR_CAP_SPECTRUM,
         "simulator",
         "Demo (simulated network)",
         "0.3.1",

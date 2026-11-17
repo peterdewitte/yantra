@@ -1122,6 +1122,132 @@ TEST_CASE("simulator: the same seed gives the same output (RAD-94)")
     CHECK(a != c);
 }
 
+namespace {
+
+// Streams a SERVING plan with YR_PLAN_SPECTRUM (band 0..0: the default)
+// until `count` spectra came (RAD-140); T1 records' levels (dBm) too.
+struct SpectrumRun {
+    std::vector<Spectrum> spectra;
+    std::vector<double> t1_dbm;
+    StreamResult result;
+};
+
+SpectrumRun spectra_of(Sim& sim, std::size_t count, uint64_t first_hz = 0, uint64_t last_hz = 0)
+{
+    yr_plan plan{};
+    plan.struct_size = sizeof plan;
+    plan.type = YR_PLAN_SERVING;
+    plan.flags = YR_PLAN_SPECTRUM;
+    plan.spectrum_first_hz = first_hz;
+    plan.spectrum_last_hz = last_hz;
+    SpectrumRun run;
+    std::atomic<bool> stop{false};
+    StreamLimits limits;
+    limits.max_seconds = (static_cast<double>(count) + 5.0) * YANTRA_TEST_TIME_SCALE;
+    limits.interrupt = &stop;
+    run.result = run_stream(
+        *sim.host, sim.device, plan, limits,
+        [&](const Record& r) {
+            if (sim.is_cell(r, kT1Hz) && (r.flags & YR_RECORD_NO_SYNC) == 0)
+                run.t1_dbm.push_back(sim.dbm(r));
+        },
+        {}, SinkOptions{},
+        [&](const Spectrum& s) {
+            run.spectra.push_back(s);
+            if (run.spectra.size() >= count)
+                stop = true;
+        });
+    return run;
+}
+
+// Power (dBm or dBFS as the spectrum) of the bins within 12.5 kHz of `hz`,
+// summed linearly.
+double carrier_power(const Spectrum& s, double hz)
+{
+    double mw = 0.0;
+    for (std::size_t i = 0; i < s.power_db.size(); ++i) {
+        const double centre = s.start_hz + (static_cast<double>(i) + 0.5) * s.bin_width_hz;
+        if (std::fabs(centre - hz) <= 12.5e3)
+            mw += std::pow(10.0, s.power_db[i] / 10.0);
+    }
+    return 10.0 * std::log10(mw);
+}
+
+double median_of(std::vector<double> v)
+{
+    std::nth_element(v.begin(), v.begin() + static_cast<std::ptrdiff_t>(v.size() / 2), v.end());
+    return v[v.size() / 2];
+}
+
+} // namespace
+
+TEST_CASE("simulator: a synthetic spectrum once a second from the scene's carriers (RAD-140, RAD-61)")
+{
+    Sim sim;
+    sim.set_enum("scenario", "fraunces"); // T1 and M1 at their scenario levels
+    sim.set_uint("seed", 7);
+    CHECK((sim.host->descriptor().capabilities & YR_CAP_SPECTRUM) != 0);
+    const SpectrumRun run = spectra_of(sim, 3);
+    CHECK(run.result.invalid == 0);
+    REQUIRE(run.spectra.size() >= 3);
+    REQUIRE(!run.t1_dbm.empty());
+    for (std::size_t i = 0; i < run.spectra.size(); ++i) {
+        const Spectrum& s = run.spectra[i];
+        CAPTURE(i);
+        CHECK(s.flags == (YR_RECORD_SIMULATED | YR_RECORD_LEVEL_DBM)); // as the records (RAD-21)
+        // The default band 380-400 MHz within the simulated span (RAD-32).
+        CHECK(s.start_hz >= 380e6);
+        CHECK(s.stop_hz <= 400e6);
+        CHECK(s.start_hz < static_cast<double>(kT1Hz) - 12.5e3);
+        CHECK(s.stop_hz > static_cast<double>(kM1Hz) + 12.5e3);
+        CHECK(s.power_db.size() <= YR_SPECTRUM_MAX_BINS);
+        if (i > 0) {
+            const double gap = static_cast<double>(s.monotonic_ns - run.spectra[i - 1].monotonic_ns) / 1e9;
+            CHECK(gap == doctest::Approx(1.0).epsilon(0.1)); // once a second
+        }
+        // The carrier's bins add up to the level its records measure; the
+        // noise floor lies far below.
+        CHECK(carrier_power(s, kT1Hz) == doctest::Approx(median_of(run.t1_dbm)).epsilon(0.05));
+        const double floor = median_of(s.power_db);
+        CHECK(floor < *std::max_element(s.power_db.begin(), s.power_db.end()) - 30.0);
+        CHECK(carrier_power(s, kM1Hz) > floor + 20.0);
+    }
+}
+
+TEST_CASE("simulator: the spectrum is seeded, in the records' unit and in the band asked for (RAD-140, RAD-21)")
+{
+    auto first = [](uint64_t seed, const char* unit, uint64_t lo = 0, uint64_t hi = 0) {
+        Sim sim;
+        sim.set_enum("scenario", "fraunces");
+        sim.set_uint("seed", seed);
+        sim.set_enum("level_unit", unit);
+        SpectrumRun run = spectra_of(sim, 1, lo, hi);
+        REQUIRE(!run.spectra.empty());
+        return std::make_pair(run.spectra.front(), sim.offset()); // the stream's offset
+    };
+    const auto [a, offset] = first(7, "dbm");
+    const auto [b, offset_b] = first(7, "dbm");
+    const auto [c, offset_c] = first(8, "dbm");
+    CHECK(a.power_db == b.power_db); // the same seed, the same spectrum
+    CHECK(a.power_db != c.power_db);
+    // dBFS like an SDR: the same spectrum below the true offset, no LEVEL_DBM.
+    const auto [d, offset_d] = first(7, "dbfs");
+    CHECK((d.flags & YR_RECORD_LEVEL_DBM) == 0);
+    REQUIRE(d.power_db.size() == a.power_db.size());
+    for (std::size_t i = 0; i < a.power_db.size(); i += 97)
+        CHECK(d.power_db[i] == doctest::Approx(a.power_db[i] - offset_d));
+    // A band of its own: 390.1-390.3 MHz holds M1, not T1.
+    const auto [e, offset_e] = first(7, "dbm", 390'100'000, 390'300'000);
+    CHECK(e.start_hz >= 390.1e6);
+    CHECK(e.stop_hz <= 390.3e6);
+    CHECK(e.start_hz < static_cast<double>(kM1Hz));
+    CHECK(e.stop_hz > static_cast<double>(kM1Hz));
+    (void)offset;
+    (void)offset_b;
+    (void)offset_c;
+    (void)offset_e;
+}
+
 TEST_CASE("simulator: the practice calibration recovers the true offset (RAD-61, RAD-94)")
 {
     for (double gain : {0.0, 17.0}) {
