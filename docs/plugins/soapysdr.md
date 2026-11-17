@@ -9,7 +9,8 @@ SoapySDR modules built in, except the HackRF (which has its own plugin):
 the RTL-SDR (osmocom librtlsdr, also the RTL-SDR Blog V4), the Airspy and
 network radios through SoapyRemote. How the layer works:
 [RADIO_PLUGINS.md, the SoapySDR plugins](../RADIO_PLUGINS.md#the-soapysdr-plugins-rad-54-rad-62).
-Capabilities HOTPLUG and SCAN. Hardware results:
+Capabilities HOTPLUG, SCAN and SPECTRUM (an averaged FFT of its own
+samples, radio API 1.2, RAD-140). Hardware results:
 [DEVICES.md](../../DEVICES.md).
 
 ## Devices

@@ -15,7 +15,8 @@ from each part.
 ```
  Yantra (or yantra-radio-host, the test host)
    |  include/yantra/radio.h: descriptor, stream control, settings as
-   |  data, record sink push_record, events, context callbacks (RAD-10..49)
+   |  data, record sink push_record, events, context callbacks (RAD-10..49),
+   |  spectrum sink push_spectrum (radio API 1.2, RAD-140)
    v
  radio plugin .so (one per radio type, self-contained, RAD-132)
    plugins/simulator  plugins/soapy  plugins/hackrf  plugins/pei  plugins/example
@@ -73,6 +74,9 @@ RAD-91).
           -> cell parameters, neighbours, quality counters
         every record interval: tetra_cell / tetra_neighbour / tetra_scan
    -> radios::Record -> yr_record -> host push_record (record sink)
+   once a second with YR_PLAN_SPECTRUM: a block of samples -> averaged FFT
+   (receiver/spectrum, pocketfft) -> bins of the plan's band -> yr_spectrum
+   -> host push_spectrum (RAD-140; the simulator synthesises it instead)
 ```
 
 IQ samples, bursts and PDUs stay inside the plugin; the host sees only

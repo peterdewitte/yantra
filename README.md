@@ -12,7 +12,8 @@ a TETRA test-signal generator, a radio test host and the tests.
 A radio plugin talks to its own device (an SDR through SoapySDR or a
 direct driver, a terminal over a serial port, or a simulator), processes
 its own IQ samples and gives Yantra **measurement records only**: level,
-cell identity, optional quality, C1, broadcast parameters and neighbours.
+cell identity, optional quality, C1, broadcast parameters and neighbours,
+and (radio API 1.2) a spectrum of power per frequency bin once a second.
 No IQ samples, bursts or PDUs cross the radio API.
 
 Yantra uses this repository as a git submodule pinned to a commit. The
@@ -58,7 +59,10 @@ and how: [DEVICES.md](DEVICES.md) (none on real hardware yet).
 
 ## Status
 
-Release 0.3.2 (2026-11-17, tag v0.3.2; [CHANGELOG.md](CHANGELOG.md)): the
+Release 0.4.0 (2026-11-17, tag v0.4.0; [CHANGELOG.md](CHANGELOG.md)): radio
+API 1.2 with spectra (SPECTRUM capability): the simulator synthesises one
+from its scene, the HackRF and SoapySDR plugins compute one from their own
+samples once a second. Release 0.3.2 (2026-11-17, tag v0.3.2): the
 simulator treats a floor without a scene (`get_scene` NOT_FOUND) as "no
 scene, use the defaults", logged once at INFO. Release 0.3.1 (2026-11-12,
 tag v0.3.1): a fix release of 0.3.0 (`yantra-gen` finds its scenarios relative to itself; no

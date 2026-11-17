@@ -32,6 +32,78 @@ well; they change independently of the radio API version.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-17
+
+Tag v0.4.0 (RAD-98). Radio API 1.2 (compatible): spectra (RAD-140). The
+simulator synthesises a spectrum from its scene, the HackRF and SoapySDR
+plugins compute one from their own IQ samples; the test host shows and
+writes spectra and the conformance kit checks them. Record files 1, scene
+JSON 1.1 and scenario files 1 unchanged (record files name the new
+capability and plan flag `spectrum`). Plugin versions: simulator 0.4.0,
+hackrf 0.2.0, soapysdr 0.2.0, beacon 0.1.1, pei 0.2.0 (unchanged);
+yantra-radio-host 0.3.0. Linux only for this release: no Windows build
+or test (owner, 2026-11-17; the Windows cross-build follows with Yantra
+0.5).
+
+### Radio API
+
+- **Radio API 1.2** (compatible, RAD-140, RAD-11):
+  - capability `YR_CAP_SPECTRUM` (bit 6; `YR_CAP_ALL_MASK` 0x7F, the
+    1.0/1.1 bits `YR_CAP_ALL_MASK_1_1` 0x3F);
+  - plan flag `YR_PLAN_SPECTRUM` (bit 1) and the band
+    `spectrum_first_hz`, `spectrum_last_hz` appended to `yr_plan`
+    (56 -> 72 bytes; 0 and 0: the default 380-400 MHz,
+    `YR_SPECTRUM_DEFAULT_FIRST_HZ`/`LAST_HZ`);
+  - the versioned record `yr_spectrum` (72 bytes): record flags (OVERLOAD,
+    UNCALIBRATED, SIMULATED, LEVEL_DBM; `YR_SPECTRUM_FLAGS_MASK`), time,
+    `start_hz`, `stop_hz`, `bin_width_hz`, `bin_count` (at most
+    `YR_SPECTRUM_MAX_BINS`, 4096) and `power_db` (dBFS, or dBm as the
+    records);
+  - the sink `push_spectrum` appended to `yr_host_api` (112 -> 120 bytes),
+    with the same rules as `push_record`;
+  - helpers `yr_plan_read()` (keeps a plan as large as the host's
+    `struct_size`, the rest zero), `yr_host_spectrum_sink()` (NULL for an
+    older host table or a host that wants no spectra) and the type
+    `yr_push_spectrum_fn`; `radio.hpp` `validate_spectrum()` and
+    `spectrum_band()`; the capability bits are checked against the
+    plugin's API version.
+  1.2 hosts load 1.0 and 1.1 plugins (a 1.1 plugin keeps a 72-byte plan
+  by its own 56-byte copy); 1.1 hosts refuse 1.2 plugins (newer minor
+  version). The 1.0 minimum sizes are unchanged (plan 56, host table 112).
+- Only power per frequency bin crosses the API, never IQ (RAD-26).
+
+### Added
+- Simulator: SPECTRUM. Once a second a synthetic spectrum of the plan's
+  band within its simulated span: the carriers on the air at the levels
+  its records measure, with the TETRA downlink's root-raised-cosine power
+  shape, on the scenario's noise, with a seeded jitter (the same seed,
+  the same spectrum); dBm with LEVEL_DBM or dBFS as its `level_unit`;
+  SIMULATED (RAD-61, RAD-140).
+- HackRF and SoapySDR plugins: SPECTRUM. Once a second an averaged FFT
+  (pocketfft, RAD-04; about 1 kHz bins, 16 frames) of their own samples,
+  the plan's band within the span received at once; dBFS, OVERLOAD on
+  clipping; the measurement goes on (RAD-60, RAD-62, RAD-140).
+- `yantra-radio-host stream --spectrum`, `--spectrum-band FIRST:LAST` and
+  `--spectrum-out FILE` (CSV); `info` names the capability `spectrum`.
+- Conformance kit: the `spectrum` check (valid spectra about once a
+  second inside the band asked for, flags as the records; none without
+  the capability) and, in `records`, no spectrum without the plan flag.
+  The terminal plugin (pei) has no SPECTRUM.
+
+### Tests
+- `test_radio_api`: ABI sizes and offsets of `yr_spectrum`, `yr_plan`
+  and `yr_host_api`; `validate_spectrum`, `spectrum_band`,
+  `yr_plan_read` and `yr_host_spectrum_sink`, also from C.
+- `test_radio_host`, `host_cli_stream_spectrum`: spectra through the
+  host's sink, and none for a host without one; `test_conformance`: the
+  kit passes the fake plugin (now with SPECTRUM) and the beacon, and finds
+  five injected spectrum faults.
+- `test_simulator`: rate, band, a carrier's bins against its records,
+  the noise floor, seeds, the dBFS unit and an own band; `test_hackrf`:
+  the fake HackRF's spectra (rate, bins, band, carrier power against the
+  records); the kit's `spectrum` check on the simulator and the fake
+  HackRF, SoapySDR and SoapyRemote devices.
+
 ## [0.3.2] - 2026-11-17
 
 Tag v0.3.2 (RAD-98). "No scene": `get_scene` returning `YR_ERR_NOT_FOUND`

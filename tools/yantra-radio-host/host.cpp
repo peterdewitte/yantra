@@ -183,7 +183,7 @@ yr_status api_scene(yr_host* h, const char* floor_id, char* buffer, uint32_t siz
 
 const char* host_version()
 {
-    return "0.2.2";
+    return "0.3.0";
 }
 
 // --- emulated context -------------------------------------------------------

@@ -7,7 +7,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 `pei.so` / `pei.dll` (plugin id `pei`, RAD-80, TRM-01, TRM-04): a TETRA terminal
 in TMO read over its Peripheral Equipment Interface (AT commands of
 EN 300 392-5). Plain C11. Capabilities SELF_CALIBRATED (the terminal's
-dBm) and HOTPLUG. Commands, profiles and the example cell-list format:
+dBm) and HOTPLUG; no SPECTRUM (a terminal gives no spectrum, RAD-140). Commands, profiles and the example cell-list format:
 [RADIO_PLUGINS.md, the TETRA terminal plugin](../RADIO_PLUGINS.md#the-tetra-terminal-plugin-rad-80).
 
 ## Devices

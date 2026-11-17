@@ -9,8 +9,9 @@ built-in SoapyHackRF module and libhackrf, with HackRF gain presets, offset
 tuning, band scans and optional C1. The shared SoapySDR layer is described
 in [RADIO_PLUGINS.md, the SoapySDR plugins](../RADIO_PLUGINS.md#the-soapysdr-plugins-rad-54-rad-62)
 and [the HackRF plugin](../RADIO_PLUGINS.md#the-hackrf-plugin-rad-60); the
-test tool is [yantra-hackrf](../YANTRA_HACKRF.md). Capabilities HOTPLUG
-and SCAN. Hardware results: [DEVICES.md](../../DEVICES.md).
+test tool is [yantra-hackrf](../YANTRA_HACKRF.md). Capabilities HOTPLUG,
+SCAN and SPECTRUM (an averaged FFT of its own samples, radio API 1.2,
+RAD-140). Hardware results: [DEVICES.md](../../DEVICES.md).
 
 ## Devices
 

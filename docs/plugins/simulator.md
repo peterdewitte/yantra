@@ -6,7 +6,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 `simulator.so` (plugin id `simulator`, RAD-61): a simulated TETRA
 network, for demos, training and tests without a radio. Capabilities
-SIMULATED and SCENE. How it works (scenarios, positions, calibration
+SIMULATED, SCENE and SPECTRUM (a synthetic spectrum of its scene, radio
+API 1.2, RAD-140). How it works (scenarios, positions, calibration
 practice, real time): [RADIO_PLUGINS.md, the simulator plugin](../RADIO_PLUGINS.md#the-simulator-plugin-rad-61).
 
 ## Devices

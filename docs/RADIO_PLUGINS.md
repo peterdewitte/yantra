@@ -17,6 +17,7 @@ Contents: [the radio boundary](#the-radio-boundary) -
 [settings as data](#settings-as-data-how-yantra-builds-the-windows) -
 [record schemas](#record-schemas) -
 [context callbacks](#context-callbacks-scene-plugins) -
+[spectrum](#spectrum-radio-api-12) -
 [the conformance kit](#the-conformance-kit).
 
 ## The radio boundary
@@ -39,10 +40,11 @@ that data (RAD-49).
 |---|---|---|
 | `yantra_radio_entry()` | The one exported symbol; returns the descriptor | RAD-12 |
 | `yr_descriptor` | Version, id, name, licence, capabilities, technology id, schemas, translations, `init`/`shutdown`, the two function tables | RAD-11..13, RAD-48 |
-| `yr_host_api` | What Yantra gives the plugin at `init`: log, clocks, the record sink, events, change notices, and context callbacks for SCENE plugins | RAD-14, RAD-18, RAD-20, RAD-24, RAD-25 |
+| `yr_host_api` | What Yantra gives the plugin at `init`: log, clocks, the record sink, events, change notices, context callbacks for SCENE plugins and (radio API 1.2) the spectrum sink | RAD-14, RAD-18, RAD-20, RAD-24, RAD-25, RAD-140 |
 | `yr_stream_control` | The same for every plugin: enumerate, open, close, device info, state, plan ranges, set plan, start, stop, statistics, last error | RAD-30..35 |
 | `yr_device_control` | Device-specific control as data: settings, actions, presets, sensors, self-test | RAD-40..47 |
 | `yr_schema` | Record schemas: fields with name, type, unit, label, help, group | RAD-20..22 |
+| `yr_spectrum` | Radio API 1.2: power per frequency bin, once a second, from plugins with `YR_CAP_SPECTRUM` | RAD-140 |
 
 Rules that hold everywhere (the main page of the radio.h reference):
 
@@ -76,6 +78,7 @@ Rules that hold everywhere (the main page of the radio.h reference):
   by its capability). Yantra applies its calibration (RF-02) to dBFS
   levels only. The schema's level unit stays `dBFS` for a plugin without
   SELF_CALIBRATED (the unit without the flag).
+- **Spectrum** (radio API 1.2, RAD-140): see [Spectrum](#spectrum-radio-api-12).
 - **State machine** (RAD-34): a device is CLOSED, OPEN, STREAMING or
   LOST. A call in the wrong state returns `YR_ERR_BUSY` (for example a
   second `start_stream`, a self-test while streaming, or a RESTART setting
@@ -226,7 +229,7 @@ extern "C" YR_EXPORT const yr_descriptor* yantra_radio_entry(void)
         YR_CAP_SIMULATED,          // generated samples, never a real measurement
         "beacon",
         "Beacon example",
-        "0.1.0",
+        "0.1.1",
         "The Yantra contributors",
         "GPL-3.0-or-later",
         "Example radio plugin for the made-up beacon technology (RAD-64)",
@@ -847,6 +850,49 @@ The radio test host emulates these callbacks (`yantra-radio-host stream
 shows a plan whose floors have no scene, so `get_scene` gives
 `YR_ERR_NOT_FOUND`).
 
+## Spectrum (radio API 1.2)
+
+A plugin with `YR_CAP_SPECTRUM` (the simulator and the SDR plugins; never
+a terminal) delivers spectra when the plan asks for them (RAD-140):
+
+- The plan sets `YR_PLAN_SPECTRUM` in `yr_plan::flags` (with any plan
+  type) and may give the band in `spectrum_first_hz` and
+  `spectrum_last_hz` (both 0: the default, 380-400 MHz,
+  `YR_SPECTRUM_DEFAULT_FIRST_HZ`/`LAST_HZ`). These two members were
+  appended to `yr_plan` in 1.2: a plugin keeps a plan with
+  `yr_plan_read(plan, &kept)`, which copies only what the host's
+  `struct_size` holds and zeroes the rest, and reads the band with
+  `radio.hpp` `spectrum_band()`.
+- While streaming, about once a second, the plugin hands one
+  `yr_spectrum` to `yr_host_api::push_spectrum` (appended in 1.2; take it
+  with `yr_host_spectrum_sink(host)`, which is NULL for an older host
+  table or a host that wants no spectra). Like `push_record` it never
+  blocks, returns `YR_ERR_BUSY` outside a stream and
+  `YR_ERR_INVALID_ARGUMENT` for a malformed spectrum; the struct is valid
+  during the call only.
+- `yr_spectrum` (72 bytes): `flags` (record flags: `OVERLOAD`,
+  `UNCALIBRATED`, `SIMULATED` exactly when the plugin has SIMULATED,
+  `LEVEL_DBM` exactly as on the device's records), `time` (RAD-27),
+  `start_hz` and `stop_hz` (the outer edges of the bins), `bin_width_hz`,
+  `bin_count` (1 to `YR_SPECTRUM_MAX_BINS`, 4096) and `power_db`
+  (`bin_count` finite doubles: the power inside each bin, dBFS at the
+  device's settings or dBm with LEVEL_DBM; a carrier's bins add up to
+  about its level). Bin i covers `start_hz + i * bin_width_hz` to the next
+  edge, and `stop_hz = start_hz + bin_count * bin_width_hz`.
+- The band delivered is the band asked for within what the device
+  measures: the plan ranges and, for an SDR, the span it receives at
+  once. When they do not overlap the device's own span is delivered. The
+  record's `start_hz`/`stop_hz` say what it covers.
+- Only power per bin crosses the API, never IQ (RAD-26). A plugin without
+  the capability ignores the plan flag; no plugin delivers spectra for a
+  plan without it. `radio.hpp` `validate_spectrum()` holds all these
+  rules; the conformance kit's `spectrum` check runs them.
+
+`yantra-radio-host stream --spectrum` prints one line per spectrum
+(band, bins, peak and median level); `--spectrum-band FIRST:LAST` sets the
+band in Hz and `--spectrum-out FILE` writes CSV lines (`utc_ns,start_hz,
+bin_width_hz,bin_count,flags,power...`).
+
 ## The simulator plugin (RAD-61)
 
 `plugins/simulator` builds `simulator.so`, shown as "Demo (simulated
@@ -923,6 +969,19 @@ mode, `calibration_generator` replaces the network by one carrier at
 `calibration_level_dbm`, so Yantra's calibration (RF-02) can be tried:
 generator level minus the measured level gives the true offset.
 
+Spectrum (SPECTRUM, RAD-140). With `YR_PLAN_SPECTRUM` the simulator
+pushes, once a second of host time, a synthetic spectrum of the plan's
+band within its simulated span (its plan range): no FFT of its samples,
+but each carrier on the air at the level its records measure (the
+interval's ground truth), spread over the TETRA downlink's
+root-raised-cosine power shape (roll-off 0.35, 18 ksymbol/s), on the
+scenario's receiver noise scaled to the bin width, with a small jitter
+like an averaged FFT. Bins are 25 kHz / 2^k wide (the finest that keeps
+at most 4096 bins). The jitter comes from its own generator seeded with
+the scenario seed, so the same seed gives the same spectrum on every
+platform. Unit and flags are the records': dBm with LEVEL_DBM, or dBFS
+(through the true offset) with `level_unit` `dbfs`; always SIMULATED.
+
 C1 (EN 300 392-2 clause 23.3) uses the decoded level with the true
 offset, the broadcast `rxlev_access_min` and `ms_txpwr_max_cell`, and the
 MS maximum power, the device setting `ms_max_power_dbm` (default 30 dBm:
@@ -970,6 +1029,21 @@ with the strongest or the given serving cell (weak_signal is left out:
 its second cell is below the noise by design).
 
 ## The SoapySDR plugins (RAD-54, RAD-62)
+
+Spectrum (SPECTRUM, RAD-140): every SDR plugin of this layer computes
+spectra from its own samples. With `YR_PLAN_SPECTRUM` the stream feeds,
+once a second, the next block of IQ samples to the receiver's windowed
+FFT (`receiver/spectrum.hpp` on pocketfft, RAD-04; Blackman-Harris,
+256 to 4096 points for about 1 kHz bins, 16 frames averaged, a few tens
+of milliseconds of signal) and pushes the bins of the plan's band within
+the span it receives at once (0.8 of the sample rate around the tuned
+centre, inside the tunable range). Between two spectra no FFT runs, and
+the measurement is not interrupted: the default 380-400 MHz band is
+therefore the part of it the receiver sees (1.6 MHz at 2 Msps, up to
+16 MHz at 20 Msps on a HackRF); a band scan shows the span of each step.
+Levels are dBFS per bin with the window's noise bandwidth divided out, so
+a carrier's bins add up to its record level; OVERLOAD when the averaged
+samples clipped.
 
 Every SDR plugin is the shared SoapySDR layer `plugins/soapy_common`
 (`yantra::soapy_plugin`, header `yantra/plugins/soapy_plugin.hpp`) plus
@@ -1135,7 +1209,8 @@ against `radio.h` alone (no C++, POSIX termios and threads). It reads a
 TETRA terminal in TMO over its Peripheral Equipment Interface: AT commands
 (EN 300 392-5) on a serial port, 8N1 without flow control. The terminal
 measures; the plugin turns its readings into records (TRM-01). Capabilities
-SELF_CALIBRATED (levels in dBm as the terminal reports them) and HOTPLUG.
+SELF_CALIBRATED (levels in dBm as the terminal reports them) and HOTPLUG;
+no SPECTRUM: a terminal gives no spectrum (RAD-140).
 
 Devices are the serial ports: `/dev/serial/by-id/*`, then `/dev/ttyUSB*`
 and `/dev/ttyACM*` not reached through a by-id name, then the
@@ -1226,7 +1301,8 @@ pass, fail or skip:
 | `persistence` | A changed setting is back at its default after close and open | RAD-47 |
 | `actions`, `presets`, `sensors`, `self_test` | Each one run, with result texts, `settings_changed` after a preset, remedies for warnings | RAD-42, RAD-43, RAD-45, RAD-46 |
 | `plans` | Plan ranges; SCAN offered exactly with the capability; unsupported plan types refused | RAD-23, RAD-32 |
-| `records` | A stream: every record matches its schema, at least one MEASUREMENT, time inside the stream and in order per carrier, UTC near the host clock, a record per carrier at least every 1.25 s, every record's `LEVEL_DBM` as the device entry's, known events, statistics | RAD-20..22, RAD-24, RAD-25, RAD-27, RAD-30 |
+| `records` | A stream: every record matches its schema, at least one MEASUREMENT, time inside the stream and in order per carrier, UTC near the host clock, a record per carrier at least every 1.25 s, every record's `LEVEL_DBM` as the device entry's, known events, statistics, no spectrum without `YR_PLAN_SPECTRUM` | RAD-20..22, RAD-24, RAD-25, RAD-27, RAD-30, RAD-140 |
+| `spectrum` | A stream with `YR_PLAN_SPECTRUM` (3.5 s): with SPECTRUM, at least two valid spectra (`validate_spectrum`: at most 4096 bins, band, finite power, flags, time), 0.5 to 1.6 s apart, inside the band asked for, `LEVEL_DBM` as the device's unit; without it none (1.5 s); records go on | RAD-21, RAD-26, RAD-27, RAD-140 |
 | `plan_change` | A carrier plan gives records on those carriers only; `set_plan` while streaming is BUSY or (RETUNE_LIVE) PLAN_APPLIED; a scan ends with SCAN_DONE | RAD-23, RAD-32 |
 | `state_machine` | Second start, self-test and RESTART settings while streaming are BUSY; stop within 1 s, no push after it; second stop harmless; close while streaming | RAD-15, RAD-31, RAD-33, RAD-34 |
 | `stop_during_push` | The host holds each push 100 ms; stop comes during a push and must wait for it | RAD-33 |
