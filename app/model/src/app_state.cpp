@@ -600,7 +600,19 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     add_recent_project(settings_, project_->path());
     settings_changed_ = true;
     dialog_ = Dialog::None;
-    return done(verb + " " + project_->path().string());
+    std::string message = verb + " " + project_->path().string();
+    // IND-46: a project of 0.3 or earlier says once what its migration
+    // dropped (the next open of the migrated file has no note).
+    if (const auto& note = project_->migration_note()) {
+        message += ". " + trf("This project of Yantra 0.3 or earlier (project schema {}) was converted: {} walls, {} "
+                              "own wall classes, {} antennas and {} ray-tracing maps were dropped, as Yantra 0.4 has "
+                              "none. Run the interpolation to make the coverage map again from the measured points.",
+                              {std::to_string(note->from_version), std::to_string(note->walls),
+                               std::to_string(note->wall_classes), std::to_string(note->antennas),
+                               std::to_string(note->ray_tracing_maps)});
+        if (!note->backup.empty()) message += " " + trf("The old file is kept as {}.", {note->backup.string()});
+    }
+    return done(message);
 }
 
 Result AppState::new_project(const fs::path& file, const project::ProjectInfo& info) {

@@ -165,10 +165,18 @@ path = ["plugins/**/testdata/*.jsonl", "plugins/**/testdata/*.golden.json", "tes
 SPDX-FileCopyrightText = "2026 The Yantra contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 
-# Building model and scene JSON fixtures of the tests (IND-11/12, RAD-36),
-# JSON without a comment syntax.
+# Building model and scene JSON fixtures of the tests (RAD-36), JSON
+# without a comment syntax.
 [[annotations]]
 path = ["tests/fixtures/building/*.json"]
+SPDX-FileCopyrightText = "2026 The Yantra contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# A project file of Yantra 0.3 (the Fraunces demo project made by Yantra
+# 0.2.0, schema 7, its plan sources as references only) for the IND-46
+# migration test; an SQLite file without a comment syntax.
+[[annotations]]
+path = ["tests/fixtures/project/*.yantra"]
 SPDX-FileCopyrightText = "2026 The Yantra contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 

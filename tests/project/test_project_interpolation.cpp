@@ -237,6 +237,7 @@ TEST_CASE("schema 1..7 files migrate to schema 8: default settings, no results (
             CHECK(p->opened_version() == version);
             CHECK(p->meta().schema_version == pj::kSchemaVersion);
             CHECK(fs::exists(file.string() + ".schema" + std::to_string(version) + ".bak"));
+            CHECK_FALSE(p->migration_note());  // nothing was dropped (test_project_migration.cpp)
             CHECK(p->interpolation_settings() == pj::InterpolationSettings{});
             const std::string f = p->add_floor(floor_of("Ground", 0));
             CHECK(p->interpolations(f).empty());
@@ -248,6 +249,7 @@ TEST_CASE("schema 1..7 files migrate to schema 8: default settings, no results (
         }
         auto p = pj::Project::open(file);
         CHECK(p->opened_version() == pj::kSchemaVersion);
+        CHECK_FALSE(p->migration_note());
         CHECK(p->interpolation_settings().power == 2.8);
         REQUIRE(p->floors().size() == 1);
         CHECK(p->interpolations(p->floors()[0].id).size() == 1);

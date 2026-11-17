@@ -67,7 +67,7 @@ fs::path demo_copy(const std::string& name) {
 
 }  // namespace
 
-TEST_CASE("DEMO-05 the Fraunces demo project opens with 2 floors, trims, scales, walls, DAS antennas, cells and walks") {
+TEST_CASE("DEMO-05 the Fraunces demo project opens with 2 floors, trims, scales, reference points, cells and walks") {
     if (!demo_built()) return;
     const yd::DemoDescription d = yd::read_description(kDescription);
     const fs::path dir = demo_copy("open");

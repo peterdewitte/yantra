@@ -489,6 +489,32 @@ TEST_CASE("project commands (IND-01, IND-10): new, add floor, save, save as, clo
     CHECK(load_settings(paths.settings_file, error).recent_projects == st.settings().recent_projects);
 }
 
+TEST_CASE("IND-46 opening a project of Yantra 0.3 says once what its migration dropped") {
+    const fs::path dir = scratch("migrated");
+    const fs::path file = dir / "fraunces.yantra";
+    fs::copy_file(fs::path(YANTRA_TEST_DATA_DIR) / "project" / "fraunces_0_3.yantra", file);
+    AppPaths paths;
+    paths.settings_file = dir / "config" / "app.json";
+    paths.home = dir;
+    {
+        AppState st({}, paths);
+        const Result r = st.open_project(file);
+        REQUIRE_MESSAGE(r.ok, r.message);
+        CHECK(r.message == st.status());
+        CHECK_FALSE(st.status_is_error());
+        CHECK(r.message.find("41 walls, 0 own wall classes, 5 antennas and 2 ray-tracing maps were dropped") !=
+              std::string::npos);
+        CHECK(r.message.find("(project schema 7)") != std::string::npos);
+        CHECK(r.message.find(file.string() + ".schema7.bak") != std::string::npos);
+        CHECK(st.project_view()->floors.size() == 2);
+    }
+    // The migrated file opens without a note.
+    AppState st({}, paths);
+    const Result r = st.open_project(file);
+    REQUIRE_MESSAGE(r.ok, r.message);
+    CHECK(r.message.find("dropped") == std::string::npos);
+}
+
 TEST_CASE("New indoor project form: details, suggested file, replace through the browser") {
     const fs::path dir = scratch("form");
     AppPaths paths;
