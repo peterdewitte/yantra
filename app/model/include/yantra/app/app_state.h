@@ -91,6 +91,13 @@ enum class Action {
     CellDatabase,  ///< Network > Cell database (DB-01, DB-02, step 9.8)
     Verification,  ///< Network > Verification (DB-03..05)
     Reselection,   ///< Network > Reselection simulator (DB-08)
+    // The survey windows of the Window menu (UI-18): each entry shows or
+    // hides its window.
+    WindowNeighbours,  ///< serving cell and neighbours (UI-02, UI-03)
+    WindowGraphs,      ///< level, C1 and quality graphs (UI-04)
+    WindowScanner,     ///< every carrier the radios report
+    WindowEvents,      ///< the event list (UI-09, UI-10)
+    WindowStatistics,  ///< the statistics (UI-11)
 };
 
 /// The help window (DOC-07 e): a section of the user manual.
@@ -113,6 +120,17 @@ struct NetworkWindows {
     bool reselection = false;
 };
 
+/// The survey windows of the Window menu (UI-18); the Gui closes them
+/// with the window's close button.
+struct SurveyWindows {
+    bool neighbours = false;
+    bool graphs = false;
+    bool scanner = false;
+    bool events = false;
+    bool statistics = false;
+    bool operator==(const SurveyWindows&) const = default;
+};
+
 /// How an action is shown: label, shortcut, tooltip (DOC-07 b) and, when
 /// disabled, why (DOC-07 c).
 struct ActionView {
@@ -126,6 +144,8 @@ struct ActionView {
     /// Build step that wires an action not available yet (developer note,
     /// e.g. "9.7"); "" when the action works.
     std::string planned_step;
+    bool checkable = false;  ///< a menu entry with a check mark (Window menu)
+    bool checked = false;
 };
 
 struct RecentView {
@@ -355,6 +375,10 @@ public:
     /// DB-08; nullptr on the start screen).
     NetworkChecks* network_checks() { return checks_.get(); }
     NetworkWindows& network_windows() { return network_windows_; }
+    SurveyWindows& survey_windows() { return survey_windows_; }
+    /// The flag of a Window-menu action's window (nullptr for other actions).
+    bool* survey_window(Action a);
+    const bool* survey_window(Action a) const;
     /// The export, report and acceptance-profile dialogs (EXP-01..08;
     /// nullptr on the start screen).
     ReportExport* output() { return output_.get(); }
@@ -431,7 +455,7 @@ public:
     /// applies each change at once): the coverage threshold goes to the
     /// survey panels, the ring buffer default to the open project's form.
     Result apply_settings(const AppSettings& settings);
-    /// UI-11: the coverage threshold from the Survey page (kept in the settings).
+    /// UI-11: the coverage threshold from the Statistics window (kept in the settings).
     Result set_coverage_threshold(double dbm);
     PluginManagerView plugin_manager();
     /// Switches a plugin on or off (PLG-09); refused while a walk, a
@@ -471,8 +495,8 @@ public:
     void close_tour_consent() {
         if (dialog_ == Dialog::TourConsent) dialog_ = Dialog::None;
     }
-    /// Asks the Gui to show a page of the project's side panel ("layers",
-    /// "edit", "walk", "map", "survey", "post") in the next frame.
+    /// Asks the Gui to show a tab of the project window ("walk", "map";
+    /// UI-18) in the next frame.
     void request_panel(std::string key) { panel_request_ = std::move(key); }
     std::string take_panel_request() { return std::exchange(panel_request_, std::string()); }
     /// The demo label again after the floors changed (example ids, DEMO-07).
@@ -532,6 +556,8 @@ public:
     void set_layer_visible(Layer layer, bool visible);
     Result move_layer(Layer layer, int steps);
     Result set_bin_size(double size_m);
+    /// UI-19: the interpolated map's opacity (clamped to kMinMapOpacity .. 1).
+    void set_map_opacity(double opacity);
 
     // -- walk test, interpolation (IND-20, IND-41, IND-43, IND-45) --
     /// Opens the interpolation settings dialog.
@@ -639,6 +665,7 @@ private:
     bool walk_running_ = false;
     std::string walk_floor_;
     NetworkWindows network_windows_;
+    SurveyWindows survey_windows_;
     HelpView help_;
     AudibleAlerts alerts_;
     std::unique_ptr<InterpolationRunner> runner_;

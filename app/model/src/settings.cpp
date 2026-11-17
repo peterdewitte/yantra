@@ -125,6 +125,7 @@ std::string check_settings(const AppSettings& s) {
     if (!parse_window_system(s.window_system)) return tr("The window system is auto, x11 or wayland.");
     if (!within(s.tooltip_delay_s, 0.0, kMaxTooltipDelayS)) return tr("The tooltip delay is 0 to 5 seconds.");
     if (!within(s.layers.bin_size_m, 0.5, 50.0)) return tr("The binned view's squares are 0.5 to 50 m.");
+    if (!within(s.layers.map_opacity, kMinMapOpacity, 1.0)) return tr("The map's opacity is 10 to 100 %.");
     if (!within(s.survey.threshold_dbm, kMinThresholdDbm, kMaxThresholdDbm))
         return tr("The coverage threshold is -150 to -20 dBm.");
     if (!within(s.survey.graph_span_min, kMinGraphSpanMin, kMaxGraphSpanMin))
@@ -157,6 +158,7 @@ std::string settings_to_json(const AppSettings& s) {
     j["layers"]["hidden"] = json::array();
     for (Layer l : s.layers.hidden) j["layers"]["hidden"].push_back(layer_key(l));
     j["layers"]["bin_size_m"] = s.layers.bin_size_m;
+    j["layers"]["map_opacity"] = s.layers.map_opacity;
     j["window_system"] = s.window_system;
     j["tooltips"] = s.tooltips;
     j["tooltip_delay_s"] = s.tooltip_delay_s;
@@ -245,6 +247,10 @@ AppSettings settings_from_json(const std::string& text, std::string& error) {
         if (const auto b = it->find("bin_size_m"); b != it->end() && b->is_number()) {
             const double v = b->get<double>();
             if (v >= 0.5 && v <= 50.0) s.layers.bin_size_m = v;
+        }
+        if (const auto o = it->find("map_opacity"); o != it->end() && o->is_number()) {
+            const double v = o->get<double>();
+            if (v >= kMinMapOpacity && v <= 1.0) s.layers.map_opacity = v;
         }
     }
     if (const auto it = j.find("window_system"); it != j.end() && it->is_string() && parse_window_system(it->get<std::string>()))

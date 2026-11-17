@@ -286,10 +286,10 @@ TEST_CASE("application icon (BRD-06): the Yantra logo PNGs at every icon size") 
     CHECK(error.find("yantra_logo_16.png") != std::string::npos);
 }
 
-TEST_CASE("menus (UI-14): File, Network and Help items, tooltips, disabled reasons") {
+TEST_CASE("menus (UI-14, UI-18): File, Network, Window and Help items, tooltips, disabled reasons") {
     AppState st({}, {});
     const auto menus = st.menus();
-    REQUIRE(menus.size() == 3);
+    REQUIRE(menus.size() == 4);
     CHECK(menus[0].label == "File");
     CHECK(ids(menus[0]) == std::vector<std::string>{"file.new_project", "file.open_project", "file.recent",
                                                      "file.open_demo", "file.save", "file.save_as", "file.add_floor",
@@ -297,8 +297,15 @@ TEST_CASE("menus (UI-14): File, Network and Help items, tooltips, disabled reaso
                                                      "file.about", "file.exit"});
     CHECK(menus[1].label == "Network");
     CHECK(ids(menus[1]) == std::vector<std::string>{"network.cell_db", "network.verification", "network.reselection"});
-    CHECK(menus[2].label == "Help");
-    CHECK(ids(menus[2]) == std::vector<std::string>{"help.tour", "help.user_manual", "help.user_manual_pdf",
+    CHECK(menus[2].label == "Window");
+    CHECK(ids(menus[2]) == std::vector<std::string>{"window.neighbours", "window.graphs", "window.scanner",
+                                                     "window.events", "window.statistics"});
+    for (const MenuEntry& e : menus[2].entries) {
+        CHECK(e.item.checkable);
+        CHECK_FALSE(e.item.checked);
+    }
+    CHECK(menus[3].label == "Help");
+    CHECK(ids(menus[3]) == std::vector<std::string>{"help.tour", "help.user_manual", "help.user_manual_pdf",
                                                      "help.quick_starts", "help.reset_settings", "help.about"});
     std::set<std::string> seen;
     for (const Menu& m : menus) {
@@ -316,7 +323,7 @@ TEST_CASE("menus (UI-14): File, Network and Help items, tooltips, disabled reaso
             // file.
             const bool needs_project = a.id == "file.save" || a.id == "file.save_as" || a.id == "file.add_floor" ||
                                        a.id == "file.close_project" || a.id == "file.export" || a.id == "file.report" ||
-                                       a.id.rfind("network.", 0) == 0;
+                                       a.id.rfind("network.", 0) == 0 || a.id.rfind("window.", 0) == 0;
             if (!needs_project && a.id != "file.open_demo" && a.id != "help.user_manual_pdf")
                 CHECK(a.enabled == a.planned_step.empty());
         }

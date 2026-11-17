@@ -31,17 +31,17 @@ ShotScene scene(std::string name, std::string what, bool demo = true) {
 std::vector<ShotScene> make_scenes() {
     std::vector<ShotScene> v;
     v.push_back(scene("start_menu", "start screen with the File menu open (UI-14, UI-17)", false));
-    v.push_back(scene("survey", "main survey view: serving cell, large values, neighbours (UI-01, UI-02)"));
-    v.push_back(scene("survey_graphs", "RSSI and C1 graphs of the survey panels (UI-03)"));
-    v.push_back(scene("survey_events", "event list of the survey panels (UI-04)"));
-    v.push_back(scene("survey_scanner", "scanner view: every carrier the radio sees (UI-05)"));
+    v.push_back(scene("survey", "Walk tab with the live values and the Neighbours window (UI-01..03, UI-18)"));
+    v.push_back(scene("survey_graphs", "Window > Graphs: level and C1 graphs (UI-04)"));
+    v.push_back(scene("survey_events", "Window > Events: the event list (UI-09)"));
+    v.push_back(scene("survey_scanner", "Window > Scanner: every carrier the radio sees"));
     {
         ShotScene s = scene("plan_import", "plan import window: several floors trimmed from one sheet (IND-04..06)", false);
         s.needs_input = true;
         v.push_back(s);
     }
-    v.push_back(scene("walk_test", "indoor project window: floor tabs and a walk test's points with legend (IND-10)"));
-    v.push_back(scene("interpolation", "interpolated coverage map with its confidence mask (IND-41, IND-43)"));
+    v.push_back(scene("walk_test", "indoor project window: floor tabs, the Walk tab and a walk test's points with legend (IND-10, UI-18)"));
+    v.push_back(scene("interpolation", "Map tab: interpolated coverage map and the open Advanced dropdown (IND-41, IND-43, UI-19)"));
     v.push_back(scene("about", "About dialog with the Yantra and curtat.be logos (UI-15)", false));
     v.push_back(scene("reset_settings", "Reset all settings dialog (UI-16)", false));
     v.push_back(scene("radio_list", "radios: choosing and connecting a radio (PLG-16)"));
@@ -206,8 +206,8 @@ void ShotRunner::replay_at(double fraction) {
         const auto want = static_cast<std::int64_t>(std::llround(static_cast<double>(v.duration_ns) * fraction));
         return v.position_ns == want && state_.monitor()->frame().valid;
     });
-    run("show the survey page", [this] {
-        state_.request_panel("survey");
+    run("show the Walk tab", [this] {
+        state_.request_panel("walk");
         return Result{};
     });
     frames(3);
@@ -264,17 +264,19 @@ void ShotRunner::build() {
             return Result{false, "no simulated radio"};
         });
         run("start the radio", [this] { return state_.live()->start_radio(); });
-        run("show the survey page", [this] {
-            state_.request_panel("survey");
+        run("show the Walk tab", [this] {
+            state_.request_panel("walk");
             return Result{};
         });
         until("other carriers in the scanner", [this] { return !state_.monitor()->frame().scan.empty(); });
-        click("survey.scanner");
+        run("Window > Scanner", [this] { return state_.trigger(Action::WindowScanner); });
     } else if (n == "survey" || n == "survey_graphs" || n == "survey_events" || n == "verification" ||
                n == "reselection") {
         replay_at(0.6);
-        if (n == "survey_graphs") click("survey.graphs");
-        if (n == "survey_events") click("survey.events");
+        // UI-18: the survey windows open from the Window menu.
+        if (n == "survey") run("Window > Neighbours", [this] { return state_.trigger(Action::WindowNeighbours); });
+        if (n == "survey_graphs") run("Window > Graphs", [this] { return state_.trigger(Action::WindowGraphs); });
+        if (n == "survey_events") run("Window > Events", [this] { return state_.trigger(Action::WindowEvents); });
         if (n == "reselection") {
             // The levels of the replayed moment, the DAS cell serving.
             run("the reselection simulator", [this] { return state_.trigger(Action::Reselection); });
@@ -336,17 +338,18 @@ void ShotRunner::build() {
         });
         frames(10);
     } else if (n == "walk_test" || n == "touch") {
-        run("show the walk page", [this] {
+        run("show the Walk tab", [this] {
             state_.request_panel("walk");
             return Result{};
         });
         frames(3);
     } else if (n == "interpolation") {
-        run("show the map page", [this] {
+        run("show the Map tab", [this] {
             state_.request_panel("map");
             return Result{};
         });
         frames(3);
+        click("map.advanced");
     } else if (n == "about") {
         run("About", [this] { return state_.trigger(Action::About); });
     } else if (n == "reset_settings") {

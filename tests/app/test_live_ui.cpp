@@ -152,7 +152,7 @@ TEST_CASE("UI-01..04, UI-08, UI-11, REC-01, REC-05, REC-07, REC-08, REC-11 in th
     Gui::apply_style();
     Gui gui(state);
     ui.set_draw([&] { gui.draw(); });
-    ui.set_display_size(1400.0F, 1000.0F);
+    ui.set_display_size(1400.0F, 1800.0F);  // the Walk tab with recording and replay in view
     REQUIRE(ui.frames(3));
     REQUIRE(state.open_project(d / "demo.yantra").ok);
     const bm::Building b = state.project()->building();
@@ -167,19 +167,21 @@ TEST_CASE("UI-01..04, UI-08, UI-11, REC-01, REC-05, REC-07, REC-08, REC-11 in th
     CHECK(gui.survey_overlay().status.disk.rfind("Free", 0) == 0);
     CHECK_FALSE(gui.survey_overlay().status.power.empty());
 
-    // Another page first: the Survey tab is reached from any of them.
+    // UI-18: the Map tab first; the Walk tab has the radio, the live values
+    // and the recording.
     REQUIRE(ui.click("panel.map"));
     REQUIRE(ui.frames(2));
-    REQUIRE(ui.click("panel.survey"));
+    CHECK_FALSE(ui.has("walk.find_radios"));
+    REQUIRE(ui.click("panel.walk"));
     REQUIRE(ui.frames(2));
-    REQUIRE(ui.click("survey.find_radios"));
+    REQUIRE(ui.click("walk.find_radios"));
     REQUIRE(ui.frames(2));
-    REQUIRE(ui.has("survey.radio_start"));
+    REQUIRE(ui.has("walk.radio_start"));
     REQUIRE(ui.find("rec.record")->disabled);  // no radio measuring yet
-    REQUIRE(ui.click("survey.radio_start"));
+    REQUIRE(ui.click("walk.radio_start"));
     REQUIRE(ui.frames(2));
     REQUIRE_MESSAGE(state.live()->radio_running(), state.status());
-    // The panels open by themselves; the serving cell and its large values come.
+    // The live values of the Walk tab: the serving cell, its level large and the compact graph.
     const double deadline = 20.0 * YANTRA_TEST_TIME_SCALE;
     const auto until = [&](const std::function<bool()>& done) {
         const auto end = std::chrono::steady_clock::now() + std::chrono::duration<double>(deadline);
@@ -190,8 +192,10 @@ TEST_CASE("UI-01..04, UI-08, UI-11, REC-01, REC-05, REC-07, REC-08, REC-11 in th
         }
         return true;
     };
-    REQUIRE(until([&] { return gui.survey_overlay().panels && !gui.survey_overlay().serving.empty(); }));
-    CHECK(gui.survey_overlay().tab == "cells");
+    REQUIRE(until([&] { return gui.survey_overlay().live_values && !gui.survey_overlay().serving.empty(); }));
+    CHECK(gui.survey_overlay().compact_graph);
+    CHECK(ui.has("walk.level_plot"));
+    CHECK(gui.survey_overlay().windows.empty());  // the survey windows open from the Window menu only
     REQUIRE_FALSE(gui.survey_overlay().large.empty());
     CHECK(gui.survey_overlay().large.front().find("Level ") == 0);
     CHECK(gui.survey_overlay().status.radio.find("measuring") != std::string::npos);
@@ -207,7 +211,7 @@ TEST_CASE("UI-01..04, UI-08, UI-11, REC-01, REC-05, REC-07, REC-08, REC-11 in th
     CHECK_FALSE(state.action(Action::Exit).enabled);
     CHECK_FALSE(state.request_exit().ok);
     CHECK(ui.find("rec.voice")->disabled);  // the default copy has no sound device
-    REQUIRE(ui.find("survey.radio_stop")->disabled);
+    REQUIRE(ui.find("walk.radio_stop")->disabled);
     const std::uint64_t c0 = state.live()->cycles();
     REQUIRE(until([&] { return state.live()->cycles() >= c0 + 3; }));
     REQUIRE(ui.click("rec.marker"));
@@ -215,9 +219,13 @@ TEST_CASE("UI-01..04, UI-08, UI-11, REC-01, REC-05, REC-07, REC-08, REC-11 in th
     CHECK(state.status() == "Marker 1.");
     REQUIRE(until([&] { return state.live()->cycles() >= c0 + 5; }));
 
-    // UI-04: the graphs; a click sets the cursor and the cells follow it.
-    REQUIRE(ui.click("survey.graphs"));
+    // UI-04: Window > Graphs; a click sets the cursor and the cells follow it.
+    REQUIRE(ui.click("menu.window"));
+    REQUIRE(ui.frames(2));
+    REQUIRE(ui.click("window.graphs"));
     REQUIRE(until([&] { return gui.survey_overlay().graph_samples >= 3; }));
+    CHECK(gui.survey_overlay().shown("graphs"));
+    CHECK(state.action(Action::WindowGraphs).checked);
     CHECK(gui.survey_overlay().graph_traces >= 1);
     const auto plot = ui.find("graph.level_plot");
     REQUIRE(plot);
@@ -228,15 +236,24 @@ TEST_CASE("UI-01..04, UI-08, UI-11, REC-01, REC-05, REC-07, REC-08, REC-11 in th
     REQUIRE(ui.click("graph.live"));
     REQUIRE(ui.frames(1));
     CHECK_FALSE(state.monitor()->cursor());
-    REQUIRE(ui.click("survey.events"));
+    REQUIRE(state.trigger(Action::WindowEvents).ok);
     REQUIRE(ui.frames(2));
     CHECK(gui.survey_overlay().event_rows >= 2);  // radio started, recording started, marker
-    REQUIRE(ui.click("survey.stats"));
+    REQUIRE(state.trigger(Action::WindowStatistics).ok);
     REQUIRE(ui.frames(2));
     CHECK(gui.survey_overlay().stats.find("% of the measurements") != std::string::npos);
-    REQUIRE(ui.click("survey.scanner"));
+    REQUIRE(state.trigger(Action::WindowScanner).ok);
+    REQUIRE(state.trigger(Action::WindowNeighbours).ok);
     REQUIRE(ui.frames(2));
-    CHECK(gui.survey_overlay().tab == "scanner");
+    for (const char* w : {"neighbours", "graphs", "scanner", "events", "statistics"}) CHECK(gui.survey_overlay().shown(w));
+    // The menu entry hides its window again.
+    REQUIRE(state.trigger(Action::WindowNeighbours).ok);
+    REQUIRE(ui.frames(2));
+    CHECK_FALSE(gui.survey_overlay().shown("neighbours"));
+    // Only the graphs stay open (the other windows would cover the plot).
+    for (Action a : {Action::WindowScanner, Action::WindowEvents, Action::WindowStatistics}) REQUIRE(state.trigger(a).ok);
+    REQUIRE(ui.frames(2));
+    CHECK(gui.survey_overlay().windows == std::vector<std::string>{"graphs"});
 
     REQUIRE(ui.click("rec.stop"));
     REQUIRE(ui.frames(2));
@@ -245,6 +262,8 @@ TEST_CASE("UI-01..04, UI-08, UI-11, REC-01, REC-05, REC-07, REC-08, REC-11 in th
     CHECK(fs::exists(d / "recordings" / "Ui_walk_0000.yrec"));
 
     // Replay (REC-07): choose, open (the radio stops), play to the end, cut (REC-08).
+    REQUIRE(ui.click("walk.replay"));
+    REQUIRE(ui.frames(2));
     REQUIRE(ui.click("replay.item.0"));
     REQUIRE(ui.frames(1));
     REQUIRE(ui.click("replay.open"));
@@ -252,7 +271,6 @@ TEST_CASE("UI-01..04, UI-08, UI-11, REC-01, REC-05, REC-07, REC-08, REC-11 in th
     REQUIRE_MESSAGE(state.replay()->is_open(), state.status());
     CHECK_FALSE(state.live()->radio_running());
     CHECK(gui.survey_overlay().status.radio == "Replay: Ui_walk");
-    REQUIRE(ui.click("survey.graphs"));
     REQUIRE(ui.frames(2));
     CHECK(gui.survey_overlay().graph_samples >= 5);
     CHECK(gui.survey_overlay().cursor);
@@ -317,7 +335,7 @@ TEST_CASE("DEMO-11 DEMO-14 the guided tour's mouse survey: Show me starts the si
     }
     CHECK_FALSE(t.view().done);
     REQUIRE(ui.frames(2));
-    CHECK(gui.tour_overlay().target == "panel.walk");
+    CHECK(gui.tour_overlay().target == "walk.start");  // the Walk tab is shown first (UI-18)
     const Result r = t.show_me();
     REQUIRE_MESSAGE(r.ok, r.message);
     REQUIRE(state.live()->running());

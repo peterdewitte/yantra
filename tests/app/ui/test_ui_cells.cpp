@@ -223,11 +223,15 @@ TEST_CASE("DB-04, DB-05, DB-08: verification and reselection windows with the de
     REQUIRE(s.ui.frames(2));
     CHECK(s.state.close_replay().ok);
 }
-TEST_CASE("PP-01..05: the Post page on the demo: good/bad, serving changes, offset badge, acceptance bases, hover") {
+TEST_CASE("PP-01..05: the Map tab's Advanced dropdown on the demo: good/bad, serving changes, offset badge, acceptance bases, hover") {
     Shell s(demo_paths(scratch("post")));
+    s.ui.set_display_size(1600.0F, 2000.0F);  // the whole Advanced dropdown in view
     open_demo(s);
     s.gui.set_wait_for_tiles(true);
-    REQUIRE_MESSAGE(s.ui.click("panel.post"), s.ui.dump());
+    REQUIRE_MESSAGE(s.ui.click("panel.map"), s.ui.dump());
+    REQUIRE(s.ui.frames(2));
+    CHECK_FALSE(s.ui.has("post.mode.goodbad"));  // UI-19: closed by default
+    REQUIRE_MESSAGE(s.ui.click("map.advanced"), s.ui.dump());
     REQUIRE(s.ui.frames(2));
     const std::size_t n = s.state.project_window()->content()->points.count();
     REQUIRE(n > 0);

@@ -152,9 +152,6 @@ void Gui::restart_ui() {
     shown_ = Dialog::None;
     shown_floor_.clear();
     tab_order_.clear();
-    panels_ = false;
-    panels_auto_ = true;
-    was_active_ = false;
     marker_label_.clear();
     ring_name_.clear();
     cut_name_.clear();
@@ -230,7 +227,7 @@ void Gui::draw_menu_bar() {
             }
             case MenuEntry::Kind::Action:
                 if (ImGui::MenuItem(item_label(e.item).c_str(), e.item.shortcut.empty() ? nullptr : e.item.shortcut.c_str(),
-                                    false, e.item.enabled))
+                                    e.item.checked, e.item.enabled))
                     run(e.item.action);
                 item_tooltip(e.item);
                 break;
@@ -390,17 +387,6 @@ void Gui::draw_project_screen() {
     ImGui::SameLine();
     if (ImGui::Button("-###plan.zoom_out")) canvas_->zoom(0.8);
     text_tooltip(tr("Zoom out [mouse wheel]"));
-    same_line_if(switch_w(tr("Panels###survey.panels")));
-    // The survey panels under the plan (step 9.5): shown by themselves when
-    // a radio or a replay starts, until the user hides them.
-    {
-        const bool active = (state_.live() != nullptr && state_.live()->radio_running()) ||
-                            (state_.replay() != nullptr && state_.replay()->is_open());
-        if (active && !was_active_ && panels_auto_) panels_ = true;
-        was_active_ = active;
-        if (ImGui::Checkbox(tr("Panels###survey.panels"), &panels_)) panels_auto_ = false;
-        text_tooltip(tr("Show the survey panels under the plan: cells, graphs, scanner, events, statistics."));
-    }
     {
         // The hint after the buttons when it fits there, else on a line of its own.
         const char* hint = tr("Drag to pan, wheel to zoom");
@@ -408,46 +394,38 @@ void Gui::draw_project_screen() {
         ImGui::TextDisabled("%s", hint);
     }
 
-    // Layers on the left, the plan on the right (narrower on small windows).
-    // The plan and the side panel keep a usable height; when the window is
-    // too low for them (touch layout, large UI scale, long translations)
-    // the main window scrolls (TST-52).
+    // The tabs on the left, the plan on the right (narrower on small
+    // windows). The plan and the side panel keep a usable height; when the
+    // window is too low for them (touch layout, large UI scale, long
+    // translations) the main window scrolls (TST-52).
     ImVec2 avail = ImGui::GetContentRegionAvail();
     avail.y = std::max(avail.y, em(240.0F));
-    const float panel = std::min(std::clamp(avail.x * 0.28F, em(200.0F), em(320.0F)), avail.x * 0.5F);
-    ImGui::BeginChild("###layers", ImVec2(panel, avail.y), ImGuiChildFlags_Borders);
+    const float panel = std::min(std::clamp(avail.x * 0.28F, em(220.0F), em(340.0F)), avail.x * 0.5F);
+    ImGui::BeginChild("###side", ImVec2(panel, avail.y), ImGuiChildFlags_Borders);
     wrap_texts();
-    // The side panel's pages: the layers (9.2) and the tools (9.4).
     overlay_.progress = false;
-    // The pages as a row of buttons that wraps on a narrow panel, so every
-    // page's name stays readable (UI-13; a tab bar shortened them to "L...").
-    // A page asked for by a command (the tour's Show me, step 9.10).
+    // UI-18: two tabs, Walk and Map, as a row of buttons that wraps on a
+    // narrow panel so each name stays readable (UI-13). A tab asked for by a
+    // command (the tour's Show me) is shown.
     struct Page {
         const char* key;
         const char* label;
         const char* tip;
-        bool shown;
     };
     const Page pages[] = {
-        {"layers", tr("Layers###panel.layers"), tr("The layers of the plan: what is shown and in which order."), true},
-        {"walk", tr("Walk###panel.walk"), tr("Walk tests: measure the floor while you walk it."), c != nullptr},
-        {"map", tr("Map###panel.map"), tr("The interpolated coverage map of the floor."), c != nullptr},
-        {"survey", tr("Survey###panel.survey"), tr("The live survey: levels, cells, graphs, events and recording."), true},
-        {"post", tr("Post###panel.post"), tr("Post-processing of the measured points: views and acceptance."), c != nullptr},
+        {"walk", tr("Walk###panel.walk"),
+         tr("Measure the floor: the walk test (or the mouse survey with the simulator), the live values and the "
+            "recording.")},
+        {"map", tr("Map###panel.map"),
+         tr("The measured points and the interpolated coverage map of the floor, with the post-processing settings.")},
     };
-    auto shown = [&](const std::string& key) {
-        for (const Page& pg : pages)
-            if (key == pg.key) return pg.shown;
-        return false;
-    };
-    if (const std::string want = state_.take_panel_request(); shown(want)) page_ = want;
-    if (!shown(page_)) page_ = "layers";
+    if (const std::string want = state_.take_panel_request(); want == "walk" || want == "map") page_ = want;
+    if (page_ != "walk" && page_ != "map") page_ = "walk";
     {
         const ImGuiStyle& st = ImGui::GetStyle();
         const float width = ImGui::GetContentRegionAvail().x;
         float x = 0.0F;
         for (const Page& pg : pages) {
-            if (!pg.shown) continue;
             const std::string_view label(pg.label);
             const std::string text(label.substr(0, label.find("##")));
             const float bw = ImGui::CalcTextSize(text.c_str()).x + 2.0F * st.FramePadding.x;
@@ -466,29 +444,18 @@ void Gui::draw_project_screen() {
         }
         ImGui::Separator();
     }
-    if (page_ == "layers") {
-        help_button("13.4");
-        draw_layer_panel(*w, c);
-    } else if (page_ == "walk") {
+    if (page_ == "walk") {
         help_button("7.1");
-        draw_walk_section(c);
-    } else if (page_ == "map") {
+        draw_walk_page(c);
+    } else {
         help_button("13.5");
-        draw_interpolation_section(c);
-    } else if (page_ == "survey") {
-        help_button("5.1");
-        draw_survey_section();
-    } else if (page_ == "post") {
-        help_button("11.1");
-        draw_post_section();
+        draw_map_page(*w, c);
     }
     ImGui::EndChild();
     ImGui::SameLine();
-    ImGui::BeginGroup();
-    const float panels_h = panels_ ? std::clamp(avail.y * 0.42F, em(160.0F), em(420.0F)) : 0.0F;
-    ImGui::BeginChild("###plan", ImVec2(0.0F, avail.y - panels_h - (panels_ ? ImGui::GetStyle().ItemSpacing.y : 0.0F)),
-                      ImGuiChildFlags_None, ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
-    // The layer panel may have changed the content (another map chosen).
+    ImGui::BeginChild("###plan", ImVec2(0.0F, avail.y), ImGuiChildFlags_None,
+                      ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse);
+    // The Map tab may have changed the content (another map chosen).
     c = w->content(state_.settings().layers.bin_size_m);
     if (c != nullptr) {
         const bool walking = state_.live() != nullptr && state_.live()->running();
@@ -498,8 +465,6 @@ void Gui::draw_project_screen() {
         handle_canvas_input();
     }
     ImGui::EndChild();
-    if (panels_) draw_survey_panels(panels_h);
-    ImGui::EndGroup();
 }
 
 void Gui::draw_floor_tabs(ProjectWindow& w) {
@@ -535,79 +500,6 @@ void Gui::draw_floor_tabs(ProjectWindow& w) {
     // command (added, removed) is shown on the next frame.
     if (!force && !visible.empty() && visible != model) (void)w.select(visible);
     shown_floor_ = force || visible.empty() ? model : visible;
-}
-
-void Gui::draw_layer_panel(ProjectWindow& w, const FloorContent* c) {
-    ImGui::SeparatorText(tr("Layers"));
-    help_marker(tr("Show or hide each layer; the arrows change the drawing order (the top of the list is drawn on "
-                "top). These are your viewing settings: they do not change the project or its report."));
-    for (const LayerRow& r : w.layer_rows(state_.settings().layers)) {
-        ImGui::PushID(r.id.c_str());
-        bool on = r.visible;
-        if (ImGui::Checkbox((r.label + "###" + r.id).c_str(), &on)) state_.set_layer_visible(r.layer, on);
-        text_tooltip(r.tooltip.c_str());
-        const float arrows = ImGui::GetFrameHeight() * 2.0F + ImGui::GetStyle().ItemSpacing.x;
-        ImGui::SameLine(std::max(ImGui::GetCursorPosX(), ImGui::GetCursorPosX() + ImGui::GetContentRegionAvail().x - arrows));
-        ImGui::BeginDisabled(!r.can_move_up);
-        if (ImGui::ArrowButton(("###" + r.id + ".up").c_str(), ImGuiDir_Up)) (void)state_.move_layer(r.layer, +1);
-        ImGui::EndDisabled();
-        text_tooltip(r.can_move_up ? tr("Draw this layer above the next one.") : tr("This layer is drawn on top."));
-        ImGui::SameLine();
-        ImGui::BeginDisabled(!r.can_move_down);
-        if (ImGui::ArrowButton(("###" + r.id + ".down").c_str(), ImGuiDir_Down)) (void)state_.move_layer(r.layer, -1);
-        ImGui::EndDisabled();
-        text_tooltip(r.can_move_down ? tr("Draw this layer below the previous one.") : tr("This layer is drawn at the bottom."));
-        if (!r.note.empty()) {
-            ImGui::Indent();
-            ImGui::PushTextWrapPos(0.0F);
-            if (r.layer == Layer::Interpolation && c && c->interpolation && c->interpolation->stale)
-                ImGui::TextColored(kBannerColour, "%s", r.note.c_str());
-            else
-                ImGui::TextDisabled("%s", r.note.c_str());
-            ImGui::PopTextWrapPos();
-            ImGui::Unindent();
-        }
-        if (r.layer == Layer::Binned && c != nullptr && c->metres_per_unit) {
-            ImGui::Indent();
-            float size = static_cast<float>(state_.settings().layers.bin_size_m);
-            ImGui::SetNextItemWidth(std::min(ImGui::GetFontSize() * 9.0F, ImGui::GetContentRegionAvail().x * 0.55F));
-            if (ImGui::InputFloat(tr("Square (m)###layer.bin_size"), &size, 0.5F, 1.0F, "%.1f",
-                                  ImGuiInputTextFlags_EnterReturnsTrue))
-                (void)state_.set_bin_size(static_cast<double>(size));
-            text_tooltip(tr("The side of the squares in metres (0.5 to 50). Each square shows the median of its points."));
-            ImGui::Unindent();
-        }
-        if (r.layer == Layer::Interpolation && c != nullptr && c->interpolation) {
-            ImGui::Indent();
-            ImGui::TextDisabled(tr("IDW of %zu measured points"), c->interpolation->points);
-            if (c->interpolations.size() > 1) {
-                ImGui::SetNextItemWidth(-1.0F);
-                if (ImGui::BeginCombo("###layer.interpolation.choose", c->interpolation->key.c_str())) {
-                    for (const auto& [iid, key] : c->interpolations)
-                        if (ImGui::Selectable((key + "###layer.map." + std::to_string(iid)).c_str(),
-                                              iid == c->interpolation->id))
-                            (void)w.show_interpolation(iid);
-                    ImGui::EndCombo();
-                }
-                text_tooltip(tr("The floor has several stored maps (one per metric and cell): choose the one shown."));
-            }
-            ImGui::Unindent();
-        }
-        ImGui::PopID();
-    }
-    if (c != nullptr) {
-        ImGui::SeparatorText(tr("Floor"));
-        ImGui::TextDisabled(tr("%zu measured points"), c->points.count());
-        if (c->metres_per_unit)
-            ImGui::TextDisabled(tr("Scale: %.4g m per plan unit"), *c->metres_per_unit);
-        else
-            ImGui::TextColored(kBannerColour, tr("Not to scale"));
-        if (!canvas_->tile_error().empty() && c->has_plan) {
-            ImGui::PushTextWrapPos(0.0F);
-            ImGui::TextColored(kErrorColour, "%s", canvas_->tile_error().c_str());
-            ImGui::PopTextWrapPos();
-        }
-    }
 }
 
 namespace {
@@ -1213,6 +1105,7 @@ void Gui::draw() {
     draw_status_bar(status, status_h);
     draw_radio_windows();
     draw_network_windows();
+    draw_survey_windows();
     draw_plugin_windows();
     draw_tour();
     draw_dialogs();

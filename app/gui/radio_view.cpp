@@ -532,7 +532,7 @@ void Gui::draw_radio_debug(RadioWindows& rw) {
     }
     if (section_header(tr("Records###dbg.records"), tr("The newest record of each carrier, as the radio delivers it."),
                        ImGuiTreeNodeFlags_DefaultOpen)) {
-        if (v.records.empty()) ImGui::TextDisabled(tr("No records yet: start the radio (Survey > Start radio)."));
+        if (v.records.empty()) ImGui::TextDisabled(tr("No records yet: start the radio (Walk tab > Start radio)."));
         for (std::size_t i = 0; i < v.records.size(); ++i) {
             const RecordRow& r = v.records[i];
             char head[200];

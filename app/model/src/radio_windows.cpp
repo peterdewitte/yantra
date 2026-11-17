@@ -743,7 +743,7 @@ struct RadioWindows::Impl {
     std::string measure_reason() const {
         if (!device) return tr("Connect the radio first.");
         if (!live.radio_running())
-            return tr("Start the radio first (Survey > Start radio): the readings come from its records.");
+            return tr("Start the radio first (Walk tab > Start radio): the readings come from its records.");
         if (collecting != Collect::None) return tr("A measurement is running.");
         return {};
     }
@@ -759,7 +759,7 @@ struct RadioWindows::Impl {
                 return tr("Calibrate the radio first: the reference noise is in dBm and this radio measures dBFS "
                        "without a calibration (HW-01b).");
         }
-        if (!live.radio_running()) return tr("Start the radio first (Survey > Start radio), with the antenna away from the PC.");
+        if (!live.radio_running()) return tr("Start the radio first (Walk tab > Start radio), with the antenna away from the PC.");
         if (collecting != Collect::None) return tr("A measurement is running.");
         return {};
     }

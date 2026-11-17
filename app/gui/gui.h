@@ -18,6 +18,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "plan_canvas.h"
@@ -83,8 +84,17 @@ public:
     const ToolOverlay& tool_overlay() const { return overlay_; }
     /// What the survey panels and the status bar drew in the last frame (tests).
     struct SurveyOverlay {
-        bool panels = false;              ///< the panels under the plan are shown
-        std::string tab;                  ///< "cells", "graphs", "scanner", "events", "stats"
+        /// The survey windows drawn (UI-18): "neighbours", "graphs",
+        /// "scanner", "events", "statistics".
+        std::vector<std::string> windows;
+        bool live_values = false;         ///< the Walk tab's live values (UI-01)
+        bool compact_graph = false;       ///< the Walk tab's level graph of the serving cell (UI-04)
+        bool advanced_open = false;       ///< the Map tab's Advanced dropdown is open (UI-19)
+        bool shown(std::string_view w) const {
+            for (const std::string& x : windows)
+                if (x == w) return true;
+            return false;
+        }
         std::string serving;              ///< the serving cell line ("" none)
         std::vector<std::string> large;   ///< UI-01 large values, "label value"
         std::size_t neighbour_rows = 0;
@@ -100,7 +110,7 @@ public:
         AppState::StatusBar status;       ///< UI-08
     };
     const SurveyOverlay& survey_overlay() const { return survey_; }
-    /// The Post page's figures as last drawn (step 9.8 tests).
+    /// The post-processing figures as last drawn (Map tab, Advanced; step 9.8 tests).
     const PostStatsView& post_view() const { return post_view_; }
     /// What the About dialog drew in the last frame (tests).
     struct AboutOverlay {
@@ -143,14 +153,13 @@ public:
     }
 
 private:
-    /// The side panel's page ("layers", "edit", "walk", "map", "survey", "post").
-    std::string page_ = "layers";
+    /// The project window's tab ("walk", "map"; UI-18).
+    std::string page_ = "walk";
     void draw_menu_bar();
     void handle_shortcuts();
     void draw_start_screen();
     void draw_project_screen();
     void draw_floor_tabs(ProjectWindow& w);
-    void draw_layer_panel(ProjectWindow& w, const FloorContent* c);
     void draw_floor_properties();
     void draw_remove_floor();
     // The status bar: the message, then the items (radio, recording, ...)
@@ -185,23 +194,29 @@ private:
     void draw_plugin_windows();
     void restart_ui();
     // Walk test and interpolation (gui_tools.cpp, step 9.4).
+    void draw_walk_page(const FloorContent* c);
     void draw_walk_section(const FloorContent* c);
+    void draw_map_page(ProjectWindow& w, const FloorContent* c);
     void draw_interpolation_section(const FloorContent* c);
+    void draw_interpolation_settings();
     void draw_plan_overlay(ImDrawList* dl);
     void handle_canvas_input();
     void draw_interpolation_dialog();
     // Survey panels, recording and replay (survey_view.cpp, step 9.5).
-    void draw_survey_section();
-    void draw_post_section();  // step 9.8, post_view.cpp
+    void draw_radio_controls(LiveSurvey& live);
+    void draw_live_values(const SurveyFrame& f);
+    void draw_post_section();  // step 9.8, post_view.cpp (in the Map tab's Advanced dropdown)
     void draw_export_dialog();  // step 10.4, report_view.cpp
     void draw_report_dialog();
     void draw_profiles_dialog();
     void draw_sharing_dialog();
     void draw_recording_controls(LiveSurvey& live);
     void draw_replay_controls();
-    void draw_survey_panels(float height);
+    void draw_survey_windows();
     void draw_cells_panel(const SurveyFrame& f);
-    void draw_graphs_panel();
+    /// The graphs (UI-04); `compact`: the Walk tab's level graph of the
+    /// serving cell only, `height` high.
+    void draw_graphs_panel(bool compact = false, float height = 0.0F);
     void draw_scanner_panel(const SurveyFrame& f);
     void draw_events_panel();
     void draw_stats_panel();
@@ -238,10 +253,7 @@ private:
     ToolOverlay overlay_;
     // Survey panels (step 9.5).
     SurveyOverlay survey_;
-    bool panels_ = false;          // the panels under the plan
     bool screenshot_mode_ = false;  // set_screenshot_mode
-    bool panels_auto_ = true;      // shown by themselves when a radio or replay starts
-    bool was_active_ = false;
     std::string marker_label_;
     std::string ring_name_;
     std::string cut_name_;
@@ -264,7 +276,7 @@ private:
         bool log_not_seen = false;
     };
     NetworkText network_;
-    PostStatsView post_view_;  // the Post page's figures, last frame
+    PostStatsView post_view_;  // the post-processing figures (Map tab, Advanced), last frame
     // Step 9.7: theme in use, UI restarts, About logos, plugin windows.
     Style style_;
     std::string help_section_;  // F1: the help of the focused window (last frame)

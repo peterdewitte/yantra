@@ -161,7 +161,7 @@ TEST_CASE("project window: floor tabs, \"+\", properties, reorder and remove by 
     CHECK(s.ui.has("start.file.new_project"));
 }
 
-TEST_CASE("project window: layer panel toggles and order, zoom and pan, scale bar, small windows (UI-13)") {
+TEST_CASE("project window: the Map tab's Show row and map opacity, zoom and pan, scale bar, small windows (UI-13, UI-19)") {
     const fs::path dir = scratch("layers");
     make_depot(dir / "depot.yantra");
     Shell s({});
@@ -172,6 +172,11 @@ TEST_CASE("project window: layer panel toggles and order, zoom and pan, scale ba
     CHECK(cv.stats().scale.label == "not to scale");
     CHECK(cv.stats().scale.pixels == 0.0);
 
+    // UI-18: the project window opens on the Walk tab; the Show row is the Map tab's.
+    CHECK(s.ui.has("panel.walk"));
+    CHECK_FALSE(s.ui.has("layer.points"));
+    REQUIRE(s.ui.click("panel.map"));
+    REQUIRE(s.ui.frames(2));
     // Toggle the points off and on.
     REQUIRE_MESSAGE(s.ui.has("layer.points"), s.ui.dump());
     REQUIRE(s.ui.click("layer.points"));
@@ -183,16 +188,14 @@ TEST_CASE("project window: layer panel toggles and order, zoom and pan, scale ba
     REQUIRE(s.ui.frames(2));
     CHECK(cv.stats().points == 3);
 
-    // Order: the points one place down (below the binned layer) and back.
-    CHECK(s.ui.find("layer.points.up")->disabled);  // already on top
-    const std::size_t before = s.state.settings().layers.position(Layer::Points);
-    REQUIRE(s.ui.click("layer.points.down"));
-    REQUIRE(s.ui.frames(2));
-    CHECK(s.state.settings().layers.position(Layer::Points) == before - 1);
-    REQUIRE(s.ui.click("layer.points.up"));
-    REQUIRE(s.ui.frames(2));
-    CHECK(s.state.settings().layers.position(Layer::Points) == before);
-    CHECK(s.ui.find("layer.plan.down")->disabled);  // already at the bottom
+    // UI-19: the map's opacity, kept in the settings (clamped).
+    REQUIRE(s.ui.has("map.opacity"));
+    CHECK(s.state.settings().layers.map_opacity == doctest::Approx(0.85));
+    s.state.set_map_opacity(0.5);
+    CHECK(s.state.settings().layers.map_opacity == doctest::Approx(0.5));
+    s.state.set_map_opacity(0.0);
+    CHECK(s.state.settings().layers.map_opacity == doctest::Approx(kMinMapOpacity));
+    CHECK_FALSE(s.ui.has("layer.points.up"));  // no layer order in the UI any more (no Layers tab)
 
     // Zoom buttons and the wheel change the zoom; Fit restores it; a drag pans.
     const double fit = cv.view().zoom();
@@ -282,7 +285,12 @@ TEST_CASE("project window on the demo: plan tiles, points, map, stale badge, DEM
         CHECK(cv.stats().interpolation);
         CHECK(cv.stats().stale_badge);
 
-        // The binned view, when switched on.
+        // The binned view, when switched on (Map tab, Advanced, UI-19).
+        s.ui.set_display_size(1600.0F, 2000.0F);
+        REQUIRE(s.ui.click("panel.map"));
+        REQUIRE(s.ui.frames(2));
+        REQUIRE(s.ui.click("map.advanced"));
+        REQUIRE(s.ui.frames(2));
         REQUIRE(s.ui.click("layer.binned"));
         REQUIRE(s.ui.frames(2));
         CHECK(cv.stats().bins > 0);

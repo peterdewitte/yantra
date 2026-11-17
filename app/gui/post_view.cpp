@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2026 The Yantra contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The Post page of the side panel (step 9.8; docs/APP.md "Cell database,
-// network checks and post-processing"): load recordings (PP-01), the
+// The post-processing settings in the Map tab's Advanced dropdown (UI-19,
+// step 9.8; docs/APP.md "Cell database, network checks and post-processing"): load recordings (PP-01), the
 // value shown and its view (PP-02, PP-04), failed cells (PP-03), the
 // binned layer's percentile (PP-05), coverage figures and an acceptance
 // profile (EXP-06). Drawing only: the model is PostProcessing (app/model).
@@ -108,9 +108,22 @@ void Gui::draw_post_section() {
         text_tooltip(tr("Add this to every level (e.g. -10 dB building penetration or body loss): a simulation, "
                      "labelled so."));
     }
-    ImGui::InputDouble(tr("Bin percentile###post.percentile"), &s.bin_percentile, 5.0, 10.0, "%.0f");
-    text_tooltip(tr("The value of a square of the binned layer (Layers page): 50 is the median."));
     ImGui::PopItemWidth();
+    // PP-05: the binned squares, an extra view of the points.
+    {
+        bool binned = state_.settings().layers.visible(Layer::Binned);
+        if (ImGui::Checkbox(tr("Binned squares###layer.binned"), &binned)) state_.set_layer_visible(Layer::Binned, binned);
+        text_tooltip(tr("Show the points as squares of the size below, each with a percentile of its points (an extra "
+                        "view, always labelled)."));
+        ImGui::PushItemWidth(std::min(em(120.0F), ImGui::GetContentRegionAvail().x * 0.55F));
+        float size = static_cast<float>(state_.settings().layers.bin_size_m);
+        if (ImGui::InputFloat(tr("Square (m)###layer.bin_size"), &size, 0.5F, 1.0F, "%.1f", ImGuiInputTextFlags_EnterReturnsTrue))
+            (void)state_.set_bin_size(static_cast<double>(size));
+        text_tooltip(tr("The side of the squares in metres (0.5 to 50)."));
+        ImGui::InputDouble(tr("Bin percentile###post.percentile"), &s.bin_percentile, 5.0, 10.0, "%.0f");
+        text_tooltip(tr("The value of each square: 50 is the median."));
+        ImGui::PopItemWidth();
+    }
     if (s.bin_percentile < 0.0) s.bin_percentile = 0.0;
     if (s.bin_percentile > 100.0) s.bin_percentile = 100.0;
     ImGui::Checkbox(tr("Serving cell changes###post.changes"), &s.serving_changes);

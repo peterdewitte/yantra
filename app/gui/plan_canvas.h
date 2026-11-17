@@ -85,7 +85,7 @@ public:
 private:
     void open(ProjectWindow& window, const FloorContent& content);
     void draw_tiles(ImDrawList* dl, ImVec2 origin);
-    void draw_interpolation(ImDrawList* dl, ImVec2 origin, const FloorContent& c);
+    void draw_interpolation(ImDrawList* dl, ImVec2 origin, const FloorContent& c, double opacity);
     void draw_binned(ImDrawList* dl, ImVec2 origin, const FloorContent& c);
     void draw_points(ImDrawList* dl, ImVec2 origin, ImVec2 size, const FloorContent& c);
     void draw_overlay(ImDrawList* dl, ImVec2 origin, ImVec2 size, const FloorContent& c, const LayerSettings& layers);

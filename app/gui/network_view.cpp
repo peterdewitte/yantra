@@ -36,26 +36,13 @@ bool multiline_text(const char* label, std::string& s, float height, std::size_t
     return changed;
 }
 
-bool begin_window(const char* title, const char* id, bool& open, float x, float y, float w, float h) {
-    const ImGuiViewport* vp = ImGui::GetMainViewport();
-    ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + x, vp->WorkPos.y + y), ImGuiCond_FirstUseEver);
-    w = std::min(em(w), vp->WorkSize.x * 0.95F);
-    h = em(h);
-    ImGui::SetNextWindowSize(ImVec2(w, std::max(std::min(em(320.0F), vp->WorkSize.y * 0.6F), std::min(h, vp->WorkSize.y - y - 20.0F))),
-                             ImGuiCond_FirstUseEver);
-    const std::string name = std::string(title) + "###" + id;
-    const bool shown = ImGui::Begin(name.c_str(), &open, ImGuiWindowFlags_NoSavedSettings);
-    if (shown) wrap_texts();
-    return shown;
-}
-
 }  // namespace
 
 void Gui::draw_network_windows() {
     NetworkWindows& nw = state_.network_windows();
     if (nw.cell_db && state_.cell_db() != nullptr) {
         bool open = true;
-        if (begin_window("Cell database", "win.cell_db", open, 60.0F, 30.0F, 900.0F, 4000.0F)) {
+        if (begin_tool_window("Cell database", "win.cell_db", open, 60.0F, 30.0F, 900.0F, 4000.0F)) {
             help_button("8.1");
             draw_cell_db(*state_.cell_db());
         }
@@ -64,7 +51,7 @@ void Gui::draw_network_windows() {
     }
     if (nw.verification && state_.network_checks() != nullptr) {
         bool open = true;
-        if (begin_window("Verification", "win.verification", open, 90.0F, 80.0F, 820.0F, 700.0F)) {
+        if (begin_tool_window("Verification", "win.verification", open, 90.0F, 80.0F, 820.0F, 700.0F)) {
             help_button("8.2");
             draw_verification(*state_.network_checks());
         }
@@ -73,7 +60,7 @@ void Gui::draw_network_windows() {
     }
     if (nw.reselection && state_.network_checks() != nullptr) {
         bool open = true;
-        if (begin_window("Reselection simulator", "win.reselection", open, 120.0F, 110.0F, 640.0F, 560.0F)) {
+        if (begin_tool_window("Reselection simulator", "win.reselection", open, 120.0F, 110.0F, 640.0F, 560.0F)) {
             help_button("8.3");
             draw_reselection(*state_.network_checks());
         }

@@ -49,7 +49,7 @@ VerificationView NetworkChecks::verification(bool matches) const {
     const celldb::Technologies techs = technologies_ ? technologies_() : celldb::Technologies{};
     v.received = received.size();
     if (received.empty()) {
-        v.note = tr("No cells received yet: start the radio (Survey page) or replay a recording; the received broadcast "
+        v.note = tr("No cells received yet: start the radio (Walk tab) or replay a recording; the received broadcast "
                  "parameters and neighbour lists are compared with the cell database as they come.");
         return v;
     }

@@ -116,6 +116,16 @@ const ActionDef kActions[] = {
      tr_mark("Choose a serving cell and the levels of its neighbours: the technology plugin's reselection rule says what a "
      "radio would do."),
      nullptr},
+    {Action::WindowNeighbours, "window.neighbours", tr_mark("Neighbours"), "",
+     tr_mark("Show or hide the window with the serving cell, its broadcast parameters and its neighbours."), nullptr},
+    {Action::WindowGraphs, "window.graphs", tr_mark("Graphs"), "",
+     tr_mark("Show or hide the window with the level, C1 and quality graphs over time."), nullptr},
+    {Action::WindowScanner, "window.scanner", tr_mark("Scanner"), "",
+     tr_mark("Show or hide the window with every carrier the radios report."), nullptr},
+    {Action::WindowEvents, "window.events", tr_mark("Events"), "",
+     tr_mark("Show or hide the window with the events of the walk: cell changes, alerts and markers."), nullptr},
+    {Action::WindowStatistics, "window.statistics", tr_mark("Statistics"), "",
+     tr_mark("Show or hide the window with the statistics of the measurements and the coverage threshold."), nullptr},
 };
 
 const ActionDef& def(Action a) {
@@ -257,12 +267,17 @@ ActionView AppState::action(Action a) const {
     case Action::CellDatabase:
     case Action::Verification:
     case Action::Reselection:
+    case Action::WindowNeighbours:
+    case Action::WindowGraphs:
+    case Action::WindowScanner:
+    case Action::WindowEvents:
+    case Action::WindowStatistics:
         if (!open) {
             v.enabled = false;
             v.disabled_reason = tr("No project is open: create one (File > New indoor project) or open one first.");
         } else if (a == Action::CloseProject && live_ && live_->exit_guard()) {
             v.enabled = false;
-            v.disabled_reason = tr("A recording is running: stop it first (Survey > Recording).");
+            v.disabled_reason = tr("A recording is running: stop it first (Walk tab > Recording).");
         }
         break;
     case Action::Export:
@@ -279,7 +294,7 @@ ActionView AppState::action(Action a) const {
         // REC-11: no accidental exit while recording.
         if (live_ && live_->exit_guard()) {
             v.enabled = false;
-            v.disabled_reason = tr("A recording is running: stop it first (Survey > Recording).");
+            v.disabled_reason = tr("A recording is running: stop it first (Walk tab > Recording).");
         }
         break;
     case Action::UserManualPdf:
@@ -300,7 +315,26 @@ ActionView AppState::action(Action a) const {
         break;
     default: break;
     }
+    if (const bool* shown = survey_window(a)) {
+        v.checkable = true;
+        v.checked = *shown;
+    }
     return v;
+}
+
+bool* AppState::survey_window(Action a) {
+    return const_cast<bool*>(static_cast<const AppState*>(this)->survey_window(a));
+}
+
+const bool* AppState::survey_window(Action a) const {
+    switch (a) {
+    case Action::WindowNeighbours: return &survey_windows_.neighbours;
+    case Action::WindowGraphs: return &survey_windows_.graphs;
+    case Action::WindowScanner: return &survey_windows_.scanner;
+    case Action::WindowEvents: return &survey_windows_.events;
+    case Action::WindowStatistics: return &survey_windows_.statistics;
+    default: return nullptr;
+    }
 }
 
 std::vector<Menu> AppState::menus() const {
@@ -320,11 +354,15 @@ std::vector<Menu> AppState::menus() const {
     // Step 9.8: the cell database and the checks against it.
     Menu network{"network", tr("Network"), {}};
     network.entries = {item(Action::CellDatabase), item(Action::Verification), item(Action::Reselection)};
+    // UI-18: the survey windows (the Walk tab keeps the live values).
+    Menu window{"window", tr("Window"), {}};
+    window.entries = {item(Action::WindowNeighbours), item(Action::WindowGraphs), item(Action::WindowScanner),
+                      item(Action::WindowEvents), item(Action::WindowStatistics)};
     Menu help{"help", tr("Help"), {}};
     help.entries = {item(Action::Tour),        item(Action::UserManual),    item(Action::UserManualPdf),
                     item(Action::QuickStarts), sep,                         item(Action::ResetSettings),
                     sep,                       item(Action::HelpAbout)};
-    return {file, network, help};
+    return {file, network, window, help};
 }
 
 std::vector<RecentView> AppState::recent_projects() const {
@@ -506,6 +544,15 @@ Result AppState::trigger(Action a) {
     case Action::CellDatabase: network_windows_.cell_db = true; return Result{};
     case Action::Verification: network_windows_.verification = true; return Result{};
     case Action::Reselection: network_windows_.reselection = true; return Result{};
+    case Action::WindowNeighbours:
+    case Action::WindowGraphs:
+    case Action::WindowScanner:
+    case Action::WindowEvents:
+    case Action::WindowStatistics: {
+        bool& shown = *survey_window(a);
+        shown = !shown;
+        return Result{};
+    }
     case Action::Export:
         output_->open_export();
         dialog_ = Dialog::Export;
@@ -1149,6 +1196,13 @@ Result AppState::set_bin_size(double size_m) {
     return Result{};
 }
 
+void AppState::set_map_opacity(double opacity) {
+    const double v = std::clamp(opacity, kMinMapOpacity, 1.0);
+    if (v == settings_.layers.map_opacity) return;
+    settings_.layers.map_opacity = v;
+    settings_changed_ = true;
+}
+
 fs::path AppState::suggested_project_file(const std::string& name) const {
     std::string stem;
     for (char c : name) stem += (std::isalnum(static_cast<unsigned char>(c)) != 0 || c == '-' || c == '_') ? c : '_';
@@ -1178,6 +1232,7 @@ void AppState::drop_network() {
     checks_.reset();
     cell_db_.reset();
     network_windows_ = NetworkWindows{};
+    survey_windows_ = SurveyWindows{};
 }
 
 celldb::Technologies AppState::technologies() {
@@ -1349,7 +1404,7 @@ Result AppState::open_replay(const RecordingChoice& recording) {
 
 Result AppState::request_exit() {
     if (live_ && live_->exit_guard())
-        return fail(tr("A recording is running: stop it first (Survey > Recording), then close Yantra."));
+        return fail(tr("A recording is running: stop it first (Walk tab > Recording), then close Yantra."));
     return {};
 }
 
@@ -1639,7 +1694,7 @@ Result AppState::save_profile(const fs::path& file) {
 }
 
 Result AppState::load_profile(const fs::path& file) {
-    if (live_ && live_->exit_guard()) return fail(tr("A recording is running: stop it first (Survey > Recording)."));
+    if (live_ && live_->exit_guard()) return fail(tr("A recording is running: stop it first (Walk tab > Recording)."));
     std::ifstream in(file, std::ios::binary);
     if (!in) return fail(tr("cannot read ") + file.string());
     const std::string text{std::istreambuf_iterator<char>(in), std::istreambuf_iterator<char>()};
@@ -1679,7 +1734,7 @@ fs::path AppState::reset_backup_root() const {
 }
 
 Result AppState::confirm_reset_settings() {
-    if (live_ && live_->exit_guard()) return fail(tr("A recording is running: stop it first (Survey > Recording)."));
+    if (live_ && live_->exit_guard()) return fail(tr("A recording is running: stop it first (Walk tab > Recording)."));
     if (project_) {
         if (const Result r = close_project(); !r.ok) return fail(r.message);
     }

@@ -109,7 +109,10 @@ TEST_CASE("interpolation: run with the map on the plan, settings dialog, stale b
     const auto maps = s.state.project()->interpolations(s.state.project_window()->selected());
     REQUIRE(maps.size() == 1);
 
-    // The settings dialog: a bad grid keeps it open; a good one stores it.
+    // The settings dialog (Advanced, UI-19): a bad grid keeps it open; a good one stores it.
+    CHECK_FALSE(s.ui.has("interp.settings"));
+    REQUIRE(s.ui.click("map.advanced"));
+    REQUIRE(s.ui.frames(2));
     REQUIRE(s.ui.click("interp.settings"));
     REQUIRE(s.ui.wait_window("dlg.interpolation"));
     REQUIRE(s.ui.fill("grid", "50", "dlg.interpolation"));
@@ -122,7 +125,7 @@ TEST_CASE("interpolation: run with the map on the plan, settings dialog, stale b
     REQUIRE(s.ui.wait_window_closed("dlg.interpolation"));
     CHECK(s.state.project()->interpolation_settings().grid_m == doctest::Approx(1.0));
 
-    // The map is stale now: the badge, "Run again (stale)"; run it again.
+    // The map is stale now: the badge, "Compute again (stale)"; compute it again.
     REQUIRE(s.ui.run_until([&] { return s.gui.canvas().stats().stale_badge; }, 30));
     REQUIRE(s.ui.has("interp.rerun"));
     CHECK(s.ui.find("interp.rerun")->label.find("stale") != std::string::npos);

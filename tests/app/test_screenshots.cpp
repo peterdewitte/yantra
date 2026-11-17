@@ -143,13 +143,14 @@ TEST_CASE("SCR-03: the screenshot scenes without a radio reach their capture") {
     for (const char* name : {"survey", "survey_graphs", "survey_events"})
         play(name, [name](UiHarness&, AppState& s, Gui& g) {
             CHECK(s.replay()->view().open);
-            CHECK(g.survey_overlay().panels);
-            if (std::string(name) == "survey") CHECK_FALSE(g.survey_overlay().serving.empty());
-            if (std::string(name) == "survey_graphs") CHECK(g.survey_overlay().tab == "graphs");
-            if (std::string(name) == "survey_events") CHECK(g.survey_overlay().tab == "events");
+            CHECK(g.survey_overlay().live_values);  // the Walk tab (UI-18)
+            CHECK_FALSE(g.survey_overlay().serving.empty());
+            if (std::string(name) == "survey") CHECK(g.survey_overlay().shown("neighbours"));
+            if (std::string(name) == "survey_graphs") CHECK(g.survey_overlay().shown("graphs"));
+            if (std::string(name) == "survey_events") CHECK(g.survey_overlay().shown("events"));
         });
     // The translated survey view of the manuals (SCR-03).
-    play("survey", [](UiHarness& ui, AppState&, Gui&) { CHECK(ui.has("panel.survey")); }, {}, Language::De);
+    play("survey", [](UiHarness& ui, AppState&, Gui&) { CHECK(ui.has("panel.walk")); }, {}, Language::De);
     play("walk_test", [](UiHarness& ui, AppState& s, Gui&) {
         CHECK_FALSE(s.settings().layers.visible(Layer::Interpolation));
         CHECK(ui.has("panel.walk"));
@@ -160,7 +161,11 @@ TEST_CASE("SCR-03: the screenshot scenes without a radio reach their capture") {
         REQUIRE(b);
         CHECK(b->y1 - b->y0 >= static_cast<float>(kTouchTargetPx) - 0.5F);
     });
-    play("interpolation", [](UiHarness&, AppState& s, Gui&) { CHECK(s.screen() == Screen::Project); });
+    play("interpolation", [](UiHarness& ui, AppState& s, Gui& g) {
+        CHECK(s.screen() == Screen::Project);
+        CHECK(ui.has("map.opacity"));  // the Map tab (UI-19)
+        CHECK(g.survey_overlay().advanced_open);
+    });
     play("cell_database", [](UiHarness&, AppState& s, Gui&) { CHECK(s.network_windows().cell_db); });
     play("export", [](UiHarness& ui, AppState& s, Gui&) {
         CHECK(s.dialog() == Dialog::Export);
@@ -190,7 +195,7 @@ TEST_CASE("SCR-03: the screenshot scenes without a radio reach their capture") {
 TEST_CASE("SCR-03: the simulator's scenes: scanner, radio list and generated radio windows (PLG-16)") {
     if (!available()) return;
     play("survey_scanner", [](UiHarness&, AppState&, Gui& g) {
-        CHECK(g.survey_overlay().tab == "scanner");
+        CHECK(g.survey_overlay().shown("scanner"));
         CHECK(g.survey_overlay().scan_rows > 0);
     });
     play("radio_list", [](UiHarness&, AppState& s, Gui&) { CHECK(s.radio_windows()->is_open(RadioWindow::List)); });

@@ -1,10 +1,12 @@
 // SPDX-FileCopyrightText: 2026 The Yantra contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The project window's tools (step 9.4): the walk test and the mouse
-// survey (IND-20, GEO-02, GEO-05, DEMO-14), the interpolation commands and
-// the interpolation settings (IND-41, IND-43, IND-45). Drawing and input
-// only; the logic is in LiveSurvey and InterpolationRunner (app/model).
+// The project window's tabs (UI-18, UI-19): Walk with the walk test and
+// the mouse survey (IND-20, GEO-02, GEO-05, DEMO-14), the live values and
+// the recording; Map with the Show row, the interpolation commands and
+// the Advanced dropdown (IND-41, IND-43, IND-45, PP-02..05, EXP-06).
+// Drawing and input only; the logic is in LiveSurvey, ProjectWindow and
+// InterpolationRunner (app/model).
 #include <imgui.h>
 
 #include <algorithm>
@@ -14,6 +16,7 @@
 
 #include "gui.h"
 #include "yantra/app/i18n.h"
+#include "yantra/core/project/project.h"
 #include "gui_widgets.h"
 
 namespace yantra::app {
@@ -70,6 +73,98 @@ ImVec2 plan_badge(ImDrawList* dl, ImVec2 pos, const char* text, ImU32 bg) {
 
 }  // namespace
 
+// -- the Walk tab (UI-18) ------------------------------------------------------------------------
+
+void Gui::draw_walk_page(const FloorContent* c) {
+    LiveSurvey* live = state_.live();
+    if (live == nullptr || state_.monitor() == nullptr) return;
+    draw_walk_section(c);
+    draw_live_values(state_.monitor()->frame());
+    draw_recording_controls(*live);
+    // REC-07: replaying a recording into the live values and the windows.
+    const bool replaying = state_.replay() != nullptr && state_.replay()->is_open();
+    if (replaying) ImGui::SetNextItemOpen(true, ImGuiCond_Always);
+    const bool open = ImGui::CollapsingHeader(tr("Replay###walk.replay"));
+    text_tooltip(tr("Replay a recording of the project into the live values and the survey windows (Window menu)."));
+    if (open && state_.replay() != nullptr) draw_replay_controls();
+    ImGui::TextDisabled("%s", tr("Neighbours, graphs, scanner, events and statistics: Window menu."));
+}
+
+// -- the Map tab (UI-19) -------------------------------------------------------------------------
+
+void Gui::draw_map_page(ProjectWindow& w, const FloorContent* c) {
+    // The Show row: plan, measured points and the map with its opacity.
+    ImGui::SeparatorText(tr("Show"));
+    help_marker(tr("Switch the plan, the measured points and the interpolated map on or off. These are your viewing "
+                   "settings: they do not change the project or its report."));
+    const std::vector<LayerRow> rows = w.layer_rows(state_.settings().layers);
+    auto row_of = [&](Layer l) -> const LayerRow* {
+        for (const LayerRow& r : rows)
+            if (r.layer == l) return &r;
+        return nullptr;
+    };
+    bool first = true;
+    const std::pair<Layer, const char*> shown[] = {{Layer::Plan, tr("Plan###layer.plan")},
+                                                   {Layer::Points, tr("Points###layer.points")},
+                                                   {Layer::Interpolation, tr("Map###layer.interpolation")}};
+    for (const auto& [layer, label] : shown) {
+        const LayerRow* r = row_of(layer);
+        if (r == nullptr) continue;
+        if (!first) same_line_if(switch_w(label));
+        first = false;
+        bool on = r->visible;
+        if (ImGui::Checkbox(label, &on)) state_.set_layer_visible(layer, on);
+        text_tooltip(r->tooltip.c_str());
+    }
+    {
+        float pct = static_cast<float>(state_.settings().layers.map_opacity * 100.0);
+        ImGui::BeginDisabled(!state_.settings().layers.visible(Layer::Interpolation));
+        ImGui::SetNextItemWidth(std::min(em(140.0F), ImGui::GetContentRegionAvail().x * 0.6F));
+        if (ImGui::SliderFloat(tr("Map opacity###map.opacity"), &pct, static_cast<float>(kMinMapOpacity * 100.0), 100.0F,
+                               "%.0f %%", ImGuiSliderFlags_AlwaysClamp))
+            state_.set_map_opacity(static_cast<double>(pct) / 100.0);
+        ImGui::EndDisabled();
+        text_tooltip(tr("How much of the plan shows through the map (10 to 100 %)."));
+    }
+    for (Layer l : {Layer::Points, Layer::Interpolation})
+        if (const LayerRow* r = row_of(l); r != nullptr && !r->note.empty())
+            wrapped(r->note, l == Layer::Interpolation && c != nullptr && c->interpolation && c->interpolation->stale);
+    if (c == nullptr) return;
+    ImGui::TextDisabled(tr("%zu measured points"), c->points.count());
+    if (c->metres_per_unit)
+        ImGui::TextDisabled(tr("Scale: %.4g m per plan unit"), *c->metres_per_unit);
+    else
+        ImGui::TextColored(kBannerColour, "%s", tr("Not to scale"));
+    if (!canvas_->tile_error().empty() && c->has_plan) wrapped(canvas_->tile_error(), true);
+
+    // Compute the map (IND-45), and choose one of several stored maps.
+    draw_interpolation_section(c);
+    if (c->interpolation) {
+        ImGui::TextDisabled(tr("IDW of %zu measured points"), c->interpolation->points);
+        if (c->interpolations.size() > 1) {
+            ImGui::SetNextItemWidth(-1.0F);
+            if (ImGui::BeginCombo("###layer.interpolation.choose", c->interpolation->key.c_str())) {
+                for (const auto& [iid, key] : c->interpolations)
+                    if (ImGui::Selectable((key + "###layer.map." + std::to_string(iid)).c_str(), iid == c->interpolation->id))
+                        (void)w.show_interpolation(iid);
+                ImGui::EndCombo();
+            }
+            text_tooltip(tr("The floor has several stored maps (one per metric and cell): choose the one shown."));
+        }
+    }
+
+    // UI-19: the post-processing settings, closed by default.
+    ImGui::Spacing();
+    const bool advanced = ImGui::CollapsingHeader(tr("Advanced###map.advanced"));
+    text_tooltip(tr("Post-processing: the value and view of the points, failed cells, level offset, binning, the "
+                    "interpolation settings and the acceptance profile."));
+    if (!advanced) return;
+    survey_.advanced_open = true;
+    help_button("11.1");
+    draw_interpolation_settings();
+    draw_post_section();
+}
+
 // -- walk test (IND-20, GEO-02, GEO-05, DEMO-14) -----------------------------------------------
 
 void Gui::draw_walk_section(const FloorContent* c) {
@@ -104,6 +199,7 @@ void Gui::draw_walk_section(const FloorContent* c) {
         text_tooltip(tr("The radio the walk test measures with."));
     }
     wrapped(live->radio_note(), live->radios().empty() && live->radios_searched());
+    if (live->radios_searched()) draw_radio_controls(*live);
 
     WalkForm& f = live->form();
     ImGui::BeginDisabled(running);
@@ -177,12 +273,12 @@ void Gui::draw_interpolation_section(const FloorContent* c) {
         text_tooltip(tr("Stop the interpolation; nothing is stored."));
     } else {
         const std::string why = run->run_reason(c->floor_id);
-        if (tool_button(tr("Run###interp.run"), why.empty(),
+        if (tool_button(tr("Compute map###interp.run"), why.empty(),
                         tr("Compute a new map of this floor from its measured points (serving carrier level)."), why))
             (void)state_.run_interpolation(false);
         if (c->interpolation) {
             const bool stale = c->interpolation->stale;
-            const char* rerun = stale ? tr("Run again (stale)###interp.rerun") : tr("Run again###interp.rerun");
+            const char* rerun = stale ? tr("Compute again (stale)###interp.rerun") : tr("Compute again###interp.rerun");
             // Beside Run when it fits, else on a line of its own (TST-52).
             same_line_if(label_w(rerun));
             if (tool_button(rerun, why.empty(),
@@ -194,8 +290,16 @@ void Gui::draw_interpolation_section(const FloorContent* c) {
     if (c->interpolation && c->interpolation->stale) {
         std::string reasons;
         for (const std::string& r : c->interpolation->stale_reasons) reasons += (reasons.empty() ? "" : ", ") + r;
-        wrapped(tr("Stale: ") + reasons + ". Run again to update it.", true);
+        wrapped(trf("Stale: {}. Compute again to update it.", {reasons}), true);
     }
+}
+
+void Gui::draw_interpolation_settings() {
+    const project::Project* p = state_.project();
+    if (p == nullptr) return;
+    ImGui::SeparatorText(tr("Interpolation"));
+    const project::InterpolationSettings s = p->interpolation_settings();
+    ImGui::TextDisabled(tr("Grid %.2f m, power %.1f, radius %.1f m"), s.grid_m, s.power, s.radius_m);
     if (ImGui::Button(tr("Settings...###interp.settings"))) (void)state_.edit_interpolation_settings();
     text_tooltip(tr("Grid size, power, search radius and confidence distance of the interpolation (stored in the project)."));
 }

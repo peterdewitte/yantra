@@ -52,6 +52,22 @@ inline float target_h(float desktop = 0.8F) {
 /// (menus, tooltips), whose width the texts make.
 inline void wrap_texts() { ImGui::PushTextWrapPos(0.0F); }
 
+/// A non-modal tool window (Network and Window menus), placed and sized
+/// the first time (sizes for the 13 px font); its title is translated, its
+/// id "###<id>" stable. End it with ImGui::End() in every case.
+inline bool begin_tool_window(const char* title, const char* id, bool& open, float x, float y, float w, float h) {
+    const ImGuiViewport* vp = ImGui::GetMainViewport();
+    ImGui::SetNextWindowPos(ImVec2(vp->WorkPos.x + x, vp->WorkPos.y + y), ImGuiCond_FirstUseEver);
+    w = std::min(em(w), vp->WorkSize.x * 0.95F);
+    h = em(h);
+    ImGui::SetNextWindowSize(ImVec2(w, std::max(std::min(em(320.0F), vp->WorkSize.y * 0.6F), std::min(h, vp->WorkSize.y - y - 20.0F))),
+                             ImGuiCond_FirstUseEver);
+    const std::string name = std::string(title) + "###" + id;
+    const bool shown = ImGui::Begin(name.c_str(), &open, ImGuiWindowFlags_NoSavedSettings);
+    if (shown) wrap_texts();
+    return shown;
+}
+
 /// A one-line text shortened with "..." to `width` when it is longer, with
 /// its whole text on hover then (TST-52); `colour` 0 = the text colour.
 inline void text_ellipsis(const char* text, float width, ImU32 colour = 0) {

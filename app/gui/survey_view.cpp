@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <functional>
 #include <string>
 
 #include "gui.h"
@@ -80,46 +81,83 @@ bool tool_button(const char* label, const std::string& why_not, const char* tool
 
 }  // namespace
 
-// -- the side panel's Survey tab ----------------------------------------------------------
+// -- the Walk tab's radio, live values and recording (UI-18) ----------------------------------
 
-void Gui::draw_survey_section() {
-    LiveSurvey* live = state_.live();
+void Gui::draw_radio_controls(LiveSurvey& live) {
     ReplaySession* replay = state_.replay();
-    if (live == nullptr || replay == nullptr) return;
-    const bool replaying = replay->is_open();
-
-    ImGui::SeparatorText(tr("Radio"));
-    const RadioState rs = live->radio_state();
+    const bool replaying = replay != nullptr && replay->is_open();
+    const RadioState rs = live.radio_state();
     if (rs.lost) ImGui::TextColored(kWarnColour, "%s", rs.text.c_str());
-    else ImGui::TextUnformatted(rs.text.c_str());
-    if (!live->radios().empty() || live->radio_running()) {
-        if (live->radio_running()) {
-            const std::string why = live->running() ? tr("Stop the walk test first.")
-                                    : live->recording() ? tr("Stop the recording first.") : "";
-            if (tool_button(tr("Stop radio###survey.radio_stop"), why, tr("Stop measuring.")))
-                (void)state_.show(live->stop_radio());
-        } else {
-            const std::string why = replaying ? tr("Close the replay first.") : live->chosen() ? "" : tr("Choose a radio (Walk tab).");
-            if (tool_button(tr("Start radio###survey.radio_start"), why,
-                            tr("Measure with the chosen radio without a walk test (monitoring): the survey panels fill; "
-                            "a recording can start.")))
-                (void)state_.show(live->start_radio());
-        }
-    } else {
-        const std::string why = replaying ? tr("Close the replay first.") : "";
-        if (tool_button(tr("Find radios###survey.find_radios"), why, tr("Look for the radios (the Walk tab chooses one).")))
-            (void)state_.show(live->find_radios());
+    else ImGui::TextDisabled("%s", rs.text.c_str());
+    if (live.radio_running()) {
+        const std::string why = live.running() ? tr("Stop the walk test first.")
+                                : live.recording() ? tr("Stop the recording first.") : "";
+        if (tool_button(tr("Stop radio###walk.radio_stop"), why, tr("Stop measuring.")))
+            (void)state_.show(live.stop_radio());
+    } else if (!live.radios().empty()) {
+        const std::string why = replaying ? tr("Close the replay first.") : live.chosen() ? "" : tr("Choose a radio first.");
+        if (tool_button(tr("Start radio###walk.radio_start"), why,
+                        tr("Measure with the chosen radio without a walk test (monitoring): the live values fill; a "
+                           "recording can start.")))
+            (void)state_.show(live.start_radio());
     }
+}
 
-    draw_recording_controls(*live);
-    draw_replay_controls();
-
-    ImGui::SeparatorText(tr("Coverage"));
-    double th = state_.monitor()->stats().threshold_dbm;
-    ImGui::SetNextItemWidth(std::min(em(110.0F), ImGui::GetContentRegionAvail().x * 0.55F));
-    if (ImGui::InputDouble(tr("dBm###survey.threshold"), &th, 1.0, 5.0, "%.0f") && th >= kMinThresholdDbm && th <= kMaxThresholdDbm)
-        (void)state_.show(state_.set_coverage_threshold(th));
-    text_tooltip(tr("The serving level that counts as covered in the statistics (UI-11); kept in the settings."));
+void Gui::draw_live_values(const SurveyFrame& f) {
+    ImGui::SeparatorText(tr("Live values"));
+    survey_.live_values = true;
+    // NFR-07: the self-interference warning with its advice.
+    const measure::SelfInterferenceWarning w = state_.monitor()->interference();
+    if (w.active) {
+        survey_.interference_banner = true;
+        ImGui::TextColored(kWarnColour, tr("Self-interference: %s"), w.text.c_str());
+    }
+    if (!f.valid) {
+        ImGui::TextDisabled(tr("No measurements yet: start the radio, a walk test or a replay."));
+        return;
+    }
+    if (f.at_cursor) {
+        ImGui::TextColored(kWarnColour, tr("At the graph cursor"));
+        same_line_if(label_w(tr("Live###walk.live")));
+        if (ImGui::SmallButton(tr("Live###walk.live"))) state_.monitor()->set_cursor(std::nullopt);
+        text_tooltip(tr("Follow the newest measurement again."));
+    }
+    // UI-01: the serving cell, its level large, the quality and the samples.
+    if (f.serving) {
+        survey_.serving = cell_label(*f.serving) + "  " + mhz(f.serving->frequency_hz);
+        ImGui::TextUnformatted(survey_.serving.c_str());
+        ImGui::PushFont(nullptr, ImGui::GetStyle().FontSizeBase * 2.0F);
+        const std::string lv = level_text(f.serving->level, f.serving->calibrated);
+        ImGui::TextUnformatted(lv.c_str());
+        ImGui::PopFont();
+        survey_.large.push_back(tr("Level ") + lv);
+        std::string line;
+        if (f.serving->c1) {
+            char b[48];
+            std::snprintf(b, sizeof b, tr("C1 %.1f dB%s"), *f.serving->c1, f.serving->c1_estimated ? tr(" (est.)") : "");
+            line += b;
+        }
+        if (f.serving->quality) {
+            char b[64];
+            std::snprintf(b, sizeof b, "%s%s %.1f %s", line.empty() ? "" : "   ", f.serving->quality->field.c_str(),
+                          f.serving->quality->value, f.serving->quality->unit.c_str());
+            line += b;
+        }
+        if (!line.empty()) {
+            ImGui::TextUnformatted(line.c_str());
+            survey_.large.push_back(line);
+        }
+        for (const FieldText& t : f.serving->large) {
+            ImGui::Text("%s %s", t.label.c_str(), t.value.c_str());
+            survey_.large.push_back(t.label + " " + t.value);
+        }
+        if (!f.serving->flags_text.empty()) ImGui::TextColored(kWarnColour, "%s", f.serving->flags_text.c_str());
+    } else {
+        ImGui::TextDisabled(tr("No serving cell"));
+    }
+    ImGui::TextDisabled(tr("%llu samples"), static_cast<unsigned long long>(f.samples));
+    // UI-04: the serving cell's level over the last minute.
+    draw_graphs_panel(true, std::max(em(90.0F), ImGui::GetTextLineHeight() * 6.0F));
 }
 
 void Gui::draw_recording_controls(LiveSurvey& live) {
@@ -241,7 +279,7 @@ void Gui::draw_replay_controls() {
                                 : live->recording() ? tr("Stop the recording first.") : "";
         if (tool_button(tr("Open###replay.open"), why, tr("Replay the recording into the survey panels (the radio stops)."))) {
             const Result r = state_.open_replay(list[static_cast<std::size_t>(replay_pick_)]);
-            if (r.ok) panels_ = true;
+            (void)r;
         }
         return;
     }
@@ -289,56 +327,42 @@ void Gui::draw_replay_controls() {
     text_tooltip(tr("Close the recording and go back to the live view."));
 }
 
-// -- the panels under the plan -------------------------------------------------------------
+// -- the survey windows of the Window menu (UI-18) --------------------------------------------
 
-void Gui::draw_survey_panels(float height) {
-    survey_.panels = true;
-    const auto& monitor = state_.monitor();
-    ImGui::BeginChild("###survey", ImVec2(0.0F, height), ImGuiChildFlags_Borders);
-    wrap_texts();
-    // NFR-07: the self-interference warning with its advice.
-    const measure::SelfInterferenceWarning w = monitor->interference();
-    if (w.active) {
-        survey_.interference_banner = true;
-        ImGui::PushTextWrapPos(0.0F);
-        ImGui::TextColored(kWarnColour, tr("Self-interference: %s"), w.text.c_str());
-        ImGui::PopTextWrapPos();
-    }
-    const SurveyFrame f = monitor->frame();
-    if (ImGui::BeginTabBar("###survey.tabs")) {
-        if (tab_item(tr("Cells###survey.cells"), tr("The serving cell and its neighbours, with the large values."))) {
-            survey_.tab = "cells";
-            draw_cells_panel(f);
-            ImGui::EndTabItem();
+void Gui::draw_survey_windows() {
+    if (state_.screen() != Screen::Project || state_.monitor() == nullptr) return;
+    SurveyWindows& sw = state_.survey_windows();
+    const SurveyFrame f = state_.monitor()->frame();
+    auto window = [&](bool& shown, const char* title, const char* id, const char* key, const char* help, float x,
+                      float y, float w, float h, const std::function<void()>& body) {
+        if (!shown) return;
+        bool open = true;
+        // Over the plan on the right, so the Walk tab on the left stays free.
+        const ImGuiViewport* vp = ImGui::GetMainViewport();
+        const float left = std::max(0.0F, vp->WorkSize.x - std::min(em(w), vp->WorkSize.x * 0.95F) - x);
+        if (begin_tool_window(title, id, open, left, y, w, h)) {
+            survey_.windows.emplace_back(key);
+            help_button(help);
+            body();
         }
-        if (tab_item(tr("Graphs###survey.graphs"), tr("Level, C1 and quality over time."))) {
-            survey_.tab = "graphs";
-            draw_graphs_panel();
-            ImGui::EndTabItem();
-        }
-        if (tab_item(tr("Scanner###survey.scanner"), tr("Every carrier the radio sees."))) {
-            survey_.tab = "scanner";
-            draw_scanner_panel(f);
-            ImGui::EndTabItem();
-        }
-        if (tab_item(tr("Events###survey.events"), tr("The events of the walk: cell changes, alerts and markers."))) {
-            survey_.tab = "events";
-            draw_events_panel();
-            ImGui::EndTabItem();
-        }
-        if (tab_item(tr("Statistics###survey.stats"), tr("The statistics of the points measured so far."))) {
-            survey_.tab = "stats";
-            draw_stats_panel();
-            ImGui::EndTabItem();
-        }
-        ImGui::EndTabBar();
-    }
-    ImGui::EndChild();
+        ImGui::End();
+        if (!open) shown = false;
+    };
+    window(sw.neighbours, tr("Neighbours"), "win.neighbours", "neighbours", "5.1", 80.0F, 60.0F, 720.0F, 420.0F,
+           [&] { draw_cells_panel(f); });
+    window(sw.graphs, tr("Graphs"), "win.graphs", "graphs", "5.2", 110.0F, 90.0F, 720.0F, 460.0F,
+           [&] { draw_graphs_panel(); });
+    window(sw.scanner, tr("Scanner"), "win.scanner", "scanner", "5.3", 140.0F, 120.0F, 620.0F, 400.0F,
+           [&] { draw_scanner_panel(f); });
+    window(sw.events, tr("Events"), "win.events", "events", "5.3", 170.0F, 150.0F, 620.0F, 400.0F,
+           [&] { draw_events_panel(); });
+    window(sw.statistics, tr("Statistics"), "win.statistics", "statistics", "5.3", 200.0F, 180.0F, 520.0F, 360.0F,
+           [&] { draw_stats_panel(); });
 }
 
 void Gui::draw_cells_panel(const SurveyFrame& f) {
     if (!f.valid) {
-        ImGui::TextDisabled(tr("No measurements yet: start the radio, a walk test or a replay (Survey tab)."));
+        ImGui::TextDisabled(tr("No measurements yet: start the radio, a walk test or a replay (Walk tab)."));
         return;
     }
     if (f.at_cursor) {
@@ -460,7 +484,7 @@ void Gui::draw_cells_panel(const SurveyFrame& f) {
     ImGui::EndChild();
 }
 
-void Gui::draw_graphs_panel() {
+void Gui::draw_graphs_panel(bool compact, float height) {
     const auto& monitor = state_.monitor();
     if (monitor->version() != plot_version_) {
         plot_ = monitor->plot();
@@ -470,35 +494,42 @@ void Gui::draw_graphs_panel() {
     const bool replaying = replay != nullptr && replay->is_open();
     std::optional<std::int64_t> cursor = monitor->cursor();
     if (replaying) cursor = replay->view().cursor_mono;
-    if (!replaying && cursor) {
+    if (!compact && !replaying && cursor) {
         if (ImGui::SmallButton(tr("Live###graph.live"))) monitor->set_cursor(std::nullopt);
         text_tooltip(tr("Follow the newest measurement again."));
         ImGui::SameLine();
     }
-    ImGui::Checkbox(tr("Level###graph.level"), &graph_level_);
-    text_tooltip(tr("Show the graph of the levels."));
-    ImGui::SameLine();
-    ImGui::Checkbox("C1###graph.c1", &graph_c1_);
-    text_tooltip(tr("Show the graph of C1, the path loss criterion."));
-    ImGui::SameLine();
-    ImGui::Checkbox(tr("Quality###graph.quality"), &graph_quality_);
-    text_tooltip(tr("Show the graph of the quality."));
-    // The threshold lines (UI-04), wrapped onto more rows when needed.
-    const float right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
-    for (const ThresholdLine& t : plot_.thresholds) {
-        const std::string label = t.label + "###graph.th." + t.name;
-        const float w = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemInnerSpacing.x +
-                        ImGui::CalcTextSize(t.label.c_str()).x + ImGui::GetStyle().ItemSpacing.x;
+    // The Walk tab's compact graph: the level only, no switches.
+    bool compact_level = true, compact_off = false;
+    bool& show_level = compact ? compact_level : graph_level_;
+    bool& show_c1 = compact ? compact_off : graph_c1_;
+    bool& show_quality = compact ? compact_off : graph_quality_;
+    if (!compact) {
+        ImGui::Checkbox(tr("Level###graph.level"), &graph_level_);
+        text_tooltip(tr("Show the graph of the levels."));
         ImGui::SameLine();
-        if (ImGui::GetCursorScreenPos().x + w > right) ImGui::NewLine();
-        bool on = std::find(threshold_on_.begin(), threshold_on_.end(), t.name) != threshold_on_.end();
-        if (ImGui::Checkbox(label.c_str(), &on)) {
-            if (on) threshold_on_.push_back(t.name);
-            else threshold_on_.erase(std::remove(threshold_on_.begin(), threshold_on_.end(), t.name), threshold_on_.end());
+        ImGui::Checkbox("C1###graph.c1", &graph_c1_);
+        text_tooltip(tr("Show the graph of C1, the path loss criterion."));
+        ImGui::SameLine();
+        ImGui::Checkbox(tr("Quality###graph.quality"), &graph_quality_);
+        text_tooltip(tr("Show the graph of the quality."));
+        // The threshold lines (UI-04), wrapped onto more rows when needed.
+        const float right = ImGui::GetCursorScreenPos().x + ImGui::GetContentRegionAvail().x;
+        for (const ThresholdLine& t : plot_.thresholds) {
+            const std::string label = t.label + "###graph.th." + t.name;
+            const float w = ImGui::GetFrameHeight() + ImGui::GetStyle().ItemInnerSpacing.x +
+                            ImGui::CalcTextSize(t.label.c_str()).x + ImGui::GetStyle().ItemSpacing.x;
+            ImGui::SameLine();
+            if (ImGui::GetCursorScreenPos().x + w > right) ImGui::NewLine();
+            bool on = std::find(threshold_on_.begin(), threshold_on_.end(), t.name) != threshold_on_.end();
+            if (ImGui::Checkbox(label.c_str(), &on)) {
+                if (on) threshold_on_.push_back(t.name);
+                else threshold_on_.erase(std::remove(threshold_on_.begin(), threshold_on_.end(), t.name), threshold_on_.end());
+            }
+            char tip[160];
+            std::snprintf(tip, sizeof tip, tr("Draw the serving cell's %s (%.1f %s) as a line."), t.label.c_str(), t.value, t.unit.c_str());
+            text_tooltip(tip);
         }
-        char tip[160];
-        std::snprintf(tip, sizeof tip, tr("Draw the serving cell's %s (%.1f %s) as a line."), t.label.c_str(), t.value, t.unit.c_str());
-        text_tooltip(tip);
     }
     if (plot_.samples.empty()) {
         ImGui::TextDisabled(tr("No measurements yet."));
@@ -511,17 +542,22 @@ void Gui::draw_graphs_panel() {
                                         : std::max<std::int64_t>(std::min<std::int64_t>(60'000'000'000LL, span_max),
                                                                  std::min<std::int64_t>(span_max, t1 - plot_.samples.front().t_ns));
     const std::int64_t t0 = t1 - span;
-    const int graphs = (graph_level_ ? 1 : 0) + (graph_c1_ ? 1 : 0) + (graph_quality_ ? 1 : 0);
+    const int graphs = (show_level ? 1 : 0) + (show_c1 ? 1 : 0) + (show_quality ? 1 : 0);
     if (graphs == 0) return;
     const ImVec2 avail = ImGui::GetContentRegionAvail();
     // At least room for the name and two value labels apart (TST-52); the
     // panel scrolls when the graphs do not fit.
-    const float gh = std::max(ImGui::GetTextLineHeight() * 6.0F, avail.y / static_cast<float>(graphs) - 4.0F);
+    const float gh = compact ? std::max(ImGui::GetTextLineHeight() * 6.0F, height)
+                             : std::max(ImGui::GetTextLineHeight() * 6.0F, avail.y / static_cast<float>(graphs) - 4.0F);
     const bool light = light_theme();
-    survey_.graph_samples = 0;
-    for (const auto& s : plot_.samples) survey_.graph_samples += s.t_ns >= t0 ? 1 : 0;
-    survey_.graph_traces = plot_.cells.size();
-    survey_.cursor = cursor.has_value();
+    if (compact) {
+        survey_.compact_graph = true;
+    } else {
+        survey_.graph_samples = 0;
+        for (const auto& s : plot_.samples) survey_.graph_samples += s.t_ns >= t0 ? 1 : 0;
+        survey_.graph_traces = plot_.cells.size();
+        survey_.cursor = cursor.has_value();
+    }
 
     // kind: 0 level, 1 C1, 2 quality.
     auto graph = [&](int kind, const char* id, const char* unit) {
@@ -598,8 +634,8 @@ void Gui::draw_graphs_panel() {
                 } else {
                     for (const auto& p : s.points)
                         if (p.cell == ci) {
-                            v = value(s, p);
                             serving = static_cast<int>(ci) == s.serving;
+                            if (!compact || serving) v = value(s, p);
                         }
                 }
                 if (!std::isfinite(v)) {
@@ -629,9 +665,13 @@ void Gui::draw_graphs_panel() {
             else monitor->set_cursor(t);
         }
     };
-    if (graph_level_) graph(0, "###graph.level_plot", "dBm");
-    if (graph_c1_) graph(1, "###graph.c1_plot", "dB");
-    if (graph_quality_) graph(2, "###graph.quality_plot", tr("the technology's unit"));
+    if (compact) {
+        graph(0, "###walk.level_plot", "dBm");
+        return;
+    }
+    if (show_level) graph(0, "###graph.level_plot", "dBm");
+    if (show_c1) graph(1, "###graph.c1_plot", "dB");
+    if (show_quality) graph(2, "###graph.quality_plot", tr("the technology's unit"));
     for (const ThresholdLine& t : plot_.thresholds)
         survey_.threshold_lines += std::find(threshold_on_.begin(), threshold_on_.end(), t.name) != threshold_on_.end() ? 1 : 0;
 }
@@ -700,6 +740,13 @@ void Gui::draw_events_panel() {
 }
 
 void Gui::draw_stats_panel() {
+    // UI-11: the level that counts as covered, kept in the settings.
+    double th = state_.monitor()->stats().threshold_dbm;
+    ImGui::SetNextItemWidth(std::min(em(110.0F), ImGui::GetContentRegionAvail().x * 0.55F));
+    if (ImGui::InputDouble(tr("dBm coverage threshold###stats.threshold"), &th, 1.0, 5.0, "%.0f") &&
+        th >= kMinThresholdDbm && th <= kMaxThresholdDbm)
+        (void)state_.show(state_.set_coverage_threshold(th));
+    text_tooltip(tr("The serving level that counts as covered in the statistics (UI-11); kept in the settings."));
     const SurveyStats s = state_.monitor()->stats();
     char line[160];
     std::snprintf(line, sizeof line, tr("%.1f %% of the measurements at or above %.0f dBm"), s.percent_above, s.threshold_dbm);

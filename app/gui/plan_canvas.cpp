@@ -110,7 +110,7 @@ void PlanCanvas::draw_tiles(ImDrawList* dl, ImVec2 origin) {
     }
 }
 
-void PlanCanvas::draw_interpolation(ImDrawList* dl, ImVec2 origin, const FloorContent& c) {
+void PlanCanvas::draw_interpolation(ImDrawList* dl, ImVec2 origin, const FloorContent& c, double opacity) {
     if (!c.interpolation || c.interpolation->cols <= 0 || c.interpolation->rows <= 0) return;
     const InterpolationLayer& in = *c.interpolation;
     // IND-43: cells coloured with the points' legend, alpha = confidence.
@@ -121,7 +121,7 @@ void PlanCanvas::draw_interpolation(ImDrawList* dl, ImVec2 origin, const FloorCo
     }
     if (!interpolation_.valid()) return;
     dl->AddImage(interpolation_.ref(), to_screen(origin, in.min), to_screen(origin, in.max), ImVec2(0, 0),
-                 ImVec2(1, 1), IM_COL32(255, 255, 255, 215));
+                 ImVec2(1, 1), IM_COL32(255, 255, 255, static_cast<int>(std::lround(std::clamp(opacity, 0.0, 1.0) * 255.0))));
     stats_.interpolation = true;
 }
 
@@ -299,7 +299,7 @@ void PlanCanvas::draw(ProjectWindow& window, const FloorContent& c, const LayerS
                                    (stats_.interpolation ? 1U : 0U);
         switch (l) {
         case Layer::Plan: draw_tiles(dl, origin); break;
-        case Layer::Interpolation: draw_interpolation(dl, origin, c); break;
+        case Layer::Interpolation: draw_interpolation(dl, origin, c, layers.map_opacity); break;
         case Layer::Binned: draw_binned(dl, origin, c); break;
         case Layer::Points: draw_points(dl, origin, size, c); break;
         }

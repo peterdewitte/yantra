@@ -40,6 +40,9 @@ inline constexpr Layer kLayers[] = {Layer::Plan, Layer::Interpolation, Layer::Bi
 const char* layer_key(Layer layer);
 std::optional<Layer> parse_layer(std::string_view key);
 
+/// The lowest opacity of the interpolated map (UI-19).
+inline constexpr double kMinMapOpacity = 0.1;
+
 /// Which layers are shown and in which order (IND-04 "each layer can be
 /// shown or hidden"). A new user sees every layer but the binned view
 /// (an extra view, IND-30), in kLayers order.
@@ -50,6 +53,9 @@ struct LayerSettings {
     std::vector<Layer> hidden{Layer::Binned};
     /// The binned view's square size (PP-05), 0.5 .. 50 m.
     double bin_size_m = 2.0;
+    /// The interpolated map's opacity (UI-19), kMinMapOpacity .. 1: the
+    /// plan stays visible under it.
+    double map_opacity = 0.85;
 
     bool visible(Layer layer) const;
     void set_visible(Layer layer, bool visible);

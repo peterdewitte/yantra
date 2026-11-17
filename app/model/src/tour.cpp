@@ -620,7 +620,7 @@ TourView Tour::view() const {
     case TourStep::TrimFloors: v.targets = {"pi.add", "tool.rectangle"}; break;
     case TourStep::Scale: v.targets = {"pi.scale_apply", "tool.scale_line"}; break;
     case TourStep::MouseSurvey: v.targets = {"walk.stop", "walk.start", "walk.find_radios", "panel.walk"}; break;
-    case TourStep::Results: v.targets = {"layer.interpolation", "layer.points", "panel.layers"}; break;
+    case TourStep::Results: v.targets = {"layer.interpolation", "layer.points", "panel.map"}; break;
     case TourStep::SwitchFloors: v.targets = {"floors"}; break;
     case TourStep::Report: v.targets = {"dlg.ok", "file.report", "menu.file"}; break;
     case TourStep::Finish: v.targets = {"tour.show_me"}; break;
@@ -697,7 +697,7 @@ Result Tour::show_me() {
     case TourStep::Scale: return show_scale();
     case TourStep::MouseSurvey: return show_mouse_survey();
     case TourStep::Results: {
-        app_.request_panel("layers");
+        app_.request_panel("map");
         app_.set_layer_visible(Layer::Points, true);
         app_.set_layer_visible(Layer::Interpolation, true);
         for (const building::Floor& f : app_.project()->floors())

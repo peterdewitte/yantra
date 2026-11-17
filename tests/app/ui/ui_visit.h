@@ -156,12 +156,31 @@ inline void visit_all(Shell& s, const std::function<void(const std::string&)>& c
 #ifdef YANTRA_TEST_DEMO_DATA_DIR
     REQUIRE(s.state.open_demo().ok);
     REQUIRE(s.ui.run_until([&] { return s.state.screen() == Screen::Project; }, 10));
-    for (const char* page : {"layers", "walk", "map", "survey", "post"}) {
+    for (const char* page : {"walk", "map"}) {
         REQUIRE(s.ui.frames(2));
         REQUIRE_MESSAGE(s.ui.click(std::string("panel.") + page), s.ui.dump());
         settle_check(std::string("project ") + page);
     }
-    for (const char* menu : {"file", "radio", "tools", "network"}) {
+    // UI-19: the Map tab's Advanced dropdown, open.
+    REQUIRE_MESSAGE(s.ui.click("map.advanced"), s.ui.dump());
+    settle_check("project map advanced");
+    REQUIRE(s.ui.click("map.advanced"));
+    REQUIRE(s.ui.frames(2));
+    // UI-18: the Walk tab's replay part, open.
+    REQUIRE(s.ui.click("panel.walk"));
+    REQUIRE(s.ui.frames(2));
+    REQUIRE_MESSAGE(s.ui.click("walk.replay"), s.ui.dump());
+    settle_check("project walk replay");
+    REQUIRE(s.ui.click("walk.replay"));
+    REQUIRE(s.ui.frames(2));
+    // UI-18: the survey windows of the Window menu, all open.
+    for (Action a : {Action::WindowNeighbours, Action::WindowGraphs, Action::WindowScanner, Action::WindowEvents,
+                     Action::WindowStatistics})
+        REQUIRE(s.state.trigger(a).ok);
+    settle_check("survey windows");
+    s.state.survey_windows() = SurveyWindows{};
+    REQUIRE(s.ui.frames(2));
+    for (const char* menu : {"file", "radio", "tools", "network", "window"}) {
         if (!s.ui.has(std::string("menu.") + menu)) continue;
         REQUIRE(s.ui.click(std::string("menu.") + menu));
         settle_check(std::string("project menu ") + menu);
