@@ -32,6 +32,7 @@ without `format` is read leniently.
 | `layers.order` | the four layers `plan`, `interpolation`, `binned`, `points` in drawing order, bottom first (missing ones are added in their default place; the `walls` and `antennas` of Yantra 0.2 are ignored). Yantra 0.4 has no control to change it (UI-19); an order stored by an earlier version is still used until Help > Reset all settings | as listed |
 | `layers.hidden` | layers switched off | `["binned"]` |
 | `layers.bin_size_m` | 0.5..50 m (PP-05) | `2` |
+| `layers.map_opacity` | the interpolated map's opacity, 0.1..1 (Map tab, Show row, UI-19) | `0.85` |
 | `window_system` | `auto`, `x11`, `wayland` | `auto` |
 | `tooltips`, `tooltip_delay_s` | bool; 0..5 s | `true`, `0.5` |
 | `theme` | `dark`, `light`, `high_contrast` | `dark` |

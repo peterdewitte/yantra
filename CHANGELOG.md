@@ -14,7 +14,33 @@ own changes are in its CHANGELOG.md.
 
 ## [Unreleased]
 
+A simpler indoor workflow (specification 0.4): the project window has a
+Walk and a Map tab, the coverage map is interpolated from the measured
+points only, and the demo uses fixed scenes. The version stays 0.2.0
+until the next release. Not run for this state: the sanitizer trees and
+the Windows build and tests.
+
 ### Changed
+
+- The project window has two tabs, Walk and Map (UI-18, UI-19); the
+  Layers, Edit, Survey and Post pages are gone. Walk holds the radio
+  (Find radios, Start radio, Stop radio), the live values of the serving
+  cell with a small level graph, the walk test, the recording controls
+  and Replay. Map has a Show row (plan, points, map, and the map's opacity,
+  85 % by default), Compute map and an Advanced dropdown with the
+  interpolation settings, the binned squares, the post-processing views
+  (PP-02..05) and the acceptance check (EXP-06). The layers are drawn in
+  a fixed order (plan, map, binned squares, points); the drawing-order
+  arrows are gone.
+- The survey windows Neighbours, Graphs, Scanner, Events and Statistics
+  open from the new Window menu; each item opens or closes its window and
+  is ticked while the window is open. The coverage threshold is set in the
+  Statistics window. The report is made from File > Report (UI-14).
+- The guided tour follows the Walk and Map workflow and has a step that
+  shows where the MAK plan sheets were saved, with Open folder (DEMO-11).
+- Every demo explanation (the tour's window and strips, the tour offer,
+  the mouse-survey hint) has a green background in every theme, with text
+  of at least 4.5:1 contrast (DEMO-15).
 
 - The coverage map of a floor is an inverse-distance-weighted (IDW)
   interpolation of its measured points (IND-41): grid 0.5 m, power 2,
@@ -59,6 +85,9 @@ own changes are in its CHANGELOG.md.
 
 ### Fixed
 
+- In the Walk tab a long radio name and the walk kind end in "..." with
+  the whole text on hover, and labels move above their field in a narrow
+  panel, so no text is cut off in any language (TST-52).
 - The scanner view's State column shortens a long list of flags (such as
   "no_sync,simulated,late" when the app runs slowly) with "..." and shows
   the whole list on hover, instead of cutting it off (UI-13, DOC-07,
@@ -68,6 +97,18 @@ own changes are in its CHANGELOG.md.
   no longer makes the replay of that recording differ ("replay mismatch:
   cycle N: time"); the mismatch message now shows the recorded and
   replayed times (OA-13, REC-07).
+
+### Documentation
+
+- The user manual, the quick starts (English, Dutch, French, German), the
+  README and the developer and file-format documents describe the Walk
+  and Map workflow, the Window menu, the Map tab's Advanced dropdown,
+  File > Report, the IDW coverage map, the fixed demo scenes, the opening
+  of older projects and the green demo explanations (DOC-02, DOC-02a).
+  The manual's chapter 1 names the Windows packages, the WinUSB driver
+  and the Windows folders; the PDF manual's index has the new terms.
+- Screenshots, the indoor-workflow GIF and WebM show the new project
+  window (SCR-03, SCR-06).
 
 ### Radio plugins
 

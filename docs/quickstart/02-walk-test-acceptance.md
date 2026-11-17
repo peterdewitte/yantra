@@ -11,11 +11,11 @@ Walk a building against agreed acceptance criteria and hand over a PASS or FAIL 
 
 2. **Acceptance profile.** File > Report > Edit profiles: add a profile with the agreed criteria, for example "95 % at or above -95 dBm", and choose its basis: the measured points, the tested area (walked squares of 2 m) or the floor area of the interpolated map (with the least confidence counted). Save. Without a profile the report uses the default "Indoor acceptance", 95 % of the measured points at or above -95 dBm.
 
-3. **Before you walk.** Connect the radio and check it in the Radio menu: no self-interference warning, no overload, levels in dBm (not dBFS). Keep the antenna away from the laptop; a USB extension cable helps. Start a recording if you want the way to the building too (Survey page).
+3. **Before you walk.** Connect the radio and check it in the Radio menu: no self-interference warning, no overload, levels in dBm (not dBFS). Keep the antenna away from the laptop; a USB extension cable helps. Start a recording if you want the way to the building too (Walk tab, Record).
 
 4. **Walk every floor.** In the Walk tab choose Point and click or Continuous and Start. Click at every turn, walk at a steady pace through every room and corridor the acceptance covers, and use Manual points for rooms you cannot walk through. Stop at the end of each floor, then walk the next floor's tab. Every walk test is recorded.
 
-5. **Check the coverage.** In the Map tab's Advanced dropdown look at Good/bad against the threshold and at the Acceptance figures per floor; walk again where the plan shows gaps. On the Map page press Run per floor for the floor-area figures.
+5. **Check the coverage.** In the Map tab's Advanced dropdown look at Good/bad against the threshold and at the Acceptance figures per floor; walk again where the plan shows gaps. In the Map tab press Compute map on every floor for the floor-area figures.
 
 6. **Verify the network.** Network > Verification... (live or on a replay) lists cells that differ from the database, new and missing cells, and the neighbour cross-check. They are also in the report.
 

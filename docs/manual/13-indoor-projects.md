@@ -11,6 +11,15 @@ A project is one building: its floors with their plans, the cell database, the w
 
 The same eight seconds as [WebM](../img/indoor_workflow.webm): the start screen, the plan import, a walk test's points, the coverage map and the report dialog, on the demo project.
 
+### The project window
+
+An open project shows the plan of one floor, the floor tabs above it and two tabs beside it, for the two parts of the work:
+
+- Walk: measure. The radio (Find radios, Start radio, Stop radio), the live values of the serving cell with a small level graph (chapter 5), the walk test with its kind and Start, Pause, Delete last and Stop (chapter 7), the recording controls and Replay (chapter 6).
+- Map: look at the result. The Show row switches the plan, the measured points and the coverage map on and off, with the map's opacity (13.4); Compute map makes the floor's map (13.5). The Advanced dropdown holds the rest: the interpolation settings, the binned squares, the post-processing views of the points (chapter 11) and the acceptance check (11.2).
+
+The menus hold what is not part of the walk: File (projects, floors, File > Export and File > Report, chapter 10, Settings), Radio (the radios and their windows, chapter 2), Network (the cell database and the checks against it, chapter 8), Window (the survey windows Neighbours, Graphs, Scanner, Events and Statistics, chapter 5; each item opens or closes its window) and Help.
+
 ## 13.1 Projects and floors
 
 File > New indoor project asks for the project name, the site, the network operator, notes and where to save the file. File > Open project and the recent projects on the start screen open one; a project open in another Yantra is refused with the reason. Changes are stored in the file as you make them, so there is no "unsaved changes" question and a crash loses nothing: File > Save only makes the file complete on its own (for copying), Save as writes a copy under a new name, and Close project closes it. A project of an older Yantra is converted when it opens, after a backup copy (`<file>.schema<N>.bak`); a project of a newer Yantra is refused. The project file names the files it refers to (recordings, a licence-restricted plan in your cache) relative to its own folder when they are on the same drive, so you can move or share the project folder with its recordings; Save as into another folder keeps naming the same files. Projects of Yantra 0.1, which name them with full paths, still open.
@@ -43,13 +52,13 @@ This version of Yantra has no walls, antennas or propagation model: the coverage
 
 ## 13.4 Layers
 
-The Show row of the Map tab shows or hides the plan, the measured points and the map, with the map's opacity; the binned squares are switched on in its Advanced dropdown. The binned layer groups the points into squares of the size you set (Square, 2 m by default), each with the percentile of its points (11.1); it is labelled as binned and never replaces the points. When several coverage maps are stored, choose the one to show. The layer settings are kept for the next start; they are not part of the project.
+The Show row of the Map tab shows or hides the plan, the measured points and the map, with the map's opacity; the binned squares are switched on in its Advanced dropdown. The binned layer groups the points into squares of the size you set (Square, 2 m by default), each with the percentile of its points (11.1); it is labelled as binned and never replaces the points. The map's opacity (85 % by default) sets how much of the plan shows through it. The layers are always drawn in the same order, from the bottom: the plan, the map, the binned squares and the points on top. When several coverage maps are stored, choose the one to show. The layer settings are kept for the next start; they are not part of the project.
 
 ## 13.5 Interpolation
 
 The Map tab computes a coverage map of the floor from its measured points: Compute map starts it in the background (with a progress bar; Cancel stops it), and the map is stored in the project. A floor needs a scale and measured points in dBm (from a calibrated radio or one that reports dBm, such as the simulator, 7.1). In a mouse survey, a click on the plan runs it too.
 
-How it works, in short: the floor is divided into squares of 0.5 m. A square that holds measured points takes their level (the median when there are several), so the map equals the measurement where you measured. Every other square takes the mean of the points within 10 m, each weighted by one over its distance squared (inverse-distance weighting). Every square gets a confidence that is 1 within 2 m of a measured point and fades to 0 at 10 m, so unmeasured areas fade out on the plan; squares with no point within 10 m stay empty. The map knows nothing about walls: walk both sides of a wall that matters. The [interpolation note](../INTERPOLATION.md) gives the details and the limits.
+How it works, in short: the floor is divided into squares of 0.5 m. A square that holds measured points takes their level (the median when there are several), so the map equals the measurement where you measured. Every other square takes the mean of the points within 10 m, each weighted by one over its distance squared (inverse-distance weighting, IDW); the Map tab says "IDW of N measured points". Every square gets a confidence that is 1 within 2 m of a measured point and fades to 0 at 10 m, so unmeasured areas fade out on the plan; squares with no point within 10 m stay empty. The map knows nothing about walls: walk both sides of a wall that matters. The [interpolation note](../INTERPOLATION.md) gives the details and the limits.
 
 The map is always labelled "interpolated" and kept apart from the measured points: the hover readout says whether the value is measured or interpolated, with the confidence and the nearest measured point. When the floor's scale or its points change after a run, the map is marked stale; Compute again computes it again. Settings... (in the Advanced dropdown) sets the grid size, the power, the search radius and the full-confidence distance; Defaults puts them back.
 

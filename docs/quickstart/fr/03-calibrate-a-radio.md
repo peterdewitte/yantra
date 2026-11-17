@@ -13,7 +13,7 @@ Une SDR mesure les niveaux par rapport à sa propre pleine échelle (dBFS). Un �
 
 3. **Prévoyez les points.** Dans Radio > Étalonnage..., saisissez les fréquences en MHz (par exemple la porteuse la plus basse, celle du milieu et la plus haute du réseau), les niveaux en dBm (par exemple -90, -70, -50), le nombre de jours de validité de l'étalonnage et le nombre de lectures par point. Choisissez Générateur de signal (ou Radio de référence).
 
-4. **Mesurez.** Démarrez le récepteur (page Relevé, Démarrer la radio), puis Démarrer dans l'assistant. Pour chaque point, réglez le générateur sur la fréquence et le niveau affichés et appuyez sur Mesurer. Une lecture trop proche de la pleine échelle, trop faible au-dessus du bruit ou saturée est refusée avec la raison : changez le niveau ou le gain et mesurez à nouveau. Ignorer laisse un point de côté.
+4. **Mesurez.** Démarrez le récepteur (onglet Parcours, Démarrer la radio), puis Démarrer dans l'assistant. Pour chaque point, réglez le générateur sur la fréquence et le niveau affichés et appuyez sur Mesurer. Une lecture trop proche de la pleine échelle, trop faible au-dessus du bruit ou saturée est refusée avec la raison : changez le niveau ou le gain et mesurez à nouveau. Ignorer laisse un point de côté.
 
 5. **Enregistrez.** Enregistrer stocke un décalage par fréquence dans votre table d'étalonnage. La fenêtre d'étalonnage indique maintenant la clé comme valide ; les panneaux de relevé affichent les niveaux en dBm sans la mention non étalonné.
 

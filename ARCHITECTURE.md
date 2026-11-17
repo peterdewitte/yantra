@@ -187,8 +187,15 @@ its own controller (`app/model/app_control.h`) over the same command set.
 
 - `app/model` (`yantra_app_model`): all state and actions of the
   desktop app without drawing (AppState, project window, live survey,
-  plan import, editors, settings, translations, help texts, report and
-  export dialogs, tour). The UI tests drive this model and the real GUI
+  plan import, settings, translations, help texts, report and export
+  dialogs, tour). The project window has two tabs, Walk (radio, live
+  values, walk test, recording, replay) and Map (Show row, Compute map
+  and an Advanced dropdown with the interpolation, binning,
+  post-processing and acceptance settings) (UI-18, UI-19); the survey
+  windows are toggles of the Window menu and the report is File > Report
+  (UI-14). Demo explanations (tour steps, demo hints) use the green
+  explanation colours of the theme, checked for contrast by the UI lint
+  (DEMO-15). The UI tests drive this model and the real GUI
   headless (TST-50; the GUI text-overflow test TST-52 draws every
   window and text, [docs/APP.md](docs/APP.md)).
 - `app/gui` (`yantra_app_gui`): the Dear ImGui views; they show what the

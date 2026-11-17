@@ -15,9 +15,9 @@ Plattegrond importeren, verdiepingen bijsnijden, lopen, rapport. Ongeveer 15 min
 
 4. **Schaal en referentie.** Kies een verdieping, kies de schaalbalk en sleep langs de schaalbalk van de plattegrond, typ de lengte in meter en Toepassen (of een schaallijn over een bekende afstand). Verdiepingen van hetzelfde blad kunnen de schaal delen. Klik met Referentie op een punt dat op elke verdieping te vinden is, zoals de hoek van een trappenhuis. Sluit het venster.
 
-5. **Lopen.** Kies op de pagina Lopen de ontvanger en de soort Aanwijzen en klikken, dan Starten. Klik waar je staat, loop in een rechte lijn aan een gelijkmatig tempo en klik waar je bent bij elke bocht. Stoppen aan het einde. De punten verschijnen gekleurd volgens het niveau. Kies met de simulator in plaats daarvan Muismeting en beweeg de muis langzaam over de plattegrond.
+5. **Lopen.** Kies in het tabblad Lopen de ontvanger en de soort Aanwijzen en klikken, dan Starten. Klik waar je staat, loop in een rechte lijn aan een gelijkmatig tempo en klik waar je bent bij elke bocht. Stoppen aan het einde. De punten verschijnen gekleurd volgens het niveau. Kies met de simulator in plaats daarvan Muismeting en beweeg de muis langzaam over de plattegrond.
 
-6. **Dekkingskaart.** Druk op de pagina Kaart op Uitvoeren. De kaart wordt uit je punten geïnterpoleerd en vervaagt waar niemand gemeten heeft. Laat de aanwijzer op de plattegrond rusten om gemeten en geïnterpoleerde waarden te zien.
+6. **Dekkingskaart.** Druk in het tabblad Kaart op Kaart berekenen. De kaart wordt uit je punten geïnterpoleerd en vervaagt waar niemand gemeten heeft. Laat de aanwijzer op de plattegrond rusten om gemeten en geïnterpoleerde waarden te zien.
 
 7. **Volgende verdieping.** Kies het tabblad van de volgende verdieping en herhaal stappen 5 en 6.
 

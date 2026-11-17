@@ -5,7 +5,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # 5 Live survey
 
-The Walk tab of the project window shows the live values of what the radio measures now, or the moment of a replay (6.2): the serving cell, its level, quality and C1, the sample count and a small level graph. The survey windows below (Neighbours, Graphs, Scanner, Events, Statistics) open from the Window menu.
+The Walk tab of the project window shows the live values of what the radio measures now, or the moment of a replay (6.2): the serving cell, its level, quality and C1, the sample count and a small level graph. The survey windows below (Neighbours, Graphs, Scanner, Events, Statistics) open from the Window menu. Each item of the Window menu is a switch: choose it to open the window, choose it again to close it; the menu ticks the windows that are open.
 
 ### Watching without a walk
 
@@ -25,7 +25,7 @@ The Graphs window (Window > Graphs) draws the level, C1 and quality of the servi
 
 ## 5.3 Scanner, events and statistics
 
-The Scanner window lists every carrier the radio sees, by frequency, also the ones it cannot decode. Its State column shows the sample flags (for example "no_sync" or "late"); a list too long for the column ends in "..." and shows in full when you hover over it. The Events window shows serving-cell changes, sync losses, device and recording events and data losses, newest first. The Statistics window counts serving-cell changes and sync losses, the time in and out of coverage and the share of samples at or above the coverage threshold (the threshold field on the Survey page, also in 15.2).
+The Scanner window lists every carrier the radio sees, by frequency, also the ones it cannot decode. Its State column shows the sample flags (for example "no_sync" or "late"); a list too long for the column ends in "..." and shows in full when you hover over it. The Events window shows serving-cell changes, sync losses, device and recording events and data losses, newest first. The Statistics window counts serving-cell changes and sync losses, the time in and out of coverage and the share of samples at or above the coverage threshold (the threshold field in the Statistics window; its default is in File > Settings > Survey, 15.2).
 
 ![The scanner](../img/survey_scanner_dark.png) [light theme](../img/survey_scanner_light.png)
 ![The event list](../img/survey_events_dark.png) [light theme](../img/survey_events_light.png)

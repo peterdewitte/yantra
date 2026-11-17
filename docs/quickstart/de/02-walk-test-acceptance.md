@@ -11,11 +11,11 @@ Begehen Sie ein Gebäude nach vereinbarten Abnahmekriterien und übergeben Sie e
 
 2. **Abnahmeprofil.** Datei > Bericht > Profile bearbeiten...: Fügen Sie ein Profil mit den vereinbarten Kriterien hinzu, zum Beispiel „95 % bei -95 dBm oder darüber“, und wählen Sie seine Grundlage: die gemessenen Punkte, die getestete Fläche (begangene Quadrate von 2 m) oder die Grundfläche der interpolierten Karte (die geringste Zuverlässigkeit mitgezählt). Speichern. Ohne Profil verwendet der Bericht das Standardprofil „Indoor acceptance“: 95 % der gemessenen Punkte bei -95 dBm oder darüber.
 
-3. **Vor der Begehung.** Verbinden Sie den Empfänger und prüfen Sie ihn im Menü Empfänger: keine Warnung vor Eigenstörung, keine Übersteuerung, Pegel in dBm (nicht dBFS). Halten Sie die Antenne vom Laptop fern; ein USB-Verlängerungskabel hilft. Starten Sie eine Aufzeichnung, wenn Sie auch den Weg zum Gebäude festhalten wollen (Seite Messung).
+3. **Vor der Begehung.** Verbinden Sie den Empfänger und prüfen Sie ihn im Menü Empfänger: keine Warnung vor Eigenstörung, keine Übersteuerung, Pegel in dBm (nicht dBFS). Halten Sie die Antenne vom Laptop fern; ein USB-Verlängerungskabel hilft. Starten Sie eine Aufzeichnung, wenn Sie auch den Weg zum Gebäude festhalten wollen (Reiter Begehung, Aufzeichnen).
 
-4. **Jede Etage begehen.** Wählen Sie auf der Seite Begehung Punkt und Klick oder Kontinuierlich und Starten. Klicken Sie an jeder Abzweigung, gehen Sie in gleichmäßigem Tempo durch jeden Raum und jeden Flur, den die Abnahme umfasst, und verwenden Sie Manuelle Punkte für Räume, die Sie nicht durchqueren können. Stoppen am Ende jeder Etage, dann begehen Sie den Reiter der nächsten Etage. Jede Begehungsmessung wird aufgezeichnet.
+4. **Jede Etage begehen.** Wählen Sie im Reiter Begehung Punkt und Klick oder Kontinuierlich und Starten. Klicken Sie an jeder Abzweigung, gehen Sie in gleichmäßigem Tempo durch jeden Raum und jeden Flur, den die Abnahme umfasst, und verwenden Sie Manuelle Punkte für Räume, die Sie nicht durchqueren können. Stoppen am Ende jeder Etage, dann begehen Sie den Reiter der nächsten Etage. Jede Begehungsmessung wird aufgezeichnet.
 
-5. **Versorgung prüfen.** Sehen Sie sich auf der Seite Nachbearbeitung Gut/schlecht gegenüber der Schwelle und die Abnahme-Zahlen pro Etage an; begehen Sie erneut, wo der Grundriss Lücken zeigt. Drücken Sie auf der Seite Karte pro Etage Ausführen für die Zahlen der Grundfläche.
+5. **Versorgung prüfen.** Sehen Sie sich in der Auswahlliste Erweitert des Reiters Karte Gut/schlecht gegenüber der Schwelle und die Abnahme-Zahlen pro Etage an; begehen Sie erneut, wo der Grundriss Lücken zeigt. Drücken Sie im Reiter Karte auf jeder Etage Karte berechnen für die Zahlen der Grundfläche.
 
 6. **Netz prüfen.** Netz > Überprüfung... (live oder auf einer Wiedergabe) listet Zellen, die von der Datenbank abweichen, neue und fehlende Zellen und die Kreuzprüfung der Nachbarn. Sie stehen auch im Bericht.
 

@@ -31,6 +31,16 @@ projects:
   the building, against acceptance profiles on the measured points, the
   tested area or the floor area.
 
+The project window has two tabs for the two parts of the work: **Walk**
+(the radio, the live values, the walk test and the recording) and **Map**
+(show the plan, the points and the coverage map, compute the map, and an
+Advanced dropdown for the interpolation, binning, post-processing and
+acceptance settings). The survey windows (neighbours, graphs, scanner,
+events, statistics) open from the Window menu, and the report is
+File > Report. Yantra models no walls or antennas: the map comes from
+the measured points alone (inverse-distance weighting, IDW,
+[docs/INTERPOLATION.md](docs/INTERPOLATION.md)).
+
 Yantra reads only broadcast and system information, levels and quality.
 Short data messages, subscriber addresses, voice and decryption are out of
 scope by design, and there are no outdoor drive tests, GPS or maps. See
@@ -176,3 +186,9 @@ https://curtat.be. Maintainer: Curtat BV <info@curtat.be>.
   (released as v0.1.0 on 2026-11-04).
 - 2026-11-04: this repository started for specification v0.2, on top of
   yantra-radios v0.1.0.
+- 2026-11-09: release 0.1.0 (specification v0.2).
+- 2026-11-12: release 0.2.0 (specification v0.3): Windows x64, clang,
+  the PDF user manual.
+- 2026-11-17: specification v0.4, not yet released: a simpler indoor
+  workflow (Walk and Map tabs, the IDW coverage map, fixed demo scenes;
+  walls, antennas and the ray tracer removed).

@@ -224,6 +224,20 @@ NOT_FOUND; `tests/measure_host/test_measure_demo.cpp` that the
 simulator gets the Fraunces floors' fixed scenes and measures indoor
 levels from them.
 
+## Demo explanations (DEMO-11, DEMO-14, DEMO-15)
+
+Everything that explains the demo to the user has a green background in
+every theme: the tour's window and its strip in a dialog, the tour offer
+on the start screen and the mouse-survey hint on the plan. The colours are
+`demo_colours()` in `app/gui/gui_widgets.h` (light theme: dark text on a
+light green; dark and high-contrast themes: light text on a dark green);
+the UI lint checks every text colour on it for a contrast of at least
+4.5:1 in every theme (`tests/app/ui/ui_lint.h`). The DEMO banner (DEMO-07)
+keeps its own orange colour, and the DEMO label of the tour is drawn on
+that banner colour. The tour (DEMO-11) follows the Walk and Map workflow
+of the project window and has a step that shows where the MAK plan sheets
+were saved (the cache folder, with Open folder).
+
 ## Demo scenarios (DEMO-09)
 
 `data/demo/scenarios.json` (format `yantra-demo-scenarios`, version 1)

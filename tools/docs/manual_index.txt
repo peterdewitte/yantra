@@ -69,6 +69,7 @@ Layers: layers
 Map tab: Map tab
 Network menu: Network >
 Plan import window: plan import window
+Project window: project window
 Plugin manager: plugin manager
 Radio menu: Radio menu; Radio >
 Remote probes: remote probes
@@ -82,3 +83,4 @@ Survey windows: survey windows; Window menu; Window >
 Tour: guided tour; tour
 Verification window: verification
 Walk tab: Walk tab
+Window menu: Window menu; Window >

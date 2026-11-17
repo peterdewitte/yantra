@@ -11,11 +11,11 @@ Loop een gebouw af tegen afgesproken acceptatiecriteria en lever een rapport met
 
 2. **Acceptatieprofiel.** Bestand > Rapport > Profielen bewerken...: voeg een profiel toe met de afgesproken criteria, bijvoorbeeld "95 % op of boven -95 dBm", en kies de basis: de gemeten punten, de geteste oppervlakte (belopen vakken van 2 m) of de vloeroppervlakte van de geïnterpoleerde kaart (met de laagste betrouwbaarheid meegeteld). Opslaan. Zonder profiel gebruikt het rapport het standaardprofiel "Indoor acceptance": 95 % van de gemeten punten op of boven -95 dBm.
 
-3. **Voor je loopt.** Verbind de ontvanger en controleer hem in het menu Radio: geen waarschuwing voor eigen storing, geen oversturing, niveaus in dBm (niet dBFS). Houd de antenne weg van de laptop; een USB-verlengkabel helpt. Start een opname als je ook de weg naar het gebouw wilt vastleggen (pagina Meting).
+3. **Voor je loopt.** Verbind de ontvanger en controleer hem in het menu Radio: geen waarschuwing voor eigen storing, geen oversturing, niveaus in dBm (niet dBFS). Houd de antenne weg van de laptop; een USB-verlengkabel helpt. Start een opname als je ook de weg naar het gebouw wilt vastleggen (tabblad Lopen, Opnemen).
 
-4. **Loop elke verdieping.** Kies op de pagina Lopen Aanwijzen en klikken of Continu en Starten. Klik bij elke bocht, loop aan een gelijkmatig tempo door elke kamer en gang die de acceptatie omvat, en gebruik Handmatige punten voor kamers waar je niet door kunt lopen. Stoppen aan het einde van elke verdieping, en loop dan het tabblad van de volgende verdieping. Elke looptest wordt opgenomen.
+4. **Loop elke verdieping.** Kies in het tabblad Lopen Aanwijzen en klikken of Continu en Starten. Klik bij elke bocht, loop aan een gelijkmatig tempo door elke kamer en gang die de acceptatie omvat, en gebruik Handmatige punten voor kamers waar je niet door kunt lopen. Stoppen aan het einde van elke verdieping, en loop dan het tabblad van de volgende verdieping. Elke looptest wordt opgenomen.
 
-5. **Controleer de dekking.** Bekijk op de pagina Nabewerking Goed/slecht ten opzichte van de drempel en de Acceptatie-cijfers per verdieping; loop opnieuw waar de plattegrond gaten toont. Druk op de pagina Kaart per verdieping op Uitvoeren voor de cijfers van de vloeroppervlakte.
+5. **Controleer de dekking.** Bekijk in de keuzelijst Geavanceerd van het tabblad Kaart Goed/slecht ten opzichte van de drempel en de Acceptatie-cijfers per verdieping; loop opnieuw waar de plattegrond gaten toont. Druk in het tabblad Kaart op elke verdieping op Kaart berekenen voor de cijfers van de vloeroppervlakte.
 
 6. **Controleer het netwerk.** Netwerk > Verificatie... (live of op een herhaling) toont cellen die afwijken van de database, nieuwe en ontbrekende cellen, en de kruiscontrole van de buren. Ze staan ook in het rapport.
 

@@ -15,9 +15,9 @@ Grundriss importieren, Etagen zuschneiden, begehen, Bericht. Etwa 15 Minuten. Si
 
 4. **Maßstab und Referenz.** Wählen Sie eine Etage, wählen Sie die Maßstabsleiste und ziehen Sie entlang der Maßstabsleiste des Grundrisses, geben Sie ihre Länge in Metern ein und Übernehmen (oder eine Maßstabslinie über eine bekannte Strecke). Etagen desselben Blatts können den Maßstab teilen. Klicken Sie mit Referenz auf einen Punkt, der auf jeder Etage zu finden ist, etwa eine Treppenhausecke. Schließen Sie das Fenster.
 
-5. **Begehen.** Wählen Sie auf der Seite Begehung den Empfänger und die Art Punkt und Klick, dann Starten. Klicken Sie dort, wo Sie stehen, gehen Sie geradeaus in gleichmäßigem Tempo und klicken Sie an jeder Abzweigung dort, wo Sie sind. Stoppen am Ende. Die Punkte erscheinen nach Pegel eingefärbt. Wählen Sie mit dem Simulator stattdessen Mausmessung und bewegen Sie die Maus langsam über den Grundriss.
+5. **Begehen.** Wählen Sie im Reiter Begehung den Empfänger und die Art Punkt und Klick, dann Starten. Klicken Sie dort, wo Sie stehen, gehen Sie geradeaus in gleichmäßigem Tempo und klicken Sie an jeder Abzweigung dort, wo Sie sind. Stoppen am Ende. Die Punkte erscheinen nach Pegel eingefärbt. Wählen Sie mit dem Simulator stattdessen Mausmessung und bewegen Sie die Maus langsam über den Grundriss.
 
-6. **Versorgungskarte.** Drücken Sie auf der Seite Karte Ausführen. Die Karte wird aus Ihren Punkten interpoliert und blendet dort aus, wo niemand gemessen hat. Lassen Sie den Zeiger auf dem Grundriss ruhen, um gemessene und interpolierte Werte zu sehen.
+6. **Versorgungskarte.** Drücken Sie im Reiter Karte auf Karte berechnen. Die Karte wird aus Ihren Punkten interpoliert und blendet dort aus, wo niemand gemessen hat. Lassen Sie den Zeiger auf dem Grundriss ruhen, um gemessene und interpolierte Werte zu sehen.
 
 7. **Nächste Etage.** Wählen Sie den Reiter der nächsten Etage und wiederholen Sie die Schritte 5 und 6.
 

@@ -15,9 +15,9 @@ Importer un plan, découper les étages, parcourir, rapport. Environ 15 minutes.
 
 4. **Échelle et référence.** Sélectionnez un étage, choisissez la barre d'échelle et tracez le long de la barre d'échelle du plan, saisissez sa longueur en mètres et Appliquer (ou une ligne d'échelle sur une distance connue). Les étages d'une même feuille peuvent partager l'échelle. Avec Référence, cliquez sur un point présent à chaque étage, comme l'angle d'une cage d'escalier. Fermez la fenêtre.
 
-5. **Parcourir.** Sur la page Parcours, choisissez le récepteur et le mode Pointer-cliquer, puis Démarrer. Cliquez là où vous êtes, marchez en ligne droite à allure régulière et cliquez là où vous êtes à chaque virage. Arrêter à la fin. Les points apparaissent colorés selon le niveau. Avec le simulateur, choisissez plutôt Relevé à la souris et déplacez lentement la souris sur le plan.
+5. **Parcourir.** Dans l'onglet Parcours, choisissez le récepteur et le mode Pointer-cliquer, puis Démarrer. Cliquez là où vous êtes, marchez en ligne droite à allure régulière et cliquez là où vous êtes à chaque virage. Arrêter à la fin. Les points apparaissent colorés selon le niveau. Avec le simulateur, choisissez plutôt Relevé à la souris et déplacez lentement la souris sur le plan.
 
-6. **Carte de couverture.** Sur la page Carte, appuyez sur Calculer. La carte est interpolée à partir de vos points et s'estompe là où personne n'a mesuré. Laissez le pointeur sur le plan pour voir les valeurs mesurées et interpolées.
+6. **Carte de couverture.** Dans l'onglet Carte, appuyez sur Calculer la carte. La carte est interpolée à partir de vos points et s'estompe là où personne n'a mesuré. Laissez le pointeur sur le plan pour voir les valeurs mesurées et interpolées.
 
 7. **Étage suivant.** Choisissez l'onglet de l'étage suivant et répétez les étapes 5 et 6.
 

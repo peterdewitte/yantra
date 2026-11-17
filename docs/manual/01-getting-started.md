@@ -11,13 +11,13 @@ Yantra is made by curtat.be (https://curtat.be) as a reference on building new p
 
 ### What you need
 
-- A Linux PC. Yantra is built from source for now (README, "Install"); packages are planned. A Windows version is not yet available.
+- A PC with Linux (a .deb package or built from source) or Windows 10 or 11 x64 (a portable zip or a setup); see the README, "Install".
 - A radio that one of the radio plugins supports (chapter 2): a HackRF One, an RTL-SDR, an Airspy or another SoapySDR radio, or a TETRA terminal with a PEI cable. None of these radios has been measured with Yantra on real hardware yet: the radio plugins are tested against simulated devices, and their hardware status is kept in DEVICES.md of the yantra-radios project. Always check a new radio against a known signal (chapter 3) before you trust its levels.
 - No radio at all for learning and demonstrations: the simulator "Demo (simulated network)" is always there.
 
 ### Radio drivers and permissions (Linux)
 
-USB radios need read and write access for your user. The yantra-radios project ships the rules: `udev/60-yantra-sdr.rules` (HackRF, RTL-SDR, Airspy) belongs in `/etc/udev/rules.d/` (an installed package puts it in `/lib/udev/rules.d/`); reload the rules and plug the radio in again. An RTL-SDR also needs the DVB-T television driver kept away from it: `udev/yantra-rtl-sdr-blacklist.conf` goes into `/etc/modprobe.d/`. A TETRA terminal on a serial port needs your user in the `dialout` group (log in again afterwards). When access is missing, the radio list (2.1) shows the device with the reason and the remedy. Windows drivers (Zadig/WinUSB) belong to the Windows version, which is not yet available.
+USB radios need read and write access for your user. The yantra-radios project ships the rules: `udev/60-yantra-sdr.rules` (HackRF, RTL-SDR, Airspy) belongs in `/etc/udev/rules.d/` (an installed package puts it in `/lib/udev/rules.d/`); reload the rules and plug the radio in again. An RTL-SDR also needs the DVB-T television driver kept away from it: `udev/yantra-rtl-sdr-blacklist.conf` goes into `/etc/modprobe.d/`. A TETRA terminal on a serial port needs your user in the `dialout` group (log in again afterwards). When access is missing, the radio list (2.1) shows the device with the reason and the remedy. On Windows a USB radio needs the WinUSB driver, installed once per device with Zadig (https://zadig.akeo.ie); a TETRA terminal uses its COM port.
 
 ## 1.1 The start screen
 
@@ -37,7 +37,7 @@ File > Open demo, or `yantra --demo` on the command line, opens the demo project
 - The demo copy, the tour's projects and the plugins' own data: `~/.local/share/yantra/`.
 - The ring buffer (6.1) and downloaded example plans (1.3): `~/.cache/yantra/`.
 
-The folders follow `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME` when you set them.
+The folders follow `XDG_CONFIG_HOME`, `XDG_DATA_HOME` and `XDG_CACHE_HOME` when you set them. On Windows the settings and data are in `%APPDATA%\yantra` and the caches in `%LOCALAPPDATA%\yantra`.
 
 ### Help in the app
 
@@ -59,4 +59,4 @@ The first step chooses the building. The Fraunces Tavern comes with Yantra. The 
 
 The steps: where the plan sheet was saved (the cache folder, with Open folder; or that the Fraunces Tavern is used), a new indoor project, the plan sheet, several floors trimmed from it, a floor from a second plan (the Fraunces Tavern only), the scale, the mouse survey in the Walk tab (move the mouse slowly over the plan; a click starts the interpolation; the simulator reports its levels in dBm, so no calibration is needed, 7.1), the points and the coverage map in the Map tab, switching floors, the report (File > Report, 10.2) and the finished example project.
 
-Each step frames the control it is about in orange and says what to do. Do it yourself, or press Show me: it does the step with the example's data through the same commands. Back repeats a step, Skip goes on, Leave closes the tour; Help > Tour opens it again where you left it. Reset all settings (15.4) starts the tour over.
+Each step frames the control it is about in orange and says what to do. The tour's explanations, like every explanation of the demo (the mouse-survey hint on the plan, the tour offer on the start screen), have a green background, so you can tell them from Yantra's own windows. Do it yourself, or press Show me: it does the step with the example's data through the same commands. Back repeats a step, Skip goes on, Leave closes the tour; Help > Tour opens it again where you left it. Reset all settings (15.4) starts the tour over.

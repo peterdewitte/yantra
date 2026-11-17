@@ -13,7 +13,7 @@ Ein SDR misst Pegel relativ zu seinem eigenen Vollausschlag (dBFS). Eine Kalibri
 
 3. **Die Punkte planen.** Geben Sie unter Empfänger > Kalibrierung... die Frequenzen in MHz ein (zum Beispiel den niedrigsten, mittleren und höchsten Träger des Netzes), die Pegel in dBm (zum Beispiel -90, -70, -50), wie viele Tage die Kalibrierung gültig bleibt und die Messungen pro Punkt. Wählen Sie Signalgenerator (oder Referenzempfänger).
 
-4. **Messen.** Starten Sie den Empfänger (Seite Messung, Empfänger starten), dann Starten im Assistenten. Stellen Sie für jeden Punkt den Generator auf die angezeigte Frequenz und den angezeigten Pegel und drücken Sie Messen. Eine Messung zu nah am Vollausschlag, zu schwach über dem Rauschen oder übersteuert wird mit Begründung abgelehnt: Ändern Sie Pegel oder Verstärkung und messen Sie erneut. Überspringen lässt einen Punkt aus.
+4. **Messen.** Starten Sie den Empfänger (Reiter Begehung, Empfänger starten), dann Starten im Assistenten. Stellen Sie für jeden Punkt den Generator auf die angezeigte Frequenz und den angezeigten Pegel und drücken Sie Messen. Eine Messung zu nah am Vollausschlag, zu schwach über dem Rauschen oder übersteuert wird mit Begründung abgelehnt: Ändern Sie Pegel oder Verstärkung und messen Sie erneut. Überspringen lässt einen Punkt aus.
 
 5. **Speichern.** Speichern legt einen Versatz pro Frequenz in Ihrer Kalibriertabelle ab. Das Kalibrierfenster zeigt den Schlüssel nun als gültig; die Messanzeigen zeigen Pegel in dBm ohne den Hinweis unkalibriert.
 

@@ -9,7 +9,7 @@ A walk test ties the measurements to positions on the floor plan. It belongs to 
 
 ## 7.1 Walking a floor
 
-In the Walk tab of the project window choose the radio (Search again finds the radios), the kind of walk and its name, then Start. While a walk runs the left mouse button belongs to the walk: the editing tools are off, and middle or right drag still pans the plan. Every measurement cycle (one per second) becomes at most one point. Stop ends the walk test.
+In the Walk tab of the project window choose the radio (Search again finds the radios), the kind of walk and its name, then Start. While a walk runs the left mouse button belongs to the walk; middle or right drag still pans the plan. Every measurement cycle (one per second) becomes at most one point. Stop ends the walk test.
 
 The kinds:
 
@@ -28,7 +28,7 @@ The points are drawn as they come, coloured by the serving level with the legend
 
 With the simulator as the radio, the Mouse survey kind lets the mouse stand in for you: move it slowly over the plan and the simulator measures where the mouse is. A point is stored at most every Point spacing (0.25 m by default); above the Speed warning (2 m/s on the plan's scale) the page asks you to move slower. The cycles run five times a second. A click on the plan runs the interpolation of the floor (13.5); Esc or Stop ends the survey.
 
-The simulator reports its levels in dBm by default, so the points are in dBm without any calibration and can be interpolated; the Walk tab says "Levels: dBm, as the radio reports them". Yantra applies no automatic or simulated calibration. When you set the simulator's Levels to "dBFS (like an SDR)" (Radio > Settings...), the points are uncalibrated (dBFS) and the Walk page says so, until you calibrate the simulator with the calibration wizard and its simulated signal generator (a practice calibration, 3.1).
+The simulator reports its levels in dBm by default, so the points are in dBm without any calibration and can be interpolated; the Walk tab says "Levels: dBm, as the radio reports them". Yantra applies no automatic or simulated calibration. When you set the simulator's Levels to "dBFS (like an SDR)" (Radio > Settings...), the points are uncalibrated (dBFS) and the Walk tab says so, until you calibrate the simulator with the calibration wizard and its simulated signal generator (a practice calibration, 3.1).
 
 ## 7.2 Manual points
 

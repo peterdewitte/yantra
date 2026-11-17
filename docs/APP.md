@@ -221,8 +221,8 @@ the radios and one walk test:
   Esc or `walk.stop` stops). The pipeline cycles every 1 s for walks and
   every 0.2 s for the mouse survey. Points go into a session of the floor
   and are drawn as they come.
-- While a walk runs the editing tools are off and the left button goes to
-  the walk.
+- While a walk runs the left button goes to the walk (middle and right
+  drag still pan).
 
 `PlanCanvas::set_left_pans(false)` gives the left button to a tool
 (middle and right drag still pan); `input()` is the mouse in plan units

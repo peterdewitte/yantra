@@ -13,7 +13,7 @@ Een SDR meet niveaus ten opzichte van zijn eigen volle schaal (dBFS). Een kalibr
 
 3. **Plan de punten.** Typ in Radio > Kalibratie... de frequenties in MHz (bijvoorbeeld de laagste, middelste en hoogste draaggolf van het netwerk), de niveaus in dBm (bijvoorbeeld -90, -70, -50), hoeveel dagen de kalibratie geldig blijft en het aantal metingen per punt. Kies Signaalgenerator (of Referentieradio).
 
-4. **Meten.** Start de ontvanger (pagina Meting, Radio starten), dan Starten in de wizard. Zet voor elk punt de generator op de getoonde frequentie en het getoonde niveau en druk op Meten. Een meting te dicht bij volle schaal, te zwak boven de ruis of overstuurd wordt met de reden geweigerd: verander het niveau of de versterking en meet opnieuw. Overslaan laat een punt weg.
+4. **Meten.** Start de ontvanger (tabblad Lopen, Radio starten), dan Starten in de wizard. Zet voor elk punt de generator op de getoonde frequentie en het getoonde niveau en druk op Meten. Een meting te dicht bij volle schaal, te zwak boven de ruis of overstuurd wordt met de reden geweigerd: verander het niveau of de versterking en meet opnieuw. Overslaan laat een punt weg.
 
 5. **Opslaan.** Opslaan bewaart één afwijking per frequentie in je kalibratietabel. Het kalibratievenster toont de sleutel nu als geldig; de meetpanelen tonen niveaus in dBm zonder de markering ongekalibreerd.
 
