@@ -30,6 +30,7 @@ const char* dialog_id(Dialog d, const AppState& state) {
         case BrowsePurpose::SaveAs: return tr("Save project as###dlg.browse");
         case BrowsePurpose::NewProjectFile: return tr("New project file###dlg.browse");
         case BrowsePurpose::PlanFile: return tr("Plan file###dlg.browse");
+        case BrowsePurpose::PhotoFile: return tr("Photo###dlg.browse");
         case BrowsePurpose::ExportFile: return tr("Export to###dlg.browse");
         case BrowsePurpose::ReportFile: return tr("Report file###dlg.browse");
         case BrowsePurpose::ProfileSave: return tr("Save profile###dlg.browse");
@@ -50,6 +51,7 @@ const char* dialog_id(Dialog d, const AppState& state) {
     case Dialog::AcceptanceProfiles: return tr("Acceptance profiles###dlg.profiles");
     case Dialog::Sharing: return tr("Sharing###dlg.sharing");
     case Dialog::ReportReady: return tr("Report ready###dlg.report_ready");
+    case Dialog::Camera: return tr("Take a photo###dlg.camera");
     case Dialog::None: break;
     }
     return "###dlg.none";
@@ -337,6 +339,11 @@ void Gui::draw_project_screen() {
                 "copy); Save as continues with a copy. While it is open here, no other Yantra can open it."));
 
     draw_floor_tabs(*w);
+    // IND-47: the About building tab's page instead of a floor's.
+    if (about_shown_) {
+        draw_about_page();
+        return;
+    }
     draw_plan_credit(w->selected());
     const FloorContent* c = w->content(state_.settings().layers.bin_size_m);
     if (c == nullptr) {
@@ -478,6 +485,9 @@ std::optional<std::pair<std::string, int>> dragged_floor(const ImGuiTabBar& bar,
 void Gui::draw_floor_tabs(ProjectWindow& w) {
     const std::string model = w.selected();
     const bool force = model != shown_floor_;
+    // A floor chosen by a command (added, imported, removed) is shown
+    // instead of the About building tab.
+    if (force && !model.empty() && state_.about_tab()) state_.show_about_tab(false);
     std::string visible;
     // IND-04: the tabs are reorderable: a floor is moved by dragging its tab.
     // A frame without the flag after the floors' order changed: Dear ImGui
@@ -486,13 +496,26 @@ void Gui::draw_floor_tabs(ProjectWindow& w) {
                                        (tab_resort_ ? 0 : ImGuiTabBarFlags_Reorderable);
     tab_resort_ = false;
     if (ImGui::BeginTabBar("###floors", bar_flags)) {
+        // IND-47: the About building tab, always the first one; it cannot be
+        // moved (leading, no reorder) or removed (no close button, no menu).
+        const bool about_model = state_.about_tab();
+        const bool about_force = about_model != about_shown_;
+        const bool about_open =
+            ImGui::BeginTabItem(tr("About building###tab.about"), nullptr,
+                                ImGuiTabItemFlags_Leading | ImGuiTabItemFlags_NoReorder |
+                                    (about_force && about_model ? ImGuiTabItemFlags_SetSelected : 0));
+        text_tooltip(tr("The building: address and map, photo, surveyor, survey date and notes. The report starts with it."));
+        building_.tab = true;
+        building_.tab_first = true;  // drawn before every floor tab
+        if (about_open) ImGui::EndTabItem();
         const std::vector<FloorTab>& tabs = w.tabs();
         std::vector<ImGuiID> tab_ids;
         tab_ids.reserve(tabs.size());
         std::optional<std::pair<std::string, int>> move;  // from the tab's menu
         for (std::size_t i = 0; i < tabs.size(); ++i) {
             const FloorTab& t = tabs[i];
-            const ImGuiTabItemFlags f = (force && t.id == model) ? ImGuiTabItemFlags_SetSelected : 0;
+            const ImGuiTabItemFlags f =
+                ((force || (about_force && !about_model)) && t.id == model && !about_model) ? ImGuiTabItemFlags_SetSelected : 0;
             const bool open = ImGui::BeginTabItem((t.label + "###tab." + t.id).c_str(), nullptr, f);
             tab_ids.push_back(ImGui::GetItemID());
             text_tooltip(t.tooltip.c_str());
@@ -545,6 +568,9 @@ void Gui::draw_floor_tabs(ProjectWindow& w) {
             run(Action::AddFloor);
         item_tooltip(add);
         ImGui::EndTabBar();
+        // A click on the About tab or on a floor's tab (not a command's choice).
+        if (!about_force && about_open != about_model) state_.show_about_tab(about_open);
+        about_shown_ = about_force ? about_model : about_open;
     }
     // A tab the user clicked selects its floor; a floor selected by a
     // command (added, removed) is shown on the next frame.
@@ -1011,6 +1037,7 @@ const char* dialog_section(Dialog d) {
     case Dialog::RemoveFloor: return "13.1";
     case Dialog::PlanImport: return "13.2";
     case Dialog::About: return "1.2";
+    case Dialog::Camera: return "13.6";
     case Dialog::InterpolationSettings: return "13.5";
     case Dialog::Settings: return "15";
     case Dialog::ResetSettings: return "15.4";
@@ -1049,6 +1076,7 @@ void Gui::draw_dialog_body(Dialog d) {
     case Dialog::AddFloor: draw_add_floor(); break;
     case Dialog::PlanImport: draw_plan_import(); break;
     case Dialog::About: draw_about(); break;
+    case Dialog::Camera: draw_camera_dialog(); break;
     case Dialog::FloorProperties: draw_floor_properties(); break;
     case Dialog::RemoveFloor: draw_remove_floor(); break;
     case Dialog::InterpolationSettings: draw_interpolation_dialog(); break;
@@ -1094,10 +1122,11 @@ void Gui::draw_dialogs() {
         // every frame.
         const bool grows = d == Dialog::Settings ||
                            d == Dialog::Export || d == Dialog::Report || d == Dialog::AcceptanceProfiles ||
-                           d == Dialog::Sharing;
+                           d == Dialog::Sharing || d == Dialog::Camera;
         ImGui::SetNextWindowSize(ImVec2(width, 0.0F), grows ? ImGuiCond_Always : ImGuiCond_Appearing);
     }
-    ImGui::SetNextWindowPos(vp->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5F, 0.5F));
+    // The camera dialog grows when the preview starts: kept centred.
+    ImGui::SetNextWindowPos(vp->GetCenter(), d == Dialog::Camera ? ImGuiCond_Always : ImGuiCond_Appearing, ImVec2(0.5F, 0.5F));
     ImGui::SetNextWindowSizeConstraints(ImVec2(0.0F, 0.0F), ImVec2(vp->WorkSize.x, vp->WorkSize.y * 0.98F));
     if (!ImGui::BeginPopupModal(id, nullptr, ImGuiWindowFlags_NoSavedSettings)) {
         // Closed by ImGui (it should not happen for modals without a close
@@ -1122,6 +1151,8 @@ void Gui::draw() {
     survey_ = SurveyOverlay{};
     tour_ = TourOverlay{};
     about_ = AboutOverlay{};
+    building_ = BuildingOverlay{};
+    camera_ = CameraOverlay{};
     UserTexture::collect();
     state_.tick();
     if (state_.ui_generation() != ui_generation_) {

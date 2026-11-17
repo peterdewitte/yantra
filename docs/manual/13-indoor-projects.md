@@ -63,3 +63,14 @@ How it works, in short: the floor is divided into squares of 0.5 m. A square tha
 The map is always labelled "interpolated" and kept apart from the measured points: the hover readout says whether the value is measured or interpolated, with the confidence and the nearest measured point. When the floor's scale or its points change after a run, the map is marked stale; Compute again computes it again. Settings... (in the Advanced dropdown) sets the grid size, the power, the search radius and the full-confidence distance; Defaults puts them back.
 
 ![The interpolated map](../img/interpolation_dark.png) [light theme](../img/interpolation_light.png)
+
+## 13.6 About building
+
+The first tab of every project, About building, is about the building as a whole; it cannot be removed or moved (the floor tabs after it can be dragged). It holds:
+
+- **Address**: free text, as you would write it on a letter. **Find on map** looks it up on OpenStreetMap (Nominatim) and puts the marker there. Only the address is sent, only when you press the button, once per press; Yantra identifies itself as "Yantra/<version>" and sends nothing else.
+- **Map**: an OpenStreetMap map of the building's position. Drag to pan, use the mouse wheel or + and - to zoom, Centre to go back to the marker. Right click on the map for **Move the marker here** (when the search found a place nearby) or **Remove the marker**. The map tiles are fetched only while the map is shown and are kept in your cache folder (`~/.cache/yantra/tiles/osm`, on Windows `%LOCALAPPDATA%\yantra\tiles\osm`; `YANTRA_TILE_CACHE` sets another one), so the map works offline with the tiles seen before; without them it says "No map". The attribution "© OpenStreetMap contributors" is always shown with the map (map data under the ODbL).
+- **Photo of the building**: **Open photo...** copies a picture file (JPEG, PNG, BMP, GIF and the other formats Yantra reads for plans, not PDF) into the project; **Take photo...** opens the camera window: choose the camera, look at the preview and press **Take**. Yantra reads the camera itself (V4L2 on Linux, Media Foundation on Windows); when no camera is found it says so. **Remove photo** takes it out of the project.
+- **Surveyor**, **Survey date** (YYYY-MM-DD; a new project starts with the day it was made, **Today** sets today) and **Notes** (several lines).
+
+Every field is written to the project file when you leave it, like every other change of a project. The report starts with this information (10.2): the address and position, the map made of the cached tiles (with the attribution), the photo, the surveyor, the date and the notes. Nothing of it leaves the computer except the address search and the map tiles you ask for by showing the map.

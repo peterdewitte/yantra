@@ -24,6 +24,7 @@ class NoDownloader final : public Downloader {
 public:
     explicit NoDownloader(std::string reason) : reason_(std::move(reason)) {}
     std::string fetch(const std::string&, const fs::path&, Progress&) override { return reason_; }
+    bool available() const override { return false; }
 
 private:
     std::string reason_;

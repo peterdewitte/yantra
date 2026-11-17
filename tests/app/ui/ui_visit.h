@@ -190,7 +190,13 @@ inline void visit_all(Shell& s, const std::function<void(const std::string&)>& c
         if (!s.ui.has(std::string("menu.") + menu)) continue;
         REQUIRE(s.ui.click(std::string("menu.") + menu));
         settle_check(std::string("project menu ") + menu);
+        // Escape does not close a menu opened with the mouse (no keyboard
+        // navigation): a second click on its name does, so the last one is
+        // not left open over the tab bar (a long first tab, IND-47, put a
+        // floor tab under the Window menu).
         s.ui.key(ImGuiKey_Escape);
+        REQUIRE(s.ui.frames(2));
+        REQUIRE(s.ui.click(std::string("menu.") + menu));
         REQUIRE(s.ui.frames(2));
     }
     const std::string floor = s.state.project_window()->selected();

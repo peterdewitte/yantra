@@ -114,6 +114,26 @@ public:
     const SurveyOverlay& survey_overlay() const { return survey_; }
     /// The post-processing figures as last drawn (Map tab, Advanced; step 9.8 tests).
     const PostStatsView& post_view() const { return post_view_; }
+    /// IND-47: what the About building tab and the camera window drew in
+    /// the last frame (tests).
+    struct BuildingOverlay {
+        bool tab = false;          ///< the About building tab is in the tab bar
+        bool tab_first = false;    ///< ... as the first tab
+        bool shown = false;        ///< its page was drawn
+        bool map = false;          ///< map tiles were drawn
+        bool placeholder = false;  ///< a "no position" / "no map" text instead
+        bool attribution = false;  ///< the OpenStreetMap attribution
+        bool photo = false;        ///< the photo
+        bool offline = false;
+        int tiles_drawn = 0, tiles_missing = 0, tiles_loading = 0;
+    };
+    const BuildingOverlay& building_overlay() const { return building_; }
+    struct CameraOverlay {
+        bool shown = false;
+        bool preview = false;  ///< a camera picture was drawn
+        std::size_t cameras = 0;
+    };
+    const CameraOverlay& camera_overlay() const { return camera_; }
     /// What the About dialog drew in the last frame (tests).
     struct AboutOverlay {
         bool shown = false;
@@ -186,6 +206,9 @@ private:
     void draw_settings_sound(AppSettings& f);
     // Step 9.9: help (DOC-07 e) and the level alerts' popup (UI-10).
     void help_button(const char* section);
+    void draw_about_page();  // IND-47, about_view.cpp
+    void draw_about_map(AboutBuildingView& a, ImVec2 size);
+    void draw_camera_dialog();
     void draw_help_body();
     void draw_help_window();
     void draw_help_popup();
@@ -253,6 +276,7 @@ private:
     Dialog shown_ = Dialog::None;  // the dialog whose popup is open
     std::unique_ptr<PlanCanvas> canvas_;
     PlanImportView import_view_;
+    bool about_shown_ = false;  // IND-47: the About building tab was shown last frame
     std::string shown_floor_;  // the floor tab shown last frame
     std::string tab_order_;    // the floor ids of the tabs, in order
     bool tab_dragged_ = false; // a floor tab is being dragged (IND-04)
@@ -294,6 +318,18 @@ private:
     std::map<std::string, PluginWindowState> plugin_windows_;
     std::vector<PluginFrame> plugin_frame_;
     TourOverlay tour_;
+    // IND-47: the About building tab and the camera window.
+    BuildingOverlay building_;
+    CameraOverlay camera_;
+    std::string about_message_;
+    UserTexture photo_tex_;
+    std::uint64_t photo_generation_ = 0;
+    std::map<about::TileId, UserTexture> tile_textures_;
+    std::uint64_t tile_generation_ = 0;
+    int tile_zoom_ = -1;
+    about::LatLon menu_position_;
+    UserTexture camera_tex_;
+    std::uint64_t camera_frame_ = 0;
 };
 
 /// The ImGui popup id of a dialog ("New indoor project###dlg.new_project").

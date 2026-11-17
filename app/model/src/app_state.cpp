@@ -21,6 +21,7 @@
 #include "yantra/app/app_icon.h"
 #include "yantra/app/data_paths.h"
 #include "yantra/app/plugin_state_file.h"
+#include "yantra/core/plan/source.h"
 #include "yantra/core/build_info.h"
 #include "yantra/core/measure/feature_feed.h"
 #include "yantra/core/platform/clock.h"
@@ -221,6 +222,8 @@ AppState::~AppState() {
     tour_.reset();
     drop_tools();
     drop_network();
+    camera_.reset();
+    about_.reset();
     window_.reset();
     try {
         if (project_) project_->close();
@@ -588,6 +591,10 @@ void AppState::cancel_dialog() {
     }
     if (dialog_ == Dialog::RemoveFloor && window_) window_->cancel_remove();
     if (dialog_ == Dialog::ReportReady) report_ready_.clear();
+    if (dialog_ == Dialog::Camera) {
+        camera_cancel();
+        return;
+    }
     if (dialog_ == Dialog::Sharing) {
         dialog_ = sharing_return_;
         return;
@@ -604,6 +611,8 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     import_window_.reset();
     drop_tools();
     drop_network();
+    camera_cancel();
+    about_.reset();
     window_.reset();
     if (project_) {
         try {
@@ -615,6 +624,9 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     project_ = std::move(p);
     window_ = std::make_unique<ProjectWindow>(*project_);
     window_->set_sheet_folder(paths_.sheet_cache);  // DEMO-13: a referenced MAK sheet in the cache
+    // IND-47: the About building tab, shown first while there is no floor.
+    about_ = std::make_unique<AboutBuildingView>(*project_, paths_.tile_cache, online_downloader());
+    about_tab_ = project_->floors().empty();
     runner_ = std::make_unique<InterpolationRunner>(project_, InterpolationRunner::Options{paths_.interpolation_threads});
     RadioPaths radios = paths_.radios;
     if (radios.scene_folders.empty())
@@ -737,6 +749,7 @@ fs::path AppState::browse_start() const {
         break;
     case BrowsePurpose::OpenProject:
     case BrowsePurpose::PlanFile:
+    case BrowsePurpose::PhotoFile:
     case BrowsePurpose::ProfileSave:
     case BrowsePurpose::ProfileLoad: break;
     }
@@ -766,6 +779,16 @@ void AppState::browse(BrowsePurpose purpose) {
         browser_.emplace(BrowseMode::Open, tr("Plan file (PDF or image)"), plan_file_filters(), browse_start(), home(),
                          recent);
         break;
+    case BrowsePurpose::PhotoFile: {
+        // IND-47: every format stb_image reads (not PDF).
+        std::vector<std::string> ext;
+        for (const std::string& e : plan::supported_extensions())
+            if (e != ".pdf") ext.push_back(e);
+        browser_.emplace(BrowseMode::Open, tr("Photo"),
+                         std::vector<FileFilter>{FileFilter{tr("Pictures"), ext}, FileFilter{tr("All files"), {}}},
+                         browse_start(), home(), recent);
+        break;
+    }
     case BrowsePurpose::ExportFile: {
         const ExportForm::Kind k = output_ ? output_->export_form().kind : ExportForm::Kind::Csv;
         std::vector<FileFilter> filters;
@@ -825,6 +848,15 @@ Result AppState::chosen(const fs::path& file) {
         dialog_ = Dialog::NewProject;
         return Result{};
     case BrowsePurpose::PlanFile: return import_plan_file(file);
+    case BrowsePurpose::PhotoFile: {
+        std::string error;
+        const std::optional<Photo> photo = PhotoSource::from_file(file, error);
+        if (!photo) return fail(error);
+        PhotoTarget target = std::exchange(photo_target_, PhotoTarget());
+        if (!target) return Result{};
+        Result r = target(*photo);
+        return r.ok ? done(trf("Photo {} added.", {photo->name})) : fail(r.message);
+    }
     case BrowsePurpose::ExportFile:
         if (output_) {
             ExportForm& f = output_->export_form();
@@ -1007,6 +1039,8 @@ Result AppState::close_project() {
     import_window_.reset();
     drop_tools();
     drop_network();
+    camera_cancel();
+    about_.reset();
     window_.reset();
     demo_label_.clear();
     try {
@@ -1825,6 +1859,72 @@ Result AppState::confirm_reset_settings() {
     dialog_ = Dialog::None;
     if (!o.ok) return fail(o.message);
     return done(o.message);
+}
+
+}  // namespace yantra::app
+
+// ---- About building (IND-47) -----------------------------------------------------
+
+namespace yantra::app {
+
+void AppState::set_downloader(std::shared_ptr<Downloader> d) {
+    downloader_ = std::move(d);
+    if (about_) about_->set_downloader(online_downloader());
+}
+
+std::shared_ptr<Downloader> AppState::online_downloader() const {
+    return downloader_ && downloader_->available() ? downloader_ : nullptr;
+}
+
+void AppState::browse_photo(PhotoTarget target) {
+    photo_target_ = std::move(target);
+    browse(BrowsePurpose::PhotoFile);
+}
+
+Result AppState::take_photo(PhotoTarget target) {
+    photo_target_ = std::move(target);
+    if (!camera_backend_) camera_backend_ = make_camera_backend();
+    camera_ = std::make_unique<CameraCapture>(camera_backend_);
+    camera_return_ = dialog_ == Dialog::Camera ? camera_return_ : dialog_;
+    dialog_ = Dialog::Camera;
+    refresh_cameras();
+    if (cameras_.empty()) return fail(tr("No camera found. Connect a camera, or use Open photo... with a picture file."));
+    return Result{};
+}
+
+void AppState::refresh_cameras() {
+    if (!camera_) return;
+    cameras_ = camera_->cameras();
+    bool still = false;
+    for (const CameraInfo& c : cameras_) still = still || c.id == camera_id_;
+    if (!still) {
+        camera_id_.clear();
+        if (!cameras_.empty()) select_camera(cameras_.front().id);
+    }
+}
+
+void AppState::select_camera(const std::string& id) {
+    if (!camera_) return;
+    camera_id_ = id;
+    camera_->start(id);
+}
+
+Result AppState::camera_take() {
+    if (!camera_) return fail(tr("The camera window is closed."));
+    const std::optional<Photo> photo = camera_->take();
+    if (!photo) return fail(tr("No picture from the camera yet."));
+    PhotoTarget target = std::exchange(photo_target_, PhotoTarget());
+    camera_cancel();
+    if (!target) return Result{};
+    Result r = target(*photo);
+    return r.ok ? done(tr("Photo taken.")) : fail(r.message);
+}
+
+void AppState::camera_cancel() {
+    camera_.reset();  // stops the preview worker
+    cameras_.clear();
+    if (dialog_ == Dialog::Camera) dialog_ = camera_return_;
+    camera_return_ = Dialog::None;
 }
 
 }  // namespace yantra::app

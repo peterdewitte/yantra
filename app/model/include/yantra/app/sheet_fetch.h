@@ -47,6 +47,9 @@ public:
     /// success, else the reason in one line. Stops early when
     /// progress.cancel is set (then the reason says so).
     virtual std::string fetch(const std::string& url, const std::filesystem::path& file, Progress& progress) = 0;
+    /// False for make_no_downloader(): Yantra is offline (IND-47 then
+    /// shows cached map tiles only and offers no search).
+    virtual bool available() const { return true; }
 };
 
 /// A downloader that always fails with `reason` (a copy of Yantra built

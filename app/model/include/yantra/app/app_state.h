@@ -38,6 +38,7 @@
 #include <utility>
 #include <vector>
 
+#include "yantra/app/about_building.h"
 #include "yantra/app/app_control.h"
 #include "yantra/app/audible_alerts.h"
 #include "yantra/app/cell_db_editor.h"
@@ -187,6 +188,7 @@ enum class Dialog {
     AcceptanceProfiles, ///< the acceptance profile editor (EXP-06): output()->profile_form()
     Sharing,            ///< where exports and reports are sent (EXP-07): sharing_form()
     ReportReady,        ///< UI-22: the report is written; Open, Show in folder, Close: report_ready()
+    Camera,             ///< IND-47: take a photo with a camera: camera(), camera_take()
 };
 
 /// What the file browser was opened for.
@@ -199,6 +201,7 @@ enum class BrowsePurpose {
     ReportFile,      ///< the PDF file of a report (back to the Report dialog)
     ProfileSave,     ///< Settings > Save profile (NFR-06, back to Settings)
     ProfileLoad,     ///< Settings > Load profile (NFR-06)
+    PhotoFile,       ///< a photo (IND-47 building photo; the photo target of browse_photo)
 };
 
 /// The New indoor project form (IND-01).
@@ -489,7 +492,7 @@ public:
     Tour& tour() { return *tour_; }
     const Tour& tour() const { return *tour_; }
     /// The sheet download (main(): libcurl); default: none, with the reason.
-    void set_downloader(std::shared_ptr<Downloader> d) { downloader_ = std::move(d); }
+    void set_downloader(std::shared_ptr<Downloader> d);
     const std::shared_ptr<Downloader>& downloader() const { return downloader_; }
     /// The tour keeps its progress in the settings (saved like the others).
     void set_tour_progress(const TourProgress& p);
@@ -503,9 +506,38 @@ public:
     void close_tour_consent() {
         if (dialog_ == Dialog::TourConsent) dialog_ = Dialog::None;
     }
+    // -- About building (IND-47) ------------------------------------------------
+    /// The About building tab's model of the open project; nullptr without one.
+    AboutBuildingView* about_building() { return about_.get(); }
+    /// The About building tab is the one shown (else a floor's tab).
+    bool about_tab() const { return about_tab_; }
+    void show_about_tab(bool on) { about_tab_ = on; }
+    /// Where a photo goes (the About building tab; the plan notes of IND-48).
+    using PhotoTarget = std::function<Result(const Photo&)>;
+    /// Opens the file browser for a photo (any stb_image format).
+    void browse_photo(PhotoTarget target);
+    /// Opens the camera window (Dialog::Camera) with the first camera.
+    Result take_photo(PhotoTarget target);
+    /// The camera window's capture (nullptr while it is closed).
+    CameraCapture* camera() { return camera_.get(); }
+    /// The cameras of the camera window's list (enumerated when it opened
+    /// or on refresh_cameras()).
+    const std::vector<CameraInfo>& cameras() const { return cameras_; }
+    void refresh_cameras();
+    void select_camera(const std::string& id);
+    const std::string& selected_camera() const { return camera_id_; }
+    /// Take: the current frame goes to the photo target; the window closes.
+    Result camera_take();
+    void camera_cancel();
+    /// The camera backend (default make_camera_backend(); tests: the fake).
+    void set_camera_backend(std::shared_ptr<CameraBackend> b) { camera_backend_ = std::move(b); }
+
     /// Asks the Gui to show a tab of the project window ("walk", "map";
-    /// UI-18) in the next frame.
-    void request_panel(std::string key) { panel_request_ = std::move(key); }
+    /// UI-18; "about" the About building tab, IND-47) in the next frame.
+    void request_panel(std::string key) {
+        about_tab_ = key == "about";
+        if (!about_tab_) panel_request_ = std::move(key);
+    }
     std::string take_panel_request() { return std::exchange(panel_request_, std::string()); }
     /// The demo label again after the floors changed (example ids, DEMO-07).
     void refresh_demo_label();
@@ -725,6 +757,15 @@ private:
     std::map<std::string, std::optional<PlanCreditView>> plan_credits_;  // by SHA-256
     std::shared_ptr<Downloader> downloader_;  // the constructor: none, with the reason
     std::string panel_request_;
+    std::unique_ptr<AboutBuildingView> about_;
+    bool about_tab_ = false;
+    std::shared_ptr<CameraBackend> camera_backend_;
+    std::unique_ptr<CameraCapture> camera_;
+    std::vector<CameraInfo> cameras_;
+    std::string camera_id_;
+    PhotoTarget photo_target_;
+    Dialog camera_return_ = Dialog::None;
+    std::shared_ptr<Downloader> online_downloader() const;
     std::unique_ptr<Tour> tour_;  // last: goes first (its download thread)
 };
 

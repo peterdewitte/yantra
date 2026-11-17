@@ -10,6 +10,7 @@
 #include <iterator>
 #include <vector>
 
+#include "yantra/app/i18n.h"
 #include "yantra/core/about/photo.h"
 #include "yantra/core/platform/thread_name.h"
 
@@ -162,8 +163,8 @@ bool Geocoder::start(const std::string& address, std::string* why) {
     };
     bool blank = true;
     for (const char c : address) blank = blank && (c == ' ' || c == '\n' || c == '\r' || c == '\t');
-    if (blank) return refuse("Type an address first.");
-    if (busy_) return refuse("A search is running.");
+    if (blank) return refuse(tr_mark("Type an address first."));
+    if (busy_) return refuse(tr_mark("A search is running."));
     std::shared_ptr<Downloader> d;
     std::chrono::steady_clock::time_point wait_until;
     {
@@ -172,7 +173,7 @@ bool Geocoder::start(const std::string& address, std::string* why) {
         done_.reset();
         wait_until = last_ + std::chrono::seconds(1);
     }
-    if (!d || scratch_.empty()) return refuse("Yantra is offline: no search is possible.");
+    if (!d || scratch_.empty()) return refuse(tr_mark("Yantra is offline: no search is possible."));
     if (worker_.joinable()) worker_.join();
     busy_ = true;
     worker_ = std::thread([this, d, address, wait_until] {
