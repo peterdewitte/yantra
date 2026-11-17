@@ -58,6 +58,11 @@
       "id": "coated_glass",
       "label": "Coated glass",
       "attenuation_db": 20.0
+    },
+    {
+      "id": "stairwell_core",
+      "label": "Stairwell core",
+      "attenuation_db": 60.0
     }
   ],
   "walls": [
@@ -474,6 +479,42 @@
           "attenuation_db": 6.0
         }
       ]
+    },
+    {
+      "x1_m": 10.75,
+      "y1_m": 9.2,
+      "x2_m": 15.3,
+      "y2_m": 9.2,
+      "class": "stairwell_core",
+      "attenuation_db": 60.0,
+      "polyline": "stairwell"
+    },
+    {
+      "x1_m": 15.3,
+      "y1_m": 9.2,
+      "x2_m": 15.3,
+      "y2_m": 14.45,
+      "class": "stairwell_core",
+      "attenuation_db": 60.0,
+      "polyline": "stairwell"
+    },
+    {
+      "x1_m": 15.3,
+      "y1_m": 14.45,
+      "x2_m": 9.98,
+      "y2_m": 14.45,
+      "class": "stairwell_core",
+      "attenuation_db": 60.0,
+      "polyline": "stairwell"
+    },
+    {
+      "x1_m": 9.98,
+      "y1_m": 14.45,
+      "x2_m": 10.75,
+      "y2_m": 9.2,
+      "class": "stairwell_core",
+      "attenuation_db": 60.0,
+      "polyline": "stairwell"
     }
   ],
   "cells": [

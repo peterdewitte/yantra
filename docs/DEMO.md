@@ -26,6 +26,15 @@ fictitious (MCC 901, MNC 1):
 | T1 | 390.0 MHz | LA 100, colour code 1 | The DAS cell, simulated from the floors' fixed demo scenes |
 | M1 | 390.2 MHz | LA 200, colour code 2 | A macro site outside, weak indoors (about -98 dBm) |
 
+The first floor has a weak inner area (DEMO-16): the stairwell in the
+middle of the plan (about x 10.8-15.3 m, y 9.2-14.5 m) is a closed core
+whose walls take 60 dB in its demo scene, and the first floor's walk
+loops through it. Its points fall to about -98 to -105 dBm (the
+terminal reselects the macro cell M1 there), below the default
+acceptance threshold of -95 dBm, so the demo report's verdict is FAIL
+and names the area ("First floor, centre of the plan"). The MAK example
+buildings of the tour pass, so the demos show both outcomes.
+
 ### The description
 
 The project is made from one file, `data/demo/fraunces/fraunces.json`
@@ -214,7 +223,9 @@ descriptions of Yantra 0.2.0, whose walls and antennas they keep as data
 (RAD-36 format, indented by 2, with a final newline). Since spec 0.4
 they are the only scenes: Yantra has no walls or antennas of its own and
 no scene exporter, so a change of a demo scene is an edit of its file
-(and the demo recordings are made again from it).
+(and the demo recordings are made again from it). `fraunces-1.json` was
+edited so (spec 0.5, DEMO-16): the wall class `stairwell_core` (60 dB)
+and the closed polyline `stairwell` around the first floor's stairwell.
 
 Tests: `scene_radios_check_demo_*` read every file with the radios'
 scene parser; `tests/building/test_building_context.cpp` checks that an
@@ -222,7 +233,10 @@ example floor gets its file as it is and a user's own floor no scene;
 `tests/radio_host/test_radio_host.cpp` that `get_scene` then answers
 NOT_FOUND; `tests/measure_host/test_measure_demo.cpp` that the
 simulator gets the Fraunces floors' fixed scenes and measures indoor
-levels from them.
+levels from them; `tests/measure_host/test_measure_report.cpp` that the
+Fraunces report fails and names the stairwell, and
+`tests/measure_host/test_measure_demo_mak.cpp` that the MAK buildings
+pass.
 
 ## Demo explanations (DEMO-11, DEMO-14, DEMO-15)
 

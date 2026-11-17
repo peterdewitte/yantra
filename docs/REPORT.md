@@ -165,7 +165,15 @@ go through the caller's `translate` (the app's tr()). Content, in order:
 - **Building summary**: every floor's points together, a row per floor
   (points, median, % of points and % of floor area at the threshold, map
   fit, serving-cell changes) and the acceptance profiles over the
-  building with PASS or FAIL.
+  building with PASS or FAIL. A failing profile names its weak areas
+  (DEMO-16): `survey::weak_areas` groups each floor's measured points
+  below the profile's first failed threshold (points at most 3 m apart,
+  directly or through other weak points, are one area); the verdict line
+  names the three largest ("Indoor acceptance: FAIL (weak area: First
+  floor, centre of the plan)": the floor and the points' most frequent
+  label, else the third of the plan it lies in) and a table gives each
+  area's extent in metres from the plan's top-left corner, its points and
+  its lowest value.
 - **Per floor** (a new page each): the plan with every measured point of
   the project window's list (`survey::point_list` with the window's
   metric and scale, IND-30) with its legend and count; the newest stored
@@ -197,7 +205,9 @@ marked * decides the profile's PASS or FAIL.
 `docs/samples/fraunces_report.pdf` and `fraunces_report.html` are the
 report of the Fraunces demo project (two floors, the simulated walks,
 the stored interpolations, the default acceptance profile, the
-verification of the replayed recordings, the DEMO label, no surveyor),
+verification of the replayed recordings, the DEMO label, no surveyor;
+its verdict is FAIL with the weak stairwell of the first floor named,
+DEMO-16),
 composed as the report dialog does with its defaults and dated by a
 fixed `SOURCE_DATE_EPOCH` (2026-11-08 00:00 UTC). Made by
 

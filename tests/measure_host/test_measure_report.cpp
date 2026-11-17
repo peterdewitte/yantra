@@ -114,6 +114,26 @@ TEST_CASE("EXP-05/06 TST-34 the Fraunces demo report: window points, maps, accep
     }
     CHECK(rep.building.all.points == total);
     CHECK(rep.default_profile);
+    // DEMO-16: the weak stairwell of the first floor fails the default
+    // profile on the measured points, and the verdict names it; the
+    // second floor has no weak area.
+    const yr::AcceptanceRow* decides = nullptr;
+    for (const yr::AcceptanceRow& r : rep.acceptance)
+        if (r.decides) decides = &r;
+    REQUIRE(decides);
+    CHECK(decides->basis == B::Points);
+    CHECK_FALSE(decides->result.pass);
+    REQUIRE(rep.weak_areas.size() == 1);
+    const yr::WeakAreaRow& weak = rep.weak_areas.front();
+    CHECK(weak.floor_id == d.floors.front().id);
+    CHECK(weak.part == "centre");
+    CHECK(weak.area.points >= 10);
+    CHECK(weak.area.lowest < o.threshold);
+    // The stairwell of the demo scene (data/demo/scenes/fraunces-1.json).
+    CHECK(weak.area.min_m.x > 10.0);
+    CHECK(weak.area.max_m.x < 16.0);
+    CHECK(weak.area.min_m.y > 9.0);
+    CHECK(weak.area.max_m.y < 15.0);
 
     // Verification: the demo's received cells against its cell database.
     REQUIRE(rep.verification);
@@ -126,6 +146,7 @@ TEST_CASE("EXP-05/06 TST-34 the Fraunces demo report: window points, maps, accep
     CHECK(contains(t, "yantra-gen"));  // the walk tests' radio
     CHECK(contains(t, "interpolated"));
     CHECK(contains(t, "Network verification"));
+    CHECK(contains(t, "Indoor acceptance: FAIL (weak area: First floor, centre of the plan)"));
     CHECK(contains(t, std::to_string(total)));
     const std::string pdf = file_bytes(dir / "demo.pdf");
     const auto check = yr::check_pdf(std::vector<std::uint8_t>(pdf.begin(), pdf.end()));

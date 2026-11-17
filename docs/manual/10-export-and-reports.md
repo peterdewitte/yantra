@@ -30,13 +30,13 @@ What the report holds, in order:
 
 - The cover: project, site, network operator, the surveyor, the measurement dates, floors, points and equipment, and the curtat.be reference with its logo (also in the footer of every page).
 - The measurement metadata: the radios with driver, serial number and plugin, their calibration status (valid, expired, uncalibrated, or "simulated (practice)" for the simulator calibrated with the wizard, 3.1), the cell database, the plugins and the walk tests per floor. Uncalibrated (dBFS) levels are noted.
-- The building summary: every floor's points together and the acceptance profiles over the building with PASS or FAIL.
+- The building summary: every floor's points together and the acceptance profiles over the building with PASS or FAIL. A profile that fails names its weak areas: the measured points below its threshold, grouped where they lie close together, each with its floor and where it is on the plan (a manual point's label when the points have one), its extent in metres, its points and its lowest value.
 - One section per floor, as listed above. The share of measured points and the share of the floor area (interpolated) are always given side by side, never mixed.
 - The network verification: the cells received in the walks against the cell database, and the neighbour cross-check (chapter 8).
 
 A demo project's report carries the DEMO label. A licence-restricted plan (the MAK sheets of the tour, 1.3) is drawn only from your own cached copy, with its credit and licence under the picture; without the cached copy the report leaves the plan out.
 
-A [sample report](../samples/fraunces_report.pdf) of the demo project shows the result.
+A [sample report](../samples/fraunces_report.pdf) of the demo project shows the result. Its verdict is FAIL: the stairwell in the middle of the Fraunces first floor is a weak area, named in the building summary; the MAK example buildings of the tour pass.
 
 ## 10.3 Acceptance profiles
 

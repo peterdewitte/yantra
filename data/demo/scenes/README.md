@@ -35,6 +35,10 @@ with the scene exporter of Yantra 0.2.0:
 
     yantra-demo --export-scenes data/demo/scenes --description data/demo/fraunces/fraunces.json
 
-(likewise for the three MAK descriptions). The ctests `demo_scenes_*`
-check that they are still that export byte for byte; they contain no
-plan image data. Licence: GPL-3.0-or-later (REUSE.toml).
+(likewise for the three MAK descriptions). That exporter is gone since
+spec 0.4: a change is an edit of the file. `fraunces-1.json` has since
+got the wall class `stairwell_core` (60 dB) and the closed polyline
+`stairwell` around the first floor's stairwell, its weak inner area
+(DEMO-16, docs/DEMO.md). The ctests `scene_radios_check_demo_*` read
+every file with the radios' scene parser. The files contain no plan
+image data. Licence: GPL-3.0-or-later (REUSE.toml).

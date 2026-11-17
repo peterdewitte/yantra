@@ -34,6 +34,7 @@
 #include <yantra/core/demo/demo_project.h>
 #include <yantra/core/plan/import.h>
 #include <yantra/core/project/project.h>
+#include <yantra/core/survey/acceptance.h>
 #include <yantra/core/survey/interpolation.h>
 #include <yantra/core/survey/points.h>
 #include <yantra/core/survey/stats.h>
@@ -393,6 +394,23 @@ TEST_CASE("DEMO-13 the MAK example projects hold a walk recording and an interpo
             CHECK(stored[0].points.size() == list.count());
             CHECK(!ys::staleness(*p, stored[0]).stale);
         }
+    }
+}
+
+TEST_CASE("DEMO-16 the MAK example buildings pass the default acceptance profile (Fraunces is the one that fails)") {
+    for (const std::string& id : kBuildings) {
+        CAPTURE(id);
+        if (!built(id)) return;
+        const yd::DemoDescription d = yd::read_description(description_file(id));
+        const fs::path dir = built_copy(id, "accept");
+        auto p = yj::Project::open(dir / (id + ".yantra"));
+        std::vector<ys::PointList> lists;
+        for (const yd::DemoFloor& df : d.floors) lists.push_back(points_of(*p, d, df.id));
+        std::vector<const std::vector<ys::SurveyPoint>*> floors;
+        for (const ys::PointList& l : lists) floors.push_back(&l.points);
+        const ys::AcceptanceResult r = ys::evaluate_floors(ys::default_acceptance_profile(), floors);
+        CHECK(r.points > 0);
+        CHECK(r.pass);
     }
 }
 
