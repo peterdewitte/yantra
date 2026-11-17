@@ -20,7 +20,7 @@
 // srt_db, ...; docs/plugins/TETRA.md). The core knows only the radio
 // API's core fields: the main carrier is `frequency_hz`
 // (building::Cell::carrier_hz) and `mcc`, `mnc`, `la`, `colour_code` are
-// the identity the scene export needs (building::Cell::identity). Which
+// the cell's identity (building::Cell::identity). Which
 // fields pair a received cell with an entry ("by LA, by channel or by
 // both", DB-01) is a per-technology setting (match_fields).
 // Copied in part from yantra-v2 68ea20a:
