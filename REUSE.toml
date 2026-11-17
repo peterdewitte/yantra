@@ -190,11 +190,12 @@ SPDX-FileCopyrightText = "Historic American Buildings Survey, Library of Congres
 SPDX-License-Identifier = "LicenseRef-Public-Domain"
 
 # The demo project descriptions (Fraunces and the MAK example buildings,
-# which hold no plan image), their cell databases and the DEMO-09
-# scenario list (JSON and CSV without a kept comment syntax).
+# which hold no plan image), their cell databases, the fixed demo scenes
+# of the example floors (DEMO-05, data/demo/scenes/README.md) and the
+# DEMO-09 scenario list (JSON and CSV without a kept comment syntax).
 [[annotations]]
 path = ["data/demo/*.json", "data/demo/fraunces/*.json", "data/demo/fraunces/*.csv", "data/demo/mak/*.json",
-        "data/demo/mak/*.csv"]
+        "data/demo/mak/*.csv", "data/demo/scenes/*.json"]
 SPDX-FileCopyrightText = "2026 The Yantra contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"
 

@@ -13,6 +13,21 @@ include(GNUInstallDirs)
 add_executable(yantra-demo main.cpp)
 target_link_libraries(yantra-demo PRIVATE yantra::core yantra::warnings)
 
+# DEMO-05, DEMO-12, PLG-27: the fixed demo scenes of the bundled example
+# floors (data/demo/scenes/<example id>.json, RAD-36 format; made once by
+# `yantra-demo --export-scenes`, docs/DEMO.md "Fixed demo scenes"). The
+# simulator gets them through get_scene and the demo builds give them to
+# yantra-gen. Copied into the build tree (a data folder of the app, as
+# share/yantra) and installed to share/yantra/demo/scenes.
+set(YANTRA_DEMO_SCENE_DIR ${PROJECT_SOURCE_DIR}/data/demo/scenes CACHE INTERNAL "")
+file(GLOB YANTRA_DEMO_SCENES CONFIGURE_DEPENDS ${YANTRA_DEMO_SCENE_DIR}/*.json)
+foreach(_scene IN LISTS YANTRA_DEMO_SCENES)
+  get_filename_component(_name ${_scene} NAME)
+  configure_file(${_scene} ${PROJECT_BINARY_DIR}/demo/scenes/${_name} COPYONLY)
+endforeach()
+install(FILES ${YANTRA_DEMO_SCENES} ${YANTRA_DEMO_SCENE_DIR}/README.md
+        DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra/demo/scenes)
+
 # The Fraunces demo project (DEMO-05, DEMO-06, DEMO-13), made at build
 # time when the radio tools are there (yantra-gen, the scenarios); the
 # demo tests (tests/demo) read it and make it again for the determinism
@@ -51,8 +66,8 @@ if(YANTRA_RADIOS_KIND STREQUAL "build" OR
   add_custom_command(OUTPUT ${_outputs}
     COMMAND ${_demo_cmd} --description ${_data}/fraunces.json --out ${_out}
             --gen ${_demo_gen} --scenario-dir ${_demo_scenarios}
-            --tetra-plugin ${_demo_tetra}
-    DEPENDS ${_demo_deps} ${_data}/fraunces.json ${_data}/cells.csv
+            --scene-dir ${YANTRA_DEMO_SCENE_DIR} --tetra-plugin ${_demo_tetra}
+    DEPENDS ${_demo_deps} ${_data}/fraunces.json ${_data}/cells.csv ${YANTRA_DEMO_SCENES}
             ${_data}/fraunces_tavern_first_floor.png ${_data}/fraunces_tavern_second_floor.png ${_scenarios}
     COMMENT "The Fraunces demo project (yantra-demo: yantra-gen walks, replay, interpolation)"
     VERBATIM)
@@ -91,8 +106,8 @@ if(YANTRA_RADIOS_KIND STREQUAL "build" OR
     add_custom_command(OUTPUT ${_o}/${_id}.yantra
       COMMAND ${_demo_cmd} --description ${_mak}/${_id}.json --out ${_o} --reference-sheets
               --gen ${_demo_gen} --scenario-dir ${_demo_scenarios}
-              --tetra-plugin ${_demo_tetra}
-      DEPENDS ${_demo_deps} ${_mak}/${_id}.json ${_mak}/cells.csv ${_scenarios}
+              --scene-dir ${YANTRA_DEMO_SCENE_DIR} --tetra-plugin ${_demo_tetra}
+      DEPENDS ${_demo_deps} ${_mak}/${_id}.json ${_mak}/cells.csv ${_scenarios} ${YANTRA_DEMO_SCENES}
       COMMENT "MAK example project ${_id} (yantra-demo: yantra-gen walks, replay, interpolation; no plan image)"
       VERBATIM)
     list(APPEND _mak_outputs ${_o}/${_id}.yantra)

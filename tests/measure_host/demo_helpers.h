@@ -96,7 +96,8 @@ inline constexpr bool kDemoMadeHere = true;
 inline bool run_yantra_demo(const fs::path& description, const fs::path& out, const std::string& extra = {}) {
     fs::create_directories(out);
     std::vector<std::string> argv = {YANTRA_DEMO_PATH, "--description", description.string(), "--out", out.string(),
-                                     "--gen", DEMO_GEN, "--scenario-dir", DEMO_SCENARIO_DIR, "--tetra-plugin",
+                                     "--gen", DEMO_GEN, "--scenario-dir", DEMO_SCENARIO_DIR,
+                                     "--scene-dir", (fs::path(DEMO_DATA_DIR) / "scenes").string(), "--tetra-plugin",
                                      TETRA_PLUGIN_PATH, "--threads", std::to_string(kDemoThreads)};
     if (!extra.empty()) argv.push_back(extra);
     const bool ok = yantra::test::run_program(argv, out / "log.txt") == 0;

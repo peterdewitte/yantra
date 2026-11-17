@@ -94,6 +94,20 @@ target_compile_definitions(test_measure_host PRIVATE
   DEMO_GEN="${YANTRA_DEMO_GEN}"
   DEMO_SCENARIO_DIR="${YANTRA_DEMO_SCENARIO_DIR}")
 
+# DEMO-05, DEMO-12, PLG-27: the committed fixed demo scenes
+# (data/demo/scenes) are the scene exporter's output for every bundled
+# example floor, byte for byte (yantra-demo --check-scenes), so the
+# simulator and the demo recordings get exactly the scenes they got when
+# Yantra exported them from the building model. No radio tools needed.
+foreach(_desc fraunces/fraunces mak/mak_beer_house mak/mak_haus_claeson mak/mak_villa_bunzl)
+  get_filename_component(_id ${_desc} NAME)
+  add_test(NAME demo_scenes_${_id}
+    COMMAND yantra-demo --check-scenes ${YANTRA_DEMO_SCENE_DIR}
+            --description ${PROJECT_SOURCE_DIR}/data/demo/${_desc}.json
+            --work ${CMAKE_CURRENT_BINARY_DIR}/scratch/demo_scenes_${_id})
+  set_tests_properties(demo_scenes_${_id} PROPERTIES LABELS "demo")
+endforeach()
+
 # PROCESSORS: the simulator and SDR plugin cases keep a stream thread,
 # the plugin's engine workers and the pipeline busy and check real-time
 # cadence; ctest -j must not start more of them than the machine runs.

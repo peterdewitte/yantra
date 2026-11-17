@@ -12,8 +12,8 @@
 //    trimmed from them with their example ids, RAD-18).
 // 2. walk_scenario: per floor a yantra-radios scenario (RAD-74) for
 //    yantra-gen (RAD-71): the network of the scenario the floor's example
-//    id selects, the floor's scene as Yantra exports it (RAD-36) and the
-//    walk as the receiver path. yantra-gen writes its ground truth as a
+//    id selects, the floor's fixed demo scene (data/demo/scenes, RAD-36,
+//    read_demo_scene) and the walk as the receiver path. yantra-gen writes its ground truth as a
 //    record file (RAD-65) without any IQ reaching Yantra.
 // 3. record_walk: that record file replayed through the measurement
 //    pipeline on a clock that follows the recorded times, into a
@@ -193,13 +193,32 @@ std::vector<double> waypoint_times(const building::Building& b, const DemoFloor&
 
 /// The yantra-gen scenario (JSON text, format yantra-radios-scenario) of
 /// a floor's walk: `base_scenario` (the JSON text of the scenario the
-/// floor's example id selects) with the floor's scene (radio
-/// export_scene, other floors' antennas included), the walk as a linear
-/// path in plan-frame metres, a duration one second past the last
-/// waypoint and the given truth interval. DemoError when the scene cannot
-/// be exported or the base is not a scenario.
+/// floor's example id selects) with `scene` (the floor's fixed demo
+/// scene, JSON text in the RAD-36 format: read_demo_scene), the walk as a
+/// linear path in plan-frame metres, a duration one second past the last
+/// waypoint and the given truth interval. DemoError when the scene is not
+/// JSON or the base is not a scenario.
 std::string walk_scenario(const std::string& base_scenario, const building::Building& b, const DemoFloor& f,
-                          double truth_interval_s);
+                          const std::string& scene, double truth_interval_s);
+
+/// DEMO-05, PLG-27: the fixed demo scene of a bundled example floor is the
+/// file <scene_dir>/<example id>.json (data/demo/scenes, RAD-36 format;
+/// docs/DEMO.md "Fixed demo scenes"). The simulator gets it through
+/// get_scene (context::demo_scenes) and yantra-gen through walk_scenario;
+/// a floor without an example id has no scene.
+std::filesystem::path demo_scene_file(const std::filesystem::path& scene_dir, const std::string& example_id);
+
+/// The text of the floor's fixed demo scene in `scene_dir`; nullopt when
+/// the example id is empty or has no scene file there.
+std::optional<std::string> read_demo_scene(const std::filesystem::path& scene_dir, const std::string& example_id);
+
+/// The export tool's scene of floor `f` (yantra-demo --export-scenes):
+/// the scene exporter's output (radio::export_scene with its defaults,
+/// other floors' antennas included) for the floor of `b`, indented by 2
+/// with a final newline, as committed in data/demo/scenes. DemoError when
+/// the floor cannot be exported. Used only to make (and check) the scene
+/// files: nothing else builds scenes from the building model.
+std::string export_demo_scene(const building::Building& b, const DemoFloor& f);
 
 /// The fixed recording session id of a floor's walk: the first 16 hex
 /// digits of SHA-256("<demo id>/<floor id>").

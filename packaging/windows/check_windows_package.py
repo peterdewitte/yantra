@@ -75,7 +75,7 @@ REQUIRED = [
     "share/yantra/fonts/Inter-Regular.ttf", "share/yantra/fonts/Inter-OFL.txt",
     "share/yantra/fonts/JetBrainsMono-Regular.ttf", "share/yantra/fonts/JetBrainsMono-OFL.txt",
     "share/yantra/logo/png/yantra_logo_256.png", "share/yantra/demo/fraunces/README.md",
-    "share/yantra/demo/fraunces/fraunces.yantra",
+    "share/yantra/demo/fraunces/fraunces.yantra", "share/yantra/demo/scenes/fraunces-1.json",
     "share/licenses/msys2/PACKAGES.txt", "share/doc/yantra/LICENSES/GPL-3.0-or-later.txt",
 ]
 REQUIRED_DIRS = ["share/licenses/yantra-radios", "share/licenses/pdfium", "share/yantra/manual",

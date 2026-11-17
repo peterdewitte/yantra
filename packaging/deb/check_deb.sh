@@ -55,7 +55,8 @@ want=(./usr/bin/yantra ./usr/bin/yantra-probe ./usr/bin/yantra-plugin-test
       ./usr/share/yantra/THIRD_PARTY.md ./usr/share/yantra/METHOD.md ./usr/share/yantra/LEGAL.md
       ./usr/share/yantra/logo/png/yantra_logo_512.png ./usr/share/yantra/branding/curtat_logo.svg
       ./usr/share/yantra/fonts/Inter-Regular.ttf ./usr/share/yantra/fonts/Inter-OFL.txt
-      ./usr/share/yantra/manual/13-indoor-projects.md ./usr/share/yantra/demo/fraunces/fraunces.yantra)
+      ./usr/share/yantra/manual/13-indoor-projects.md ./usr/share/yantra/demo/fraunces/fraunces.yantra
+      ./usr/share/yantra/demo/scenes/fraunces-1.json ./usr/share/yantra/demo/scenes/README.md)
 for l in "" nl/ fr/ de/; do
   want+=("./usr/share/yantra/quickstart/${l}01-first-indoor-project.md"
          "./usr/share/doc/yantra/html/docs/quickstart/${l}01-first-indoor-project.pdf")

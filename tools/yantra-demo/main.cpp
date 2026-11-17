@@ -5,9 +5,11 @@
 // docs/DEMO.md) from its description, e.g. data/demo/fraunces/fraunces.json:
 //
 //   yantra-demo --description FILE --out DIR --gen YANTRA_GEN
-//               --scenario-dir DIR --tetra-plugin TETRA_SO
+//               --scenario-dir DIR --scene-dir DIR --tetra-plugin TETRA_SO
 //               [--work DIR] [--truth-interval S] [--threads N] [--keep-work]
 //               [--sheets DIR | --reference-sheets]
+//   yantra-demo --export-scenes DIR --description FILE [--work DIR]
+//   yantra-demo --check-scenes DIR --description FILE [--work DIR]
 //   yantra-demo --sample-report DIR --project FILE --description FILE
 //               --tetra-plugin TETRA_SO --data DIR [--compare DIR] [--work DIR]
 //
@@ -25,10 +27,18 @@
 // (the user's cache), --reference-sheets makes the project from the
 // description alone (the build, which never has the files; DEMO-13).
 //
+// --export-scenes is the export tool of the fixed demo scenes (DEMO-05,
+// DEMO-12, PLG-27; docs/DEMO.md "Fixed demo scenes"): it writes the scene
+// of every floor of the description, as the scene exporter makes it from
+// the description's walls and antennas, to DIR/<example id>.json (run
+// once per description into data/demo/scenes); --check-scenes compares
+// the files in DIR with that export byte for byte (exit 1 when one
+// differs or is missing; the ctests demo_scenes_*).
+//
 // DIR/<id>.yantra is the project, DIR/recordings/ its walk recordings.
 // Per floor, the scenario that the floor's example id selects in the
-// radios' scenario folder (RAD-18, RAD-74) gets the floor's scene and walk
-// (demo::walk_scenario); yantra-gen of yantra-radios (RAD-71) writes its
+// radios' scenario folder (RAD-18, RAD-74) gets the floor's fixed demo
+// scene from --scene-dir and its walk (demo::walk_scenario); yantra-gen of yantra-radios (RAD-71) writes its
 // ground truth as a record file (its I/Q output is discarded: Yantra
 // reads records only, RAD-26); the walk is replayed into the project and
 // recorded (demo::record_walk); then each floor is interpolated
@@ -45,6 +55,7 @@
 #include <memory>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <yantra/core/demo/demo_project.h>
@@ -65,13 +76,17 @@ namespace {
 
 int usage(std::ostream& out, int code) {
     out << "usage: yantra-demo --description FILE --out DIR --gen YANTRA_GEN --scenario-dir DIR\n"
-           "                   --tetra-plugin TETRA_SO [--work DIR] [--truth-interval S]\n"
+           "                   --scene-dir DIR --tetra-plugin TETRA_SO [--work DIR] [--truth-interval S]\n"
            "                   [--threads N] [--keep-work] [--sheets DIR | --reference-sheets]\n"
            "       yantra-demo --sample-report DIR --project FILE --description FILE\n"
            "                   --tetra-plugin TETRA_SO --data DIR [--compare DIR]\n"
+           "       yantra-demo --export-scenes DIR --description FILE [--work DIR]\n"
+           "       yantra-demo --check-scenes DIR --description FILE [--work DIR]\n"
            "Makes the demo project of FILE (format yantra-demo-project) in DIR: DIR/<id>.yantra\n"
            "and DIR/recordings/ (DEMO-05, DEMO-06; docs/DEMO.md); --sample-report writes and\n"
-           "compares the sample report of a built demo project (DEMO-06).\n";
+           "compares the sample report of a built demo project (DEMO-06); --export-scenes writes\n"
+           "the fixed demo scene of every floor to DIR/<example id>.json and --check-scenes\n"
+           "compares DIR with that export (DEMO-05, PLG-27).\n";
     return code;
 }
 
@@ -163,6 +178,50 @@ int sample_report(std::map<std::string, std::string>& opt) {
     return within ? 0 : 1;
 }
 
+// DEMO-05, PLG-27: the export tool of the fixed demo scenes, and the check
+// that the committed files are that export.
+int scenes(std::map<std::string, std::string>& opt) {
+    const bool check = opt.count("check-scenes") != 0;
+    if (!opt.count("description") || (check == (opt.count("export-scenes") != 0))) return usage(std::cerr, 2);
+    const fs::path dir = check ? opt["check-scenes"] : opt["export-scenes"];
+    const yd::DemoDescription d = yd::read_description(opt["description"]);
+    const fs::path work = opt.count("work") ? fs::path(opt["work"]) : dir / ("work-" + d.id);
+    fs::remove_all(work);
+    fs::create_directories(work);
+    std::vector<std::pair<std::string, std::string>> out;  // example id, scene text
+    {
+        // The description's building; restricted sheets by reference only.
+        yd::CreateOptions co;
+        co.require_restricted_sheets = false;
+        auto project = yd::create_project(d, work / (d.id + ".yantra"), co);
+        const yantra::building::Building b = project->building();
+        for (const yd::DemoFloor& f : d.floors) {
+            if (f.example_id.empty()) throw std::runtime_error("floor " + f.id + " has no example id");
+            out.emplace_back(f.example_id, yd::export_demo_scene(b, f));
+        }
+        project->close();
+    }
+    fs::remove_all(work);
+    bool same = true;
+    if (!check) fs::create_directories(dir);
+    for (const auto& [id, text] : out) {
+        const fs::path file = yd::demo_scene_file(dir, id);
+        if (!check) {
+            std::ofstream(file, std::ios::binary) << text;
+            std::cout << "scene " << id << ": " << file.string() << "\n";
+            continue;
+        }
+        const auto have = yd::read_demo_scene(dir, id);
+        const bool ok = have && *have == text;
+        std::cout << "scene " << id << ": " << (ok ? "same" : have ? "DIFFERS" : "MISSING") << "\n";
+        same = same && ok;
+    }
+    if (!same)
+        std::cout << "The demo scenes in " << dir.string() << " are not the export of " << opt["description"]
+                  << " (docs/DEMO.md \"Fixed demo scenes\").\n";
+    return same ? 0 : 1;
+}
+
 }  // namespace
 
 int main(int argc, char** argv) {
@@ -193,7 +252,15 @@ int main(int argc, char** argv) {
             return 1;
         }
     }
-    for (const char* need : {"description", "out", "gen", "scenario-dir", "tetra-plugin"})
+    if (opt.count("export-scenes") || opt.count("check-scenes")) {
+        try {
+            return scenes(opt);
+        } catch (const std::exception& ex) {
+            std::cerr << "yantra-demo: " << ex.what() << "\n";
+            return 1;
+        }
+    }
+    for (const char* need : {"description", "out", "gen", "scenario-dir", "scene-dir", "tetra-plugin"})
         if (!opt.count(need)) return usage(std::cerr, 2);
     try {
         const yd::DemoDescription d = yd::read_description(opt["description"]);
@@ -222,9 +289,11 @@ int main(int argc, char** argv) {
             if (!base) throw std::runtime_error("no scenario of " + opt["scenario-dir"] + " lists " + f.example_id);
             const fs::path dir = work / f.id;
             fs::create_directories(dir);
+            const auto scene = yd::read_demo_scene(opt["scene-dir"], f.example_id);
+            if (!scene) throw std::runtime_error("no demo scene of " + f.example_id + " in " + opt["scene-dir"]);
             const fs::path scenario = dir / base->filename();  // the file is named by its id
             std::ofstream(scenario, std::ios::binary)
-                << yd::walk_scenario(read_text(*base), b, f, truth_interval) << "\n";
+                << yd::walk_scenario(read_text(*base), b, f, *scene, truth_interval) << "\n";
             record_files.push_back(dir / "walk.records.jsonl");
             std::cout << f.name << " (" << f.example_id << "): scenario " << base->stem().string() << "\n";
             runs.push_back(std::async(std::launch::async, run_gen, fs::path(opt["gen"]), scenario, record_files.back()));

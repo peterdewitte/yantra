@@ -1,0 +1,467 @@
+{
+  "format": "yantra-radio-scene",
+  "version": 1,
+  "minor_version": 1,
+  "floor": {
+    "id": "upper-floor",
+    "name": "Upper floor (Obergeschoss)",
+    "scale_set": true,
+    "width_m": 18.75,
+    "height_m": 12.0,
+    "slab_attenuation_db": 15.0,
+    "storey_height_m": 3.2,
+    "storeys": [
+      {
+        "floor_offset": -2,
+        "level_m": -6.4,
+        "slab_attenuation_db": 30.0
+      },
+      {
+        "floor_offset": -1,
+        "level_m": -3.2,
+        "slab_attenuation_db": 15.0
+      },
+      {
+        "floor_offset": 1,
+        "level_m": 3.2,
+        "slab_attenuation_db": 15.0
+      }
+    ]
+  },
+  "wall_classes": [
+    {
+      "id": "concrete",
+      "label": "Concrete",
+      "attenuation_db": 12.0
+    },
+    {
+      "id": "brick",
+      "label": "Brick",
+      "attenuation_db": 8.0
+    },
+    {
+      "id": "plasterboard",
+      "label": "Plasterboard",
+      "attenuation_db": 3.0
+    },
+    {
+      "id": "glass",
+      "label": "Glass",
+      "attenuation_db": 2.0
+    },
+    {
+      "id": "wood",
+      "label": "Wood",
+      "attenuation_db": 3.0
+    },
+    {
+      "id": "door",
+      "label": "Door",
+      "attenuation_db": 4.0
+    },
+    {
+      "id": "metal",
+      "label": "Metal",
+      "attenuation_db": 25.0
+    },
+    {
+      "id": "coated_glass",
+      "label": "Coated glass",
+      "attenuation_db": 20.0
+    }
+  ],
+  "walls": [
+    {
+      "x1_m": 2.34,
+      "y1_m": 2.28,
+      "x2_m": 8.25,
+      "y2_m": 2.28,
+      "class": "brick",
+      "attenuation_db": 8.0,
+      "polyline": "w1",
+      "bands": [
+        {
+          "frequency_hz": 400000000,
+          "attenuation_db": 8.0
+        },
+        {
+          "frequency_hz": 900000000,
+          "attenuation_db": 10.0
+        }
+      ]
+    },
+    {
+      "x1_m": 8.25,
+      "y1_m": 2.28,
+      "x2_m": 8.25,
+      "y2_m": 0.3,
+      "class": "brick",
+      "attenuation_db": 8.0,
+      "polyline": "w1",
+      "bands": [
+        {
+          "frequency_hz": 400000000,
+          "attenuation_db": 8.0
+        },
+        {
+          "frequency_hz": 900000000,
+          "attenuation_db": 10.0
+        }
+      ]
+    },
+    {
+      "x1_m": 8.25,
+      "y1_m": 0.3,
+      "x2_m": 12.6,
+      "y2_m": 0.3,
+      "class": "brick",
+      "attenuation_db": 8.0,
+      "polyline": "w1",
+      "bands": [
+        {
+          "frequency_hz": 400000000,
+          "attenuation_db": 8.0
+        },
+        {
+          "frequency_hz": 900000000,
+          "attenuation_db": 10.0
+        }
+      ]
+    },
+    {
+      "x1_m": 12.6,
+      "y1_m": 0.3,
+      "x2_m": 12.6,
+      "y2_m": 2.28,
+      "class": "brick",
+      "attenuation_db": 8.0,
+      "polyline": "w1",
+      "bands": [
+        {
+          "frequency_hz": 400000000,
+          "attenuation_db": 8.0
+        },
+        {
+          "frequency_hz": 900000000,
+          "attenuation_db": 10.0
+        }
+      ]
+    },
+    {
+      "x1_m": 12.6,
+      "y1_m": 2.28,
+      "x2_m": 18.36,
+      "y2_m": 2.28,
+      "class": "brick",
+      "attenuation_db": 8.0,
+      "polyline": "w1",
+      "bands": [
+        {
+          "frequency_hz": 400000000,
+          "attenuation_db": 8.0
+        },
+        {
+          "frequency_hz": 900000000,
+          "attenuation_db": 10.0
+        }
+      ]
+    },
+    {
+      "x1_m": 18.36,
+      "y1_m": 2.28,
+      "x2_m": 18.36,
+      "y2_m": 6.3,
+      "class": "brick",
+      "attenuation_db": 8.0,
+      "polyline": "w1",
+      "bands": [
+        {
+          "frequency_hz": 400000000,
+          "attenuation_db": 8.0
+        },
+        {
+          "frequency_hz": 900000000,
+          "attenuation_db": 10.0
+        }
+      ]
+    },
+    {
+      "x1_m": 18.36,
+      "y1_m": 6.3,
+      "x2_m": 9.9,
+      "y2_m": 6.3,
+      "class": "brick",
+      "attenuation_db": 8.0,
+      "polyline": "w1",
+      "bands": [
+        {
+          "frequency_hz": 400000000,
+          "attenuation_db": 8.0
+        },
+        {
+          "frequency_hz": 900000000,
+          "attenuation_db": 10.0
+        }
+      ]
+    },
+    {
+      "x1_m": 9.9,
+      "y1_m": 6.3,
+      "x2_m": 9.9,
+      "y2_m": 9.6,
+      "class": "brick",
+      "attenuation_db": 8.0,
+      "polyline": "w1",
+      "bands": [
+        {
+          "frequency_hz": 400000000,
+          "attenuation_db": 8.0
+        },
+        {
+          "frequency_hz": 900000000,
+          "attenuation_db": 10.0
+        }
+      ]
+    },
+    {
+      "x1_m": 9.9,
+      "y1_m": 9.6,
+      "x2_m": 2.34,
+      "y2_m": 9.6,
+      "class": "brick",
+      "attenuation_db": 8.0,
+      "polyline": "w1",
+      "bands": [
+        {
+          "frequency_hz": 400000000,
+          "attenuation_db": 8.0
+        },
+        {
+          "frequency_hz": 900000000,
+          "attenuation_db": 10.0
+        }
+      ]
+    },
+    {
+      "x1_m": 2.34,
+      "y1_m": 9.6,
+      "x2_m": 2.34,
+      "y2_m": 2.28,
+      "class": "brick",
+      "attenuation_db": 8.0,
+      "polyline": "w1",
+      "bands": [
+        {
+          "frequency_hz": 400000000,
+          "attenuation_db": 8.0
+        },
+        {
+          "frequency_hz": 900000000,
+          "attenuation_db": 10.0
+        }
+      ]
+    },
+    {
+      "x1_m": 2.34,
+      "y1_m": 6.3,
+      "x2_m": 9.9,
+      "y2_m": 6.3,
+      "class": "brick",
+      "attenuation_db": 8.0,
+      "polyline": "w2",
+      "bands": [
+        {
+          "frequency_hz": 400000000,
+          "attenuation_db": 8.0
+        },
+        {
+          "frequency_hz": 900000000,
+          "attenuation_db": 10.0
+        }
+      ]
+    },
+    {
+      "x1_m": 4.65,
+      "y1_m": 2.28,
+      "x2_m": 4.65,
+      "y2_m": 6.3,
+      "class": "plasterboard",
+      "attenuation_db": 3.0,
+      "polyline": "w3",
+      "bands": [
+        {
+          "frequency_hz": 400000000,
+          "attenuation_db": 3.0
+        },
+        {
+          "frequency_hz": 900000000,
+          "attenuation_db": 6.0
+        }
+      ]
+    },
+    {
+      "x1_m": 9.69,
+      "y1_m": 2.28,
+      "x2_m": 9.69,
+      "y2_m": 6.3,
+      "class": "plasterboard",
+      "attenuation_db": 3.0,
+      "polyline": "w4",
+      "bands": [
+        {
+          "frequency_hz": 400000000,
+          "attenuation_db": 3.0
+        },
+        {
+          "frequency_hz": 900000000,
+          "attenuation_db": 6.0
+        }
+      ]
+    },
+    {
+      "x1_m": 13.35,
+      "y1_m": 2.28,
+      "x2_m": 13.35,
+      "y2_m": 6.3,
+      "class": "plasterboard",
+      "attenuation_db": 3.0,
+      "polyline": "w5",
+      "bands": [
+        {
+          "frequency_hz": 400000000,
+          "attenuation_db": 3.0
+        },
+        {
+          "frequency_hz": 900000000,
+          "attenuation_db": 6.0
+        }
+      ]
+    },
+    {
+      "x1_m": 6.9,
+      "y1_m": 6.3,
+      "x2_m": 6.9,
+      "y2_m": 9.6,
+      "class": "plasterboard",
+      "attenuation_db": 3.0,
+      "polyline": "w6",
+      "bands": [
+        {
+          "frequency_hz": 400000000,
+          "attenuation_db": 3.0
+        },
+        {
+          "frequency_hz": 900000000,
+          "attenuation_db": 6.0
+        }
+      ]
+    }
+  ],
+  "cells": [
+    {
+      "id": "T1",
+      "label": "Indoor DAS",
+      "mcc": 901,
+      "mnc": 1,
+      "la": 100,
+      "colour_code": 1,
+      "carrier_hz": 390000000
+    }
+  ],
+  "antennas": [
+    {
+      "id": "das-5",
+      "cell": "T1",
+      "x_m": 6.0,
+      "y_m": 4.5,
+      "height_m": 2.7,
+      "eirp_dbm": 12.0,
+      "pattern": {
+        "type": "omni"
+      }
+    },
+    {
+      "id": "das-6",
+      "cell": "T1",
+      "x_m": 14.4,
+      "y_m": 4.5,
+      "height_m": 2.7,
+      "eirp_dbm": 12.0,
+      "pattern": {
+        "type": "omni"
+      }
+    },
+    {
+      "id": "das-1",
+      "cell": "T1",
+      "x_m": 5.04,
+      "y_m": 4.38,
+      "height_m": 2.7,
+      "eirp_dbm": 12.0,
+      "pattern": {
+        "type": "omni"
+      },
+      "floor_offset": -2
+    },
+    {
+      "id": "das-2",
+      "cell": "T1",
+      "x_m": 13.14,
+      "y_m": 4.38,
+      "height_m": 2.7,
+      "eirp_dbm": 12.0,
+      "pattern": {
+        "type": "omni"
+      },
+      "floor_offset": -2
+    },
+    {
+      "id": "das-3",
+      "cell": "T1",
+      "x_m": 5.22,
+      "y_m": 4.29,
+      "height_m": 2.7,
+      "eirp_dbm": 12.0,
+      "pattern": {
+        "type": "omni"
+      },
+      "floor_offset": -1
+    },
+    {
+      "id": "das-4",
+      "cell": "T1",
+      "x_m": 14.82,
+      "y_m": 7.89,
+      "height_m": 2.7,
+      "eirp_dbm": 12.0,
+      "pattern": {
+        "type": "omni"
+      },
+      "floor_offset": -1
+    },
+    {
+      "id": "das-7",
+      "cell": "T1",
+      "x_m": 4.95,
+      "y_m": 4.38,
+      "height_m": 2.7,
+      "eirp_dbm": 12.0,
+      "pattern": {
+        "type": "omni"
+      },
+      "floor_offset": 1
+    },
+    {
+      "id": "das-8",
+      "cell": "T1",
+      "x_m": 14.55,
+      "y_m": 4.38,
+      "height_m": 2.7,
+      "eirp_dbm": 12.0,
+      "pattern": {
+        "type": "omni"
+      },
+      "floor_offset": 1
+    }
+  ]
+}
