@@ -322,6 +322,10 @@ struct AppPaths {
     /// (DEMO-12; main(): $YANTRA_MAK_CACHE, else <XDG_CACHE_HOME>/yantra/mak).
     /// "" = no downloads.
     std::filesystem::path sheet_cache;
+    /// IND-47: the OpenStreetMap tile cache of the About building map
+    /// (main(): $YANTRA_TILE_CACHE, else <XDG_CACHE_HOME>/yantra/tiles/osm;
+    /// a screenshot run: none). "" = no map tiles kept or fetched.
+    std::filesystem::path tile_cache;
     /// Worker threads of an interpolation run (0: all cores).
     unsigned interpolation_threads = 0;
 };

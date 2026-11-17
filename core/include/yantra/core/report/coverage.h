@@ -57,7 +57,8 @@ using Translate = std::function<std::string(const std::string& english)>;
 struct CoverageOptions {
     std::string title;     ///< "" = "Indoor coverage report" (translated)
     /// The operator field (EXP-05): who made the measurements, as typed in
-    /// the report dialog. Printed as given, never stored; "" leaves it out.
+    /// the report dialog. Printed as given, never stored; "" uses the
+    /// surveyor of the project's About building tab (IND-47), if any.
     std::string surveyor;
     /// The equipment line; "" = the radios of the walk tests and recordings.
     std::string equipment;
@@ -91,6 +92,10 @@ struct CoverageOptions {
     std::vector<std::filesystem::path> data_folders;
     /// The user's cache of downloaded licence-restricted plans (DEMO-12).
     std::filesystem::path sheet_cache;
+    /// IND-47: the user's OpenStreetMap tile cache; the report's map is
+    /// made of the cached tiles only (never fetched for a report). ""
+    /// leaves the map out.
+    std::filesystem::path tile_cache;
     std::string demo_label;  ///< DEMO-07: "" for a real project
     std::string lang = "en";
     Translate translate;     ///< empty: English

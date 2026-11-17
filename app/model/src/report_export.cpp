@@ -389,6 +389,7 @@ Result ReportExport::run_report() {
     }
     o.data_folders = ctx_.data_folders;
     o.sheet_cache = ctx_.sheet_cache;
+    o.tile_cache = ctx_.tile_cache;
     o.demo_label = ctx_.demo_label ? ctx_.demo_label() : std::string();
     o.lang = language_key(language());
     o.translate = [](const std::string& english) { return tr(english); };

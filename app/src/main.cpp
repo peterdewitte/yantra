@@ -264,9 +264,13 @@ int main(int argc, char** argv) {
             if (!user_cache.empty()) {
                 paths.radios.ring_folder = user_cache / "ring";
                 paths.sheet_cache = user_cache / "mak";
+                paths.tile_cache = user_cache / "tiles" / "osm";  // IND-47
             }
             const char* mak = std::getenv("YANTRA_MAK_CACHE");
             if (mak != nullptr && yantra::platform::complete_path(mak).is_absolute()) paths.sheet_cache = yantra::platform::complete_path(mak);
+            const char* tiles = std::getenv("YANTRA_TILE_CACHE");
+            if (tiles != nullptr && yantra::platform::complete_path(tiles).is_absolute())
+                paths.tile_cache = yantra::platform::complete_path(tiles);
         }
     }
 

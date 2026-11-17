@@ -10,6 +10,14 @@
     "notes": "Demo project of Yantra (DEMO-05, DEMO-06). Every measurement is simulated (yantra-radios scenario of the example plan); the network and its DAS are fictitious. Floor plans: Historic American Buildings Survey, Library of Congress (public domain)."
   },
   "building": {"name": "Fraunces Tavern"},
+  "about": {
+    "address": "Fraunces Tavern, 54 Pearl Street, New York, NY 10004, USA",
+    "latitude": 40.7034,
+    "longitude": -74.01134,
+    "zoom": 18,
+    "surveyor": "Demo surveyor",
+    "notes": "Demo project: the address is the public museum's; the survey, the network and its DAS are fictitious.\nThe walk tests start at the main entrance on Pearl Street."
+  },
   "start_utc": "2026-11-02T10:00:00Z",
   "cell_database": "cells.csv",
   "sheets": [

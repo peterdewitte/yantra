@@ -130,6 +130,9 @@ struct DemoDescription {
     std::vector<DemoSheet> sheets;
     std::vector<DemoFloor> floors;
     std::string interpolation_cell;  ///< the cell whose level is interpolated
+    /// IND-47: the About building information ("about"; neutral demo
+    /// values). The survey date is the walks' day when not given.
+    project::AboutBuilding about;
     std::filesystem::path folder;    ///< the folder of the description (data)
 
     const DemoFloor* find_floor(const std::string& id) const;

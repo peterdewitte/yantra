@@ -195,6 +195,19 @@ DemoDescription read_description(const fs::path& file) {
         for (std::size_t i = 0; i < floors.size(); ++i)
             d.floors.push_back(read_floor(floors[i], file, "floors[" + std::to_string(i) + "]"));
         d.interpolation_cell = j.at("interpolation").at("cell").get<std::string>();
+        d.about.survey_date = d.start_utc.substr(0, 10);
+        if (j.contains("about")) {
+            const json& a = j["about"];
+            d.about.address = a.value("address", "");
+            if (a.contains("latitude") || a.contains("longitude")) {
+                d.about.latitude = a.at("latitude").get<double>();
+                d.about.longitude = a.at("longitude").get<double>();
+            }
+            d.about.map_zoom = a.value("zoom", 17);
+            d.about.surveyor = a.value("surveyor", "");
+            d.about.survey_date = a.value("survey_date", d.about.survey_date);
+            d.about.notes = a.value("notes", "");
+        }
     } catch (const json::exception& e) {
         fail(file, e.what());
     }
@@ -316,6 +329,7 @@ std::shared_ptr<project::Project> create_project(const DemoDescription& d, const
     fs::remove(fs::path(file.string() + "-shm"), ec);
     std::shared_ptr<project::Project> p = project::Project::create(file, d.project);
     p->set_building_name(d.building_name);
+    p->set_about(d.about);  // IND-47
     if (!d.cell_database.empty()) {
         std::vector<std::string> problems;
         const celldb::CellDatabase db = celldb::read_csv_file((d.folder / d.cell_database).string(), {}, &problems);

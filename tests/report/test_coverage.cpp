@@ -12,7 +12,9 @@
 // position, value, colour) equal the project window's list, every point
 // is drawn, and the point table of the HTML report lists them one for one.
 
+#include "yantra/core/about/osm.h"
 #include "yantra/core/export/image.h"
+#include "yantra/core/export/raster.h"
 #include "yantra/core/project/project.h"
 #include "yantra/core/report/coverage.h"
 #include "yantra/core/survey/acceptance.h"
@@ -532,4 +534,75 @@ TEST_CASE("TST-34 generated projects with many floors and dense walks: every flo
         for (const auto& [id, n] : counts) total += n;
         CHECK(rep.building.all.points == total);
     }
+}
+
+TEST_CASE("IND-47 the report starts with the About building information: address, map of cached tiles with attribution, photo") {
+    ReportFixture fx("coverage-about");
+    const fs::path cache = scratch("coverage-about-tiles");
+    yantra::project::AboutBuilding a;
+    a.address = "Example Street 1, Example City";
+    a.latitude = 50.8466;
+    a.longitude = 4.3528;
+    a.map_zoom = 16;
+    a.surveyor = "Demo surveyor";
+    a.survey_date = "2026-11-02";
+    a.notes = "Access through the side entrance.";
+    a.photo = yantra::exports::encode_png(yantra::exports::Canvas(320, 200, yantra::exports::Rgba8{90, 120, 200, 255}));
+    a.photo_name = "front.png";
+    a.photo_source = "file";
+    fx.p->set_about(a);
+
+    const auto text_of = [](const yr::Document& d) {
+        std::string all;
+        for (const yr::Block& b : d.blocks) {
+            all += b.heading.text + "\n" + b.paragraph.text + "\n" + b.image.caption + "\n";
+            for (const auto& [k, v] : b.kv.rows) all += k + ": " + v + "\n";
+        }
+        return all;
+    };
+    // No tile cache: the position, a note instead of the map, the photo.
+    auto o = fx.options();
+    auto rep = yr::coverage_report(*fx.p, o);
+    const auto& blocks = rep.document.blocks;
+    REQUIRE(!blocks.empty());
+    CHECK(blocks[0].type == yr::Block::Type::Heading);
+    CHECK(blocks[0].heading.text == "About the building");
+    std::string all = text_of(rep.document);
+    CHECK(contains(all, "Address: Example Street 1, Example City"));
+    CHECK(contains(all, "Position: 50.84660, 4.35280 (latitude, longitude; WGS 84)"));
+    CHECK(contains(all, "Surveyor: Demo surveyor"));
+    CHECK(contains(all, "Survey date: 2026-11-02"));
+    CHECK(contains(all, "Notes: Access through the side entrance."));
+    CHECK(contains(all, "No map: the map tiles"));
+    CHECK(contains(all, "Photo of the building (front.png)"));
+    CHECK(contains(all, "Operator: Demo surveyor"));  // the About surveyor when the dialog gives none
+    bool cover_address = false;
+    for (const auto& [k, v] : rep.document.cover.rows) cover_address = cover_address || (k == "Address" && v == a.address);
+    CHECK(cover_address);
+
+    // A local tile fixture: the map with its attribution.
+    const yantra::about::TilePoint t = yantra::about::to_tile({50.8466, 4.3528}, 16);
+    const yantra::about::TileId id{16, static_cast<int>(t.x), static_cast<int>(t.y)};
+    const fs::path tile = yantra::about::tile_file(cache, id);
+    fs::create_directories(tile.parent_path());
+    const auto png = yantra::exports::encode_png(yantra::exports::Canvas(256, 256, yantra::exports::Rgba8{200, 230, 200, 255}));
+    std::ofstream(tile, std::ios::binary).write(reinterpret_cast<const char*>(png.data()), static_cast<std::streamsize>(png.size()));
+    o.tile_cache = cache;
+    o.surveyor = "Survey team B";  // the dialog's field wins
+    rep = yr::coverage_report(*fx.p, o);
+    all = text_of(rep.document);
+    CHECK_FALSE(contains(all, "No map"));
+    CHECK(contains(all, "Map: \xc2\xa9 OpenStreetMap contributors (ODbL, https://www.openstreetmap.org/copyright)"));
+    CHECK(contains(all, "Surveyor: Survey team B"));
+    int images = 0;
+    for (std::size_t i = 0; i < rep.document.blocks.size() && rep.document.blocks[i].heading.text != "Measurement metadata"; ++i)
+        images += rep.document.blocks[i].type == yr::Block::Type::Image ? 1 : 0;
+    CHECK(images == 2);  // map and photo
+    const fs::path out = scratch("coverage-about-out");
+    yr::write_coverage_report(*fx.p, o, out / "r.pdf", out / "r.html");
+    CHECK(contains(file_text(out / "r.html"), "OpenStreetMap contributors"));
+    CHECK(yr::check_pdf([&] {
+              const std::string pdf = file_text(out / "r.pdf");
+              return std::vector<std::uint8_t>(pdf.begin(), pdf.end());
+          }()).ok);
 }

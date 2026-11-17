@@ -364,6 +364,19 @@ private:
 
     // Greedy word wrap into lines of at most `w` points; a word wider
     // than a line is cut between characters (never inside one).
+    // wrap() of each line of a multi-line text (IND-47 notes).
+    std::vector<std::string> wrap_lines(const std::string& raw, float w, Face f, float size) {
+        std::vector<std::string> out;
+        std::size_t start = 0;
+        for (;;) {
+            const std::size_t nl = raw.find('\n', start);
+            const auto part = wrap(raw.substr(start, nl == std::string::npos ? std::string::npos : nl - start), w, f, size);
+            out.insert(out.end(), part.begin(), part.end());
+            if (nl == std::string::npos) return out;
+            start = nl + 1;
+        }
+    }
+
     std::vector<std::string> wrap(const std::string& raw, float w, Face f, float size) {
         const std::string t = clean_utf8(raw);
         std::vector<std::string> lines;
@@ -511,7 +524,7 @@ private:
         const float size = 9, lead = 12, kw = 150;
         for (const auto& [k, v] : kv.rows) {
             const auto kl = wrap(k, kw - 8, Face::Bold, size);
-            const auto vl = wrap(v, width() - kw, Face::Regular, size);
+            const auto vl = wrap_lines(v, width() - kw, Face::Regular, size);
             const float h = lead * static_cast<float>(std::max(kl.size(), vl.size())) + 4;
             ensure(h);
             float y = y_;

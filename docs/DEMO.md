@@ -45,6 +45,10 @@ unless noted:
 - `project` (name, site, operator, notes), `building` (name), `start_utc` (the walks' clock), `cell_database` (a CSV
   file next to it, [CELL_DATABASE.md](CELL_DATABASE.md)) and
   `interpolation.cell` (the cell whose level the maps show);
+- `about` (optional, IND-47): the About building tab's `address`,
+  `latitude`, `longitude`, `zoom`, `surveyor`, `survey_date` (default: the
+  day of `start_utc`) and `notes`; the Fraunces project has the museum's
+  public address and the neutral surveyor "Demo surveyor", no photo;
 - `sheets`: id, file, SHA-256, the URL it was fetched from and its
   catalogue page;
 - `floors`: id, `example_id` (RAD-18, e.g. `fraunces-1`), name, level,

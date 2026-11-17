@@ -22,6 +22,8 @@
 
 #include <nlohmann/json.hpp>
 
+#include "yantra/core/about/osm.h"
+#include "yantra/core/about/photo.h"
 #include "yantra/core/build_info.h"
 #include "yantra/core/export/image.h"
 #include "yantra/core/measure/measurement_pipeline.h"
@@ -448,6 +450,52 @@ std::string joined(const std::vector<std::string>& v, const std::string& none) {
 
 }  // namespace
 
+// IND-47: the report starts with the About building information: the
+// address and position, the map of the cached OpenStreetMap tiles with
+// its attribution (the tiles' licence asks for it), the photo, the
+// surveyor, the survey date and the notes.
+void about_section(Document& d, const Ctx& c, const project::AboutBuilding& a, const std::string& surveyor) {
+    d.heading(1, c.tr("About the building"), "about");
+    KeyValues k;
+    k.rows.emplace_back(c.tr("Address"), a.address.empty() ? "-" : a.address);
+    if (a.has_position())
+        k.rows.emplace_back(c.tr("Position"), c.fill("{}, {} (latitude, longitude; WGS 84)", {num(*a.latitude, 5), num(*a.longitude, 5)}));
+    k.rows.emplace_back(c.tr("Surveyor"), surveyor.empty() ? "-" : surveyor);
+    k.rows.emplace_back(c.tr("Survey date"), a.survey_date.empty() ? "-" : a.survey_date);
+    if (!a.notes.empty()) k.rows.emplace_back(c.tr("Notes"), a.notes);
+    d.key_values(std::move(k));
+    if (a.has_position()) {
+        about::MapPicture m;
+        if (!c.o.tile_cache.empty())
+            m = about::compose_map(c.o.tile_cache, about::LatLon{*a.latitude, *a.longitude}, a.map_zoom, 900, 500);
+        if (m.tiles > 0) {
+            ImageBlock img;
+            img.image = std::move(m.image);
+            img.alt = c.fill("Map of the building's position, {}", {a.address.empty() ? c.tr("no address") : a.address});
+            img.caption = c.fill("Map: {} (ODbL, {})", {about::kAttribution, about::kCopyrightUrl});
+            d.image(std::move(img));
+        } else {
+            d.paragraph(c.tr("No map: the map tiles of this position are not in this computer's cache (they are fetched "
+                             "when the About building tab shows the map)."),
+                        Tone::Note);
+        }
+    }
+    if (!a.photo.empty()) {
+        std::string error;
+        if (auto r = about::decode_photo(a.photo, 1200, &error)) {
+            ImageBlock img;
+            img.image = exports::Canvas(r->width, r->height);
+            img.image.draw_rgba(r->rgba.data(), r->width, r->height, 0, 0, r->width, r->height);
+            img.alt = c.tr("Photo of the building");
+            img.caption = a.photo_source == "camera" ? c.tr("Photo of the building (taken with a camera)")
+                                                     : c.fill("Photo of the building ({})", {a.photo_name});
+            d.image(std::move(img));
+        } else {
+            d.paragraph(c.fill("The photo of the building cannot be shown: {}", {error}), Tone::Note);
+        }
+    }
+}
+
 CoverageReport coverage_report(const project::Project& project, const CoverageOptions& o) {
     const Ctx c{project, o};
     if (!std::isfinite(o.threshold)) throw ReportError("report: the threshold is not a number");
@@ -611,6 +659,8 @@ CoverageReport coverage_report(const project::Project& project, const CoverageOp
     d.words.plan_credits = c.tr("Plan credits");
 
     const Metadata md = metadata(c, sessions);
+    const project::AboutBuilding about = project.about();
+    const std::string surveyor = !o.surveyor.empty() ? o.surveyor : about.surveyor;
     const std::string equipment = !o.equipment.empty() ? o.equipment : joined(md.equipment, c.tr("not recorded"));
     std::size_t total_points = 0;
     for (const FloorSection& s : rep.floors) total_points += s.points.count();
@@ -618,7 +668,8 @@ CoverageReport coverage_report(const project::Project& project, const CoverageOp
     cover.emplace_back(c.tr("Project"), meta.info.name);
     if (!meta.info.site.empty()) cover.emplace_back(c.tr("Site"), meta.info.site);
     if (!meta.info.operator_name.empty()) cover.emplace_back(c.tr("Network operator"), meta.info.operator_name);
-    if (!o.surveyor.empty()) cover.emplace_back(c.tr("Measured by"), o.surveyor);
+    if (!about.address.empty()) cover.emplace_back(c.tr("Address"), about.address);
+    if (!surveyor.empty()) cover.emplace_back(c.tr("Measured by"), surveyor);
     if (!md.first_utc.empty())
         cover.emplace_back(c.tr("Measured"), iso_text(md.first_utc) + (md.last_utc.empty() || md.last_utc == md.first_utc
                                                                             ? ""
@@ -627,6 +678,9 @@ CoverageReport coverage_report(const project::Project& project, const CoverageOp
     cover.emplace_back(c.tr("Measured points"), std::to_string(total_points));
     cover.emplace_back(c.tr("Equipment"), equipment);
     if (o.created_utc_ns != 0) cover.emplace_back(c.tr("Report made"), utc_text(o.created_utc_ns));
+
+    // IND-47: About the building first.
+    about_section(d, c, about, surveyor);
 
     // Metadata.
     d.heading(1, c.tr("Measurement metadata"), "metadata");
@@ -641,7 +695,7 @@ CoverageReport coverage_report(const project::Project& project, const CoverageOp
     mk.rows.emplace_back(c.tr("Plugins"), joined(md.plugins, c.tr("not recorded")));
     mk.rows.emplace_back(c.tr("Metric"), o.metric.label());
     if (!md.first_utc.empty()) mk.rows.emplace_back(c.tr("Date"), iso_text(md.first_utc));
-    mk.rows.emplace_back(c.tr("Operator"), o.surveyor.empty() ? "-" : o.surveyor);
+    mk.rows.emplace_back(c.tr("Operator"), surveyor.empty() ? "-" : surveyor);
     if (!meta.info.notes.empty()) mk.rows.emplace_back(c.tr("Notes"), meta.info.notes);
     d.key_values(std::move(mk));
     bool uncalibrated = false;

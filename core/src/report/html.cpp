@@ -192,7 +192,13 @@ std::string render_html(const Document& d, const Assets& assets, const HtmlOptio
     if (demo) o << "<div class=\"demo-label\">" << esc(d.demo_label) << "</div>\n";
     auto kv = [&](const KeyValues& k) {
         o << "<table class=\"kv\">\n";
-        for (const auto& [key, v] : k.rows) o << "<tr><th scope=\"row\">" << esc(key) << "</th><td>" << esc(v) << "</td></tr>\n";
+        for (const auto& [key, v] : k.rows) {
+            // A multi-line value (IND-47 notes) keeps its lines.
+            std::string value = esc(v);
+            for (std::size_t p = value.find('\n'); p != std::string::npos; p = value.find('\n', p + 5))
+                value.replace(p, 1, "<br>\n");
+            o << "<tr><th scope=\"row\">" << esc(key) << "</th><td>" << value << "</td></tr>\n";
+        }
         o << "</table>\n";
     };
     if (!d.cover.rows.empty()) kv(d.cover);

@@ -649,6 +649,7 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     oc.shown_floor = [this] { return window_ ? window_->selected() : std::string(); };
     oc.data_folders = paths_.data_folders;
     oc.sheet_cache = paths_.sheet_cache;
+    oc.tile_cache = paths_.tile_cache;
     oc.sharing = [this] { return settings_.sharing; };
     oc.sender = [this] { return sender_; };
     output_ = std::make_unique<ReportExport>(project_, std::move(oc));

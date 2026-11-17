@@ -129,6 +129,7 @@ public:
         std::function<std::string()> shown_floor;
         std::vector<std::filesystem::path> data_folders;
         std::filesystem::path sheet_cache;
+        std::filesystem::path tile_cache;  ///< IND-47: the report's map of cached tiles
         std::function<SharingSettings()> sharing;
         std::function<std::shared_ptr<Sender>()> sender;
         /// The report's clock (creation_time(now)); tests fix it.
