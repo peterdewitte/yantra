@@ -6,7 +6,19 @@
 // overflow and drop events (RAD-24, RAD-25), hot-plug (RAD-35),
 // generated settings and sensors (RAD-51), diagnostics (RAD-52), self
 // test. Glue modelled on plugins/simulator (same state machine, RAD-34).
+//
+// Spectrum (radio API 1.2, RAD-140): with YR_PLAN_SPECTRUM, once a second
+// the stream feeds the next block of its own IQ samples to a windowed,
+// averaged FFT (receiver/spectrum.hpp on pocketfft, RAD-04) until one
+// average is done (16 frames, a few tens of ms), and pushes the bins of
+// the plan's band within the span received at once (the usable 0.8 of
+// the sample rate around the tuned centre); between two spectra no FFT
+// runs. Levels in dBFS per bin (the window's noise bandwidth divided out,
+// so a carrier's bins add up to its level), OVERLOAD when the averaged
+// samples clipped. Only the bins leave the plugin, never IQ (RAD-26).
 #include "soapy_device.hpp"
+
+#include <yantra/receiver/spectrum.hpp>
 
 #include <yantra/radio.hpp>
 
@@ -46,6 +58,8 @@ constexpr int64_t kStallNs = 1'000'000'000; ///< no samples this long while stre
 constexpr long kReadTimeoutUs = 100'000;
 /// Samples per engine call: a stop waits for at most one piece (RAD-15).
 constexpr std::size_t kProcessPiece = 16384;
+/// FFT frames averaged into one spectrum (RAD-140).
+constexpr std::size_t kSpectrumAverages = 16;
 
 Plugin* P(yr_plugin* p) { return reinterpret_cast<Plugin*>(p); }
 Device* D(yr_device* d) { return reinterpret_cast<Device*>(d); }
@@ -153,6 +167,8 @@ private:
     bool stopping() const; ///< stop_stream asked to stop
     void measure_floor();
     void run_scan(EngineOutput& out);
+    /// Feeds `n` samples of buf_ to the spectrum when one is due (RAD-140).
+    void feed_spectrum(std::size_t n, int64_t t_now);
 
     Device* d_;
     const Plugin& p_;
@@ -176,7 +192,75 @@ private:
     double floor_s_ = 0.0;
     int errors_ = 0;
     uint64_t last_samples_ = 0; ///< samples of the last step (0: none)
+    plugins::SpectrumPlan spectrum_;                    ///< spectra asked for (RAD-140)
+    std::unique_ptr<receiver::SpectrumAnalyzer> spec_;  ///< averaged FFT of the samples
+    double spec_centre_ = 0.0, spec_rate_ = 0.0;        ///< what spec_ was fed
+    int64_t spec_next_ns_ = 0;                          ///< host time of the next spectrum (0: now)
+    bool spec_overload_ = false;                        ///< the averaged samples clipped
 };
+
+// The FFT size for a sample rate: about 1 kHz bins, 256..4096 (at most
+// YR_SPECTRUM_MAX_BINS, as the band's bins are a part of them).
+std::size_t spectrum_fft_size(double rate)
+{
+    std::size_t n = 256;
+    while (n < YR_SPECTRUM_MAX_BINS && static_cast<double>(n) * 1000.0 < rate)
+        n *= 2;
+    return n;
+}
+
+void Stream::feed_spectrum(std::size_t n, int64_t t_now)
+{
+    if (!spectrum_.on || n == 0 || (spec_next_ns_ != 0 && t_now < spec_next_ns_))
+        return;
+    if (!spec_ || spec_centre_ != centre_ || spec_rate_ != rate_) {
+        receiver::SpectrumConfig cfg;
+        cfg.fft_size = spectrum_fft_size(rate_);
+        cfg.averages = kSpectrumAverages;
+        spec_ = std::make_unique<receiver::SpectrumAnalyzer>(cfg);
+        spec_->set_stream(centre_, rate_);
+        spec_centre_ = centre_;
+        spec_rate_ = rate_;
+        spec_overload_ = false;
+    }
+    for (std::size_t i = 0; i < n && !spec_overload_; ++i)
+        spec_overload_ = std::fabs(buf_[i].real()) >= 0.999f || std::fabs(buf_[i].imag()) >= 0.999f;
+    if (spec_->push(buf_.data(), n) == 0)
+        return;
+    receiver::SpectrumFrame f;
+    spec_->pop(f);
+    spec_->reset();
+    const bool overload = spec_overload_;
+    spec_overload_ = false;
+    // Once a second; after a stall the next one is a second from now.
+    spec_next_ns_ = spec_next_ns_ == 0 || t_now - spec_next_ns_ > 1'000'000'000
+                        ? t_now + 1'000'000'000
+                        : spec_next_ns_ + 1'000'000'000;
+    // The plan's band within the span received now and the tunable range.
+    const double half = kSpanFraction * rate_ / 2.0;
+    double first = 0.0, last = 0.0;
+    if (!plugins::clip_band(spectrum_.first_hz, spectrum_.last_hz,
+                            std::max(centre_ - half, d_->caps.first_hz),
+                            std::min(centre_ + half, d_->caps.last_hz), first, last))
+        return;
+    const double enbw_db = 10.0 * std::log10(f.enbw_bins);
+    plugins::SpectrumOut out;
+    out.bin_width_hz = f.bin_hz();
+    for (std::size_t i = 0; i < f.size() && out.power_db.size() < YR_SPECTRUM_MAX_BINS; ++i) {
+        const double hz = f.frequency_hz(i);
+        if (hz < first || hz > last)
+            continue;
+        if (out.power_db.empty())
+            out.start_hz = hz - out.bin_width_hz / 2.0;
+        // A finite floor for silent bins (a zero sample block).
+        out.power_db.push_back(std::max(static_cast<double>(f.dbfs[i]) - enbw_db, -300.0));
+    }
+    out.flags = overload ? YR_RECORD_OVERLOAD : 0u;
+    out.time.monotonic_ns = t_now;
+    out.time.utc_ns = p_.host->utc_now_ns(p_.host->host);
+    out.time.utc_source = YR_TIME_SOURCE_SYSTEM;
+    plugins::push_spectrum(*p_.host, d_->sink, out);
+}
 
 void Stream::build(const Settings& s)
 {
@@ -339,6 +423,7 @@ bool Stream::step(EngineOutput& out)
         measure_floor();
         floor_s_ = 0.0;
     }
+    feed_spectrum(done, t_now);
     last_samples_ = done;
     return true;
 }
@@ -419,6 +504,7 @@ void Stream::run()
         s_ = d_->settings;
         version_ = d_->settings_version;
         plan_ = d_->plan_setup;
+        spectrum_ = plugins::spectrum_plan(*p_.host, d_->plan);
     }
     sdr_ = d_->sdr;
     SoapySDR::Device& sdr = *sdr_;
@@ -1128,7 +1214,7 @@ const yr_descriptor* descriptor(const Options& o)
     static const yr_descriptor desc = {
         sizeof(yr_descriptor),
         yr_api_version_compiled(),
-        YR_CAP_HOTPLUG | (o.profile.scan ? YR_CAP_SCAN : 0u),
+        YR_CAP_HOTPLUG | YR_CAP_SPECTRUM | (o.profile.scan ? YR_CAP_SCAN : 0u),
         o.name,
         o.label,
         o.version,

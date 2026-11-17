@@ -572,6 +572,66 @@ TEST_CASE("hackrf: band scan wider than the span retunes and gives every channel
     CHECK((pass[391500000].flags & YR_RECORD_NO_SYNC) != 0);
 }
 
+TEST_CASE("hackrf: an averaged FFT of its own samples once a second (SPECTRUM, RAD-140, RAD-60)")
+{
+    Fake f; // paced: real time, as a spectrum is due once a second of host time
+    CHECK((f.host->descriptor().capabilities & YR_CAP_SPECTRUM) != 0);
+    f.open();
+    f.reference_gain();
+    yr_plan plan = serving_plan();
+    plan.flags = YR_PLAN_SPECTRUM; // default band 380-400 MHz
+    std::map<uint64_t, double> level;
+    std::vector<Spectrum> spectra;
+    std::atomic<bool> stop{false};
+    StreamLimits limits;
+    limits.max_seconds = 20.0 * YANTRA_TEST_TIME_SCALE; // a hang guard; it needs about 3 s
+    limits.interrupt = &stop;
+    const StreamResult r = run_stream(
+        *f.host, f.device, plan, limits,
+        [&](const Record& rec) {
+            if (identified(rec))
+                level[rec.values[YR_CORE_FREQUENCY_HZ].u64] = rec.values[YR_CORE_LEVEL].f64;
+        },
+        {}, SinkOptions{},
+        [&](const Spectrum& s) {
+            spectra.push_back(s);
+            if (spectra.size() >= 3 && level.size() >= 2)
+                stop = true;
+        });
+    CHECK(r.invalid == 0);
+    for (const std::string& p : r.problems)
+        FAIL_CHECK(p);
+    REQUIRE(spectra.size() >= 3);
+    REQUIRE(level.count(392500000) == 1);
+    REQUIRE(level.count(392800000) == 1);
+    const double tuned = f.get("tuned_mhz", true).f64 * 1e6;
+    for (std::size_t i = 0; i < spectra.size(); ++i) {
+        const Spectrum& s = spectra[i];
+        CAPTURE(i);
+        CHECK(s.flags == 0); // dBFS, a real device, no clipping (RAD-21)
+        // 2 Msps: 2048-point FFT, 977 Hz bins; the band within the 1.6 MHz received.
+        CHECK(s.bin_width_hz == doctest::Approx(2e6 / 2048.0));
+        CHECK(s.start_hz >= tuned - 0.8e6 - s.bin_width_hz);
+        CHECK(s.stop_hz <= tuned + 0.8e6 + s.bin_width_hz);
+        CHECK(s.power_db.size() <= 2048);
+        CHECK(s.power_db.size() >= 1600);
+        if (i > 0) {
+            const double gap = static_cast<double>(s.monotonic_ns - spectra[i - 1].monotonic_ns) / 1e9;
+            CHECK(gap == doctest::Approx(1.0).epsilon(0.25));
+        }
+        // Both carriers: their bins add up to their records' levels (dBFS).
+        for (uint64_t hz : {392500000ull, 392800000ull}) {
+            double mw = 0.0;
+            for (std::size_t k = 0; k < s.power_db.size(); ++k) {
+                const double centre = s.start_hz + (static_cast<double>(k) + 0.5) * s.bin_width_hz;
+                if (std::fabs(centre - static_cast<double>(hz)) <= 12.5e3)
+                    mw += std::pow(10.0, s.power_db[k] / 10.0);
+            }
+            CHECK(10.0 * std::log10(mw) == doctest::Approx(level.at(hz)).epsilon(0.05));
+        }
+    }
+}
+
 TEST_CASE("hackrf: plans the device cannot measure are refused with the reason (RAD-32, RAD-23)")
 {
     Fake f;
