@@ -1862,6 +1862,76 @@ void Project::set_interpolation_settings(const InterpolationSettings& v) {
     notify({Change::Kind::InterpolationSettings, ""});
 }
 
+// ---- About building (IND-47; schema 9) ------------------------------------------
+
+namespace {
+
+bool is_date(const std::string& d) {
+    if (d.size() != 10 || d[4] != '-' || d[7] != '-') return false;
+    for (std::size_t i : {0, 1, 2, 3, 5, 6, 8, 9})
+        if (d[i] < '0' || d[i] > '9') return false;
+    const int month = (d[5] - '0') * 10 + (d[6] - '0');
+    const int day = (d[8] - '0') * 10 + (d[9] - '0');
+    return month >= 1 && month <= 12 && day >= 1 && day <= 31;
+}
+
+}  // namespace
+
+AboutBuilding Project::about() const {
+    const std::lock_guard l(impl_->mutex);
+    impl_->require_open();
+    sql::Stmt s(impl_->db, "SELECT address, latitude, longitude, map_zoom, surveyor, survey_date, notes, photo, "
+                           "photo_name, photo_source FROM about_building WHERE id = 1");
+    AboutBuilding a;
+    if (!s.step()) return a;
+    a.address = s.text(0);
+    a.latitude = s.opt_f64(1);
+    a.longitude = s.opt_f64(2);
+    a.map_zoom = static_cast<int>(s.i64(3));
+    a.surveyor = s.text(4);
+    a.survey_date = s.text(5);
+    a.notes = s.text(6);
+    if (!s.is_null(7)) a.photo = s.blob(7);
+    a.photo_name = s.text(8);
+    a.photo_source = s.text(9);
+    return a;
+}
+
+void Project::set_about(const AboutBuilding& a) {
+    if (a.latitude.has_value() != a.longitude.has_value())
+        throw ProjectError(Code::Invalid, "about: a map position needs both latitude and longitude");
+    if (a.latitude && (!std::isfinite(*a.latitude) || std::abs(*a.latitude) > 85.06))
+        throw ProjectError(Code::Invalid, "about: the latitude is outside -85.06..85.06");
+    if (a.longitude && (!std::isfinite(*a.longitude) || std::abs(*a.longitude) > 180.0))
+        throw ProjectError(Code::Invalid, "about: the longitude is outside -180..180");
+    if (a.map_zoom < 1 || a.map_zoom > 19) throw ProjectError(Code::Invalid, "about: the map zoom is outside 1..19");
+    if (!a.survey_date.empty() && !is_date(a.survey_date))
+        throw ProjectError(Code::Invalid, "about: the survey date is not YYYY-MM-DD");
+    if (a.photo.size() > kMaxPhotoBytes) throw ProjectError(Code::Invalid, "about: the photo is larger than 32 MiB");
+    if (a.photo_source != "" && a.photo_source != "file" && a.photo_source != "camera")
+        throw ProjectError(Code::Invalid, "about: the photo source is not file or camera");
+    if (a.photo.empty() != a.photo_source.empty())
+        throw ProjectError(Code::Invalid, "about: a photo needs its source (file or camera), and only a photo has one");
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        sql::Stmt s(impl_->db, "INSERT OR REPLACE INTO about_building (id, address, latitude, longitude, map_zoom, "
+                               "surveyor, survey_date, notes, photo, photo_name, photo_source) "
+                               "VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)");
+        s.bind(1, a.address).bind(2, a.latitude).bind(3, a.longitude).bind(4, a.map_zoom).bind(5, a.surveyor);
+        s.bind(6, a.survey_date).bind(7, a.notes);
+        if (a.photo.empty())
+            s.bind_null(8);
+        else
+            s.bind_blob(8, a.photo);
+        s.bind(9, a.photo.empty() ? std::string() : a.photo_name).bind(10, a.photo_source).run();
+        impl_->touch();
+        tx.commit();
+    }
+    notify({Change::Kind::About, ""});
+}
+
 // ---- acceptance profiles (schema 7) -------------------------------------------
 
 std::vector<StoredAcceptanceProfile> Project::acceptance_profiles() const {

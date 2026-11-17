@@ -392,6 +392,28 @@ CREATE TABLE interpolations (
 );
 )sql";
 
+// Version 9 (step 15.3, Yantra 0.5): the "About building" information of
+// IND-47, one row: the address, the map position and zoom, the surveyor,
+// the survey date, the notes and the photo (an image file's bytes). The
+// survey date of a new or migrated project is the day of the step (`now`).
+const char* const kV9 = R"sql(
+CREATE TABLE about_building (
+  id           INTEGER PRIMARY KEY CHECK (id = 1),
+  address      TEXT NOT NULL DEFAULT '',
+  latitude     REAL CHECK (latitude IS NULL OR latitude BETWEEN -85.06 AND 85.06),
+  longitude    REAL CHECK (longitude IS NULL OR longitude BETWEEN -180 AND 180),
+  map_zoom     INTEGER NOT NULL DEFAULT 17 CHECK (map_zoom BETWEEN 1 AND 19),
+  surveyor     TEXT NOT NULL DEFAULT '',
+  survey_date  TEXT NOT NULL DEFAULT '',
+  notes        TEXT NOT NULL DEFAULT '',
+  photo        BLOB,
+  photo_name   TEXT NOT NULL DEFAULT '',
+  photo_source TEXT NOT NULL DEFAULT '' CHECK (photo_source IN ('', 'file', 'camera')),
+  CHECK ((latitude IS NULL) = (longitude IS NULL))
+);
+INSERT INTO about_building (id) VALUES (1);
+)sql";
+
 }  // namespace
 
 void migrate(sql::Db& db, int from, int to, const std::string& now, const std::string& tool,
@@ -419,6 +441,10 @@ void migrate(sql::Db& db, int from, int to, const std::string& now, const std::s
             db.exec(kV7, what);
         } else if (v == 8) {
             db.exec(kV8, what);
+        } else if (v == 9) {
+            db.exec(kV9, what);
+            sql::Stmt date(db, "UPDATE about_building SET survey_date = substr(?1, 1, 10) WHERE id = 1");
+            date.bind(1, now).run();
         } else if (v > kSchemaVersion && static_cast<std::size_t>(v - kSchemaVersion) <= extra.size()) {
             db.exec(extra[static_cast<std::size_t>(v - kSchemaVersion - 1)], what);
         } else {

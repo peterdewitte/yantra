@@ -24,7 +24,9 @@
 // settings and maps (IND-41..45; core/survey/interpolation.h makes and
 // reads them), dropping the walls, wall classes, antennas, slab
 // attenuations and ray-tracing settings and maps of 0.3 (IND-46; a
-// migration from an older file reports what it dropped, migration_note()).
+// migration from an older file reports what it dropped, migration_note());
+// version 9 (step 15.3) the "About building" information (IND-47: address,
+// map position, photo, surveyor, survey date, notes).
 // No other part of a model is ever dropped.
 //
 // Storage rules (data safety):
@@ -77,7 +79,7 @@ inline constexpr std::int32_t kApplicationId = 0x594E5452;
 /// The value of the format mark in the meta table.
 inline constexpr const char* kFormat = "yantra-project";
 /// Schema version written by this build (docs/formats/PROJECT.md).
-inline constexpr int kSchemaVersion = 8;
+inline constexpr int kSchemaVersion = 9;
 
 class ProjectError : public std::runtime_error {
 public:
@@ -189,6 +191,7 @@ struct Change {
         InterpolationSettings,  ///< the interpolation settings (IND-41)
         Interpolations,   ///< an interpolation result was stored or removed (id: its floor)
         Acceptance,       ///< the stored acceptance profiles (EXP-06)
+        About,            ///< the "About building" information (IND-47)
     };
     Kind kind = Kind::Info;
     std::string id;  ///< floor or source id
@@ -298,6 +301,29 @@ struct StoredAcceptanceProfile {
     std::string definition;  ///< JSON object (survey/acceptance.h)
     bool operator==(const StoredAcceptanceProfile&) const = default;
 };
+
+/// IND-47: the "About building" information (schema 9), one per project.
+/// Every text is the user's own; nothing of it leaves the computer.
+struct AboutBuilding {
+    std::string address;  ///< free text, as typed
+    /// The map position ("Find on map", or the map moved by hand); nullopt
+    /// while none is known.
+    std::optional<double> latitude, longitude;
+    int map_zoom = 17;          ///< the map's zoom level, 1..19
+    std::string surveyor;       ///< who made the survey
+    std::string survey_date;    ///< "YYYY-MM-DD" or ""; a new project: the day it was made
+    std::string notes;          ///< multi-line
+    /// The photo of the building as an image file's bytes (a format
+    /// stb_image reads: JPEG, PNG, ...); empty: none.
+    std::vector<std::uint8_t> photo;
+    std::string photo_name;     ///< the file's name, or "camera.jpg"
+    std::string photo_source;   ///< "file", "camera" or "" (none)
+    bool has_position() const { return latitude.has_value() && longitude.has_value(); }
+    bool operator==(const AboutBuilding&) const = default;
+};
+
+/// The largest photo a project keeps (IND-47): 32 MiB.
+inline constexpr std::size_t kMaxPhotoBytes = std::size_t{32} << 20;
 
 struct ProjectOptions {
     /// Current UTC time as ISO 8601 ("...Z"); the system clock when empty.
@@ -505,6 +531,15 @@ public:
     /// transaction. Invalid for an empty or repeated name or a definition
     /// that is not a JSON object. Notifies Acceptance.
     void set_acceptance_profiles(const std::vector<StoredAcceptanceProfile>& profiles);
+
+    // -- About building (IND-47; schema 9) ---------------------------------
+    AboutBuilding about() const;
+    /// Replaces the information in one transaction. Invalid for a latitude
+    /// outside -85.06..85.06 or a longitude outside -180..180 (or only one
+    /// of them), a zoom outside 1..19, a date that is not "YYYY-MM-DD" or
+    /// "", a photo above kMaxPhotoBytes, or a photo source other than
+    /// "file", "camera" or "" (which needs an empty photo). Notifies About.
+    void set_about(const AboutBuilding& about);
 
     // -- source files (IND-03) -------------------------------------------
     /// Copies a file into the project unchanged; its id is

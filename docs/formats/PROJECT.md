@@ -23,7 +23,7 @@ form is the building model of [BUILDING_MODEL.md](../BUILDING_MODEL.md)
 | Item | Value |
 | --- | --- |
 | `PRAGMA application_id` | `0x594E5452` ("YNTR"); other files are refused as "not a Yantra project" |
-| `PRAGMA user_version` | schema version, now **8** |
+| `PRAGMA user_version` | schema version, now **9** |
 | `meta.format` | `yantra-project` |
 
 | Version | Change |
@@ -36,6 +36,7 @@ form is the building model of [BUILDING_MODEL.md](../BUILDING_MODEL.md)
 | 6 | the ray-tracing model settings of Yantra 0.2 (spec 0.3; `propagation`, dropped in version 8) and the stored interpolation results with their parameters and input fingerprints (`interpolations`, IND-41..45). Existing projects get the default settings and no results |
 | 7 | the project's acceptance profiles (`acceptance_profiles`, EXP-06), used by the report. Existing projects get none (the report then uses the default profile) |
 | 8 | after Yantra 0.2.0 (spec 0.4), the point interpolation (IND-41, IND-45). Dropped (IND-46): the table `propagation` and the stored ray-tracing maps; the walls, wall classes and antennas (`walls`, `wall_points`, `wall_classes`, `wall_class_bands`, `antennas`, `antenna_pattern_gains`); the slab attenuations (`building.floor_attenuation_db`, `floors.slab_attenuation_db`); the meta counters `next_wall_number` and `next_antenna_number`. Yantra says once, after opening such a file, how many walls, own wall classes, antennas and ray-tracing maps it dropped; the backup keeps them. New: `interpolation_settings`, and `interpolations` again with 8 bytes per cell (value, confidence). Existing projects keep their floors, cells, sources, recordings, sessions and points and get the default settings and no maps |
+| 9 | after Yantra 0.4 (spec 0.5), the "About building" information (IND-47): `about_building`. Existing projects get an empty row with the day of the migration as survey date |
 
 Rules:
 
@@ -435,6 +436,27 @@ lists them. Replaced as a whole when they are changed.
 | `position` | INTEGER >= 0, primary key | order in the report |
 | `name` | TEXT, not empty, unique | the profile's name |
 | `definition` | TEXT | JSON object `yantra-acceptance-profile` version 1: unit, basis (`points`, `tested_area`, `floor_area`), criteria (`threshold`, `min_percent`), `square_m`, `square_percentile`, `min_confidence` |
+
+### `about_building`
+
+The "About building" tab of the project (version 9, IND-47), one row
+(`id` = 1). The report starts with it (EXP-05). Nothing of it leaves the
+computer except the geocoding query and the map tile requests the user
+triggers (the tiles are cached outside the project, in the user's cache
+folder).
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `id` | INTEGER, always 1 | the one row |
+| `address` | TEXT | the address as typed (free text) |
+| `latitude`, `longitude` | REAL or NULL (both or neither) | the map position (WGS 84 degrees; latitude -85.06..85.06, the Web Mercator limit) |
+| `map_zoom` | INTEGER 1..19 | the map's zoom level (OpenStreetMap tile zoom) |
+| `surveyor` | TEXT | who made the survey |
+| `survey_date` | TEXT | `YYYY-MM-DD`, or empty; a new project: the day it was made |
+| `notes` | TEXT | multi-line notes |
+| `photo` | BLOB or NULL | the building photo: the bytes of an image file in a format stb_image reads (a camera photo: JPEG), at most 32 MiB |
+| `photo_name` | TEXT | the photo's file name (a camera photo: `camera.jpg`) |
+| `photo_source` | TEXT `''`, `file`, `camera` | where the photo came from; `''` without a photo |
 
 ### `sqlite_sequence`
 
