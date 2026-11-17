@@ -38,6 +38,7 @@
 
 #include "e2e_helpers.h"
 #include "measure_rig.h"
+#include "model_scenes.hpp"
 #include "test_platform.hpp"
 
 using namespace mh;
@@ -623,7 +624,7 @@ yb::Building office(bool wall) {
 
 TEST_CASE("TST-10 simulator: Yantra's building model sets the indoor level; a wall lowers the calibrated TETRA level by its attenuation (PLG-27, IND-11)") {
     SimRun sim;
-    yc::BuildingContext context(sim.rig.publisher, yr::SceneExportOptions{});
+    yc::BuildingContext context(sim.rig.publisher, yantra::test::model_scenes());
     context.set_building(office(false));
     context.show_floor("sim-ground");
     context.set_cursor(yb::Point2{240.0, 100.0});  // (12, 5) m, 9 m from the antenna
@@ -720,7 +721,7 @@ TEST_CASE("TST-10 simulator: walls and antennas drawn in a project file reach th
     CHECK(j["antennas"][0]["x_m"].get<double>() == doctest::Approx(3.0));
 
     SimRun sim;
-    yc::BuildingContext context(sim.rig.publisher, yr::SceneExportOptions{});
+    yc::BuildingContext context(sim.rig.publisher, yantra::test::model_scenes());
     context.set_building(b);
     context.show_floor(floor_id);
     context.set_cursor(yb::Point2{140.0, 100.0});  // (7, 5) m: 4 m from the antenna, before the wall

@@ -2,11 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Context snapshots from the building model (PLG-27, RAD-18, RAD-36,
-// IND-08), see building_context.h.
+// IND-08) and the fixed demo scenes (DEMO-05), see building_context.h.
 
 #include "yantra/core/context/building_context.h"
 
 #include <utility>
+
+#include <nlohmann/json.hpp>
+
+#include "yantra/core/demo/demo_project.h"
 
 namespace yantra::context {
 
@@ -41,8 +45,35 @@ std::optional<PlanPosition> plan_position_of(const Building& b, const FloorPoint
     return pos;
 }
 
-BuildingContext::BuildingContext(std::shared_ptr<ContextPublisher> publisher, radio::SceneExportOptions scene_options)
-    : publisher_(std::move(publisher)), options_(std::move(scene_options)) {}
+SceneSource demo_scenes(std::vector<std::filesystem::path> folders) {
+    // example id -> file text (nullopt: none); the UI thread only.
+    auto cache = std::make_shared<std::map<std::string, std::optional<std::string>>>();
+    return [folders = std::move(folders), cache](const Building&, const Floor& f) -> std::optional<std::string> {
+        if (f.example_id.empty()) return std::nullopt;
+        auto it = cache->find(f.example_id);
+        if (it == cache->end()) {
+            std::optional<std::string> text;
+            for (const auto& folder : folders)
+                if ((text = demo::read_demo_scene(folder, f.example_id))) break;
+            it = cache->emplace(f.example_id, std::move(text)).first;
+        }
+        if (!it->second) return std::nullopt;
+        nlohmann::json j;
+        try {
+            j = nlohmann::json::parse(*it->second);
+        } catch (const nlohmann::json::exception&) {
+            return it->second;  // served as it is; the plugin refuses it (RAD-36)
+        }
+        if (!j.is_object() || !j.contains("floor") || !j["floor"].is_object()) return it->second;
+        nlohmann::json& fl = j["floor"];
+        if (fl.value("id", "") == f.id) return it->second;
+        fl["id"] = f.id;
+        return j.dump();
+    };
+}
+
+BuildingContext::BuildingContext(std::shared_ptr<ContextPublisher> publisher, SceneSource scenes)
+    : publisher_(std::move(publisher)), source_(std::move(scenes)) {}
 
 std::optional<PlanPosition> BuildingContext::position(const std::optional<FloorPoint>& at,
                                                       const std::optional<PlanPosition>& old) const {
@@ -57,16 +88,9 @@ std::optional<PlanPosition> BuildingContext::position(const std::optional<FloorP
 std::uint32_t BuildingContext::set_building(Building b) {
     building_ = std::move(b);
     scenes_.clear();
-    warnings_.clear();
-    for (const Floor& f : building_.floors) {
-        radio::SceneExport e = radio::export_scene(building_, f.id, options_);
-        if (e.ok) {
-            scenes_[f.id] = std::move(e.json);
-            warnings_[f.id] = std::move(e.warnings);
-        } else {
-            warnings_[f.id] = {e.error};
-        }
-    }
+    if (source_)
+        for (const Floor& f : building_.floors)
+            if (auto scene = source_(building_, f)) scenes_[f.id] = std::move(*scene);
     if (shown_ && building_.find_floor(*shown_) == nullptr) {
         shown_.reset();
         cursor_plan_.reset();

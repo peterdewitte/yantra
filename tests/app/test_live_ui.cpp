@@ -50,6 +50,8 @@ TEST_CASE("DEMO-14 in the app: the mouse survey with the simulator, move slowly,
     AppPaths paths;
     paths.radios.plugin_folders = {YANTRA_TEST_TECH_PLUGIN_DIR};
     paths.radios.radio_folders = {d / "radios"};
+    // DEMO-05: the Fraunces floors' fixed demo scenes, as the app has them.
+    paths.radios.scene_folders = {fs::path(YANTRA_TEST_SOURCE_DATA_DIR) / "demo" / "scenes"};
     paths.interpolation_threads = 2;
 
     UiHarness ui;

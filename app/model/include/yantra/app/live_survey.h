@@ -5,8 +5,9 @@
 // without drawing: the radios (radio plugins through the core radio host,
 // technology plugins for the schema mapping, the measurement pipeline and
 // its cycle thread), the plugins' context (core context::BuildingContext:
-// the floor shown, the mouse and walk positions, the scene, kept current
-// when walls or antennas change) and one walk test at a time
+// the floor shown, the mouse and walk positions, and for a bundled example
+// floor its fixed demo scene, DEMO-05; a user's own floor has no scene)
+// and one walk test at a time
 // (survey::WalkTest) storing measured points in the project as the
 // surveyor clicks. No radio-specific code: a radio is a plugin and device
 // of the radio host; the mouse survey needs a device the plugin marks
@@ -98,6 +99,11 @@ struct RadioPaths {
     /// The ring buffer's temporary recordings (REC-09; main(): the user's
     /// cache folder). "" = no ring buffer.
     std::filesystem::path ring_folder;
+    /// The fixed demo scenes of the bundled example floors (DEMO-05,
+    /// PLG-27 get_scene): <data folder>/demo/scenes, the first that has a
+    /// floor's scene (AppState fills it from the data folders when empty).
+    /// Empty: no floor has a scene.
+    std::vector<std::filesystem::path> scene_folders;
 };
 
 /// The plugin state and the loaded technology, feature and exporter

@@ -87,6 +87,8 @@ struct Rig {
         REQUIRE_FALSE(floor.empty());
         paths.plugin_folders = {YANTRA_TEST_TECH_PLUGIN_DIR};
         paths.radio_folders = {d / "radios"};
+        // DEMO-05: the Fraunces floors' fixed demo scenes, as the app has them.
+        paths.scene_folders = {fs::path(YANTRA_TEST_SOURCE_DATA_DIR) / "demo" / "scenes"};
         ok = true;
     }
     bm::Floor data() const { return *project->floor(floor); }

@@ -526,6 +526,20 @@ TEST_CASE("radio host: context callbacks are answered from the provider (PLG-27)
     CHECK(a.scene_json == snap.scenes["f1"]);
     CHECK(host.context_calls("test.fake")["get_floor_plan:OK"] == 1);
 
+    // DEMO-05: a user's own floor (no example id) has no scene: NOT_FOUND,
+    // "no scene, use the defaults"; the plan and positions stay.
+    snap.plan->example_id.clear();
+    snap.scenes.clear();
+    s.context->publish(snap);
+    a = {};
+    fake.query(&a);
+    CHECK(a.plan == YR_OK);
+    CHECK(a.cursor == YR_OK);
+    CHECK(a.scene == YR_ERR_NOT_FOUND);
+    CHECK(host.context_calls("test.fake")["get_scene:NOT_FOUND"] >= 1);
+    snap.plan->example_id = "example_office";
+    snap.scenes["f1"] = R"({"walls":[]})";
+
     // A plan without scale: no metres for the cursor; no plan at all.
     snap.plan->scale_set = false;
     snap.walk.reset();

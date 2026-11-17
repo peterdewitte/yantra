@@ -21,6 +21,7 @@
 
 #include "e2e_helpers.h"
 #include "measure_rig.h"
+#include "model_scenes.hpp"
 
 using namespace mh;
 namespace yb = yantra::building;
@@ -75,7 +76,7 @@ TEST_CASE("TST-36 ray tracer with no reflections gives the simulator's multi-wal
 
     Rig rig{true};
     TetraPlugin tetra{rig};
-    yc::BuildingContext context(rig.publisher, yr::SceneExportOptions{});
+    yc::BuildingContext context(rig.publisher, yantra::test::model_scenes());
     context.set_building(b);
     context.show_floor("sim-ground");
     context.set_cursor(yb::Point2{points_m[0].x * 20.0, points_m[0].y * 20.0});
@@ -168,7 +169,7 @@ TEST_CASE("TST-36 fit recovery: the fit gives back the simulator's wall losses a
 
     Rig rig{true};
     TetraPlugin tetra{rig};
-    yc::BuildingContext context(rig.publisher, yr::SceneExportOptions{});
+    yc::BuildingContext context(rig.publisher, yantra::test::model_scenes());
     context.set_building(truth);
     context.show_floor("sim-ground");
     context.set_cursor(yb::Point2{points_m[0].x * 20.0, points_m[0].y * 20.0});

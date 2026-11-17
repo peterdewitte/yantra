@@ -4,7 +4,9 @@
 // The simulator plugin (yantra-radios RAD-61) with its scene and
 // positions from Yantra's building model (RAD-36, PLG-27, IND-11/12,
 // IND-08): the RadioHost answers get_floor_plan, get_scene and get_cursor
-// from a BuildingContext, and the simulated levels follow the model. The
+// from a BuildingContext whose scenes the test exports from the model
+// (tests/model_scenes.hpp: the scene exporter, which makes the fixed demo
+// scenes, DEMO-05), and the simulated levels follow the model. The
 // floor uses the example id "fraunces-1" only to select the simulator's
 // bundled Fraunces scenario (cell T1, 390 MHz, no reflections, no fading,
 // no shadowing); no plan image is involved. Waits are on observable
@@ -28,6 +30,8 @@
 #include <yantra/core/radio/radio_host.h>
 #include <yantra/core/radio/scene_export.h>
 #include <yantra/radio.h>
+
+#include "model_scenes.hpp"
 
 namespace fs = std::filesystem;
 namespace yb = yantra::building;
@@ -123,7 +127,7 @@ struct Sim {
     std::string id;
     std::size_t seen = 0;  // records already looked at
 
-    explicit Sim(const yantra::radio::SceneExportOptions& options = {}) : context(publisher, options) {}
+    explicit Sim(const yantra::radio::SceneExportOptions& options = {}) : context(publisher, yantra::test::model_scenes(options)) {}
 
     bool start() {
         const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX;

@@ -103,7 +103,7 @@ struct LiveSurvey::Impl {
 
     // The plugins' context.
     std::shared_ptr<context::ContextPublisher> publisher = std::make_shared<context::ContextPublisher>();
-    context::BuildingContext context{publisher, radio::SceneExportOptions{}};
+    context::BuildingContext context{publisher};
     std::optional<std::string> shown;
 
     // The radio host behind one pipeline (rebuilt when the period changes).
@@ -368,6 +368,8 @@ LiveSurvey::LiveSurvey(std::shared_ptr<project::Project> project, RadioPaths pat
     impl_->project = std::move(project);
     impl_->paths = std::move(paths);
     impl_->services = std::move(services);
+    // DEMO-05: the example floors' fixed demo scenes; own floors have none.
+    impl_->context = context::BuildingContext(impl_->publisher, context::demo_scenes(impl_->paths.scene_folders));
     std::weak_ptr<std::atomic<bool>> dirty = impl_->building_dirty;
     impl_->token = impl_->project->subscribe([dirty](const project::Change& c) {
         using K = project::Change::Kind;

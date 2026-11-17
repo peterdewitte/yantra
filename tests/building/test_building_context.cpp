@@ -3,18 +3,26 @@
 //
 // Context snapshots from the building model (PLG-27, RAD-18, TST-50): the
 // floor plan shown, the cursor and walk positions converted to plan-frame
-// metres with the floor scale (IND-08) exactly, the scenes of every floor,
-// and the change events.
+// metres with the floor scale (IND-08) exactly, the scenes of every floor
+// from a scene source (the scene exporter here, tests/model_scenes.hpp;
+// in the app the fixed demo scenes by example id, DEMO-05: a user's own
+// floor has none), and the change events.
 
 #include <doctest/doctest.h>
 
+#include <filesystem>
+#include <fstream>
 #include <memory>
 #include <string>
 
+#include <nlohmann/json.hpp>
+
 #include <yantra/core/context/building_context.h>
+#include <yantra/core/demo/demo_project.h>
 #include <yantra/core/radio/scene_export.h>
 
 #include "example_building.h"
+#include "model_scenes.hpp"
 
 using namespace yantra::context;
 using yantra::building::Building;
@@ -42,7 +50,7 @@ TEST_CASE("floor plan of a floor (RAD-18 get_floor_plan)") {
 
 TEST_CASE("the snapshot matches the model and the converted mouse position exactly (TST-50)") {
     auto pub = std::make_shared<ContextPublisher>();
-    BuildingContext ctx(pub);
+    BuildingContext ctx(pub, yantra::test::model_scenes());
     const Building b = example_office();
     ctx.set_building(b);
     auto s = pub->snapshot();
@@ -50,7 +58,6 @@ TEST_CASE("the snapshot matches the model and the converted mouse position exact
     REQUIRE(s->scenes.size() == 2);
     CHECK(s->scenes.at("f0") == yantra::radio::export_scene(b, "f0").json);
     CHECK(s->scenes.at("f1") == yantra::radio::export_scene(b, "f1").json);
-    CHECK(ctx.scene_warnings().at("f0").size() == 2);
 
     CHECK(ctx.show_floor("f1") == kPlanChanged);
     s = pub->snapshot();
@@ -81,7 +88,7 @@ TEST_CASE("the snapshot matches the model and the converted mouse position exact
 
 TEST_CASE("edits: SCENE_CHANGED for the shown floor, positions follow a new scale") {
     auto pub = std::make_shared<ContextPublisher>();
-    BuildingContext ctx(pub);
+    BuildingContext ctx(pub, yantra::test::model_scenes());
     Building b = example_office();
     ctx.set_building(b);
     ctx.show_floor("f0");
@@ -129,4 +136,74 @@ TEST_CASE("edits: SCENE_CHANGED for the shown floor, positions follow a new scal
     CHECK_FALSE(pub->snapshot()->plan);
     CHECK_FALSE(ctx.shown_floor());
     CHECK(ctx.show_floor("zz") == 0);
+}
+
+namespace {
+
+namespace fs = std::filesystem;
+
+fs::path scratch_dir(const std::string& name) {
+    const fs::path d = fs::path(YANTRA_TEST_SCRATCH_DIR) / name;
+    fs::remove_all(d);
+    fs::create_directories(d);
+    return d;
+}
+
+void write_file(const fs::path& f, const std::string& text) { std::ofstream(f, std::ios::binary) << text; }
+
+}  // namespace
+
+TEST_CASE("DEMO-05 fixed demo scenes: an example floor gets its scene file as it is, a user's own floor none (PLG-27)") {
+    const fs::path dir = scratch_dir("demo_scenes");
+    const std::string text = "{\n  \"format\": \"yantra-radio-scene\",\n  \"version\": 1,\n"
+                             "  \"floor\": {\"id\": \"f0\", \"name\": \"Ground floor\", \"scale_set\": true,"
+                             " \"width_m\": 20.0, \"height_m\": 10.0}\n}\n";
+    write_file(yantra::demo::demo_scene_file(dir, "example-office-0"), text);
+
+    Building b = example_office();  // walls and antennas on both floors
+    b.find_floor("f0")->example_id = "example-office-0";
+    auto pub = std::make_shared<ContextPublisher>();
+    BuildingContext ctx(pub, demo_scenes({dir / "missing", dir}));
+    ctx.set_building(b);
+    auto s = pub->snapshot();
+    REQUIRE(s->scenes.size() == 1);
+    CHECK(s->scenes.at("f0") == text);  // byte for byte, not the model's walls and antennas
+    CHECK_FALSE(s->scenes.count("f1"));  // the user's own floor: no scene (NOT_FOUND)
+
+    // An example id without a scene file: no scene either.
+    b.find_floor("f1")->example_id = "example-office-9";
+    CHECK(ctx.set_building(b) == 0);
+    CHECK(pub->snapshot()->scenes.size() == 1);
+
+    // Walls and antennas of the model never change the scene.
+    b.find_floor("f0")->walls.clear();
+    b.find_floor("f0")->antennas.clear();
+    ctx.show_floor("f0");
+    CHECK(ctx.set_building(b) == 0);
+    CHECK(pub->snapshot()->scenes.at("f0") == text);
+
+    // Without a scene source no floor has a scene.
+    auto pub2 = std::make_shared<ContextPublisher>();
+    BuildingContext none(pub2);
+    none.set_building(b);
+    CHECK(pub2->snapshot()->scenes.empty());
+}
+
+TEST_CASE("DEMO-05 a floor with an example id but another floor id gets the scene with its own floor id") {
+    const fs::path dir = scratch_dir("demo_scenes_id");
+    const std::string text = "{\"format\": \"yantra-radio-scene\", \"version\": 1, \"floor\": {\"id\": \"first-floor\","
+                             " \"name\": \"First floor\", \"scale_set\": true, \"width_m\": 20.0, \"height_m\": 10.0},"
+                             " \"walls\": [{\"x1_m\": 0.1, \"y1_m\": 0.0, \"x2_m\": 5.0, \"y2_m\": 0.0,"
+                             " \"attenuation_db\": 8.0}]}";
+    write_file(yantra::demo::demo_scene_file(dir, "example-office-0"), text);
+    Building b = example_office();
+    b.find_floor("f0")->example_id = "example-office-0";  // a tour floor: the user's floor id
+    auto pub = std::make_shared<ContextPublisher>();
+    BuildingContext ctx(pub, demo_scenes({dir}));
+    ctx.set_building(b);
+    const auto got = nlohmann::json::parse(pub->snapshot()->scenes.at("f0"));
+    auto want = nlohmann::json::parse(text);
+    CHECK(got["floor"]["id"] == "f0");
+    want["floor"]["id"] = "f0";
+    CHECK(got == want);  // only the floor id differs
 }

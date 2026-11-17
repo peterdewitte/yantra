@@ -6,8 +6,11 @@
 // floor id and name, plan size in metres and scale state, IND-08), the
 // mouse and walk-test positions converted from plan units to metres in
 // the floor's plan frame with the floor scale, and the scene JSON of
-// every floor (core/radio/scene_export.h). It publishes snapshots on a
-// ContextPublisher, which the radio host reads without waiting (OA-03).
+// every floor that has one: from a SceneSource, in the app the fixed demo
+// scenes of the bundled example floors (demo_scenes, DEMO-05; a user's
+// own floor has no scene, the simulator then uses its own defaults). It
+// publishes snapshots on a ContextPublisher, which the radio host reads
+// without waiting (OA-03).
 //
 // Threading: one thread (the UI thread) calls the setters; they only
 // compute the snapshot and publish it. The plugins' callbacks read the
@@ -15,6 +18,8 @@
 #pragma once
 
 #include <cstdint>
+#include <filesystem>
+#include <functional>
 #include <map>
 #include <memory>
 #include <optional>
@@ -23,7 +28,6 @@
 
 #include "yantra/core/building/model.h"
 #include "yantra/core/context/context.h"
-#include "yantra/core/radio/scene_export.h"
 
 namespace yantra::context {
 
@@ -41,13 +45,29 @@ struct FloorPoint {
 /// metres per unit); nullopt for an unknown floor or one without scale.
 std::optional<PlanPosition> plan_position_of(const building::Building& b, const FloorPoint& p);
 
+/// Where the floors' scenes come from (PLG-27 get_scene, RAD-36): the
+/// scene JSON of floor `f` of `b`, or nullopt when the floor has no scene.
+using SceneSource =
+    std::function<std::optional<std::string>(const building::Building& b, const building::Floor& f)>;
+
+/// DEMO-05, DEMO-12, PLG-27: the fixed demo scenes of the bundled example
+/// floors, by the floor's example id: <folder>/<example id>.json in the
+/// first of `folders` that has it (data/demo/scenes; demo::read_demo_scene),
+/// read once and kept. A floor without an example id or without a scene
+/// file has no scene. The scene is served as the file holds it; only when
+/// the floor's id differs from the scene's (e.g. a tour floor trimmed by
+/// the user) is the scene's floor id set to the floor's (compact JSON), so
+/// the plugin finds the scene of the cursor's floor. The building model's
+/// walls and antennas are not used.
+SceneSource demo_scenes(std::vector<std::filesystem::path> folders);
+
 class BuildingContext {
 public:
-    explicit BuildingContext(std::shared_ptr<ContextPublisher> publisher,
-                             radio::SceneExportOptions scene_options = {});
+    /// `scenes` empty: no floor has a scene.
+    explicit BuildingContext(std::shared_ptr<ContextPublisher> publisher, SceneSource scenes = {});
 
-    /// Replaces the model (after any edit: walls, antennas, scale, floors)
-    /// and re-exports every floor's scene; the shown floor stays shown
+    /// Replaces the model (after any edit: scale, floors, example ids)
+    /// and takes every floor's scene from the SceneSource again; the shown floor stays shown
     /// while it exists, and the cursor and walk positions keep their plan
     /// points (their metres follow a new scale). Returns the ContextEvent
     /// bits published.
@@ -63,8 +83,6 @@ public:
 
     const building::Building& building() const { return building_; }
     const std::optional<std::string>& shown_floor() const { return shown_; }
-    /// The export warnings of each floor's scene (floor id -> warnings).
-    const std::map<std::string, std::vector<std::string>>& scene_warnings() const { return warnings_; }
 
 private:
     std::uint32_t publish();
@@ -74,11 +92,10 @@ private:
                                          const std::optional<PlanPosition>& old) const;
 
     std::shared_ptr<ContextPublisher> publisher_;
-    radio::SceneExportOptions options_;
+    SceneSource source_;
     building::Building building_;
     std::optional<std::string> shown_;
     std::map<std::string, std::string> scenes_;
-    std::map<std::string, std::vector<std::string>> warnings_;
     std::optional<building::Point2> cursor_plan_;  // over the shown floor
     std::optional<FloorPoint> walk_plan_;
 };

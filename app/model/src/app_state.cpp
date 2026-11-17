@@ -565,7 +565,10 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     editor_ = std::make_unique<FloorEditor>(*project_);
     proposals_ = std::make_unique<WallProposals>(*project_, *window_, *editor_);
     runner_ = std::make_unique<InterpolationRunner>(project_, InterpolationRunner::Options{paths_.interpolation_threads});
-    live_ = std::make_unique<LiveSurvey>(project_, paths_.radios, plugin_services());
+    RadioPaths radios = paths_.radios;
+    if (radios.scene_folders.empty())
+        for (const fs::path& folder : paths_.data_folders) radios.scene_folders.push_back(folder / "demo" / "scenes");
+    live_ = std::make_unique<LiveSurvey>(project_, std::move(radios), plugin_services());
     // Feature plugins (the probe's live view, PLG-24) see the walk test's records.
     live_->add_observer(std::make_shared<measure::FeatureFeed>(plugins_));
     apply_survey_defaults();
