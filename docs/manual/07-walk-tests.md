@@ -9,7 +9,7 @@ A walk test ties the measurements to positions on the floor plan. It belongs to 
 
 ## 7.1 Walking a floor
 
-In the Walk tab of the project window choose the radio (Search again finds the radios), the kind of walk and its name, then Start. While a walk runs the left mouse button belongs to the walk; middle or right drag still pans the plan. Every measurement cycle (one per second) becomes at most one point. Stop ends the walk test.
+In the Walk tab of the project window check the radio in use (Select... opens Radio > Radios... to find and choose one), choose the kind of walk (the "(?)" next to each kind explains it) and its name, then Start. While a walk runs the left mouse button belongs to the walk; middle or right drag still pans the plan. Every measurement cycle (one per second) becomes at most one point. Stop ends the walk test.
 
 The kinds:
 

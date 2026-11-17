@@ -9,7 +9,7 @@ The Walk tab of the project window shows the live values of what the radio measu
 
 ### Watching without a walk
 
-The Walk tab starts the radio without a walk test: Find radios searches for devices and chooses one, Start radio measures and fills the live values and the windows, Stop radio stops. A walk test (chapter 7) starts the radio by itself. After Stop radio or the end of a walk the radio stays connected, so its windows (chapter 2) keep their device.
+The Walk tab starts the radio without a walk test: it names the radio in use (or "No radio"); Select... opens Radio > Radios... (2.1), which searches for devices the first time and chooses one, Start radio measures and fills the live values and the windows, Stop radio stops. A walk test (chapter 7) starts the radio by itself. After Stop radio or the end of a walk the radio stays connected, so its windows (chapter 2) keep their device.
 
 ## 5.1 Survey panels
 

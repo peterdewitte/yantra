@@ -24,7 +24,7 @@ The radio plugins are tested against simulated SDR devices and a simulated termi
 
 ## 2.1 The radio list
 
-Radio > Radios... lists every device found, with its plugin, state and serial number. Choose a row, then Connect opens the device and Disconnect closes it (not while it measures); Find radios searches again, for example after plugging a radio in. A device that cannot be opened is listed with the reason, for example missing USB permissions (1, "Radio drivers and permissions"). Plugins lists the radio plugins with their status, API version, licence and capabilities. Unplugging a radio while it measures stops it and flags its values (device lost); plug it in and choose Find radios to bring it back.
+Radio > Radios... (also Select... next to the radio in the Walk tab) lists every device found, with its plugin, state and serial number. Choose a row, then Connect opens the device and Disconnect closes it (not while it measures); Find radios searches again, for example after plugging a radio in. A device that cannot be opened is listed with the reason, for example missing USB permissions (1, "Radio drivers and permissions"). Plugins lists the radio plugins with their status, API version, licence and capabilities. Unplugging a radio while it measures stops it and flags its values (device lost); plug it in and choose Find radios to bring it back.
 
 ![The radio list](../img/radio_list_dark.png) [light theme](../img/radio_list_light.png)
 

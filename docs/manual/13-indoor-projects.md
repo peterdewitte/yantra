@@ -15,7 +15,7 @@ The same eight seconds as [WebM](../img/indoor_workflow.webm): the start screen,
 
 An open project shows the plan of one floor, the floor tabs above it and two tabs beside it, for the two parts of the work:
 
-- Walk: measure. The radio (Find radios, Start radio, Stop radio), the live values of the serving cell with a small level graph (chapter 5), the walk test with its kind and Start, Pause, Delete last and Stop (chapter 7), the recording controls and Replay (chapter 6).
+- Walk: measure. The radio in use with Select... (it opens Radio > Radios..., chapter 2), Start radio and Stop radio, the live values of the serving cell with a small level graph (chapter 5), the walk test with its kind (radio buttons, each with a "(?)") and Start, Pause, Delete last and Stop (chapter 7), the Recording and Replay sections, closed until you open them (chapter 6).
 - Map: look at the result. The Show row switches the plan, the measured points and the coverage map on and off, with the map's opacity (13.4); Compute map makes the floor's map (13.5). The Advanced dropdown holds the rest: the interpolation settings, the binned squares, the post-processing views of the points (chapter 11) and the acceptance check (11.2).
 
 The menus hold what is not part of the walk: File (projects, floors, File > Export and File > Report, chapter 10, Settings), Radio (the radios and their windows, chapter 2), Network (the cell database and the checks against it, chapter 8), Window (the survey windows Neighbours, Graphs, Scanner, Events and Statistics, chapter 5; each item opens or closes its window) and Help.
@@ -30,17 +30,17 @@ The floor tabs above the plan switch between floors, ordered by level; the toolt
 
 ## 13.2 Plan import and trimming
 
-The plan import window shows the sheet (choose the page of a PDF) and cuts the floors out of it, so one sheet can give several floors. The tools:
+The plan import window shows the sheet (choose the page of a PDF) and cuts the floors out of it, so one sheet can give several floors. The panel on the left starts with the file name; Info next to it shows the file's type, page, size and resolution. Every option has a "(?)" that explains it when you rest the pointer on it or click it. The trim tools come first, then Add as floor..., the list of floors in this plan and the preview of the trim; Scale and Alignment are closed until you open them with their arrow. The tools:
 
 - Pan/select: drag to move the sheet; click a floor's outline to select it.
 - Rectangle: drag a rectangle around one floor; drag a corner to adjust it.
 - Polygon: click the corners of an irregular outline; click the first point or Finish (Enter) to close it; Undo point (Backspace) and Esc.
 - Deskew: drag along a wall or the sheet's border that should be straight; the plan turns so it is. Turn left and Turn right turn it by 90 degrees; Whole page resets the trim.
-- Scale line: drag between two points whose real distance you know, type the distance in metres and Apply.
-- Scale bar: drag along the plan's scale bar end to end, type its length and Apply. When the page has a paper size (a PDF, or an image with its resolution), you can also type the drawing scale as 1:N.
-- Reference: click a point found on every floor (a staircase corner) to line the floors up above each other.
+- Scale line (in Scale): drag between two points whose real distance you know, type the distance in metres and Apply.
+- Scale bar (in Scale): drag along the plan's scale bar end to end, type its length and Apply. When the page has a paper size (a PDF, or an image with its resolution), you can also type the drawing scale as 1:N.
+- Reference (in Alignment): click a point found on every floor (a staircase corner) to line the floors up above each other.
 
-Add as floor... adds the trim as a floor with its name, level and height; the window stays open for the next floor. The floors of this sheet are listed: Edit changes a trim (points move with it, so they stay on the same spot of the plan), Remove deletes the floor after a question. Floors of the same sheet can share one scale. Not to scale removes the scale; a floor without a scale can be drawn on, but has no distances, binning or interpolation.
+Add as floor... asks in a popup for the floor's name, level and height; Add adds the trim as that floor, Cancel adds nothing. The window stays open for the next floor. The floors of this sheet are listed: Edit changes a trim (points move with it, so they stay on the same spot of the plan), Remove deletes the floor after a question. Floors of the same sheet can share one scale. Not to scale removes the scale; a floor without a scale can be drawn on, but has no distances, binning or interpolation.
 
 The plan file is copied into the project, unchanged: trims and drawings are applied when the plan is shown, never to the file. Licence-restricted plans (the MAK sheets of the tour, 1.3) are recognised by their SHA-256 and kept as a reference to your cached copy instead, with their credit, licence and the note that the scale is approximate.
 

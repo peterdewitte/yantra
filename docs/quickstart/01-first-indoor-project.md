@@ -13,9 +13,9 @@ Import a plan, trim the floors, walk, report. About 15 minutes. You need a floor
 
 3. **Trim the floors.** With Rectangle (or Polygon for an irregular outline) drag around the first floor; Deskew straightens a tilted plan. Press Add as floor..., type the floor's name and level, and Add. Do the same for every other floor on the sheet: one sheet can give several floors.
 
-4. **Scale and reference.** Select a floor, choose Scale bar and drag along the plan's scale bar, type its length in metres and Apply (or Scale line over a known distance). Floors of the same sheet can share the scale. With Reference click a spot found on every floor, such as a staircase corner. Close the window.
+4. **Scale and reference.** Select a floor, open Scale with its arrow, choose Scale bar and drag along the plan's scale bar, type its length in metres and Apply (or Scale line over a known distance). Floors of the same sheet can share the scale. Open Alignment and with Reference click a spot found on every floor, such as a staircase corner. Close the window.
 
-5. **Walk.** In the Walk tab choose the radio and the kind Point and click, then Start. Click where you stand, walk straight at a steady pace and click where you are at every turn. Stop at the end. The points appear coloured by level. With the simulator choose Mouse survey instead and move the mouse slowly over the plan.
+5. **Walk.** In the Walk tab press Select... next to the radio and choose it in Radio > Radios..., then choose the kind Point and click, then Start. Click where you stand, walk straight at a steady pace and click where you are at every turn. Stop at the end. The points appear coloured by level. With the simulator choose Mouse survey instead and move the mouse slowly over the plan.
 
 6. **Coverage map.** In the Map tab press Compute map. The map is interpolated from your points and fades out where nobody measured. Rest the pointer on the plan to see measured and interpolated values.
 

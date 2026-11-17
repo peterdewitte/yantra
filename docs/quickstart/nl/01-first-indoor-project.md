@@ -13,9 +13,9 @@ Plattegrond importeren, verdiepingen bijsnijden, lopen, rapport. Ongeveer 15 min
 
 3. **Verdiepingen bijsnijden.** Sleep met Rechthoek (of Veelhoek voor een onregelmatige omtrek) rond de eerste verdieping; Rechtzetten maakt een scheve plattegrond recht. Druk op Toevoegen als verdieping..., typ de naam en het niveau van de verdieping, en Toevoegen. Doe hetzelfde voor elke andere verdieping op het blad: één blad kan meerdere verdiepingen geven.
 
-4. **Schaal en referentie.** Kies een verdieping, kies de schaalbalk en sleep langs de schaalbalk van de plattegrond, typ de lengte in meter en Toepassen (of een schaallijn over een bekende afstand). Verdiepingen van hetzelfde blad kunnen de schaal delen. Klik met Referentie op een punt dat op elke verdieping te vinden is, zoals de hoek van een trappenhuis. Sluit het venster.
+4. **Schaal en referentie.** Kies een verdieping, open Schaal met zijn pijltje, kies de schaalbalk en sleep langs de schaalbalk van de plattegrond, typ de lengte in meter en Toepassen (of een schaallijn over een bekende afstand). Verdiepingen van hetzelfde blad kunnen de schaal delen. Open Uitlijning en klik met Referentie op een punt dat op elke verdieping te vinden is, zoals de hoek van een trappenhuis. Sluit het venster.
 
-5. **Lopen.** Kies in het tabblad Lopen de ontvanger en de soort Aanwijzen en klikken, dan Starten. Klik waar je staat, loop in een rechte lijn aan een gelijkmatig tempo en klik waar je bent bij elke bocht. Stoppen aan het einde. De punten verschijnen gekleurd volgens het niveau. Kies met de simulator in plaats daarvan Muismeting en beweeg de muis langzaam over de plattegrond.
+5. **Lopen.** Druk in het tabblad Lopen op Kiezen... naast de radio en kies hem in Radio > Radio's..., kies dan de soort Aanwijzen en klikken, dan Starten. Klik waar je staat, loop in een rechte lijn aan een gelijkmatig tempo en klik waar je bent bij elke bocht. Stoppen aan het einde. De punten verschijnen gekleurd volgens het niveau. Kies met de simulator in plaats daarvan Muismeting en beweeg de muis langzaam over de plattegrond.
 
 6. **Dekkingskaart.** Druk in het tabblad Kaart op Kaart berekenen. De kaart wordt uit je punten geïnterpoleerd en vervaagt waar niemand gemeten heeft. Laat de aanwijzer op de plattegrond rusten om gemeten en geïnterpoleerde waarden te zien.
 

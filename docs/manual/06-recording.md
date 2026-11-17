@@ -9,7 +9,7 @@ Recordings keep every measurement record of a survey with its time, its calibrat
 
 ## 6.1 Recording
 
-The recording controls are in the Walk tab of the project window:
+The recording controls are in the Recording section of the Walk tab of the project window; it is closed until you open it with its arrow, and stays open while a recording runs:
 
 - Name and notes of the recording; split (start a new file every so many minutes, 0 for one file) and zstd (compress the files).
 - Record starts a recording with these settings; Quick record starts one at once with a name from the time; Stop recording ends it.
