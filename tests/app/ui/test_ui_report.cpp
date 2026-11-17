@@ -12,6 +12,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
 
 #include "gui.h"
 #include "ui_harness.h"
@@ -185,5 +186,92 @@ TEST_CASE("File > Report by clicking: surveyor, a new acceptance profile, one fl
     CHECK(page.find("A. Surveyor") != std::string::npos);
     CHECK(page.find("Lobby") != std::string::npos);
     CHECK(page.find(floors[0].second) != std::string::npos);
+
+    // UI-22: the Report ready popup lists both files; Open opens the PDF
+    // in the system viewer and closes the popup.
+    REQUIRE_MESSAGE(s.ui.wait_window("dlg.report_ready"), s.ui.dump());
+    CHECK(s.state.dialog() == Dialog::ReportReady);
+    REQUIRE(s.state.report_ready() == std::vector<fs::path>{pdf, html});
+    std::vector<fs::path> opened;
+    s.state.set_document_opener([&](const fs::path& f, std::string&) {
+        opened.push_back(f);
+        return true;
+    });
+    REQUIRE(s.ui.click("rr.open", "dlg.report_ready"));
+    REQUIRE(s.ui.wait_window_closed("dlg.report_ready"));
+    CHECK(opened == std::vector<fs::path>{pdf});
+    CHECK(s.state.dialog() == Dialog::None);
+    CHECK(s.state.report_ready().empty());
+}
+
+namespace {
+
+// Makes a report with only PDF or only HTML ticked and waits for the
+// Report ready popup (UI-22).
+fs::path report_one_kind(Shell& s, bool pdf) {
+    REQUIRE_MESSAGE(s.ui.click_menu("file", "file.report"), s.ui.dump());
+    REQUIRE(s.ui.wait_window("dlg.report"));
+    ReportForm& f = s.state.output()->report_form();
+    if (f.pdf != pdf) REQUIRE(s.ui.click("rp.pdf", "dlg.report"));
+    if (f.html == pdf) REQUIRE(s.ui.click("rp.html", "dlg.report"));
+    // One floor keeps the test short.
+    const auto floors = s.state.output()->floor_names();
+    for (std::size_t i = 1; i < floors.size(); ++i)
+        if (f.floors.size() > i && f.floors[i]) REQUIRE(s.ui.click("rp.floor." + floors[i].first, "dlg.report"));
+    REQUIRE(s.ui.frames(2));
+    REQUIRE(f.pdf == pdf);
+    REQUIRE(f.html == !pdf);
+    fs::path file = f.file;
+    file.replace_extension(pdf ? ".pdf" : ".html");
+    REQUIRE(s.ui.click("dlg.ok", "dlg.report"));
+    REQUIRE(s.ui.wait_window_closed("dlg.report"));
+    REQUIRE(job_done(s));
+    REQUIRE_MESSAGE(s.ui.wait_window("dlg.report_ready"), s.ui.dump());
+    return file;
+}
+
+}  // namespace
+
+TEST_CASE("UI-22 Report ready: an HTML report with Show in folder, a PDF report with Close") {
+    const fs::path dir = scratch("report_ready");
+    Shell s(demo_paths(dir));
+    open_demo(s);
+    std::vector<fs::path> opened;
+    s.state.set_document_opener([&](const fs::path& f, std::string&) {
+        opened.push_back(f);
+        return true;
+    });
+
+    // HTML only: the popup lists it; Show in folder opens its folder.
+    const fs::path html = report_one_kind(s, false);
+    REQUIRE(s.state.report_ready() == std::vector<fs::path>{html});
+    CHECK(fs::exists(html));
+    REQUIRE(s.ui.click("rr.folder", "dlg.report_ready"));
+    REQUIRE(s.ui.wait_window_closed("dlg.report_ready"));
+    CHECK(opened == std::vector<fs::path>{html.parent_path()});
+    CHECK_FALSE(s.state.status_is_error());
+
+    // PDF only: Close just closes the popup, nothing is opened.
+    opened.clear();
+    const fs::path pdf = report_one_kind(s, true);
+    REQUIRE(s.state.report_ready() == std::vector<fs::path>{pdf});
+    CHECK(fs::exists(pdf));
+    REQUIRE(s.ui.click("dlg.cancel", "dlg.report_ready"));
+    REQUIRE(s.ui.wait_window_closed("dlg.report_ready"));
+    CHECK(opened.empty());
+    CHECK(s.state.report_ready().empty());
+    CHECK(s.state.dialog() == Dialog::None);
+
+    // A viewer that fails keeps the popup with the error.
+    s.state.set_document_opener([](const fs::path&, std::string& error) {
+        error = "no viewer";
+        return false;
+    });
+    (void)report_one_kind(s, true);
+    REQUIRE(s.ui.click("rr.open", "dlg.report_ready"));
+    REQUIRE(s.ui.frames(3));
+    CHECK(s.state.dialog() == Dialog::ReportReady);
+    CHECK(s.state.status_is_error());
+    CHECK(s.state.status().find("no viewer") != std::string::npos);
 }
 #endif

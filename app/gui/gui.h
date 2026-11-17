@@ -212,6 +212,7 @@ private:
     void draw_post_section();  // step 9.8, post_view.cpp (in the Map tab's Advanced dropdown)
     void draw_export_dialog();  // step 10.4, report_view.cpp
     void draw_report_dialog();
+    void draw_report_ready();
     void draw_profiles_dialog();
     void draw_sharing_dialog();
     void draw_recording_controls(LiveSurvey& live);

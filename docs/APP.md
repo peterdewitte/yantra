@@ -748,7 +748,7 @@ File > Export and File > Report (EXP-01, EXP-03..08; manual 10) need a project w
 dropped with the project's tools); sharing: `share.h` (`SharingSettings` in `AppSettings::sharing`,
 `ShareJob`, `Sender`, `check_sharing`, `copy_to_folder`, `share_files`) and `app/net/curl_sender.{h,cpp}`
 (libcurl); views: `app/gui/report_view.cpp`; dialogs `dlg.export`, `dlg.report`, `dlg.profiles`,
-`dlg.sharing` (manual 10.1-10.4).
+`dlg.sharing`, `dlg.report_ready` (manual 10.1-10.4).
 
 - Export (`ExportForm`): kind CSV / DXF / floor picture / batch; the shown floor or all floors (CSV: one
   file; DXF, picture: `<stem>_<floor id>.<ext>`); CSV columns in `exports::all_columns()` order
@@ -767,6 +767,13 @@ dropped with the project's tools); sharing: `share.h` (`SharingSettings` in `App
   calls `report::write_coverage_report` in the app's language (`tr`); `SOURCE_DATE_EPOCH` fixes the
   creation time. The tour's report step (`TourStep::Report`) is done after a report of the tour project;
   Show me runs File > Report with its defaults.
+- Report ready (UI-22, `Dialog::ReportReady`, `dlg.report_ready`): when the worker has written a report,
+  `ReportExport::take_ready_report()` hands its files (PDF first, then HTML) to `AppState::tick()`, which
+  shows the popup as soon as no other dialog is open (`report_ready()`). Open (`rr.open`,
+  `open_ready_report`) gives the first file to the document opener (the system viewer,
+  `platform::open_document`), Show in folder (`rr.folder`, `show_ready_report`) its folder to the file
+  manager; each closes the popup when it worked and keeps it with the error when not; Close
+  (`dlg.cancel`, Esc) closes it.
 - Acceptance profile editor (`ProfileForm`, EXP-06): add (a free name), remove, name, basis (points,
   tested area with square and percentile, floor area with the least confidence), criteria (level and
   share); `survey::validate` and unique names; Save stores them with `survey::set_acceptance_profiles`

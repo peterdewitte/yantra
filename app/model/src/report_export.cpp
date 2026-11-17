@@ -607,7 +607,10 @@ std::optional<Result> ReportExport::tick() {
     OutputJobView v = job();
     last_ = v;
     last_.running = false;
-    if (!v.error && v.what == tr("Report")) report_written_ = true;
+    if (!v.error && v.what == tr("Report")) {
+        report_written_ = true;
+        ready_report_ = v.files;
+    }
     const Result r{!v.error, v.message};
     job_.reset();
     if (r.ok && pending_share_) {

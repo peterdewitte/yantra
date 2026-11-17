@@ -22,7 +22,7 @@ Files go into the *exports* folder next to the project unless you choose another
 
 ## 10.2 The coverage and acceptance report
 
-File > Report makes the indoor coverage and acceptance report as PDF, HTML or both. Each floor has its own section: the plan with every measured point, the coverage map when one is stored, the statistics, the level histogram, the coverage at the threshold and the further thresholds you type, and the result of each acceptance profile. Type your name as the *Surveyor*: it is printed on the report and never stored. *Table of every point* adds the list of all points of each floor. The report is written in the background into the *reports* folder next to the project.
+File > Report makes the indoor coverage and acceptance report as PDF, HTML or both. Each floor has its own section: the plan with every measured point, the coverage map when one is stored, the statistics, the level histogram, the coverage at the threshold and the further thresholds you type, and the result of each acceptance profile. Type your name as the *Surveyor*: it is printed on the report and never stored. *Table of every point* adds the list of all points of each floor. The report is written in the background into the *reports* folder next to the project. When it is ready, a *Report ready* message lists the files: *Open* shows the report in your system's viewer (the PDF when you wrote both), *Show in folder* opens its folder in your file manager, and *Close* (Esc) just closes the message.
 
 ![The Report dialog](../img/report_dark.png) [light theme](../img/report_light.png)
 

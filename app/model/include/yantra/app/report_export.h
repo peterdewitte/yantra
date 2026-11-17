@@ -31,6 +31,7 @@
 #include <optional>
 #include <string>
 #include <thread>
+#include <utility>
 #include <vector>
 
 #include "yantra/app/result.h"
@@ -164,6 +165,9 @@ public:
     Result run_report();
     /// A report of this project was written in this run (the tour's step).
     bool report_written() const { return report_written_; }
+    /// UI-22: the files of the report the last tick() found written (PDF
+    /// first, then HTML), once; empty otherwise.
+    std::vector<std::filesystem::path> take_ready_report() { return std::exchange(ready_report_, {}); }
 
     // -- acceptance profiles ----------------------------------------------
     void open_profiles();
@@ -211,6 +215,7 @@ private:
     std::optional<std::string> pending_share_;  // subject of the sending after the job
     OutputJobView last_;
     bool report_written_ = false;
+    std::vector<std::filesystem::path> ready_report_;
 };
 
 }  // namespace yantra::app

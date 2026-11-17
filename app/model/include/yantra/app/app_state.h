@@ -186,6 +186,7 @@ enum class Dialog {
     Report,             ///< File > Report (EXP-05, EXP-06): output()->report_form()
     AcceptanceProfiles, ///< the acceptance profile editor (EXP-06): output()->profile_form()
     Sharing,            ///< where exports and reports are sent (EXP-07): sharing_form()
+    ReportReady,        ///< UI-22: the report is written; Open, Show in folder, Close: report_ready()
 };
 
 /// What the file browser was opened for.
@@ -516,6 +517,17 @@ public:
     /// export continue in the background; the dialog closes).
     Result confirm_export();
     Result confirm_report();
+    /// UI-22: when a report is written, the Report ready popup (dialog
+    /// ReportReady, as soon as no other dialog is open) lists its files (PDF
+    /// first, then HTML). Open opens the first in the system viewer, Show in
+    /// folder opens its folder in the file manager (each closes the popup
+    /// when it worked); Close (cancel_dialog) just closes it.
+    const std::vector<std::filesystem::path>& report_ready() const { return report_ready_; }
+    Result open_ready_report();
+    Result show_ready_report();
+    /// Shows the Report ready popup for `files` (tick() does so when a report
+    /// is written; the UI lint shows it directly).
+    void show_report_ready(std::vector<std::filesystem::path> files);
     /// The acceptance profile editor (from the Report dialog); Save stores
     /// the profiles and goes back to the Report dialog.
     Result open_profiles();
@@ -666,6 +678,7 @@ private:
     std::string sharing_password_;
     Dialog sharing_return_ = Dialog::None;
     bool walk_running_ = false;
+    std::vector<std::filesystem::path> report_ready_;  // UI-22
     std::string walk_floor_;
     NetworkWindows network_windows_;
     SurveyWindows survey_windows_;

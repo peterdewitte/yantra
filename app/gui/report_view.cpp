@@ -7,6 +7,7 @@
 #include <imgui.h>
 
 #include <algorithm>
+#include <cctype>
 #include <cstdio>
 #include <string>
 #include <vector>
@@ -259,6 +260,33 @@ void Gui::draw_report_dialog() {
     job_line(*out);
     ok_cancel(state_, tr("Make report###dlg.ok"), tr("Write the report in the background [Enter]"),
               &AppState::confirm_report);
+}
+
+// UI-22: the report is written: Open (system viewer), Show in folder, Close.
+void Gui::draw_report_ready() {
+    const std::vector<std::filesystem::path>& files = state_.report_ready();
+    ImGui::PushTextWrapPos(0.0F);
+    ImGui::TextUnformatted(tr("The report is written."));
+    ImGui::PopTextWrapPos();
+    for (const std::filesystem::path& f : files) {
+        std::string ext = f.extension().string();
+        std::transform(ext.begin(), ext.end(), ext.begin(), [](unsigned char ch) { return static_cast<char>(std::tolower(ch)); });
+        path_line(ext == ".pdf" ? tr("PDF:") : tr("HTML:"), f, "");
+    }
+    ImGui::Spacing();
+    if (dialog_button(tr("Open###rr.open"),
+                      files.size() > 1 ? tr("Open the PDF in your system's viewer [Enter]")
+                                       : tr("Open the report in your system's viewer [Enter]"),
+                      140.0F) ||
+        (ImGui::IsKeyPressed(ImGuiKey_Enter) && !ImGui::GetIO().WantTextInput))
+        (void)state_.open_ready_report();
+    ImGui::SameLine();
+    if (dialog_button(tr("Show in folder###rr.folder"), tr("Open the report's folder in your file manager")))
+        (void)state_.show_ready_report();
+    ImGui::SameLine();
+    if (dialog_button(tr("Close###dlg.cancel"), tr("Close this message [Esc]")) || ImGui::IsKeyPressed(ImGuiKey_Escape))
+        state_.cancel_dialog();
+    error_line(state_);
 }
 
 void Gui::draw_profiles_dialog() {

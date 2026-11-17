@@ -587,6 +587,7 @@ void AppState::cancel_dialog() {
         return;
     }
     if (dialog_ == Dialog::RemoveFloor && window_) window_->cancel_remove();
+    if (dialog_ == Dialog::ReportReady) report_ready_.clear();
     if (dialog_ == Dialog::Sharing) {
         dialog_ = sharing_return_;
         return;
@@ -1327,6 +1328,11 @@ void AppState::tick() {
     if (replay_) replay_->tick();
     if (output_) {
         if (const auto r = output_->tick()) (void)show(*r);
+        // UI-22: the Report ready popup, once no other dialog is open.
+        if (auto files = output_->take_ready_report(); !files.empty()) report_ready_ = std::move(files);
+    }
+    if (!report_ready_.empty() && dialog_ == Dialog::None) dialog_ = Dialog::ReportReady;
+    if (output_) {
         // EXP-07: a walk test that ended sends its floor's export when
         // the sharing settings ask for it.
         const WalkView w = live_ ? live_->view() : WalkView{};
@@ -1355,6 +1361,33 @@ Result AppState::confirm_report() {
     if (!r.ok) return fail(r.message);
     dialog_ = Dialog::None;
     return done(r.message);
+}
+
+Result AppState::open_ready_report() {
+    if (report_ready_.empty()) return fail(tr("No report was written."));
+    const fs::path file = report_ready_.front();
+    std::error_code ec;
+    if (!fs::is_regular_file(file, ec)) return fail(trf("The report {} is not there.", {file.string()}));
+    std::string error;
+    const bool opened = document_opener_ ? document_opener_(file, error) : platform::open_document(file, error);
+    if (!opened) return fail(trf("The report could not be opened: {}", {error}));
+    report_ready_.clear();
+    if (dialog_ == Dialog::ReportReady) dialog_ = Dialog::None;
+    return done(trf("The report opens in your viewer: {}", {file.string()}));
+}
+
+void AppState::show_report_ready(std::vector<fs::path> files) {
+    report_ready_ = std::move(files);
+    if (!report_ready_.empty() && dialog_ == Dialog::None) dialog_ = Dialog::ReportReady;
+}
+
+Result AppState::show_ready_report() {
+    if (report_ready_.empty()) return fail(tr("No report was written."));
+    const Result r = open_folder(report_ready_.front().parent_path());
+    if (!r.ok) return r;
+    report_ready_.clear();
+    if (dialog_ == Dialog::ReportReady) dialog_ = Dialog::None;
+    return r;
 }
 
 Result AppState::open_profiles() {

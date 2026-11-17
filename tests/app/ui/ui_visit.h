@@ -259,6 +259,15 @@ inline void visit_all(Shell& s, const std::function<void(const std::string&)>& c
     s.state.cancel_dialog();
     s.state.cancel_dialog();
     REQUIRE(s.ui.frames(3));
+    // UI-22: the Report ready popup with both files.
+    {
+        const fs::path out = s.state.project()->path().parent_path() / "exports";
+        s.state.show_report_ready({out / "report_of_the_demo_project.pdf", out / "report_of_the_demo_project.html"});
+        REQUIRE(s.state.dialog() == Dialog::ReportReady);
+        settle_check("report ready");
+        s.state.cancel_dialog();
+        REQUIRE(s.ui.frames(2));
+    }
     for (Action a : {Action::CellDatabase, Action::Verification, Action::Reselection}) REQUIRE(s.state.trigger(a).ok);
     settle_check("network windows");
     s.state.network_windows() = NetworkWindows{};

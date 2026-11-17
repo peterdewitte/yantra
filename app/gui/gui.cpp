@@ -49,6 +49,7 @@ const char* dialog_id(Dialog d, const AppState& state) {
     case Dialog::Report: return tr("Report###dlg.report");
     case Dialog::AcceptanceProfiles: return tr("Acceptance profiles###dlg.profiles");
     case Dialog::Sharing: return tr("Sharing###dlg.sharing");
+    case Dialog::ReportReady: return tr("Report ready###dlg.report_ready");
     case Dialog::None: break;
     }
     return "###dlg.none";
@@ -1018,7 +1019,8 @@ const char* dialog_section(Dialog d) {
     case Dialog::ResetSettings: return "15.4";
     case Dialog::TourConsent: return "1.3";
     case Dialog::Export: return "10.1";
-    case Dialog::Report: return "10.2";
+    case Dialog::Report:
+    case Dialog::ReportReady: return "10.2";
     case Dialog::AcceptanceProfiles: return "10.3";
     case Dialog::Sharing: return "10.4";
     case Dialog::None: break;
@@ -1060,6 +1062,7 @@ void Gui::draw_dialog_body(Dialog d) {
     case Dialog::Report: draw_report_dialog(); break;
     case Dialog::AcceptanceProfiles: draw_profiles_dialog(); break;
     case Dialog::Sharing: draw_sharing_dialog(); break;
+    case Dialog::ReportReady: draw_report_ready(); break;
     case Dialog::None: break;
     }
 }
