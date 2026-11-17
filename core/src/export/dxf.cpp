@@ -3,7 +3,7 @@
 //
 // Partly modelled on yantra-v1 c24e8f5: core/export/dxf.cpp (R12 group
 // writer, layer table, 999 comments), adapted for EXP-03 indoor (plan
-// metres, walls, antennas, layers per colour band) with a reader.
+// metres, layers per colour band) with a reader.
 
 #include "yantra/core/export/dxf.h"
 
@@ -47,15 +47,6 @@ int aci_of(std::uint32_t rgb) {
         }
     }
     return best;
-}
-
-std::string layer_name(const std::string& prefix, const std::string& id) {
-    std::string n = prefix;
-    for (char c : id) {
-        const auto u = static_cast<unsigned char>(c);
-        n += std::isalnum(u) ? static_cast<char>(std::toupper(u)) : '_';
-    }
-    return n;
 }
 
 // One line of DXF text: no control characters.
@@ -113,32 +104,6 @@ DxfDrawing floor_drawing(const project::Project& project, const Table& table, co
     }
     if (skipped != nullptr) *skipped = skip;
 
-    if (o.walls) {
-        std::vector<std::string> seen;
-        for (const building::Wall& w : floor->walls) {
-            const std::string layer = layer_name("WALLS_", w.wall_class.empty() ? std::string("own") : w.wall_class);
-            bool known = false;
-            for (const auto& l : seen) known = known || l == layer;
-            if (!known) {
-                seen.push_back(layer);
-                d.layers.push_back({layer, 8, clean("walls of class " + (w.wall_class.empty() ? std::string("(own attenuation)") : w.wall_class))});
-            }
-            DxfPolyline pl;
-            pl.layer = layer;
-            for (const auto& pt : w.points) pl.vertices.push_back(dxf_point(layer, *b.to_plan_metres(*floor, pt)));
-            d.polylines.push_back(std::move(pl));
-        }
-    }
-    if (o.antennas && !floor->antennas.empty()) {
-        d.layers.push_back({"ANTENNAS", 5, "antennas"});
-        d.layers.push_back({"ANTENNA_NAMES", 5, "antenna names"});
-        for (const building::Antenna& a : floor->antennas) {
-            const DxfPoint p = dxf_point("ANTENNAS", *b.to_plan_metres(*floor, a.position));
-            d.points.push_back(p);
-            d.texts.push_back({"ANTENNA_NAMES", p.x + o.text_height_m / 2, p.y - 1.5 * o.text_height_m, o.text_height_m,
-                               clean(a.name.empty() ? a.id : a.name)});
-        }
-    }
     if (!o.label.empty()) {
         d.layers.push_back({"LABEL", 7, "label"});
         double top = 0.0;

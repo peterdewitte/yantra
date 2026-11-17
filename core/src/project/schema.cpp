@@ -94,9 +94,10 @@ CREATE TABLE source_pages (
 
 // Version 3 (step 7.3): the floor scale (IND-08) and alignment point
 // (IND-09) in the floors row; the project's editable wall-class table
-// with the default classes (IND-11), walls per floor as polylines, the
-// cells and the antennas per floor (IND-12). Plan units throughout.
-// Existing floors get no scale and no reference point.
+// with the default classes, walls per floor as polylines, the cells and
+// the antennas per floor (Yantra 0.3; version 8 drops all but the cells).
+// Plan units throughout. Existing floors get no scale and no reference
+// point.
 const char* const kV3 = R"sql(
 ALTER TABLE floors ADD COLUMN scale_method TEXT NOT NULL DEFAULT 'none'
   CHECK (scale_method IN ('none', 'two_points', 'scale_bar', 'factor', 'shared'));
@@ -286,9 +287,9 @@ CREATE TABLE cell_neighbours (
 ) WITHOUT ROWID;
 )sql";
 
-// Version 6 (step 8.2): the settings of the ray-tracing model (IND-40; the
-// dB per floor of IND-44 is building.floor_attenuation_db), one row, and
-// the stored interpolation results (IND-41..43, IND-45): one per floor and
+// Version 6 (step 8.2): the settings of the ray-tracing model of 0.3 (the
+// dB per floor was building.floor_attenuation_db), one row, and the
+// stored interpolation results (IND-41..43, IND-45): one per floor and
 // key (metric and source group), with the fingerprints of their inputs
 // (staleness), the parameters that made them (reproducible reports), the
 // fit and the map cells (value, model, confidence as little-endian
@@ -339,15 +340,29 @@ CREATE TABLE acceptance_profiles (
 )sql";
 
 // Version 8 (step 14.2, Yantra 0.4): the point interpolation (IND-41,
-// IND-45) replaces the ray-tracing map. The ray-tracing settings and the
-// stored ray-tracing maps are dropped (IND-46: the open notes it once, the
-// backup "<file>.schema<N>.bak" keeps them); the interpolation settings
+// IND-45) replaces the ray-tracing map. Dropped (IND-46: the open notes
+// it once, the backup "<file>.schema<N>.bak" keeps them): the ray-tracing
+// settings and the stored ray-tracing maps, the walls and the wall-class
+// table, the antennas, the slab attenuations (building and floors) and
+// the wall and antenna id counters. The interpolation settings
 // (grid, IDW power, search radius, full-confidence distance) are one row;
 // the stored maps keep their inputs' fingerprints and parameters, with
 // value and confidence per cell (little-endian float32, 8 bytes per cell).
 const char* const kV8 = R"sql(
 DROP TABLE propagation;
 DROP TABLE interpolations;
+DROP INDEX walls_by_id;
+DROP INDEX walls_by_class;
+DROP INDEX antennas_by_cell;
+DROP TABLE wall_points;
+DROP TABLE walls;
+DROP TABLE wall_class_bands;
+DROP TABLE wall_classes;
+DROP TABLE antenna_pattern_gains;
+DROP TABLE antennas;
+ALTER TABLE building DROP COLUMN floor_attenuation_db;
+ALTER TABLE floors DROP COLUMN slab_attenuation_db;
+DELETE FROM meta WHERE key IN ('next_wall_number', 'next_antenna_number');
 CREATE TABLE interpolation_settings (
   id                INTEGER PRIMARY KEY CHECK (id = 1),
   grid_m            REAL NOT NULL DEFAULT 0.5 CHECK (grid_m BETWEEN 0.05 AND 10),

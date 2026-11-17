@@ -407,7 +407,7 @@ void PlanImportView::draw_panel(PlanImportWindow& w) {
     if (w.editing()) {
         ImGui::TextColored(kWarnColour, tr("Editing the trim of a floor"));
         if (ImGui::Button(tr("Apply###pi.apply_edit"))) report(w.apply_edit());
-        tooltip(tr("Store the changed trim in the floor. Its walls, antennas, scale points and reference point keep "
+        tooltip(tr("Store the changed trim in the floor. Its scale points, reference point and measured points keep "
                 "their place on the sheet."));
         ImGui::SameLine();
         if (ImGui::Button(tr("Cancel###pi.cancel_edit"))) report(w.cancel_edit());

@@ -30,20 +30,21 @@ form is the building model of [BUILDING_MODEL.md](../BUILDING_MODEL.md)
 | --- | --- |
 | 1 | `meta`, `project`, `building`, `sources`, `floors` |
 | 2 | floor trims (IND-05..07): `floors` columns `trim_shape`, `quarter_turns`, `deskew_deg` and the table `floor_outline`; the page sizes of each source (IND-02): `source_pages`. Existing floors get the whole page (`trim_shape` `none`) |
-| 3 | the rest of the building model: `floors` scale columns (`scale_*`, IND-08) and alignment point (`reference_x/y`, IND-09); the project's wall-class table `wall_classes` + `wall_class_bands` with the default classes (IND-11); `walls` + `wall_points` (IND-11); `cells` + `cell_identity`, `antennas` + `antenna_pattern_gains` (IND-12); meta counters `next_wall_number`, `next_antenna_number`, `next_cell_number`. Existing floors get no scale and no reference point |
+| 3 | the rest of the building model of 0.3: `floors` scale columns (`scale_*`, IND-08) and alignment point (`reference_x/y`, IND-09); `cells` + `cell_identity`; the wall-class table `wall_classes` + `wall_class_bands` with the default classes, `walls` + `wall_points`, `antennas` + `antenna_pattern_gains` (all four dropped in version 8); meta counters `next_wall_number`, `next_antenna_number` (dropped in version 8), `next_cell_number`. Existing floors get no scale and no reference point |
 | 4 | the project's recordings (`recordings`, REC-02/03), its walk tests and manual-point sets (`sessions`, IND-20, GEO-02, GEO-05) and their measured points (`points`), the one point list of the project window and the report (IND-30). Existing projects get no sessions |
 | 5 | the cell database in the project's cells (DB-01): `cells` columns `site_name`, `sector`, `azimuth_deg`, `colour`, `notes`, `origin`, `plugin_version`; the tables `cell_parameters` and `cell_neighbours`; meta keys `celldb_match:<technology>`. Existing cells become manual entries without parameters or neighbours |
-| 6 | the propagation model settings (`propagation`, IND-40/41) and the stored interpolation results with their parameters and input fingerprints (`interpolations`, IND-41..45). Existing projects get the default settings and no results |
+| 6 | the ray-tracing model settings of 0.3 (`propagation`, dropped in version 8) and the stored interpolation results with their parameters and input fingerprints (`interpolations`, IND-41..45). Existing projects get the default settings and no results |
 | 7 | the project's acceptance profiles (`acceptance_profiles`, EXP-06), used by the report. Existing projects get none (the report then uses the default profile) |
-| 8 | Yantra 0.4, the point interpolation (IND-41, IND-45): the table `propagation` and the stored ray-tracing maps are dropped (IND-46: Yantra says so once when it opens such a file; the backup keeps them); new `interpolation_settings`, and `interpolations` again with 8 bytes per cell (value, confidence). Existing projects get the default settings and no maps |
+| 8 | Yantra 0.4, the point interpolation (IND-41, IND-45). Dropped (IND-46): the table `propagation` and the stored ray-tracing maps; the walls, wall classes and antennas (`walls`, `wall_points`, `wall_classes`, `wall_class_bands`, `antennas`, `antenna_pattern_gains`); the slab attenuations (`building.floor_attenuation_db`, `floors.slab_attenuation_db`); the meta counters `next_wall_number` and `next_antenna_number`. Yantra says once, after opening such a file, how many walls, own wall classes, antennas and ray-tracing maps it dropped; the backup keeps them. New: `interpolation_settings`, and `interpolations` again with 8 bytes per cell (value, confidence). Existing projects keep their floors, cells, sources, recordings, sessions and points and get the default settings and no maps |
 
 Rules:
 
 - **Older files** (a lower version) are migrated when they are opened,
   one step per version, each step in its own transaction (a failed step
   leaves the file at the version before it). Before the first step Yantra
-  writes a backup copy `<name>.yantra.schema<old>.bak` (written whole,
-  never over an existing backup), which the older Yantra can still open.
+  writes a backup copy `<name>.yantra.schema<old>.bak`: the old file byte
+  for byte (written whole under a temporary name, never over an existing
+  backup), which the older Yantra can still open.
   The `meta` key `schema_<n>_by` records the Yantra version and the time
   of each step.
 - **Newer files** (a higher version) are refused with "saved by a newer
@@ -58,15 +59,17 @@ Rules:
 Version 1 stores the project-level and floor-level fields of the building
 model and the source files; version 2 adds the floor trims and the source
 page sizes; version 3 the rest of the building model (scale, alignment,
-wall classes, walls, cells, antennas), so the whole model of
-[BUILDING_MODEL.md](../BUILDING_MODEL.md) is stored; version 4 the
+cells; and the wall classes, walls and antennas of 0.3), so the whole
+model of [BUILDING_MODEL.md](../BUILDING_MODEL.md) is stored; version 4 the
 recordings, walk tests and measured points ([SURVEY.md](../SURVEY.md)); version 5 the
 cell database ([CELL_DATABASE.md](../CELL_DATABASE.md)); version 6 the
-propagation settings and the ray-tracing maps; version 7 the acceptance
+ray-tracing settings and maps of 0.3; version 7 the acceptance
 profiles ([SURVEY.md](../SURVEY.md) "Acceptance profiles"); version 8 the
-point-interpolation settings and maps ([INTERPOLATION.md](../INTERPOLATION.md)). Later data come as new versions in
-the steps that add them; until then the API has no call that would store
-them, so nothing is ever dropped silently.
+point-interpolation settings and maps ([INTERPOLATION.md](../INTERPOLATION.md)),
+dropping the data of 0.3 that 0.4 no longer has (IND-46, noted once).
+Later data come as new versions in the steps that add them; until then
+the API has no call that would store them, so nothing else is ever
+dropped.
 
 ## Storage rules
 
@@ -97,8 +100,7 @@ them, so nothing is ever dropped silently.
   SHA-256. The project check (`Project::check()`) lists every problem it
   finds (integrity, foreign keys, building model, source hashes).
 - Times are UTC in ISO 8601 (`2026-11-05T09:30:00Z`). Units are those of
-  the building model: heights in metres, plan sizes in plan units,
-  attenuations in dB.
+  the building model: heights in metres, plan sizes in plan units.
 
 ### Stored paths
 
@@ -128,10 +130,9 @@ Key/value pairs of the file itself.
 | `value` | TEXT | value |
 
 Keys: `format` (`yantra-project`), `next_floor_number`,
-`next_source_number` and, from version 3, `next_wall_number`,
-`next_antenna_number`, `next_cell_number` (the number of the next
-generated id `floor-<n>`, `source-<n>`, `wall-<n>`, `antenna-<n>`,
-`cell-<n>`; ids are never reused, also not after a removal),
+`next_source_number` and, from version 3, `next_cell_number` (the number
+of the next generated id `floor-<n>`, `source-<n>`, `cell-<n>`; ids are
+never reused, also not after a removal),
 `schema_<n>_by` (who migrated to version n, and when) and, from version 5,
 `celldb_match:<technology>` (the cell database's match fields of a
 technology, comma-separated, e.g. `la,frequency_hz`; DB-01 "by LA, by
@@ -159,7 +160,6 @@ One row (`id` = 1): the building model's own fields.
 | --- | --- | --- |
 | `id` | INTEGER, primary key | always 1 |
 | `name` | TEXT | building name (plan names are "<name>, <floor name>"); at creation the site name, or the project name without a site |
-| `floor_attenuation_db` | REAL >= 0 | default slab attenuation between floors (IND-44), 15 |
 
 ### `sources`
 
@@ -205,7 +205,6 @@ level. Reordering hands the same set of levels out in the new order.
 | `page` | INTEGER >= 0 | page of the source (0-based) |
 | `example_id` | TEXT | id of a bundled example plan's floor (DEMO-05, DEMO-12; selects its fixed demo scene `data/demo/scenes/<example_id>.json`), else empty |
 | `plan_width`, `plan_height` | REAL >= 0 | trimmed plan size in plan units |
-| `slab_attenuation_db` | REAL or NULL | attenuation of the slab to the floor above (IND-44); NULL: the building's default |
 | `created_utc` | TEXT | when it was added |
 | `trim_shape` | TEXT | the floor's trim on its source page (IND-05, IND-07): `none` (the whole page, or no source), `rectangle` (4 corners) or `polygon` (3 or more points); the outline is in `floor_outline`. Version 2 |
 | `quarter_turns` | INTEGER 0..3 | rotation of the floor plan by quarter turns, clockwise. Version 2 |
@@ -220,11 +219,11 @@ level. Reordering hands the same set of levels out in the new order.
 A floor stores its source, page and trim, never a new image: the plan is
 rendered from the unchanged source each time (non-destructive, IND-07).
 `plan_width` and `plan_height` are the size of the trimmed and turned
-outline (the trim's bounding box in the turned frame), so walls, antennas
-and points (plan units) stay on the plan. The page of a floor must exist
-when the source's pages are recorded (`source_pages`). When a trim is
-edited, the floor's walls, antennas, scale points and reference point are
-moved with it so they stay at the same place on the sheet
+outline (the trim's bounding box in the turned frame), so the scale and
+reference points and the measured points (plan units) stay on the plan.
+The page of a floor must exist when the source's pages are recorded
+(`source_pages`). When a trim is edited, the floor's scale points,
+reference point and measured points are moved with it so they stay at the same place on the sheet
 ([PLANS.md](../PLANS.md)).
 
 Scale and alignment (version 3): metres are plan units times the floor's
@@ -263,66 +262,11 @@ its source.
 | `width`, `height` | REAL > 0 | page size in page units: PDF points as displayed (after the page's /Rotate), image pixels (after EXIF orientation) |
 | `units_per_inch` | REAL >= 0 | 72 for PDF; for images the resolution stored in the file, 0 when unknown |
 
-### `wall_classes`
-
-The project's editable wall-class table (version 3, IND-11). A new or
-migrated project has the default classes of
-[BUILDING_MODEL.md](../BUILDING_MODEL.md) ("Wall classes"); the user may
-change their values, add classes and remove classes no wall uses.
-
-| Column | Type | Meaning |
-| --- | --- | --- |
-| `id` | TEXT, primary key | class id used by walls, e.g. `concrete` |
-| `position` | INTEGER | place in the table (display order), from 0 |
-| `name` | TEXT | display name |
-| `reflection_loss_db` | REAL >= 0 or NULL | loss of a specular reflection (IND-40); NULL: the propagation model's default |
-
-### `wall_class_bands`
-
-The attenuation table of a class: the loss of one crossing at one or more
-frequencies, ascending (version 3). Between two entries the loss is linear
-in log(frequency); outside the table the first or last value holds.
-Removed with its class.
-
-| Column | Type | Meaning |
-| --- | --- | --- |
-| `class` | TEXT | `wall_classes.id` |
-| `idx` | INTEGER >= 0 | position in the table, from 0 (ascending frequency) |
-| `frequency_mhz` | REAL > 0 | frequency in MHz |
-| `attenuation_db` | REAL >= 0 | loss of one crossing at that frequency |
-
-### `walls`
-
-The walls of a floor in drawing order (version 3, IND-11): polylines on
-the plan with a wall class or their own attenuation. Removed with their
-floor; a class in use by a wall cannot be removed.
-
-| Column | Type | Meaning |
-| --- | --- | --- |
-| `row_id` | INTEGER, primary key | internal (points) |
-| `floor` | TEXT | `floors.id` |
-| `position` | INTEGER | drawing order on the floor, from 0 |
-| `id` | TEXT | wall id, `wall-<n>` when generated, unique on its floor; may be empty for walls of an imported model |
-| `wall_class` | TEXT or NULL | `wall_classes.id`; NULL only with `attenuation_db` |
-| `attenuation_db` | REAL >= 0 or NULL | the wall's own loss at every frequency instead of its class's table |
-
-### `wall_points`
-
-The points of a wall's polyline (at least 2), in plan units of its floor,
-in drawing order. Removed with the wall.
-
-| Column | Type | Meaning |
-| --- | --- | --- |
-| `wall` | INTEGER | `walls.row_id` |
-| `idx` | INTEGER >= 0 | position along the polyline, from 0 |
-| `x`, `y` | REAL | the point in plan units |
-
 ### `cells`
 
-The cells the antennas serve (version 3, IND-12). The identity is a set
-of named integer key values of the technology's schema (for TETRA `mcc`,
-`mnc`, `la`, `colour_code`) that only the technology plugin interprets.
-A cell an antenna serves cannot be removed.
+The building's cells (version 3). The identity is a set of named integer
+key values of the technology's schema (for TETRA `mcc`, `mnc`, `la`,
+`colour_code`) that only the technology plugin interprets.
 
 | Column | Type | Meaning |
 | --- | --- | --- |
@@ -342,7 +286,7 @@ A cell an antenna serves cannot be removed.
 | `plugin_version` | TEXT | version of the technology plugin that learned or imported it |
 
 The project's cells are its cell database ([CELL_DATABASE.md](../CELL_DATABASE.md)):
-one list, edited as cells (IND-12) or as database entries (DB-01..03).
+one list, edited as cells or as database entries (DB-01..03).
 Building edits keep the database columns; removing a cell removes its
 parameters and neighbours.
 
@@ -380,46 +324,6 @@ names (for TETRA `frequency_hz` and, when known, `la`).
 | `name` | TEXT, not empty | field name |
 | `value` | INTEGER, REAL or TEXT | its value |
 | `inherited` | INTEGER 0/1 | 1: taken from the broadcasting cell, not sent for the neighbour (never refuses a match; [CELL_DATABASE.md](../CELL_DATABASE.md)) |
-
-### `antennas`
-
-Indoor DAS antennas and outdoor donor/macro directions placed on a floor
-(version 3, IND-12), in placement order. Removed with their floor.
-
-| Column | Type | Meaning |
-| --- | --- | --- |
-| `row_id` | INTEGER, primary key | internal (pattern gains) |
-| `id` | TEXT, unique | antenna id, `antenna-<n>` when generated, unique in the building |
-| `floor` | TEXT | `floors.id` |
-| `position` | INTEGER | order on the floor, from 0 |
-| `name` | TEXT | display name |
-| `model` | TEXT | antenna type or product, free text |
-| `type` | TEXT | `indoor_das` or `outdoor_donor` |
-| `x`, `y` | REAL | position in plan units of the floor |
-| `height_m` | REAL | height above the floor in metres |
-| `gain_dbi` | REAL | antenna gain in dBi |
-| `pattern` | TEXT | `omni`, `sector` (directional) or `table` |
-| `azimuth_deg` | REAL | `sector`, `table`: main direction, degrees clockwise from "up" on the plan, [0, 360) |
-| `beamwidth_deg` | REAL | `sector`: half-power beamwidth, (0, 360] |
-| `front_to_back_db` | REAL | `sector`: cap of the pattern loss, >= 0 |
-| `step_deg` | REAL | `table`: angle between the gains of `antenna_pattern_gains`, > 0 |
-| `eirp_dbm` | REAL or NULL | known EIRP in the main direction; NULL: unknown (estimated from the measurements, IND-42) |
-| `feed_power_dbm` | REAL or NULL | power at the DAS feed point |
-| `cable_loss_db`, `splitter_loss_db` | REAL >= 0 | losses from the feed point to the antenna |
-| `cell` | TEXT or NULL | `cells.id` of the cell it serves |
-| `direction_deg` | REAL or NULL | `outdoor_donor`: bearing towards the outdoor site (same angle convention) |
-| `elevation_deg` | REAL -90..90 or NULL | `outdoor_donor`: elevation towards the site |
-
-### `antenna_pattern_gains`
-
-The gains of a `table` pattern relative to the main direction, one per
-`step_deg` clockwise from the azimuth. Removed with the antenna.
-
-| Column | Type | Meaning |
-| --- | --- | --- |
-| `antenna` | INTEGER | `antennas.row_id` |
-| `idx` | INTEGER >= 0 | entry, from 0 (at idx x step_deg) |
-| `gain_db` | REAL | gain relative to the main direction in dB |
 
 ### `recordings`
 
@@ -549,7 +453,7 @@ it (`sqlite3 survey.yantra .dump`, content shortened):
 
 ```sql
 PRAGMA application_id = 1498305618;  -- 0x594E5452
-PRAGMA user_version = 4;
+PRAGMA user_version = 8;
 INSERT INTO meta VALUES ('format', 'yantra-project');
 INSERT INTO meta VALUES ('next_floor_number', '3');
 INSERT INTO meta VALUES ('next_source_number', '2');
@@ -559,25 +463,21 @@ INSERT INTO meta VALUES ('schema_3_by', 'Yantra 0.1.0 2026-11-05T09:30:00Z');
 INSERT INTO meta VALUES ('schema_4_by', 'Yantra 0.1.0 2026-11-05T09:30:00Z');
 INSERT INTO project VALUES (1, 'Town hall survey', 'Town hall', 'Example network', '',
   '2026-11-05T09:30:00Z', '2026-11-05T09:41:12Z', 'Yantra 0.1.0', 'Yantra 0.1.0');
-INSERT INTO building VALUES (1, 'Town hall', 15.0);
+INSERT INTO building VALUES (1, 'Town hall');
 INSERT INTO sources VALUES (1, 'source-1', 'plans.pdf', 'application/pdf', 482113,
   '9f2c...e1a0', 'embedded', X'255044462D312E37...', '', '2026-11-05T09:31:02Z');
 INSERT INTO source_pages VALUES ('source-1', 0, 1191.0, 842.0, 72.0);
 INSERT INTO floors VALUES ('floor-1', 'Ground floor', 0, 3.6, 'source-1', 0, '',
-  560.0, 400.0, NULL, '2026-11-05T09:33:40Z', 'rectangle', 0, 0.0,
+  560.0, 400.0, '2026-11-05T09:33:40Z', 'rectangle', 0, 0.0,
   'two_points', 20.0, 380.0, 520.0, 380.0, 17.5, 0.0, '', 42.0, 61.5);
 INSERT INTO floors VALUES ('floor-2', 'First floor', 1, 3.2, 'source-1', 0, '',
-  400.0, 560.0, NULL, '2026-11-05T09:35:05Z', 'polygon', 1, -0.8,
+  400.0, 560.0, '2026-11-05T09:35:05Z', 'polygon', 1, -0.8,
   'shared', 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 'floor-1', 338.5, 40.0);
 INSERT INTO floor_outline VALUES ('floor-1', 0, 20.0, 40.0), ('floor-1', 1, 580.0, 40.0),
   ('floor-1', 2, 580.0, 440.0), ('floor-1', 3, 20.0, 440.0);
 INSERT INTO floor_outline VALUES ('floor-2', 0, 610.0, 40.0), ...;
-INSERT INTO walls VALUES (1, 'floor-1', 0, 'wall-1', 'concrete', NULL);
-INSERT INTO wall_points VALUES (1, 0, 280.0, 0.0), (1, 1, 280.0, 400.0);
 INSERT INTO cells VALUES (1, 'cell-1', 0, 'Indoor DAS', 'tetra', 'tetra_cell', 390012500);
 INSERT INTO cell_identity VALUES ('cell-1', 'colour_code', 1), ('cell-1', 'la', 100), ...;
-INSERT INTO antennas VALUES (1, 'antenna-1', 'floor-1', 0, 'DAS 1', 'ceiling omni', 'indoor_das',
-  120.0, 200.0, 2.8, 2.0, 'omni', 0.0, 65.0, 20.0, 0.0, 10.0, NULL, 0.0, 0.0, 'cell-1', NULL, NULL);
 INSERT INTO recordings VALUES (1, 'walk_0000.yrec.zst', '3f0c9a1b2d4e5f60', 'walk', 0,
   '5b1d...07c2', 81233, '<project folder>/recordings/walk_0000.yrec.zst', '{"t":"header",...}', '2026-11-05T09:52:30Z');
 INSERT INTO sessions VALUES (1, 'floor-1', 'walk', 'Ground floor walk', '2026-11-05T09:45:00Z',

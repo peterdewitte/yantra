@@ -25,7 +25,7 @@ std::uint32_t changes(const Snapshot& before, const Snapshot& after) {
     const std::string* a = scene_of(before);
     const std::string* b = scene_of(after);
     // A new plan or floor brings its own scene; SCENE_CHANGED is for an edit
-    // of the shown floor (wall or antenna) while it stays shown.
+    // of the shown floor's scene while it stays shown.
     if ((ev & kPlanChanged) == 0 && (a == nullptr) != (b == nullptr)) ev |= kSceneChanged;
     if ((ev & kPlanChanged) == 0 && a != nullptr && b != nullptr && *a != *b) ev |= kSceneChanged;
     if (before.cursor != after.cursor) ev |= kCursorMoved;

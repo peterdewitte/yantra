@@ -8,10 +8,8 @@
 // - every measured point of the floor's table (the shared point list,
 //   IND-30) as a POINT on a layer per colour band of the list's scale
 //   ("POINTS_1" worst .. "POINTS_<n>" best, "POINTS_BELOW",
-//   "POINTS_NO_VALUE"), optionally with its value as TEXT on "VALUES";
-// - the walls as POLYLINEs on "WALLS_<CLASS>" (the wall class id);
-// - the antennas as POINTs on "ANTENNAS" with their names as TEXT on
-//   "ANTENNA_NAMES".
+//   "POINTS_NO_VALUE"), optionally with its value as TEXT on "VALUES".
+// Measured points only (Yantra 0.4 has no walls or antennas).
 // The title, the metric and the band labels are 999 comments. Numbers are
 // written as the shortest text that reads back to the same double, so
 // positions survive a write/read round trip unchanged (TST-33). read_dxf
@@ -63,8 +61,6 @@ struct DxfDrawing {
 struct DxfOptions {
     bool value_text = true;    ///< the point's value next to it
     double text_height_m = 0.2;
-    bool walls = true;
-    bool antennas = true;
     std::string label;         ///< e.g. the demo label (DEMO-07): a comment and a TEXT on "LABEL"
 };
 
@@ -73,8 +69,7 @@ inline DxfPoint dxf_point(const std::string& layer, building::Point2 metres) { r
 /// Plan-frame metres of a drawing point: (x, -y).
 inline building::Point2 plan_metres(const DxfPoint& p) { return {p.x, -p.y}; }
 
-/// The drawing of a floor: its walls and antennas from the project and
-/// the rows of `table` (floor_table of that floor; rows without metres
+/// The drawing of a floor: the rows of `table` (floor_table of that floor; rows without metres
 /// are left out and counted in `skipped`). ExportError for an unknown
 /// floor or a floor without a scale (DXF is in metres).
 DxfDrawing floor_drawing(const project::Project& project, const Table& table, const DxfOptions& options = {},

@@ -92,12 +92,12 @@ void project_seeds(const fs::path& dir) {
         g.name = "First floor";
         g.level = 1;
         (void)p->add_floor(g);
-        const auto classes = p->wall_classes();
-        if (!classes.empty()) (void)p->add_wall(fid, {"", classes.front().id, {{1, 1}, {30, 1}, {30, 20}}, {}});
-        (void)p->add_wall(fid, {"", "", {{5, 5}, {5, 40}}, 7.5});
-        yantra::building::Antenna a;
-        a.position = {10, 10};
-        (void)p->add_antenna(fid, a);
+        yantra::building::Scale scale;
+        scale.method = yantra::building::Scale::Method::Factor;
+        scale.metres_per_unit = 0.05;
+        p->set_scale(fid, scale);
+        p->set_reference_point(fid, yantra::building::Point2{10, 10});
+        (void)p->add_cell({"", "Cell", "tetra", "tetra_cell", 390'000'000, {{"la", 1}}});
         p->set_acceptance_profiles({});
         p->save();
         p->close();
@@ -224,10 +224,10 @@ void acceptance_seeds(const fs::path& dir) {
 void export_seeds(const fs::path& dir) {
     yantra::exports::DxfDrawing d;
     d.comments = {"Yantra fuzz seed"};
-    d.layers = {{"WALLS", 7, "walls"}, {"POINTS", 3, "-80 dBm"}};
+    d.layers = {{"OUTLINE", 7, "outline"}, {"POINTS", 3, "-80 dBm"}};
     d.points = {{"POINTS", 1.5, -2.5}, {"POINTS", 3.0, -4.0}};
     d.texts = {{"POINTS", 1.6, -2.4, 0.2, "-80.5"}};
-    d.polylines = {{"WALLS", {{"WALLS", 0, 0}, {"WALLS", 10, 0}, {"WALLS", 10, -5}}}};
+    d.polylines = {{"OUTLINE", {{"OUTLINE", 0, 0}, {"OUTLINE", 10, 0}, {"OUTLINE", 10, -5}}}};
     write(dir / "floor.dxf", yantra::exports::dxf_text(d));
     write(dir / "points.csv", "time,floor,x_m,y_m,level_dbm\n2026-11-02T10:00:00Z,Ground,1.5,2.5,-80.5\n"
                               "2026-11-02T10:00:01Z,\"Ground, east\",3,4,-81\n");

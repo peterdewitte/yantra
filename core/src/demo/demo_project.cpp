@@ -4,8 +4,8 @@
 // The demo project builder (demo/demo_project.h, docs/DEMO.md). The walk
 // replay follows the record-file replay of the TST-10 tests
 // (tests/measure_host/e2e_helpers.h FileRun) and the recorded walk test of
-// tests/measure_host/test_measure_survey.cpp. The description's walls,
-// antennas, trims and walk routes are copied from yantra-v2 68ea20a:
+// tests/measure_host/test_measure_survey.cpp. The description's trims and
+// walk routes are copied from yantra-v2 68ea20a:
 // data/demo/fraunces/fraunces_demo.json and
 // plugins/tetra/demo/scenarios/fraunces_indoor.json (building part).
 #include "yantra/core/demo/demo_project.h"
@@ -75,23 +75,6 @@ std::optional<std::int64_t> utc_ns(const std::string& text) {
     return duration_cast<nanoseconds>(t.time_since_epoch()).count();
 }
 
-building::Antenna read_antenna(const json& j, const fs::path& file, const std::string& where) {
-    building::Antenna a;
-    a.id = j.value("id", "");
-    a.name = j.value("name", "");
-    a.model = j.value("model", "");
-    a.position = point(j.at("position"), file, where + ".position");
-    a.height_m = j.value("height_m", a.height_m);
-    a.gain_dbi = j.value("gain_dbi", a.gain_dbi);
-    if (j.contains("eirp_dbm")) a.eirp_dbm = j["eirp_dbm"].get<double>();
-    if (j.contains("feed_power_dbm")) a.feed_power_dbm = j["feed_power_dbm"].get<double>();
-    a.cable_loss_db = j.value("cable_loss_db", 0.0);
-    a.splitter_loss_db = j.value("splitter_loss_db", 0.0);
-    a.cell = j.value("cell", "");
-    if (a.id.empty()) fail(file, where + " has no id");
-    return a;
-}
-
 DemoFloor read_floor(const json& j, const fs::path& file, const std::string& where) {
     DemoFloor f;
     f.id = j.at("id").get<std::string>();
@@ -120,18 +103,6 @@ DemoFloor read_floor(const json& j, const fs::path& file, const std::string& whe
             fail(file, where + ".scale.metres_per_unit must be > 0");
     }
     f.reference_point = point(j.at("reference_point"), file, where + ".reference_point");
-    for (std::size_t i = 0; i < j.value("walls", json::array()).size(); ++i) {
-        const json& w = j["walls"][i];
-        const std::string at = where + ".walls[" + std::to_string(i) + "]";
-        building::Wall wall;
-        wall.id = w.value("id", "");
-        wall.wall_class = w.value("class", "");
-        wall.points = points(w.at("points"), file, at + ".points");
-        if (w.contains("attenuation_db")) wall.attenuation_db = w["attenuation_db"].get<double>();
-        f.walls.push_back(std::move(wall));
-    }
-    for (std::size_t i = 0; i < j.value("antennas", json::array()).size(); ++i)
-        f.antennas.push_back(read_antenna(j["antennas"][i], file, where + ".antennas[" + std::to_string(i) + "]"));
     const json& walk = j.at("walk");
     f.walk.name = walk.at("name").get<std::string>();
     f.walk.speed_mps = walk.value("speed_mps", 1.0);
@@ -193,7 +164,6 @@ DemoDescription read_description(const fs::path& file) {
         d.project.notes = p.value("notes", "");
         const json& b = j.at("building");
         d.building_name = b.at("name").get<std::string>();
-        d.floor_attenuation_db = b.value("floor_attenuation_db", d.floor_attenuation_db);
         d.start_utc = j.at("start_utc").get<std::string>();
         d.cell_database = j.value("cell_database", "");
         for (const json& s : j.at("sheets")) {
@@ -265,9 +235,6 @@ DemoDescription read_description(const fs::path& file) {
                 fail(file, "floor " + f.id + ": " + what + " (" + std::to_string(p.x) + ", " + std::to_string(p.y) +
                                ") is outside the trimmed plan");
         };
-        for (const building::Wall& wall : f.walls)
-            for (const Point2& p : wall.points) inside(p, "wall " + wall.id);
-        for (const building::Antenna& a : f.antennas) inside(a.position, "antenna " + a.id);
         for (const Point2& p : f.walk.waypoints) inside(p, "walk waypoint");
         inside(f.reference_point, "the reference point");
     }
@@ -349,12 +316,11 @@ std::shared_ptr<project::Project> create_project(const DemoDescription& d, const
     fs::remove(fs::path(file.string() + "-shm"), ec);
     std::shared_ptr<project::Project> p = project::Project::create(file, d.project);
     p->set_building_name(d.building_name);
-    p->set_floor_attenuation_db(d.floor_attenuation_db);
     if (!d.cell_database.empty()) {
         std::vector<std::string> problems;
         const celldb::CellDatabase db = celldb::read_csv_file((d.folder / d.cell_database).string(), {}, &problems);
         if (!problems.empty()) throw DemoError(d.cell_database + ": " + problems.front());
-        p->set_cell_database(db);  // also the building's cells (IND-12), which the antennas serve
+        p->set_cell_database(db);  // also the building's cells
     }
     std::map<std::string, std::string> source_of;  // sheet id -> project source id
     for (const DemoSheet& s : d.sheets) {
@@ -394,8 +360,6 @@ std::shared_ptr<project::Project> create_project(const DemoDescription& d, const
         if (!scale) throw DemoError("floor " + df.id + ": the scale is not usable");
         f.scale = *scale;
         f.reference_point = df.reference_point;
-        f.walls = df.walls;
-        f.antennas = df.antennas;
         p->add_floor(std::move(f));
     }
     return p;

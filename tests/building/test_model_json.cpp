@@ -61,18 +61,27 @@ TEST_CASE("the example building matches its golden JSON and reads back equal") {
     CHECK(compact == b);
 }
 
-TEST_CASE("an empty building and the default wall classes") {
+TEST_CASE("an empty building; the walls, wall classes and antennas of 0.3 are ignored (IND-46)") {
     Building b;
     std::string error;
     REQUIRE_MESSAGE(parse_building(with(R"("floors": [])"), b, error), error);
-    CHECK(b.wall_classes == default_wall_classes());
     CHECK(b.floors.empty());
-    // A given table replaces the defaults.
-    REQUIRE(parse_building(with(R"("wall_classes": [{"id": "w", "bands": [{"frequency_mhz": 400,
-        "attenuation_db": 5}]}], "floors": [])"),
-                           b, error));
-    REQUIRE(b.wall_classes.size() == 1);
-    CHECK(b.wall_classes[0].name == "w");
+    CHECK(b.cells.empty());
+    // A building written by 0.3: its walls, wall-class table, antennas and
+    // slab attenuations are left out; the rest reads as before.
+    REQUIRE_MESSAGE(parse_building(with(R"("floor_attenuation_db": 15, "wall_classes": [{"id": "w",
+        "bands": [{"frequency_mhz": 400, "attenuation_db": 5}]}], "floors": [{"id": "f", "name": "Ground",
+        "level": 0, "slab_attenuation_db": 20, "reference_point": [1, 2],
+        "walls": [{"class": "w", "points": [[0, 0], [1, 1]]}],
+        "antennas": [{"id": "a", "position": [1, 2], "pattern": {"type": "omni"}}]}])"),
+                                   b, error),
+                    error);
+    REQUIRE(b.floors.size() == 1);
+    CHECK(b.floors[0].name == "Ground");
+    CHECK(b.floors[0].reference_point == Point2{1, 2});
+    CHECK(building_to_json(b).find("wall") == std::string::npos);
+    CHECK(building_to_json(b).find("antenna") == std::string::npos);
+    CHECK(building_to_json(b).find("attenuation") == std::string::npos);
 }
 
 TEST_CASE("versioning: another format or a newer version is refused, unknown members ignored") {
@@ -84,7 +93,7 @@ TEST_CASE("versioning: another format or a newer version is refused, unknown mem
     Building b;
     std::string error;
     CHECK_MESSAGE(parse_building(with(R"("future": {"x": 1}, "floors": [{"id": "f", "level": 0,
-        "colour": "red", "walls": [{"class": "brick", "points": [[0, 0], [1, 1]], "thickness": 2}]}])"),
+        "colour": "red", "trim": {"shape": "none", "corner_radius": 2}}])"),
                                  b, error),
                   error);
 }
@@ -93,15 +102,14 @@ TEST_CASE("reading errors name their place") {
     CHECK(parse_error("not json").rfind("not valid JSON", 0) == 0);
     CHECK(parse_error(with(R"("floors": {})")) == "floors: expected an array");
     CHECK(parse_error(with(R"("floors": [{"level": 0}])")) == "floors[0].id: missing");
-    CHECK(parse_error(with(R"("floors": [{"id": "f", "level": 0, "walls": [{"class": "brick",
-        "points": [[0, 0], [1]]}]}])")) == "floors[0].walls[0].points[1]: expected [x, y]");
-    CHECK(parse_error(with(R"("floors": [{"id": "f", "level": 0, "walls": [{"class": "steel",
-        "points": [[0, 0], [1, 0]]}]}])")) == "floors[0].walls[0]: unknown wall class \"steel\"");
+    CHECK(parse_error(with(R"("floors": [{"id": "f", "level": 0, "trim": {"shape": "polygon",
+        "outline": [[0, 0], [1]]}}])")) == "floors[0].trim.outline[1]: expected [x, y]");
+    CHECK(parse_error(with(R"("floors": [{"id": "f", "level": 0, "source": "nope"}])")) ==
+          "floors[0]: unknown source \"nope\"");
     CHECK(parse_error(with(R"("floors": [{"id": "f", "level": 0, "scale": {"method": "inch"}}])")) ==
           "floors[0].scale.method: expected \"none\", \"two_points\", \"scale_bar\", \"factor\" or \"shared\"");
-    CHECK(parse_error(with(R"("floors": [{"id": "f", "level": 0, "antennas": [{"id": "a",
-        "position": [1, 2], "pattern": {"type": "dish"}}]}])")) ==
-          "floors[0].antennas[0].pattern.type: expected \"omni\", \"sector\" or \"table\"");
+    CHECK(parse_error(with(R"("floors": [{"id": "f", "level": 0, "reference_point": [1, "y"]}])")) ==
+          "floors[0].reference_point: expected [x, y]");
     CHECK(parse_error(with(R"("cells": [{"id": "c", "identity": {"la": 1.5}}], "floors": [])")) ==
           "cells[0].identity.la: expected an integer");
     CHECK(parse_error(with(R"("floors": [{"id": "f", "level": 0, "trim": {"deskew_deg": 60}}])")) ==

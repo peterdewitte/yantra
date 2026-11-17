@@ -173,13 +173,13 @@ TEST_CASE("DB-01, DB-02: Network > Cell database on the demo: list, edit, new en
     REQUIRE(s.ui.frames(2));
     CHECK(ed.size() == 2);
 
-    // T1 feeds the demo's antennas: the project refuses its removal.
+    // Any cell can be removed (no antennas serve cells in 0.4).
     REQUIRE(s.ui.click("cells.row.T1", "win.cell_db"));
     REQUIRE(s.ui.frames(1));
     REQUIRE(s.ui.click("cells.remove", "win.cell_db"));
     REQUIRE(s.ui.frames(2));
-    CHECK(ed.size() == 2);
-    CHECK(s.state.status_is_error());
+    CHECK(ed.size() == 1);
+    CHECK_FALSE(s.state.status_is_error());
     (void)id;
 }
 

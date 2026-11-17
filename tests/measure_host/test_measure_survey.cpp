@@ -6,14 +6,16 @@
 // RadioHost, the measurement pipeline (real clock, CycleRunner) and the
 // TETRA plugin. Its position comes from the walk test's walk position
 // (position_source auto: the walk while one runs) on a floor drawn in a
-// project (scale, antenna, a concrete wall). A continuous walk is clicked
-// on the plan; its points lie at the interpolated positions, the walker
-// was there, and the levels are what the multi-wall model predicts at the
-// simulator's position. The walk is recorded; its replay through a
+// project (scale and reference point) whose simulator scene is the
+// checked-in office scene (a DAS antenna, a concrete wall). A continuous
+// walk is clicked on the plan; its points lie at the interpolated
+// positions, the walker was there, and the levels are what the simulator's
+// multi-wall model predicts at its position. The walk is recorded; its replay through a
 // WalkTest of its own gives the same points and statistics; a "window"
 // and a "report" get the same point list.
 
 #include <cmath>
+#include <fstream>
 #include <numbers>
 
 #include <nlohmann/json.hpp>
@@ -44,9 +46,9 @@ namespace {
 constexpr std::uint64_t kCarrier = 390'000'000;  // D0's carrier: the plan cell replaces D0 (RAD-61)
 constexpr std::int64_t kNs = 1'000'000'000;
 
-// The office of the 7.3 wall test: 20 x 10 m (0.05 m per unit), the
-// DAS antenna at (3, 5) m with 10 dBm EIRP on cell-1 (390.0 MHz), a
-// concrete wall at x = 8 m.
+// The office: 20 x 10 m (0.05 m per unit) with cell-1 (390.0 MHz); its
+// scene (tests/fixtures/building/office_wall.scene.json) has the DAS
+// antenna at (3, 5) m with 10 dBm EIRP and a concrete wall at x = 8 m.
 std::shared_ptr<ypj::Project> office(const fs::path& file, std::string& floor_id) {
     auto p = ypj::Project::create(file, ypj::ProjectInfo{"Simulated office", "Office", "", ""});
     yb::Floor f;
@@ -56,17 +58,24 @@ std::shared_ptr<ypj::Project> office(const fs::path& file, std::string& floor_id
     floor_id = p->add_floor(f);
     p->set_scale(floor_id, *yb::two_point_scale({0, 190}, {400, 190}, 20.0));
     p->set_reference_point(floor_id, yb::Point2{0, 0});
-    const std::string cell = p->add_cell(yb::Cell{"", "Indoor DAS", "tetra", "tetra_cell", kCarrier,
+    p->add_cell(yb::Cell{"", "Indoor DAS", "tetra", "tetra_cell", kCarrier,
                                                   {{"mcc", 901}, {"mnc", 1}, {"la", 100}, {"colour_code", 1}}});
-    yb::Antenna a;
-    a.name = "DAS 1";
-    a.position = {60, 100};
-    a.height_m = 2.8;
-    a.eirp_dbm = 10.0;
-    a.cell = cell;
-    p->add_antenna(floor_id, a);
-    p->add_wall(floor_id, yb::Wall{"", "concrete", {{160, 0}, {160, 200}}, std::nullopt});
     return p;
+}
+
+// The loss of the scene's first wall at `hz` (RAD-73): its band table,
+// linear in log(frequency) between entries, the first or last entry's
+// value outside the table.
+double scene_wall_db(const std::string& scene_file, double hz) {
+    std::ifstream in(fs::path(YANTRA_TEST_DATA_DIR) / scene_file, std::ios::binary);
+    const nlohmann::json scene = nlohmann::json::parse(in);
+    const nlohmann::json& bands = scene.at("walls").at(0).at("bands");
+    const auto f = [&](std::size_t i) { return bands.at(i).at("frequency_hz").get<double>(); };
+    const auto a = [&](std::size_t i) { return bands.at(i).at("attenuation_db").get<double>(); };
+    if (hz <= f(0)) return a(0);
+    for (std::size_t i = 1; i < bands.size(); ++i)
+        if (hz <= f(i)) return a(i - 1) + std::log(hz / f(i - 1)) / std::log(f(i) / f(i - 1)) * (a(i) - a(i - 1));
+    return a(bands.size() - 1);
 }
 
 fs::path scratch_dir(const std::string& name) {
@@ -224,7 +233,7 @@ TEST_CASE("TST-10 simulator walk test: clicked segments give points at the inter
         const double d = std::hypot(horizontal_m, 2.8 - 1.5);
         return 20.0 * std::log10(4.0 * std::numbers::pi * d * static_cast<double>(kCarrier) / 299'792'458.0);
     };
-    const double wall_db = *b.wall_attenuation_db(b.floors[0].walls[0], static_cast<double>(kCarrier) / 1e6);
+    const double wall_db = scene_wall_db("building/office_wall.scene.json", static_cast<double>(kCarrier));
     double worst = 0.0, sum = 0.0;
     std::size_t measured = 0;
     const auto stored = project->points(walk->session_id());

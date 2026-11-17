@@ -246,8 +246,9 @@ public:
     /// Loads a floor's trim as the current trim (IND-07).
     Result edit_floor(const std::string& floor_id);
     const std::optional<std::string>& editing() const noexcept { return import_->editing(); }
-    /// Stores the edited trim; walls, antennas, scale points and the
-    /// reference point keep their place on the sheet (plan::reanchor_floor).
+    /// Stores the edited trim; the scale points, the reference point and
+    /// the measured points keep their place on the sheet
+    /// (plan::reanchor_floor, Project::update_floor).
     Result apply_edit();
     Result cancel_edit();
     Result request_remove(const std::string& floor_id);

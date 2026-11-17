@@ -173,14 +173,14 @@ TEST_CASE("DEMO-05 fixed demo scenes: an example floor gets its scene file as it
                              " \"width_m\": 20.0, \"height_m\": 10.0}\n}\n";
     write_file(yantra::demo::demo_scene_file(dir, "example-office-0"), text);
 
-    Building b = example_office();  // walls and antennas on both floors
+    Building b = example_office();
     b.find_floor("f0")->example_id = "example-office-0";
     auto pub = std::make_shared<ContextPublisher>();
     BuildingContext ctx(pub, demo_scenes({dir / "missing", dir}));
     ctx.set_building(b);
     auto s = pub->snapshot();
     REQUIRE(s->scenes.size() == 1);
-    CHECK(s->scenes.at("f0") == text);  // byte for byte, not the model's walls and antennas
+    CHECK(s->scenes.at("f0") == text);  // byte for byte, not made from the model
     CHECK_FALSE(s->scenes.count("f1"));  // the user's own floor: no scene (NOT_FOUND)
 
     // An example id without a scene file: no scene either.
@@ -188,9 +188,9 @@ TEST_CASE("DEMO-05 fixed demo scenes: an example floor gets its scene file as it
     CHECK(ctx.set_building(b) == 0);
     CHECK(pub->snapshot()->scenes.size() == 1);
 
-    // Walls and antennas of the model never change the scene.
-    b.find_floor("f0")->walls.clear();
-    b.find_floor("f0")->antennas.clear();
+    // Edits of the model never change the scene.
+    b.find_floor("f1")->reference_point = Point2{5, 5};
+    b.cells.clear();
     ctx.show_floor("f0");
     CHECK(ctx.set_building(b) == 0);
     CHECK(pub->snapshot()->scenes.at("f0") == text);

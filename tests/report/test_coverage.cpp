@@ -70,7 +70,7 @@ std::int64_t add_points(pj::Project& p, const std::string& floor, const std::vec
 }
 
 // The ground floor: 10 points, 5 at or above -95 dBm, cell 1 then cell 2
-// (one change), an antenna and a stored map; the first floor: 4 points at
+// (one change) and a stored map; the first floor: 4 points at
 // -80 dBm, no map.
 struct ReportFixture : Fixture {
     std::vector<double> ground_levels{-60, -65, -70, -80, -90, -96, -100, -105, -110, -120};
@@ -83,15 +83,6 @@ struct ReportFixture : Fixture {
         c.schema_id = "tetra_cell";
         c.carrier_hz = 390'000'000;
         b.cells.push_back(c);
-        auto& g = *std::find_if(b.floors.begin(), b.floors.end(), [&](const bm::Floor& f) { return f.id == ground; });
-        bm::Antenna a;
-        a.id = "antenna-1";
-        a.name = "DAS 1";
-        a.position = pu(4, 5);
-        a.height_m = 2.7;
-        a.cell = "cell-1";
-        a.eirp_dbm = 10.0;
-        g.antennas.push_back(a);
         p->replace_building(b);
         std::vector<bm::Point2> pts;
         for (int i = 0; i < 10; ++i) pts.push_back({1.0 + 1.8 * i, 2.0 + (i % 3) * 3.0});
@@ -344,7 +335,7 @@ TEST_CASE("DB-04/DB-05 report tables: received cells against the cell database, 
     db::CellDatabase d;
     for (int i : {1, 2}) {
         db::CellEntry e;
-        e.cell.id = i == 1 ? "cell-1" : "c2";  // cell-1 stays: the fixture's antenna serves it
+        e.cell.id = i == 1 ? "cell-1" : "c2";  // cell-1 stays: the fixture's points name it
         e.cell.technology_id = "test_tech";
         e.cell.schema_id = "test_cell";
         e.set_field("frequency_hz", static_cast<std::int64_t>(390'000'000 + 200'000 * (i - 1)));

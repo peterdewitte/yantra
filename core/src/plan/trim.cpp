@@ -321,19 +321,6 @@ void reanchor_floor(building::Floor& f, const Trim& from, const Trim& to) {
         const Point2 page = a ? a->floor_to_page(p) : p;
         return b ? b->page_to_floor(page) : page;
     };
-    const double turn = (b ? b->rotation_deg() : 0.0) - (a ? a->rotation_deg() : 0.0);
-    auto turned = [&](double deg) {
-        double d = std::fmod(deg + turn, 360.0);
-        if (d < 0.0) d += 360.0;
-        return d >= 360.0 ? 0.0 : d;
-    };
-    for (building::Wall& w : f.walls)
-        for (Point2& p : w.points) p = map(p);
-    for (building::Antenna& ant : f.antennas) {
-        ant.position = map(ant.position);
-        if (ant.pattern.type != building::AntennaPattern::Type::Omni) ant.pattern.azimuth_deg = turned(ant.pattern.azimuth_deg);
-        if (ant.direction_deg) ant.direction_deg = turned(*ant.direction_deg);
-    }
     if (f.scale.method == building::Scale::Method::TwoPoints || f.scale.method == building::Scale::Method::ScaleBar) {
         f.scale.a = map(f.scale.a);
         f.scale.b = map(f.scale.b);

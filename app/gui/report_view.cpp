@@ -102,7 +102,7 @@ void Gui::draw_export_dialog() {
     text_tooltip(tr("EXP-01: one row per point with the columns you choose, for a spreadsheet."));
     ImGui::SameLine();
     ImGui::RadioButton(tr("DXF drawing###ex.dxf"), &kind, 1);
-    text_tooltip(tr("EXP-03: the floor's walls, antennas and coloured points on layers, in metres, for CAD."));
+    text_tooltip(tr("EXP-03: the floor's measured points in their colours on layers, in metres, for CAD."));
     ImGui::SameLine();
     ImGui::RadioButton(tr("Floor picture###ex.image"), &kind, 2);
     text_tooltip(tr("EXP-08: the floor plan with the coloured points and the legend as PNG or JPG."));

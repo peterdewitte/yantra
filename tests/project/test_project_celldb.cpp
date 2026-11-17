@@ -162,24 +162,18 @@ TEST_CASE("DB-01 project 7.6: the cell database round-trips through the project 
     CHECK(p->check().empty());
 }
 
-TEST_CASE("DB-01 project 7.6: cells served by an antenna stay; invalid entries are refused and nothing changes") {
+TEST_CASE("DB-01 project 7.6: invalid entries are refused and nothing changes") {
     const fs::path dir = scratch("celldb-in-use");
     auto p = pj::Project::create(dir / "p.yantra", info());
     p->set_cell_database(example());
     p->add_floor(floor_of("Ground", 0));
-    bm::Antenna ant;
-    ant.cell = "site-a";
-    p->add_antenna("floor-1", ant);
     const yc::CellDatabase before = p->cell_database();
-    yc::CellDatabase without;
-    CHECK(code_of([&] { p->set_cell_database(without); }) == Code::InUse);
-    CHECK(p->cell_database() == before);
     yc::CellDatabase bad = before;
     yc::CellEntry e = *bad.find("cell-1");
     e.colour = "nope";
     // CellDatabase::update validates too; the project checks entries it is given.
     CHECK_THROWS_AS(bad.update(e), yc::CellDbError);
-    // Replacing with fewer cells, keeping the served one, works.
+    // Replacing with fewer cells works.
     yc::CellDatabase only_a;
     only_a.add(*before.find("site-a"));
     p->set_cell_database(only_a);

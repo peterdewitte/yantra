@@ -132,23 +132,13 @@ void check_made(const yj::Project& p, const yd::DemoDescription& d) {
         CHECK(f->scale.method == yb::Scale::Method::Factor);
         REQUIRE(b.metres_per_unit(*f));
         CHECK(*b.metres_per_unit(*f) == doctest::Approx(df.metres_per_unit));
-        CHECK(f->walls == df.walls);
-        CHECK(f->antennas == df.antennas);
-        // Walls and antennas land inside the trimmed plan, and so on the
+        // The reference point lands inside the trimmed plan, and so on the
         // sheet: plan units 0..plan size.
-        for (const yb::Wall& w : f->walls)
-            for (const yb::Point2& pt : w.points) {
-                CHECK(pt.x >= 0.0);
-                CHECK(pt.y >= 0.0);
-                CHECK(pt.x <= f->plan_width);
-                CHECK(pt.y <= f->plan_height);
-            }
-        for (const yb::Antenna& a : f->antennas) {
-            CHECK(a.position.x >= 0.0);
-            CHECK(a.position.y >= 0.0);
-            CHECK(a.position.x <= f->plan_width);
-            CHECK(a.position.y <= f->plan_height);
-        }
+        REQUIRE(f->reference_point);
+        CHECK(f->reference_point->x >= 0.0);
+        CHECK(f->reference_point->y >= 0.0);
+        CHECK(f->reference_point->x <= f->plan_width);
+        CHECK(f->reference_point->y <= f->plan_height);
         CHECK(df.trim_b.x <= sheet.width);
         CHECK(df.trim_b.y <= sheet.height);
     }
@@ -156,7 +146,7 @@ void check_made(const yj::Project& p, const yd::DemoDescription& d) {
 
 }  // namespace
 
-TEST_CASE("DEMO-12 the three MAK example descriptions validate: sheet, credit, floors, approximate scales, walls and antennas inside the trims") {
+TEST_CASE("DEMO-12 the three MAK example descriptions validate: sheet, credit, floors, approximate scales, walks inside the trims") {
     std::set<std::string> hashes;
     for (const std::string& id : kBuildings) {
         CAPTURE(id);
@@ -182,10 +172,9 @@ TEST_CASE("DEMO-12 the three MAK example descriptions validate: sheet, credit, f
         CHECK(!s.credit.designer.empty());
         CHECK(d.project.notes.find(s.credit.inventory_number) != std::string::npos);
         // Floors: one per plan of the sheet, ordered levels, approximate
-        // scales, DAS antennas on every floor, one walk each.
+        // scales, one walk each.
         CHECK(d.floors.size() >= 3);
         std::set<int> levels;
-        std::set<std::string> antennas;
         for (const yd::DemoFloor& f : d.floors) {
             CAPTURE(f.id);
             levels.insert(f.level);
@@ -194,36 +183,17 @@ TEST_CASE("DEMO-12 the three MAK example descriptions validate: sheet, credit, f
             CHECK(!f.scale_note.empty());
             CHECK(f.metres_per_unit > 0.02);
             CHECK(f.metres_per_unit < 0.04);
-            CHECK(f.walls.size() >= 1);
-            CHECK(f.antennas.size() >= 1);
             CHECK(f.walk.waypoints.size() >= 6);
             const auto scenario = yd::scenario_for_example(RADIOS_SCENARIO_DIR, f.example_id);
             REQUIRE(scenario);
             CHECK(scenario->stem().string() == id);  // the radios' scenario of the building (RAD-18)
-            for (const yb::Antenna& a : f.antennas) {
-                CHECK(a.cell == "T1");
-                antennas.insert(a.id);
-            }
         }
         CHECK(levels.size() == d.floors.size());
-        // The scenario sets each DAS antenna's EIRP by id (RAD-61): the
-        // description's antennas are the same, with the same EIRP.
-        const nlohmann::json sc = read_json(fs::path(RADIOS_SCENARIO_DIR) / (id + ".json"));
-        std::set<std::string> in_scenario;
-        for (const auto& a : sc.at("antennas")) in_scenario.insert(a.at("id").get<std::string>());
-        CHECK(antennas == in_scenario);
-        for (const yd::DemoFloor& f : d.floors)
-            for (const yb::Antenna& a : f.antennas)
-                for (const auto& o : sc.at("antennas"))
-                    if (o.at("id") == a.id) {
-                        REQUIRE(a.effective_eirp_dbm());
-                        CHECK(*a.effective_eirp_dbm() == doctest::Approx(o.at("eirp_dbm").get<double>()));
-                    }
     }
     CHECK(hashes.size() == kBuildings.size());
 }
 
-TEST_CASE("DEMO-12 a description with a wall, antenna or walk outside a trim, or a trim outside the sheet, is refused") {
+TEST_CASE("DEMO-12 a description with a reference point or walk outside a trim, or a trim outside the sheet, is refused") {
     const fs::path dir = scratch("mak-bad");
     const auto refused = [&](const std::function<void(nlohmann::json&)>& edit, const std::string& want) {
         const fs::path f = description_copy("mak_villa_bunzl", dir, edit);
@@ -238,8 +208,7 @@ TEST_CASE("DEMO-12 a description with a wall, antenna or walk outside a trim, or
         }
         CHECK(thrown);
     };
-    refused([](nlohmann::json& j) { j["floors"][0]["walls"][0]["points"][0] = {-5, 10}; }, "wall w1");
-    refused([](nlohmann::json& j) { j["floors"][1]["antennas"][0]["position"] = {9000, 10}; }, "antenna das-2");
+    refused([](nlohmann::json& j) { j["floors"][1]["reference_point"] = {9000, 10}; }, "the reference point");
     refused([](nlohmann::json& j) { j["floors"][2]["walk"]["waypoints"][1] = {10, 5000}; }, "walk waypoint");
     refused([](nlohmann::json& j) { j["floors"][0]["trim"] = {{85, 170}, {2000, 600}}; }, "not inside sheet");
     refused([](nlohmann::json& j) { j["sheets"][0].erase("credit"); }, "credit");

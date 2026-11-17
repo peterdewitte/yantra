@@ -33,7 +33,6 @@ add_library(yantra_core STATIC
   src/export/stb_export.c
   src/export/table.cpp
   src/building/edit.cpp
-  src/building/geometry.cpp
   src/building/model.cpp
   src/building/model_json.cpp
   src/context/building_context.cpp

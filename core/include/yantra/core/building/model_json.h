@@ -28,9 +28,8 @@ inline constexpr std::uint32_t kBuildingVersion = 1;
 std::string building_to_json(const Building& b, int indent = -1);
 
 /// Parses and validates (Building::validate) JSON text. False with a
-/// one-line `error` naming the place ("floors[0].walls[2].class: expected
-/// a string"); `out` is only changed on success. A building without
-/// "wall_classes" gets the default table; a given table replaces it.
+/// one-line `error` naming the place ("floors[0].scale.method: expected a
+/// string"); `out` is only changed on success.
 bool parse_building(std::string_view text, Building& out, std::string& error);
 
 }  // namespace yantra::building

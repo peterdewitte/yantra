@@ -140,7 +140,7 @@ void Gui::draw_cell_db(CellDbEditor& ed) {
     }
     if (!ed.selected().empty()) {
         if (ImGui::Button(tr("Remove###cells.remove"))) (void)state_.show(ed.remove(ed.selected()));
-        text_tooltip(tr("Remove the selected cell (refused while an antenna serves it)."));
+        text_tooltip(tr("Remove the selected cell."));
     }
     ImGui::NewLine();
 

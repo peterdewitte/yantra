@@ -11,7 +11,7 @@
 // - floor units: the trimmed floor plan. Same unit length as page units,
 //   turned by the trim's rotation, origin at the top-left corner of the
 //   turned outline's bounding box, y down. Floor::plan_width/plan_height,
-//   and later walls, antennas and walk points (IND-08..IND-20), are in
+//   the scale and reference points and the walk points (IND-08..IND-20), are in
 //   floor units; the floor scale (metres per unit, IND-08) converts them
 //   to metres;
 // - pixels: either space times a render scale (pixels per unit).
@@ -112,10 +112,9 @@ Point2 trim_floor_to_page(const Trim& t, Point2 floor);
 Point2 trim_page_to_floor(const Trim& t, Point2 page);
 
 /// Keeps what is drawn on a floor at the same place on the source page
-/// when its trim changes from `from` to `to` (IND-07 edit with IND-08..12
-/// data): walls, antennas, the scale's two points and the reference point
-/// (plan units) are mapped through the page; antenna azimuths and donor
-/// directions turn with the plan's rotation. A Factor or Shared scale
+/// when its trim changes from `from` to `to` (IND-07 edit with IND-08/09
+/// data): the scale's two points and the reference point (plan units) are
+/// mapped through the page. A Factor or Shared scale
 /// needs no change: a trim only turns, so the unit length stays. Points
 /// that fall outside the new trim are kept (outside the plan). Both trims
 /// must be valid (or None).

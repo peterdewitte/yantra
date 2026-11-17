@@ -4,7 +4,7 @@
 // Floor-plan image with the measured points and a legend (EXP-08;
 // docs/EXPORT.md "Images"), saved as PNG or JPEG: the floor's plan (its
 // source page with the floor's trim, as the project window shows it),
-// the walls and antennas, every point of the table (the shared point
+// every point of the table (the shared point
 // list, IND-30) as a disc in the list's colour - smaller on a dense
 // floor, never dropped - and a legend with one entry per colour band,
 // the point count per band and the total. A plan the project does not
@@ -26,7 +26,7 @@
 
 namespace yantra::exports {
 
-/// A colour layer over the plan, under the walls and points (the
+/// A colour layer over the plan, under the points (the
 /// interpolated map of a report, IND-43): `cols` x `rows` cells of
 /// 0xAARRGGBB (row 0 at `min`), covering the plan rectangle min..max
 /// (plan units). Each cell is drawn as a flat square (no smoothing), so
@@ -41,8 +41,6 @@ struct ImageOptions {
     int max_plan_px = 1600;        ///< the plan's longer side in pixels (100..8000)
     double point_radius_px = 0.0;  ///< 0: from the point density (1.5..6 px)
     bool plan = true;              ///< draw the floor's plan source
-    bool walls = true;
-    bool antennas = true;
     bool legend = true;
     bool points = true;  ///< the table's points (a map picture may leave them out)
     std::optional<MapLayer> map;  ///< drawn over the plan when set

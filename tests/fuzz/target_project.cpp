@@ -27,7 +27,6 @@ void exercise(const std::filesystem::path& file) {
     const auto floors = p->floors();
     (void)p->building();
     (void)p->interpolation_settings();
-    (void)p->wall_classes();
     (void)p->cells();
     (void)p->cell_database();
     (void)p->recordings();
@@ -40,8 +39,6 @@ void exercise(const std::filesystem::path& file) {
         }
     }
     for (const auto& f : floors) {
-        (void)p->walls(f.id);
-        (void)p->antennas(f.id);
         (void)p->point_count(f.id);
         for (const auto& r : p->interpolations(f.id, true)) (void)p->interpolation(r.id);
         for (const auto& s : p->sessions(f.id)) (void)p->points(s.id);
@@ -56,9 +53,9 @@ void exercise(const std::filesystem::path& file) {
     const std::string id = p->add_floor(f);
     const auto back = p->floor(id);
     if (!back || back->name != f.name) fail("a floor added to an opened project is not there");
-    const std::string a = p->add_antenna(id, yantra::building::Antenna{});
-    const auto antennas = p->antennas(id);
-    if (antennas.size() != 1 || antennas.front().id != a) fail("an antenna added to an opened project is not there");
+    const std::string c = p->add_cell(yantra::building::Cell{});
+    const auto cells = p->cells();
+    if (cells.empty() || cells.back().id != c) fail("a cell added to an opened project is not there");
     p->close();
 }
 

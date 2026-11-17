@@ -107,14 +107,7 @@ TEST_CASE("DEMO-05 the Fraunces demo project opens with 2 floors, trims, scales,
         CHECK(*mpu > 0.002);
         CHECK(*mpu < 0.004);
         CHECK(f->reference_point.has_value());
-        CHECK(f->walls.size() >= 20);
-        CHECK(f->walls == df.walls);
-        REQUIRE(f->antennas.size() >= 2);
-        for (const yb::Antenna& a : f->antennas) {
-            CHECK(a.type == yb::AntennaType::IndoorDas);
-            CHECK(a.cell == "T1");
-            CHECK(a.feed_power_dbm.has_value());
-        }
+        CHECK(*f->reference_point == df.reference_point);
         // One continuous walk, recorded with its fixed session id.
         const auto sessions = p->sessions(df.id);
         REQUIRE(sessions.size() == 1);

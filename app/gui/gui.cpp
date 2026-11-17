@@ -892,7 +892,7 @@ void Gui::draw_add_floor() {
     text_tooltip(tr("0 = ground floor, 1 = first floor, -1 = basement. Every floor has its own level."));
     float height = static_cast<float>(f.height_m);
     if (ImGui::InputFloat(tr("Height (m)###height"), &height, 0.1F, 0.5F, "%.2f")) f.height_m = static_cast<double>(height);
-    text_tooltip(tr("Floor-to-floor height in metres (more than 0, at most 50), used for the slab between floors."));
+    text_tooltip(tr("Floor-to-floor height in metres (more than 0, at most 50)."));
     ImGui::Spacing();
     if (dialog_button(tr("Add blank floor###dlg.ok"), tr("Add the floor without a plan [Enter]"), 180.0F) ||
         (ImGui::IsKeyPressed(ImGuiKey_Enter) && !ImGui::GetIO().WantTextInput))
@@ -1029,7 +1029,7 @@ void Gui::draw_floor_properties() {
                  "ordered by level."));
     float height = static_cast<float>(f.height_m);
     if (ImGui::InputFloat(tr("Height (m)###height"), &height, 0.1F, 0.5F, "%.2f")) f.height_m = static_cast<double>(height);
-    text_tooltip(tr("Floor-to-floor height in metres (more than 0, at most 50), used for the slab between floors."));
+    text_tooltip(tr("Floor-to-floor height in metres (more than 0, at most 50)."));
     ImGui::Spacing();
     if (dialog_button(tr("Apply###dlg.ok"), tr("Store the changes [Enter]")) ||
         (ImGui::IsKeyPressed(ImGuiKey_Enter) && !ImGui::GetIO().WantTextInput))

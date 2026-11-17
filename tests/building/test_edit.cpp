@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Editing the building model (core/building/edit.h): scale measurements
-// and "not to scale" (IND-08), alignment between floors (IND-09), wall
-// selection and vertex edits, the wall-class table (IND-11), antenna
-// patterns and aiming (IND-12).
+// and "not to scale" (IND-08), alignment between floors (IND-09). The
+// wall, wall-class and antenna edits of 0.3 (IND-11, IND-12) are removed
+// with their requirements.
 
 #include <doctest/doctest.h>
 
@@ -87,99 +87,4 @@ TEST_CASE("edit: a point maps to the same building point on another aligned floo
     f1.reference_point = Point2{5, 15};
     f1.scale = Scale{};
     CHECK_FALSE(point_on_floor(b, f0, {120, 60}, f1));
-}
-
-TEST_CASE("edit: wall selection, vertex edits, split, move (IND-11)") {
-    Floor f;
-    f.walls.push_back(Wall{"a", "brick", {{0, 0}, {100, 0}}, std::nullopt});
-    f.walls.push_back(Wall{"b", "glass", {{50, -50}, {50, 50}, {80, 50}}, std::nullopt});
-    // Nearest segment within the tolerance; the later wall wins a tie.
-    const auto hit = nearest_wall(f, {50, 0}, 1.0);
-    REQUIRE(hit);
-    CHECK(hit->wall == 1);
-    CHECK(hit->distance == 0.0);
-    const auto h2 = nearest_wall(f, {20, 3}, 5.0);
-    REQUIRE(h2);
-    CHECK(h2->wall == 0);
-    CHECK(h2->t == doctest::Approx(0.2));
-    CHECK(h2->nearest == Point2{20, 0});
-    CHECK(h2->distance == doctest::Approx(3.0));
-    const auto h3 = nearest_wall(f, {70, 52}, 5.0);
-    REQUIRE(h3);
-    CHECK(h3->segment == 1);
-    CHECK_FALSE(nearest_wall(f, {20, 30}, 5.0));
-    CHECK(nearest_vertex(f.walls[1], {51, 49}, 3.0) == std::size_t{1});
-    CHECK_FALSE(nearest_vertex(f.walls[1], {65, 0}, 3.0));
-
-    Wall w = f.walls[1];
-    CHECK(insert_vertex(w, 3, {80, 80}));  // append
-    CHECK(insert_vertex(w, 0, {50, -60}));
-    CHECK_FALSE(insert_vertex(w, 9, {0, 0}));
-    CHECK(w.points.size() == 5);
-    CHECK(move_vertex(w, 4, {90, 90}));
-    CHECK_FALSE(move_vertex(w, 5, {0, 0}));
-    CHECK(remove_vertex(w, 0));
-    CHECK(w.points == std::vector<Point2>{{50, -50}, {50, 50}, {80, 50}, {90, 90}});
-    Wall two = f.walls[0];
-    CHECK_FALSE(remove_vertex(two, 0));  // a wall keeps 2 points
-    CHECK_FALSE(remove_vertex(two, 7));
-    CHECK(wall_length_units(f.walls[1]) == doctest::Approx(130.0));
-
-    const auto parts = split_wall(f.walls[1], 1, "b2");
-    REQUIRE(parts);
-    CHECK(parts->first == Wall{"b", "glass", {{50, -50}, {50, 50}}, std::nullopt});
-    CHECK(parts->second == Wall{"b2", "glass", {{50, 50}, {80, 50}}, std::nullopt});
-    CHECK_FALSE(split_wall(f.walls[1], 0));
-    CHECK_FALSE(split_wall(f.walls[1], 2));
-    CHECK_FALSE(split_wall(f.walls[0], 1));
-    move_wall(two, {5, -5});
-    CHECK(two.points == std::vector<Point2>{{5, -5}, {105, -5}});
-}
-
-TEST_CASE("edit: the wall-class table: add, replace, count users, reset the defaults (IND-11)") {
-    Building b = example_office();
-    std::vector<WallClass>& t = b.wall_classes;
-    const std::size_t n = t.size();
-    put_wall_class(t, WallClass{"steel", "Steel", {{400, 30}}, std::nullopt});
-    CHECK(t.size() == n + 1);
-    CHECK(t.back().id == "steel");
-    put_wall_class(t, WallClass{"brick", "Brick (thick)", {{400, 15}, {900, 18}}, 3.0});
-    CHECK(t.size() == n + 1);
-    CHECK(b.find_class("brick")->name == "Brick (thick)");
-    CHECK(walls_of_class(b, "concrete") >= 1);
-    CHECK(walls_of_class(b, "steel") == 0);
-    t.erase(t.begin());  // concrete removed
-    reset_default_wall_classes(t);
-    CHECK(*b.find_class("brick") == default_wall_classes()[1]);
-    CHECK(b.find_class("steel") != nullptr);
-    CHECK(t.back().id == "concrete");
-    CHECK(b.validate().empty());
-}
-
-TEST_CASE("edit: directional patterns and aiming of antennas and donor directions (IND-12)") {
-    const AntennaPattern p = directional_pattern(370.0, 90.0, 25.0);
-    CHECK(p.type == AntennaPattern::Type::Sector);
-    CHECK(p.azimuth_deg == doctest::Approx(10.0));
-    CHECK(p.beamwidth_deg == 90.0);
-    CHECK(p.front_to_back_db == 25.0);
-    CHECK(directional_pattern(-90.0).azimuth_deg == 270.0);
-    Antenna a;
-    a.position = {10, 10};
-    CHECK(aim_antenna(a, {20, 10}));
-    CHECK(a.pattern.azimuth_deg == 0.0);  // omni: unchanged
-    CHECK_FALSE(a.direction_deg);
-    a.pattern = directional_pattern(0.0);
-    CHECK(aim_antenna(a, {10, 20}));  // down the plan: 180 degrees
-    CHECK(a.pattern.azimuth_deg == doctest::Approx(180.0));
-    CHECK_FALSE(aim_antenna(a, {10, 10}));
-    CHECK_FALSE(aim_antenna(a, {NAN, 0}));
-    a.type = AntennaType::OutdoorDonor;
-    CHECK(aim_antenna(a, {0, 10}));
-    CHECK(*a.direction_deg == doctest::Approx(270.0));
-    CHECK(a.pattern.azimuth_deg == doctest::Approx(270.0));
-    Floor f;
-    f.antennas = {a, a};
-    f.antennas[1].position = {12, 10};
-    CHECK(nearest_antenna(f, {11.5, 10}, 1.0) == std::size_t{1});
-    CHECK_FALSE(nearest_antenna(f, {30, 30}, 1.0));
 }

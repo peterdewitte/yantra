@@ -21,7 +21,6 @@ dBFS: dBFS
 dBm: dBm
 Demo project: demo project; Fraunces
 DXF: DXF
-Estimated source: estimated source; estimated sources
 F1 (help): F1
 Floor: floor; floors
 Interpolation: interpolation; interpolate

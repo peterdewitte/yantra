@@ -371,7 +371,7 @@ std::vector<LayerRow> ProjectWindow::layer_rows(const LayerSettings& layers) {
         case Layer::Interpolation:
             r.label = std::string(tr("Map (")) +
                       (c && c->interpolation ? c->interpolation->label : std::string(survey::kInterpolatedLabel)) + ")";
-            r.tooltip = tr("The interpolated map between the measured points (ray-tracing model fitted to the points). "
+            r.tooltip = tr("The interpolated map between the measured points (IDW of the points). "
                         "Areas far from any measured point fade out. Always labelled \"interpolated\"; statistics "
                         "keep it apart from measured values.");
             r.available = c && c->interpolation.has_value();

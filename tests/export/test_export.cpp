@@ -4,7 +4,7 @@
 // Export (docs/EXPORT.md): the rows of a floor are its shared point list
 // (IND-30); CSV with selectable columns, separator, UTC/local time, N
 // neighbours, markers, antenna correction and -999 (EXP-01); DXF of a
-// floor with points, walls and antennas in metres (EXP-03); TST-33 CSV
+// floor's measured points in metres (EXP-03); TST-33 CSV
 // and DXF round trips (read back what was written, plan positions
 // unchanged); the floor image with legend (EXP-08); the C test exporter
 // plugin through the public ABI (PLG-02, offered in batch export).
@@ -57,8 +57,7 @@ ym::MeasurementCycle rich_cycle(std::int64_t t, double serving_level) {
 }
 
 // A floor with a walk of `n` points from (13.37, 7.1) to (391.9, 177.3)
-// plan units, a wall and an antenna; and a manual point with a label that
-// needs quoting.
+// plan units; and a manual point with a label that needs quoting.
 struct ExportFixture : Fixture {
     explicit ExportFixture(const std::string& name, int n = 5) : Fixture(name) {
         auto w = walk();
@@ -74,14 +73,6 @@ struct ExportFixture : Fixture {
         m->on_cycle(rich_cycle(102 * kS, -101));
         m->on_cycle(rich_cycle(103 * kS, -101));
         m->finish(104 * kS);
-        bm::Wall wall;
-        wall.wall_class = "brick";
-        wall.points = {{10.5, 20.25}, {300.125, 20.25}, {300.125, 150.0}};
-        p->add_wall(ground, wall);
-        bm::Antenna a;
-        a.name = "DAS 1";
-        a.position = {123.4, 56.7};
-        p->add_antenna(ground, a);
     }
 };
 
@@ -257,24 +248,23 @@ TEST_CASE("TST-33 CSV round trip: what is read back is what was written, plan po
     CHECK(yx::read_csv("a,b\r\n1,\"2\"\"\"\r\n").rows == std::vector<std::vector<std::string>>{{"1", "2\""}});
 }
 
-TEST_CASE("EXP-03 TST-33 DXF of a floor: points, walls and antennas in metres; read back unchanged") {
+TEST_CASE("EXP-03 TST-33 DXF of a floor: the measured points in metres, no other layers; read back unchanged") {
     ExportFixture fx("export_dxf");
     const yx::Table t = yx::floor_table(*fx.p, fx.ground);
     std::size_t skipped = 99;
     const yx::DxfDrawing d = yx::floor_drawing(*fx.p, t, {}, &skipped);
     CHECK(skipped == 0);
-    REQUIRE(d.points.size() == t.rows.size() + 1);  // + the antenna
+    REQUIRE(d.points.size() == t.rows.size());  // measured points only
     for (std::size_t i = 0; i < t.rows.size(); ++i) {
         CAPTURE(i);
         CHECK(yx::plan_metres(d.points[i]) == *t.rows[i].metres);
         CHECK(d.points[i].layer == yx::point_layer(t.scale, t.rows[i].value));
     }
-    CHECK(d.points.back().layer == "ANTENNAS");
-    CHECK(yx::plan_metres(d.points.back()) == bm::Point2{123.4 * 0.05, 56.7 * 0.05});
-    REQUIRE(d.polylines.size() == 1);
-    CHECK(d.polylines[0].layer == "WALLS_BRICK");
-    REQUIRE(d.polylines[0].vertices.size() == 3);
-    CHECK(yx::plan_metres(d.polylines[0].vertices[1]) == bm::Point2{300.125 * 0.05, 20.25 * 0.05});
+    CHECK(d.polylines.empty());
+    for (const yx::DxfLayer& l : d.layers) {
+        CAPTURE(l.name);
+        CHECK((l.name.rfind("POINTS_", 0) == 0 || l.name == "VALUES"));
+    }
     // -63.3 dBm is in the -70 band (4 of 4, ascending), -101 below every band.
     CHECK(d.points[0].layer == "POINTS_4");
     CHECK(d.points[t.rows.size() - 1].layer == "POINTS_OUTSIDE");
@@ -290,8 +280,6 @@ TEST_CASE("EXP-03 TST-33 DXF of a floor: points, walls and antennas in metres; r
 
     yx::DxfOptions plain;
     plain.value_text = false;
-    plain.walls = false;
-    plain.antennas = false;
     plain.label = "DEMO - simulated data";
     const yx::DxfDrawing p2 = yx::floor_drawing(*fx.p, t, plain);
     CHECK(p2.polylines.empty());
@@ -362,8 +350,6 @@ TEST_CASE("IND-43 floor image with a map layer: flat cells in their colours over
     const yx::Table t = yx::floor_table(*fx.p, fx.ground);
     yx::ImageOptions o;
     o.legend = false;
-    o.walls = false;
-    o.antennas = false;
     o.points = false;
     // Two opaque cells over the whole 400 x 200 plan: red left, blue right.
     o.map = yx::MapLayer{{0, 0}, {400, 200}, 2, 1, {0xFFFF0000u, 0xFF0000FFu}};

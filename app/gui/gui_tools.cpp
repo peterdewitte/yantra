@@ -165,9 +165,9 @@ void Gui::draw_interpolation_section(const FloorContent* c) {
     InterpolationRunner* run = state_.interpolation();
     if (run == nullptr) return;
     ImGui::SeparatorText(tr("Interpolation"));
-    help_marker(tr("The ray-tracing interpolation: the model of the walls and antennas fitted to the measured points of "
-                "this floor, then the remaining differences spread over the floor. It runs in the background and is "
-                "stored in the project with its settings. The map is always labelled \"interpolated\"."));
+    help_marker(tr("The point interpolation (IDW): the measured levels of this floor spread over the floor, each point "
+                "weighted by its distance; only the measured points count. It runs in the background and is stored in "
+                "the project with its settings. The map is always labelled \"interpolated\"."));
     const InterpolationProgress p = run->progress();
     if (p.running) {
         overlay_.progress = true;

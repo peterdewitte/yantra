@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Legend layout partly modelled on yantra-v1 c24e8f5: core/export/image.cpp
-// (legend box, banner), adapted for EXP-08 indoor (floor plans, walls,
-// antennas, the shared point list's scale).
+// (legend box, banner), adapted for EXP-08 indoor (floor plans, the
+// shared point list's scale).
 
 #include "yantra/core/export/image.h"
 
@@ -18,8 +18,6 @@ namespace yantra::exports {
 namespace {
 
 constexpr Rgba8 kText{20, 20, 20, 255};
-constexpr Rgba8 kWall{60, 60, 60, 220};
-constexpr Rgba8 kAntenna{30, 70, 200, 255};
 constexpr Rgba8 kOutline{0, 0, 0, 160};
 
 std::string band_label(const survey::ColourScale& s, std::size_t i) {
@@ -144,16 +142,6 @@ ImageResult floor_image(const project::Project& project, const Table& table, con
             }
         }
     }
-    if (o.walls)
-        for (const building::Wall& w : floor->walls) {
-            std::vector<double> xy;
-            for (const auto& p : w.points) {
-                const auto q = px(p);
-                xy.push_back(q.x);
-                xy.push_back(q.y);
-            }
-            c.polyline(xy, 2 * ui, kWall);
-        }
 
     // The points: every row with a plan position, in list order.
     std::size_t placed = 0;
@@ -170,13 +158,6 @@ ImageResult floor_image(const project::Project& project, const Table& table, con
         if (radius >= 3) c.ring(q.x, q.y, radius, std::max(0.75, radius / 6), kOutline);
         ++res.points;
     }
-    if (o.antennas)
-        for (const building::Antenna& a : floor->antennas) {
-            const auto q = px(a.position);
-            const double s = 7 * ui;
-            c.fill_polygon({q.x, q.y - s, q.x + s, q.y + s * 0.8, q.x - s, q.y + s * 0.8}, kAntenna);
-            font.draw(c, q.x + s + 2, q.y - text_px / 2, a.name.empty() ? a.id : a.name, text_px * 0.85, kAntenna);
-        }
 
     // Banner, title, legend.
     if (banner_h > 0) {

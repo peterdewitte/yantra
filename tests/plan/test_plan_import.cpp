@@ -171,7 +171,7 @@ TEST_CASE("plan import: several floors from one sheet, edited and removed (IND-0
     CHECK_THROWS_AS(imp->edit_floor("floor-99"), pj::ProjectError);
 }
 
-TEST_CASE("plan import: an edited trim keeps walls, antennas, the scale and the reference point on the sheet (IND-07, IND-08, IND-09, IND-11, IND-12)") {
+TEST_CASE("plan import: an edited trim keeps the scale and the reference point on the sheet (IND-07, IND-08, IND-09)") {
     const fs::path dir = scratch("import-reanchor");
     auto project = pj::Project::create(dir / "r.yantra", pj::ProjectInfo{"Reanchor", "", "", ""});
     auto imp = pl::PlanImport::add_file(*project, write(dir / "sheet.png", fx::png(sheet())));
@@ -180,16 +180,6 @@ TEST_CASE("plan import: an edited trim keeps walls, antennas, the scale and the 
     // Drawn on the floor (plan units of the first trim).
     project->set_scale(id, *yantra::building::two_point_scale({10, 20}, {110, 20}, 5.0));
     project->set_reference_point(id, Point2{30, 40});
-    project->add_wall(id, yantra::building::Wall{"", "brick", {{0, 0}, {100, 0}, {100, 80}}, std::nullopt});
-    yantra::building::Antenna a;
-    a.position = {50, 60};
-    a.pattern = yantra::building::directional_pattern(90.0);
-    project->add_antenna(id, a);
-    yantra::building::Antenna d;
-    d.type = yantra::building::AntennaType::OutdoorDonor;
-    d.position = {150, 20};
-    d.direction_deg = 350.0;
-    project->add_antenna(id, d);
     const auto before = *project->floor(id);
     const pl::TrimTransform old(before.trim);
     auto on_page = [](const pl::TrimTransform& t, const std::vector<Point2>& pts) {
@@ -197,21 +187,17 @@ TEST_CASE("plan import: an edited trim keeps walls, antennas, the scale and the 
         for (const Point2& p : pts) out.push_back(t.floor_to_page(p));
         return out;
     };
-    const std::vector<Point2> drawn{before.walls[0].points[0], before.walls[0].points[1], before.walls[0].points[2],
-                                    before.antennas[0].position, before.antennas[1].position, before.scale.a,
-                                    before.scale.b, *before.reference_point};
+    const std::vector<Point2> drawn{before.scale.a, before.scale.b, *before.reference_point};
     const auto page_points = on_page(old, drawn);
     // The trim is made larger and turned a quarter: everything stays on
-    // the same page point, directions turn with the plan.
+    // the same page point.
     imp->edit_floor(id);
     imp->set_rectangle({2, 2}, {198, 198});
     imp->rotate_quarter(1);
     imp->apply_to_floor();
     const auto after = *project->floor(id);
     const pl::TrimTransform now(after.trim);
-    const std::vector<Point2> moved{after.walls[0].points[0], after.walls[0].points[1], after.walls[0].points[2],
-                                    after.antennas[0].position, after.antennas[1].position, after.scale.a,
-                                    after.scale.b, *after.reference_point};
+    const std::vector<Point2> moved{after.scale.a, after.scale.b, *after.reference_point};
     const auto page_after = on_page(now, moved);
     REQUIRE(page_after.size() == page_points.size());
     for (std::size_t i = 0; i < page_points.size(); ++i) {
@@ -219,20 +205,19 @@ TEST_CASE("plan import: an edited trim keeps walls, antennas, the scale and the 
         CHECK(near(page_after[i], page_points[i], 1e-9));
     }
     CHECK(after.plan_width == doctest::Approx(196.0));
-    CHECK(after.antennas[0].pattern.azimuth_deg == doctest::Approx(180.0));
-    CHECK(*after.antennas[1].direction_deg == doctest::Approx(80.0));
     // A trim only turns: the metres per unit stay.
     const auto b = project->building();
     CHECK(*b.metres_per_unit(*b.find_floor(id)) == doctest::Approx(0.05).epsilon(1e-12));
     // Editing without a change moves nothing.
     imp->edit_floor(id);
     imp->apply_to_floor();
-    CHECK(project->floor(id)->walls == after.walls);
+    CHECK(project->floor(id)->reference_point == after.reference_point);
+    CHECK(project->floor(id)->scale == after.scale);
     // reanchor_floor alone: from no trim (the whole page) to a trim.
     yantra::building::Floor f;
-    f.walls.push_back(yantra::building::Wall{"", "brick", {{20, 30}, {40, 30}}, std::nullopt});
+    f.reference_point = Point2{20, 30};
     pl::reanchor_floor(f, pl::Trim{}, pl::rectangle_trim({10, 10}, {100, 100}));
-    CHECK(near(f.walls[0].points[0], {10, 20}));
+    CHECK(near(*f.reference_point, {10, 20}));
     CHECK(pl::trim_page_to_floor(pl::Trim{}, {3, 4}) == Point2{3, 4});
     CHECK(near(pl::trim_floor_to_page(pl::rectangle_trim({10, 10}, {100, 100}), {10, 20}), {20, 30}));
 }

@@ -8,9 +8,7 @@
 // the match fields per technology ("by LA, by channel or by both").
 //
 // Like every project edit (7.1) a change is stored at once:
-// Project::set_cell_database with the whole database, so an entry an
-// antenna still serves cannot be removed (the project refuses, the message
-// says so). The field names come from the technology plugin's cell schema
+// Project::set_cell_database with the whole database. The field names come from the technology plugin's cell schema
 // (KEY and VERIFY fields, PLG-01); values are typed as text and read with
 // celldb::parse_value (decimal, "0x.." hexadecimal, real, text).
 //
@@ -111,7 +109,7 @@ public:
     /// new one (selected afterwards).
     Result apply();
     void cancel();
-    /// Removes an entry (refused while an antenna serves it).
+    /// Removes an entry.
     Result remove(const std::string& id);
 
     // -- CSV (DB-02) ---------------------------------------------------------------

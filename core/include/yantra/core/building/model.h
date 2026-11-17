@@ -1,33 +1,28 @@
 // SPDX-FileCopyrightText: 2026 The Yantra contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Building model of an indoor project (spec 21; IND-04, IND-06..12): an
+// Building model of an indoor project (spec 21; IND-04, IND-06..09): an
 // ordered list of floors, each a trimmed part of a plan source with its own
-// scale and alignment point, its walls (polylines with a wall class) and
-// its antennas; the editable wall-class table; the cells the antennas
-// serve. Used by the context callbacks of the radio plugins (PLG-27, core/context/building_context.h) and the project file
-// (IND-01, NFR-05, core/project/project.h).
+// scale and alignment point, and the building's cells. Used by the context
+// callbacks of the radio plugins (PLG-27, core/context/building_context.h)
+// and the project file (IND-01, NFR-05, core/project/project.h).
 //
-// Technology-neutral (PLG-01): wall classes and antennas are generic RF
-// data; a cell's identity is a set of named key values of a technology
-// schema (e.g. the schema's KEY fields), which only the technology plugin
-// interprets.
+// Technology-neutral (PLG-01): a cell's identity is a set of named key
+// values of a technology schema (e.g. the schema's KEY fields), which only
+// the technology plugin interprets.
 //
 // Frames and units (docs/BUILDING_MODEL.md):
 // - page units: the plan source page (PDF points or image pixels), origin
 //   top left, y down. Trims (IND-05/07) are outlines in page units.
 // - plan units: the trimmed floor plan, origin at its top-left corner, x to
-//   the right, y down, the page's unit length. Walls, antennas and the plan
-//   size are stored in plan units, so they stay on the plan when the scale
-//   changes and a floor without scale can still be drawn on (IND-08).
+//   the right, y down, the page's unit length. Scale points, the reference
+//   point and the plan size are stored in plan units, so they stay on the
+//   plan when the scale changes (IND-08).
 // - plan frame (metres): plan units x metres per unit, same origin and
-//   axes. The positions of the context callbacks and the scene (RAD-18,
-//   RAD-36) are in this frame.
+//   axes. The positions of the context callbacks (RAD-18) are in this
+//   frame.
 // - building frame (metres): (plan units - reference point) x metres per
 //   unit (IND-09): the same building point on every aligned floor.
-// - Angles: degrees clockwise from the plan's -y axis ("up" on the plan),
-//   as in the scene format. Heights in metres above the floor; levels in
-//   dB and dBm; frequencies in MHz in the wall-class table, Hz elsewhere.
 #pragma once
 
 #include <cstdint>
@@ -45,57 +40,12 @@ struct Point2 {
     bool operator==(const Point2&) const = default;
 };
 
-// --- wall classes (IND-11) -------------------------------------------------------------
+// --- cells -----------------------------------------------------------------------------
 
-/// One entry of a wall class's attenuation table: the loss of one crossing
-/// at `frequency_mhz`.
-struct BandAttenuation {
-    double frequency_mhz = 0.0;
-    double attenuation_db = 0.0;
-    bool operator==(const BandAttenuation&) const = default;
-};
-
-/// A wall class with its attenuation per band (IND-11 "attenuation in dB
-/// at the measured frequency, from an editable table with defaults").
-struct WallClass {
-    std::string id;    ///< key used by walls, e.g. "concrete"
-    std::string name;  ///< display name (English; the UI translates the default ids)
-    /// Attenuation table, ascending frequencies, at least one entry.
-    std::vector<BandAttenuation> bands;
-    /// Loss of a specular reflection off a wall of this class (IND-40);
-    /// the propagation model's default when absent.
-    std::optional<double> reflection_loss_db;
-    bool operator==(const WallClass&) const = default;
-
-    /// The loss at `mhz`: linear in log(frequency) between the two
-    /// neighbouring table entries, the first or last entry's value outside
-    /// the table, the first entry's value when mhz <= 0. 0 for an empty table.
-    double attenuation_at_db(double mhz) const;
-};
-
-/// The default wall-class table (estimates at 400 and 900 MHz, see
-/// docs/BUILDING_MODEL.md): concrete 12/23 dB, brick 8/10, plasterboard
-/// 3/6, glass 2/4.5, wood 3/6.5, door 4/9, metal 25/25, coated glass 20/20.
-std::vector<WallClass> default_wall_classes();
-
-// --- walls (IND-11) --------------------------------------------------------------------
-
-/// A wall: a polyline on one floor.
-struct Wall {
-    std::string id;              ///< unique on its floor, may be empty
-    std::string wall_class;      ///< WallClass::id ("" only with an attenuation override)
-    std::vector<Point2> points;  ///< plan units, at least 2
-    /// This wall's own attenuation instead of its class's value (at every
-    /// frequency).
-    std::optional<double> attenuation_db;
-    bool operator==(const Wall&) const = default;
-};
-
-// --- cells and antennas (IND-12) -------------------------------------------------------
-
-/// A cell the antennas serve. Technology-specific values are named key
-/// values of the technology's schema (e.g. {"la": 100, "colour_code": 1,
-/// "mcc": 901, "mnc": 1} for a TETRA cell); the core does not interpret them.
+/// A cell of the building (the cell table, the demo's interpolation cell).
+/// Technology-specific values are named key values of the technology's
+/// schema (e.g. {"la": 100, "colour_code": 1, "mcc": 901, "mnc": 1} for a
+/// TETRA cell); the core does not interpret them.
 struct Cell {
     std::string id;             ///< unique in the building
     std::string label;          ///< display text
@@ -104,62 +54,6 @@ struct Cell {
     std::uint64_t carrier_hz = 0;  ///< main carrier, 0 when not known
     std::map<std::string, std::int64_t> identity;  ///< key field name -> value
     bool operator==(const Cell&) const = default;
-};
-
-enum class AntennaType {
-    IndoorDas,     ///< indoor DAS antenna (or a repeater's service antenna)
-    OutdoorDonor,  ///< outdoor donor/macro direction placed on the plan
-};
-
-/// Radiation pattern (IND-12), the pattern types of the scene format.
-struct AntennaPattern {
-    enum class Type { Omni, Sector, Table };
-    Type type = Type::Omni;
-    double azimuth_deg = 0.0;       ///< Sector, Table: main direction, [0, 360)
-    double beamwidth_deg = 65.0;    ///< Sector: half-power beamwidth, (0, 360]
-    double front_to_back_db = 20.0; ///< Sector: cap of the pattern loss, >= 0
-    double step_deg = 0.0;          ///< Table: angle between gain_db entries, > 0
-    std::vector<double> gain_db;    ///< Table: gains relative to the main direction
-    bool operator==(const AntennaPattern&) const = default;
-};
-
-/// Pattern gain relative to the main direction (dB, <= 0 for Sector):
-/// Omni 0; Sector -min(12 (off / beamwidth)^2, front_to_back); Table
-/// linear interpolation between the entries clockwise from the azimuth,
-/// from the last entry back to the first at 360 degrees. `bearing_deg` in
-/// the angle convention of this file. The formula of the simulator's
-/// multi-wall model (yantra-radios docs/CHANNEL_MODEL.md, RAD-73).
-double pattern_gain_db(const AntennaPattern& p, double bearing_deg);
-
-/// Bearing (degrees in [0, 360), 0 = towards -y, clockwise) from a to b.
-double bearing_deg(Point2 a, Point2 b);
-
-/// An antenna or source on a floor (IND-12).
-struct Antenna {
-    std::string id;     ///< unique in the building
-    std::string name;
-    std::string model;  ///< antenna type/product, free text (e.g. "ceiling omni")
-    AntennaType type = AntennaType::IndoorDas;
-    Point2 position;        ///< plan units of its floor
-    double height_m = 2.7;  ///< above the floor
-    double gain_dbi = 2.0;
-    AntennaPattern pattern;
-    /// Known EIRP in the main direction; optional (IND-12: estimated from
-    /// the measurements when unknown, IND-42).
-    std::optional<double> eirp_dbm;
-    /// Power at the DAS feed point, with the losses up to the antenna.
-    std::optional<double> feed_power_dbm;
-    double cable_loss_db = 0.0;
-    double splitter_loss_db = 0.0;
-    std::string cell;  ///< Cell::id it serves, "" when not set
-    /// OutdoorDonor: bearing from the antenna's plan position towards the
-    /// outdoor site (angle convention above) and its elevation (-90..90).
-    std::optional<double> direction_deg;
-    std::optional<double> elevation_deg;
-    bool operator==(const Antenna&) const = default;
-
-    /// eirp_dbm when set, else feed - cable - splitter + gain, else nullopt.
-    std::optional<double> effective_eirp_dbm() const;
 };
 
 // --- plan sources and trims (IND-02, IND-03, IND-05..07) -------------------------------
@@ -218,7 +112,7 @@ std::optional<double> own_metres_per_unit(const Scale& s);
 
 // --- floors and building ---------------------------------------------------------------
 
-/// One floor (IND-04, IND-06..12).
+/// One floor (IND-04, IND-06..09).
 struct Floor {
     std::string id;     ///< unique in the building, stable (context callbacks, scene)
     std::string name;   ///< e.g. "Ground floor"
@@ -234,32 +128,22 @@ struct Floor {
     double plan_height = 0.0;
     Scale scale;
     std::optional<Point2> reference_point;  ///< alignment point, plan units (IND-09)
-    /// Attenuation of the slab between this floor and the one above
-    /// (IND-44); Building::floor_attenuation_db when absent.
-    std::optional<double> slab_attenuation_db;
-    std::vector<Wall> walls;
-    std::vector<Antenna> antennas;
     bool operator==(const Floor&) const = default;
 };
 
 /// The building of one indoor project.
 struct Building {
     std::string name;  ///< e.g. "Fraunces Tavern"; plan names are "<name>, <floor name>"
-    std::vector<WallClass> wall_classes = default_wall_classes();
     std::vector<Cell> cells;
     std::vector<PlanSource> sources;
     std::vector<Floor> floors;  ///< any order; floors_by_level() for the tabs (IND-04)
-    double floor_attenuation_db = 15.0;  ///< default slab attenuation (IND-44)
     bool operator==(const Building&) const = default;
 
-    const WallClass* find_class(const std::string& id) const;
     const Cell* find_cell(const std::string& id) const;
     const PlanSource* find_source(const std::string& id) const;
     const Floor* find_floor(const std::string& id) const;
     Floor* find_floor(const std::string& id);
     const Floor* floor_at_level(int level) const;
-    /// The floor holding antenna `id` and the antenna, or nulls.
-    std::pair<const Floor*, const Antenna*> find_antenna(const std::string& id) const;
     /// Floor indexes ordered by level (IND-04 tabs).
     std::vector<std::size_t> floors_by_level() const;
 
@@ -279,17 +163,9 @@ struct Building {
     /// Building metres -> plan units of `f`; nullopt without scale.
     std::optional<Point2> from_building_metres(const Floor& f, Point2 metres) const;
 
-    /// Attenuation of one crossing of `w` at `mhz` (its override, else its
-    /// class's value at mhz); nullopt for an unknown class.
-    std::optional<double> wall_attenuation_db(const Wall& w, double mhz) const;
-    /// Sum of the slabs between two levels (each boundary k|k+1 is floor
-    /// k's slab_attenuation_db, else floor_attenuation_db); 0 for one level.
-    double inter_floor_attenuation_db(int from_level, int to_level) const;
-
     /// Problems that make the model unusable, one line each with its place
-    /// ("floors[1].walls[3]: unknown wall class \"steel\""); empty when
-    /// valid. Checks ids, references, levels, polylines, scales, trims,
-    /// patterns and number ranges.
+    /// ("floors[1]: duplicate level 2"); empty when valid. Checks ids,
+    /// references, levels, scales, trims and number ranges.
     std::vector<std::string> validate() const;
 };
 

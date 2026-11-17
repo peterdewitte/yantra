@@ -169,15 +169,12 @@ TEST_CASE("project: create, reopen, metadata round trip (IND-01)") {
         const bm::Building b = p->building();
         CHECK(b.name == "Town hall");
         CHECK(b.floors.empty());
-        CHECK(b.wall_classes == bm::default_wall_classes());
         pj::ProjectInfo changed = info();
         changed.notes = "second visit";
         p->set_info(changed);
         CHECK(p->meta().info.notes == "second visit");
         CHECK(code_of([&] { p->set_info(pj::ProjectInfo{}); }) == Code::Invalid);
         p->set_building_name("Town hall, east wing");
-        p->set_floor_attenuation_db(18.5);
-        CHECK(code_of([&] { p->set_floor_attenuation_db(-1.0); }) == Code::Invalid);
         p->close();
         CHECK_FALSE(p->is_open());
         CHECK(code_of([&] { (void)p->meta(); }) == Code::Closed);
@@ -188,7 +185,6 @@ TEST_CASE("project: create, reopen, metadata round trip (IND-01)") {
     CHECK(p->meta().info.notes == "second visit");
     CHECK(p->meta().info.operator_name == "Example network");
     CHECK(p->building().name == "Town hall, east wing");
-    CHECK(p->building().floor_attenuation_db == 18.5);
 
     // Without a site the building gets the project's name.
     auto q = pj::Project::create(dir / "nosite.yantra", pj::ProjectInfo{"Depot", "", "", ""});
@@ -273,7 +269,7 @@ TEST_CASE("project: floors ordered by level, renamed, levels and heights, reorde
     CHECK(q->add_floor(floor_named("Top", 8)) == "floor-5");
 }
 
-TEST_CASE("project: scale, reference point, walls, antennas, cells and the wall-class table round trip (TST-35)") {
+TEST_CASE("project: scale, reference point and cells round trip (TST-35)") {
     // Schema 2 refused these (Unsupported); schema 3 stores them, through
     // add_floor, update_floor and replace_building alike.
     const fs::path dir = scratch("unsupported");
@@ -285,30 +281,23 @@ TEST_CASE("project: scale, reference point, walls, antennas, cells and the wall-
         scaled.scale.method = bm::Scale::Method::Factor;
         scaled.scale.metres_per_unit = 0.05;
         scaled.reference_point = bm::Point2{1, 2};
-        scaled.walls.push_back(bm::Wall{"w1", "brick", {{0, 0}, {1, 0}}, std::nullopt});
-        scaled.antennas.emplace_back();
-        scaled.antennas.back().id = "a1";
         const std::string id = p->add_floor(scaled);
         bm::Floor f = *p->floor(id);
         CHECK(f.scale == scaled.scale);
         CHECK(f.reference_point == scaled.reference_point);
-        CHECK(f.walls == scaled.walls);
-        CHECK(f.antennas == scaled.antennas);
-        f.walls.push_back(bm::Wall{"w2", "", {{0, 0}, {0, 1}, {1, 1}}, 7.5});
+        f.reference_point = bm::Point2{3, 4};
         p->update_floor(f);
-        CHECK(p->floor(id)->walls == f.walls);
+        CHECK(p->floor(id)->reference_point == f.reference_point);
 
         bm::Building b = p->building();
         b.cells.push_back(bm::Cell{"c1", "Cell", "", "", 0, {}});
-        b.wall_classes.pop_back();
-        b.floors[0].antennas[0].cell = "c1";
         p->replace_building(b);
         expected = p->building();
         CHECK(expected == b);
     }
     auto p = pj::Project::open(file);
     CHECK(p->building() == expected);
-    CHECK(p->wall_classes().size() == bm::default_wall_classes().size() - 1);
+    CHECK(p->cells().size() == 1);
 }
 
 TEST_CASE("project: the building model round trip (IND-04, TST-33)") {
@@ -328,7 +317,6 @@ TEST_CASE("project: the building model round trip (IND-04, TST-33)") {
         g.page = 0;
         g.plan_width = 1191.0;
         g.plan_height = 842.25;
-        g.slab_attenuation_db = 21.5;
         bm::Floor f1 = floor_named("First floor", 1);
         f1.source = pdf;  // a second floor of the same sheet's document
         f1.page = 2;
@@ -343,12 +331,10 @@ TEST_CASE("project: the building model round trip (IND-04, TST-33)") {
         p->add_floor(f1);
         p->add_floor(a);
         p->add_floor(floor_named("Roof (no plan)", 2));
-        p->set_floor_attenuation_db(12.0);
         expected = p->building();
     }
     REQUIRE(expected.validate().empty());
     CHECK(expected.name == "Town hall");
-    CHECK(expected.floor_attenuation_db == 12.0);
     REQUIRE(expected.sources.size() == 2);
     CHECK(expected.sources[0].file_name == "plans.pdf");
     CHECK(expected.sources[0].sha256 == yantra::util::Sha256::of(fake_pdf(1)));
@@ -356,7 +342,7 @@ TEST_CASE("project: the building model round trip (IND-04, TST-33)") {
     REQUIRE(expected.floors.size() == 4);
     CHECK(expected.floors[0].name == "Annex");
     CHECK(expected.floors[0].plan_height == 0.1 + 0.2);
-    CHECK(expected.floors[1].slab_attenuation_db == 21.5);
+    CHECK(expected.floors[1].height_m == 3.6);
     CHECK(expected.floors[2].example_id == "example-1");
     CHECK(expected.floors[3].source.empty());
 
@@ -734,6 +720,7 @@ TEST_CASE("project: an older schema version is migrated on open, with a backup")
     // migrated in one transaction after a backup copy.
     pj::ProjectOptions later;
     later.testing_extra_steps = {"CREATE TABLE future_data (x INTEGER); INSERT INTO future_data VALUES (42)"};
+    const std::string before = read_file(file);
     {
         auto p = pj::Project::open(file, later);
         CHECK(p->opened_version() == pj::kSchemaVersion);
@@ -741,7 +728,9 @@ TEST_CASE("project: an older schema version is migrated on open, with a backup")
         CHECK(p->migration_backup() == fs::path(file.string() + ".schema" + std::to_string(pj::kSchemaVersion) + ".bak"));
         CHECK(p->floors().size() == 1);
     }
-    // The backup is the old file, which this (older) build still opens.
+    // The backup is the old file, byte for byte (IND-46), which this
+    // (older) build still opens.
+    CHECK(read_file(file.string() + ".schema" + std::to_string(pj::kSchemaVersion) + ".bak") == before);
     {
         auto backup = pj::Project::open(file.string() + ".schema" + std::to_string(pj::kSchemaVersion) + ".bak");
         CHECK(backup->meta().schema_version == pj::kSchemaVersion);

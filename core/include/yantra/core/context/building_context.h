@@ -57,8 +57,8 @@ using SceneSource =
 /// file has no scene. The scene is served as the file holds it; only when
 /// the floor's id differs from the scene's (e.g. a tour floor trimmed by
 /// the user) is the scene's floor id set to the floor's (compact JSON), so
-/// the plugin finds the scene of the cursor's floor. The building model's
-/// walls and antennas are not used.
+/// the plugin finds the scene of the cursor's floor. The scene is never
+/// made from the building model.
 SceneSource demo_scenes(std::vector<std::filesystem::path> folders);
 
 class BuildingContext {

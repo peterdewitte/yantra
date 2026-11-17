@@ -302,8 +302,8 @@ void PlanImport::apply_to_floor() {
         editing_.reset();
         throw project::ProjectError(project::ProjectError::Code::NotFound, "the edited floor was removed");
     }
-    // Walls, antennas, scale points and the reference point stay where
-    // they are on the sheet (IND-07 with IND-08..12).
+    // The scale points and the reference point stay where they are on
+    // the sheet (IND-07 with IND-08/09).
     reanchor_floor(*f, f->trim, trim_);
     f->page = page_;
     f->trim = trim_;

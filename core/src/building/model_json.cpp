@@ -3,8 +3,10 @@
 //
 // JSON form of the building model, see model_json.h. Copied from yantra-v2
 // 68ea20a: core/src/building/building_json.cpp, adapted (format name and
-// version, unknown members ignored, per-band wall classes, cells, sources,
-// trims, scale methods).
+// version, unknown members ignored, cells, sources, trims, scale methods).
+// The members of 0.3 and earlier (walls, wall_classes, antennas,
+// slab_attenuation_db, floor_attenuation_db; IND-46) are unknown members
+// now: a reader ignores them.
 
 #include "yantra/core/building/model_json.h"
 
@@ -24,10 +26,6 @@ namespace {
 
 Json point(Point2 p) { return Json::array({p.x, p.y}); }
 
-const char* antenna_type_name(AntennaType t) {
-    return t == AntennaType::OutdoorDonor ? "outdoor_donor" : "indoor_das";
-}
-
 const char* trim_shape_name(Trim::Shape s) {
     switch (s) {
     case Trim::Shape::Rectangle: return "rectangle";
@@ -46,39 +44,6 @@ const char* scale_method_name(Scale::Method m) {
     case Scale::Method::None: break;
     }
     return "none";
-}
-
-Json pattern_json(const AntennaPattern& p) {
-    switch (p.type) {
-    case AntennaPattern::Type::Sector:
-        return {{"type", "sector"},
-                {"azimuth_deg", p.azimuth_deg},
-                {"beamwidth_deg", p.beamwidth_deg},
-                {"front_to_back_db", p.front_to_back_db}};
-    case AntennaPattern::Type::Table:
-        return {{"type", "table"}, {"azimuth_deg", p.azimuth_deg}, {"step_deg", p.step_deg}, {"gain_db", p.gain_db}};
-    case AntennaPattern::Type::Omni: break;
-    }
-    return {{"type", "omni"}};
-}
-
-Json antenna_json(const Antenna& a) {
-    Json j{{"id", a.id}};
-    if (!a.name.empty()) j["name"] = a.name;
-    if (!a.model.empty()) j["model"] = a.model;
-    j["type"] = antenna_type_name(a.type);
-    j["position"] = point(a.position);
-    j["height_m"] = a.height_m;
-    j["gain_dbi"] = a.gain_dbi;
-    j["pattern"] = pattern_json(a.pattern);
-    if (a.eirp_dbm) j["eirp_dbm"] = *a.eirp_dbm;
-    if (a.feed_power_dbm) j["feed_power_dbm"] = *a.feed_power_dbm;
-    if (a.cable_loss_db != 0.0) j["cable_loss_db"] = a.cable_loss_db;
-    if (a.splitter_loss_db != 0.0) j["splitter_loss_db"] = a.splitter_loss_db;
-    if (!a.cell.empty()) j["cell"] = a.cell;
-    if (a.direction_deg) j["direction_deg"] = *a.direction_deg;
-    if (a.elevation_deg) j["elevation_deg"] = *a.elevation_deg;
-    return j;
 }
 
 Json scale_json(const Scale& s) {
@@ -116,22 +81,6 @@ Json floor_json(const Floor& f) {
     j["plan_size"] = Json::array({f.plan_width, f.plan_height});
     j["scale"] = scale_json(f.scale);
     if (f.reference_point) j["reference_point"] = point(*f.reference_point);
-    if (f.slab_attenuation_db) j["slab_attenuation_db"] = *f.slab_attenuation_db;
-    Json walls = Json::array();
-    for (const Wall& w : f.walls) {
-        Json wj;
-        if (!w.id.empty()) wj["id"] = w.id;
-        wj["class"] = w.wall_class;
-        Json pts = Json::array();
-        for (const Point2& p : w.points) pts.push_back(point(p));
-        wj["points"] = pts;
-        if (w.attenuation_db) wj["attenuation_db"] = *w.attenuation_db;
-        walls.push_back(wj);
-    }
-    j["walls"] = walls;
-    Json ants = Json::array();
-    for (const Antenna& a : f.antennas) ants.push_back(antenna_json(a));
-    j["antennas"] = ants;
     return j;
 }
 
@@ -235,56 +184,6 @@ Point2 read_point(const Json& v, const std::string& path) {
 
 constexpr double kBig = 1e9;
 
-AntennaPattern read_pattern(const Json& v, const std::string& path) {
-    const Obj o(v, path);
-    AntennaPattern p;
-    const std::string type = o.str("type");
-    if (type == "omni") {
-        p.type = AntennaPattern::Type::Omni;
-    } else if (type == "sector") {
-        p.type = AntennaPattern::Type::Sector;
-        p.azimuth_deg = o.num("azimuth_deg", 0.0, 0.0, 360.0);
-        p.beamwidth_deg = o.num("beamwidth_deg", 0.0, 360.0);
-        p.front_to_back_db = o.num("front_to_back_db", p.front_to_back_db, 0.0, 200.0);
-    } else if (type == "table") {
-        p.type = AntennaPattern::Type::Table;
-        p.azimuth_deg = o.num("azimuth_deg", 0.0, 0.0, 360.0);
-        p.step_deg = o.num("step_deg", 0.0, 360.0);
-        const Json& g = o.array("gain_db");
-        for (std::size_t i = 0; i < g.size(); ++i) {
-            if (!g[i].is_number()) fail(index_path(o.at("gain_db"), i), "expected a number");
-            p.gain_db.push_back(g[i].get<double>());
-        }
-    } else {
-        fail(o.at("type"), "expected \"omni\", \"sector\" or \"table\"");
-    }
-    return p;
-}
-
-Antenna read_antenna(const Json& v, const std::string& path) {
-    const Obj o(v, path);
-    Antenna a;
-    a.id = o.str("id");
-    a.name = o.str("name", "");
-    a.model = o.str("model", "");
-    const std::string type = o.str("type", "indoor_das");
-    if (type == "indoor_das") a.type = AntennaType::IndoorDas;
-    else if (type == "outdoor_donor") a.type = AntennaType::OutdoorDonor;
-    else fail(o.at("type"), "expected \"indoor_das\" or \"outdoor_donor\"");
-    a.position = read_point(o.value("position"), o.at("position"));
-    a.height_m = o.num("height_m", a.height_m, -kBig, kBig);
-    a.gain_dbi = o.num("gain_dbi", a.gain_dbi, -100.0, 100.0);
-    if (o.has("pattern")) a.pattern = read_pattern(o.value("pattern"), o.at("pattern"));
-    a.eirp_dbm = o.opt_num("eirp_dbm", -200.0, 200.0);
-    a.feed_power_dbm = o.opt_num("feed_power_dbm", -200.0, 200.0);
-    a.cable_loss_db = o.num("cable_loss_db", 0.0, 0.0, 200.0);
-    a.splitter_loss_db = o.num("splitter_loss_db", 0.0, 0.0, 200.0);
-    a.cell = o.str("cell", "");
-    a.direction_deg = o.opt_num("direction_deg", -360.0, 360.0);
-    a.elevation_deg = o.opt_num("elevation_deg", -90.0, 90.0);
-    return a;
-}
-
 Scale read_scale(const Json& v, const std::string& path) {
     const Obj o(v, path);
     Scale s;
@@ -325,17 +224,6 @@ Trim read_trim(const Json& v, const std::string& path) {
     return t;
 }
 
-Wall read_wall(const Json& v, const std::string& path) {
-    const Obj o(v, path);
-    Wall w;
-    w.id = o.str("id", "");
-    w.wall_class = o.str("class", "");
-    const Json& pts = o.array("points");
-    for (std::size_t i = 0; i < pts.size(); ++i) w.points.push_back(read_point(pts[i], index_path(o.at("points"), i)));
-    w.attenuation_db = o.opt_num("attenuation_db", 0.0, 1000.0);
-    return w;
-}
-
 Floor read_floor(const Json& v, const std::string& path) {
     const Obj o(v, path);
     Floor f;
@@ -355,16 +243,6 @@ Floor read_floor(const Json& v, const std::string& path) {
     }
     if (o.has("scale")) f.scale = read_scale(o.value("scale"), o.at("scale"));
     if (o.has("reference_point")) f.reference_point = read_point(o.value("reference_point"), o.at("reference_point"));
-    f.slab_attenuation_db = o.opt_num("slab_attenuation_db", 0.0, 1000.0);
-    if (o.has("walls")) {
-        const Json& ws = o.array("walls");
-        for (std::size_t i = 0; i < ws.size(); ++i) f.walls.push_back(read_wall(ws[i], index_path(o.at("walls"), i)));
-    }
-    if (o.has("antennas")) {
-        const Json& as = o.array("antennas");
-        for (std::size_t i = 0; i < as.size(); ++i)
-            f.antennas.push_back(read_antenna(as[i], index_path(o.at("antennas"), i)));
-    }
     return f;
 }
 
@@ -378,24 +256,6 @@ Building read_building(const Json& j) {
     if (version == 0) fail("version", "must be >= 1");
     Building b;
     b.name = o.str("name", "");
-    b.floor_attenuation_db = o.num("floor_attenuation_db", b.floor_attenuation_db, 0.0, 1000.0);
-    if (o.has("wall_classes")) {
-        b.wall_classes.clear();  // a given table replaces the defaults (IND-11)
-        const Json& cs = o.array("wall_classes");
-        for (std::size_t i = 0; i < cs.size(); ++i) {
-            const Obj c(cs[i], index_path("wall_classes", i));
-            WallClass wc;
-            wc.id = c.str("id");
-            wc.name = c.str("name", wc.id);
-            const Json& bands = c.array("bands");
-            for (std::size_t k = 0; k < bands.size(); ++k) {
-                const Obj bo(bands[k], index_path(c.at("bands"), k));
-                wc.bands.push_back({bo.num("frequency_mhz", 0.0, 1e7), bo.num("attenuation_db", 0.0, 1000.0)});
-            }
-            wc.reflection_loss_db = c.opt_num("reflection_loss_db", 0.0, 1000.0);
-            b.wall_classes.push_back(std::move(wc));
-        }
-    }
     if (o.has("cells")) {
         const Json& cs = o.array("cells");
         for (std::size_t i = 0; i < cs.size(); ++i) {
@@ -445,18 +305,6 @@ Building read_building(const Json& j) {
 std::string building_to_json(const Building& b, int indent) {
     Json j{{"format", kBuildingFormat}, {"version", kBuildingVersion}};
     if (!b.name.empty()) j["name"] = b.name;
-    j["floor_attenuation_db"] = b.floor_attenuation_db;
-    Json classes = Json::array();
-    for (const WallClass& c : b.wall_classes) {
-        Json cj{{"id", c.id}, {"name", c.name}};
-        Json bands = Json::array();
-        for (const BandAttenuation& band : c.bands)
-            bands.push_back({{"frequency_mhz", band.frequency_mhz}, {"attenuation_db", band.attenuation_db}});
-        cj["bands"] = bands;
-        if (c.reflection_loss_db) cj["reflection_loss_db"] = *c.reflection_loss_db;
-        classes.push_back(cj);
-    }
-    j["wall_classes"] = classes;
     Json cells = Json::array();
     for (const Cell& c : b.cells) {
         Json cj{{"id", c.id}};

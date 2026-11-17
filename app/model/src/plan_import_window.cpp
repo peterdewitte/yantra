@@ -721,8 +721,8 @@ Result PlanImportWindow::apply_edit() {
     if (!editing()) return fail(tr("No trim is being edited."));
     const std::string id = *editing();
     try {
-        // The core keeps walls, antennas, the scale points and the
-        // reference point where they are on the sheet (IND-07).
+        // The core keeps the scale points, the reference point and the
+        // measured points where they are on the sheet (IND-07).
         import_->apply_to_floor();
         import_->stop_editing();
     } catch (const std::exception& e) {
@@ -758,7 +758,7 @@ std::string PlanImportWindow::remove_question() const {
     const auto f = project_.floor(*pending_remove_);
     if (!f) return {};
     return tr("Remove the floor \"") + f->name + "\" (level " + std::to_string(f->level) +
-           tr(")? Its walls and antennas are removed with it. The plan file stays in the project.");
+           tr(")? The plan file stays in the project.");
 }
 
 Result PlanImportWindow::confirm_remove() {

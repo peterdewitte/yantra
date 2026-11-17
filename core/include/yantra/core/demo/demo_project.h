@@ -4,8 +4,7 @@
 // The bundled demo project (DEMO-05, DEMO-06, DEMO-08; docs/DEMO.md): a
 // description in data/demo/<id>/<id>.json (format "yantra-demo-project"
 // version 1: plan sheets, floors with trims, scale bars, reference
-// points, walls, DAS antennas, the cell database and one walk route per
-// floor) from which the demo project is made reproducibly:
+// points, the cell database and one walk route per floor) from which the demo project is made reproducibly:
 //
 // 1. create_project: the building in a new project file (the sheets
 //    copied in unchanged and checked against their SHA-256, the floors
@@ -117,8 +116,6 @@ struct DemoFloor {
     bool scale_approximate = false;  ///< DEMO-12: marked "approximate"
     std::string scale_note;          ///< how the scale was found
     Point2 reference_point;  ///< plan units (IND-09)
-    std::vector<building::Wall> walls;
-    std::vector<building::Antenna> antennas;
     DemoWalk walk;
 };
 
@@ -127,7 +124,6 @@ struct DemoDescription {
     std::string label;  ///< the demo label (DEMO-07)
     project::ProjectInfo project;
     std::string building_name;
-    double floor_attenuation_db = 15.0;
     std::string start_utc;          ///< ISO 8601 UTC: the walks' clock
     std::int64_t start_utc_ns = 0;  ///< the same in ns since 1970
     std::string cell_database;      ///< CSV file name next to the description
@@ -142,8 +138,8 @@ struct DemoDescription {
 
 /// Reads and checks a description (DemoError with the reason): the
 /// fields, each trim inside its sheet (when the sheet's size is
-/// described) and every wall point, antenna, walk waypoint and reference
-/// point inside its floor's trim.
+/// described) and every walk waypoint and the reference point inside its
+/// floor's trim.
 DemoDescription read_description(const std::filesystem::path& file);
 
 /// RAD-74 / RAD-18: an `example_ids` entry matches an example id exactly,
@@ -170,9 +166,8 @@ struct CreateOptions {
 };
 
 /// Makes a new project file `file` (replacing one that exists) with the
-/// description's building: info, building name and slab default, the
-/// cell database, the sheets and the floors with trim, scale, reference
-/// point, walls and antennas. Bundled sheets are copied in; restricted
+/// description's building: info, building name, the cell database, the
+/// sheets and the floors with trim, scale and reference point. Bundled sheets are copied in; restricted
 /// sheets are referenced by SHA-256 (IND-03), never copied, with the page
 /// size of the description. Every sheet file used is checked against its
 /// SHA-256 (and a restricted one against its size and page size).
