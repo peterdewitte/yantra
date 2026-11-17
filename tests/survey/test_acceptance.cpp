@@ -183,7 +183,7 @@ TEST_CASE("schema 1..6 files migrate to schema 7: no acceptance profiles, then s
             auto p = pj::Project::open(file);
             CHECK(p->opened_version() == version);
             CHECK(p->meta().schema_version == pj::kSchemaVersion);
-            CHECK(pj::kSchemaVersion == 7);
+            CHECK(pj::kSchemaVersion >= 7);
             CHECK(fs::exists(file.string() + ".schema" + std::to_string(version) + ".bak"));
             CHECK(p->acceptance_profiles().empty());
             ys::set_acceptance_profiles(*p, {profile("Walk", ys::AcceptanceProfile::Basis::Points, {{-90.0, 90.0}})});

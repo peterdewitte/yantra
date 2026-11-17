@@ -338,6 +338,45 @@ CREATE TABLE acceptance_profiles (
 );
 )sql";
 
+// Version 8 (step 14.2, Yantra 0.4): the point interpolation (IND-41,
+// IND-45) replaces the ray-tracing map. The ray-tracing settings and the
+// stored ray-tracing maps are dropped (IND-46: the open notes it once, the
+// backup "<file>.schema<N>.bak" keeps them); the interpolation settings
+// (grid, IDW power, search radius, full-confidence distance) are one row;
+// the stored maps keep their inputs' fingerprints and parameters, with
+// value and confidence per cell (little-endian float32, 8 bytes per cell).
+const char* const kV8 = R"sql(
+DROP TABLE propagation;
+DROP TABLE interpolations;
+CREATE TABLE interpolation_settings (
+  id                INTEGER PRIMARY KEY CHECK (id = 1),
+  grid_m            REAL NOT NULL DEFAULT 0.5 CHECK (grid_m BETWEEN 0.05 AND 10),
+  power             REAL NOT NULL DEFAULT 2 CHECK (power BETWEEN 0.5 AND 6),
+  radius_m          REAL NOT NULL DEFAULT 10 CHECK (radius_m BETWEEN 0.5 AND 1000),
+  full_confidence_m REAL NOT NULL DEFAULT 2 CHECK (full_confidence_m >= 0 AND full_confidence_m < radius_m)
+);
+INSERT INTO interpolation_settings (id) VALUES (1);
+CREATE TABLE interpolations (
+  id              INTEGER PRIMARY KEY AUTOINCREMENT,
+  floor_id        TEXT NOT NULL REFERENCES floors (id) ON DELETE CASCADE,
+  key             TEXT NOT NULL CHECK (key <> ''),
+  created_utc     TEXT NOT NULL,
+  created_with    TEXT NOT NULL,
+  building_sha256 TEXT NOT NULL CHECK (length(building_sha256) = 64),
+  points_sha256   TEXT NOT NULL CHECK (length(points_sha256) = 64),
+  settings_sha256 TEXT NOT NULL CHECK (length(settings_sha256) = 64),
+  parameters      TEXT NOT NULL,
+  result          TEXT NOT NULL,
+  origin_x        REAL NOT NULL,
+  origin_y        REAL NOT NULL,
+  cell_m          REAL NOT NULL CHECK (cell_m > 0),
+  cols            INTEGER NOT NULL CHECK (cols > 0),
+  rows            INTEGER NOT NULL CHECK (rows > 0),
+  cells           BLOB NOT NULL CHECK (length(cells) = cols * rows * 8),
+  UNIQUE (floor_id, key)
+);
+)sql";
+
 }  // namespace
 
 void migrate(sql::Db& db, int from, int to, const std::string& now, const std::string& tool,
@@ -363,6 +402,8 @@ void migrate(sql::Db& db, int from, int to, const std::string& now, const std::s
             db.exec(kV6, what);
         } else if (v == 7) {
             db.exec(kV7, what);
+        } else if (v == 8) {
+            db.exec(kV8, what);
         } else if (v > kSchemaVersion && static_cast<std::size_t>(v - kSchemaVersion) <= extra.size()) {
             db.exec(extra[static_cast<std::size_t>(v - kSchemaVersion - 1)], what);
         } else {

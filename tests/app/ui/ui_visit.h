@@ -224,7 +224,7 @@ inline void visit_all(Shell& s, const std::function<void(const std::string&)>& c
     floor_dialog([&] { return s.state.request_remove_floor(floor); }, "remove floor");
     floor_dialog([&] { return s.state.edit_floor_plan(floor); }, "plan import");
     floor_dialog([&] { return s.state.edit_materials(); }, "wall classes");
-    floor_dialog([&] { return s.state.edit_propagation(); }, "propagation");
+    floor_dialog([&] { return s.state.edit_interpolation_settings(); }, "propagation");
     floor_dialog([&] { return s.state.trigger(Action::SaveAs); }, "save as");
     // Step 10.4: the export (each kind), report, profile and sharing dialogs.
     REQUIRE(s.state.trigger(Action::Export).ok);

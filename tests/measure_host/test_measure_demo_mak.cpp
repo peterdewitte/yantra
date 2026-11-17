@@ -421,9 +421,7 @@ TEST_CASE("DEMO-13 the MAK example projects hold a walk recording and an interpo
             CHECK(bytes.find(d.label) != std::string::npos);
             const auto stored = ys::stored_interpolations(*p, df.id);
             REQUIRE(stored.size() == 1);
-            CHECK(stored[0].quality.points == list.count());
-            CHECK(stored[0].quality.rms_db < 3.0);
-            CHECK(!stored[0].estimated_sources);
+            CHECK(stored[0].points.size() == list.count());
             CHECK(!ys::staleness(*p, stored[0]).stale);
         }
     }

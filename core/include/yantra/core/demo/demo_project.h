@@ -20,7 +20,7 @@
 //    continuous walk test that clicks each waypoint when the walker
 //    reaches it, recorded (REC-01) with a fixed session id; the points go
 //    into the project and the files into its recording list.
-// 4. interpolation_request: the ray-tracing interpolation (IND-40..45) of
+// 4. interpolation_request: the point interpolation (IND-41, IND-45) of
 //    each floor's walk, stored in the project.
 //
 // The MAK example buildings of the tour (DEMO-12, DEMO-13) use the same
@@ -248,7 +248,7 @@ WalkRecording record_walk(const std::shared_ptr<project::Project>& project, cons
 survey::Metric demo_metric(const project::Project& project, const DemoDescription& d);
 
 /// The interpolation request of a floor: the demo metric over every
-/// session of the floor, the project's propagation settings.
+/// session of the floor, the project's interpolation settings.
 survey::InterpolationRequest interpolation_request(const project::Project& project, const DemoDescription& d,
                                                    const DemoFloor& f);
 

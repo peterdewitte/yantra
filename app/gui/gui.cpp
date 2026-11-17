@@ -42,7 +42,7 @@ const char* dialog_id(Dialog d, const AppState& state) {
     case Dialog::RemoveFloor: return tr("Remove floor?###dlg.remove_floor");
     case Dialog::AntennaProperties: return tr("Antenna properties###dlg.antenna");
     case Dialog::Materials: return tr("Wall classes###dlg.materials");
-    case Dialog::Propagation: return tr("Propagation settings###dlg.propagation");
+    case Dialog::InterpolationSettings: return tr("Interpolation settings###dlg.interpolation");
     case Dialog::Settings: return tr("Settings###dlg.settings");
     case Dialog::ResetSettings: return tr("Reset all settings?###dlg.reset_settings");
     case Dialog::TourConsent: return tr("Download a MAK plan sheet?###dlg.tour_consent");
@@ -588,7 +588,7 @@ void Gui::draw_layer_panel(ProjectWindow& w, const FloorContent* c) {
         }
         if (r.layer == Layer::Interpolation && c != nullptr && c->interpolation) {
             ImGui::Indent();
-            ImGui::TextDisabled(tr("Fit: RMS %.1f dB over %zu points"), c->interpolation->rms_db, c->interpolation->fit_points);
+            ImGui::TextDisabled(tr("IDW of %zu measured points"), c->interpolation->points);
             if (c->interpolations.size() > 1) {
                 ImGui::SetNextItemWidth(-1.0F);
                 if (ImGui::BeginCombo("###layer.interpolation.choose", c->interpolation->key.c_str())) {
@@ -1080,7 +1080,7 @@ const char* dialog_section(Dialog d) {
     case Dialog::About: return "1.2";
     case Dialog::AntennaProperties:
     case Dialog::Materials: return "13.3";
-    case Dialog::Propagation: return "13.5";
+    case Dialog::InterpolationSettings: return "13.5";
     case Dialog::Settings: return "15";
     case Dialog::ResetSettings: return "15.4";
     case Dialog::TourConsent: return "1.3";
@@ -1110,7 +1110,7 @@ void Gui::draw_dialog_body(Dialog d) {
     case Dialog::RemoveFloor: draw_remove_floor(); break;
     case Dialog::AntennaProperties: draw_antenna_dialog(); break;
     case Dialog::Materials: draw_materials_dialog(); break;
-    case Dialog::Propagation: draw_propagation_dialog(); break;
+    case Dialog::InterpolationSettings: draw_interpolation_dialog(); break;
     case Dialog::Settings: draw_settings(); break;
     case Dialog::ResetSettings: draw_reset_settings(); break;
     case Dialog::TourConsent: draw_tour_consent(); break;

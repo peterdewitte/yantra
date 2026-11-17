@@ -113,8 +113,8 @@ struct BinnedLayer {
 /// The interpolation layer of a floor (IND-43).
 struct InterpolationLayer {
     std::int64_t id = 0;  ///< the stored result
-    std::string label;    ///< "interpolated" (+ ", estimated sources")
-    std::string key;      ///< what it is for (metric and source group)
+    std::string label;    ///< "interpolated"
+    std::string key;      ///< what it is for (the metric)
     Point2 min, max;      ///< grid rectangle in plan units
     int cols = 0;
     int rows = 0;
@@ -123,12 +123,7 @@ struct InterpolationLayer {
     std::vector<std::uint8_t> rgba;
     bool stale = false;
     std::vector<std::string> stale_reasons;
-    double rms_db = 0.0;
-    std::size_t fit_points = 0;
-    /// IND-42: the sources the model estimated (no antenna reached the
-    /// floor), drawn as estimated markers with their fitted EIRP.
-    bool estimated_sources = false;
-    std::vector<PlanAntenna> sources;
+    std::size_t points = 0;  ///< the measured points the map used
     survey::Interpolation data;  ///< for the hover readout
 };
 

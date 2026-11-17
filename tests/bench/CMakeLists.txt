@@ -7,8 +7,8 @@
 # 2 reflections), one thread, SIMD and scalar, after a CPU calibration
 # line; a time beyond limits.csv fails (label slow). Time limits: label
 # timing and RUN_SERIAL (an otherwise idle machine; left out of the
-# sanitizer runs, -LE timing). bench_interpolation times the fit, the
-# residual field and the source search (IND-41..43) on the same floor;
+# sanitizer runs, -LE timing). bench_interpolation times the point
+# interpolation (IDW, IND-41, docs/INTERPOLATION.md "Speed and SIMD");
 # bench_pipeline the record pipeline (RF-01). bench_common.h holds the
 # calibration and the limit check of all three.
 # Copied from yantra-v2 68ea20a: tests/raytrace_bench, adapted (CPU

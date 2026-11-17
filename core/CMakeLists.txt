@@ -188,5 +188,18 @@ else()
   target_compile_definitions(yantra_core PRIVATE YANTRA_RAYTRACE_SIMD=0)
 endif()
 set_source_files_properties(src/raytrace/kernels.cpp src/raytrace/kernels_simd.cpp src/raytrace/model.cpp
-  src/raytrace/fit.cpp src/raytrace/residuals.cpp src/survey/interpolation.cpp
+  src/raytrace/fit.cpp src/raytrace/residuals.cpp
+  PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+
+# Point interpolation (IND-41): the SIMD distance kernel with YANTRA_SIMD
+# (GCC/Clang vector extensions), else the plain C++ one; floating-point
+# contraction is off in its files, so both paths and every thread count
+# give the same map bit for bit (TST-53).
+if(YANTRA_SIMD)
+  target_sources(yantra_core PRIVATE src/survey/idw_kernels_simd.cpp)
+  target_compile_definitions(yantra_core PRIVATE YANTRA_IDW_SIMD=1)
+else()
+  target_compile_definitions(yantra_core PRIVATE YANTRA_IDW_SIMD=0)
+endif()
+set_source_files_properties(src/survey/interpolation.cpp src/survey/idw_kernels_simd.cpp
   PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")

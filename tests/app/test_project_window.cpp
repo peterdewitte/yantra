@@ -314,7 +314,7 @@ TEST_CASE("project window: the stored interpolation layer, its readout and the s
     REQUIRE(in.cols > 0);
     CHECK(in.rgba.size() == static_cast<std::size_t>(in.cols) * static_cast<std::size_t>(in.rows) * 4U);
     CHECK(in.max.x > in.min.x);
-    CHECK(in.fit_points == c->points.count());
+    CHECK(in.points == c->points.count());
     CHECK(c->interpolations.size() >= 1);
     // Alpha is the confidence (IND-43): some cells fade, some are opaque.
     std::size_t faded = 0, opaque = 0;

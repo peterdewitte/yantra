@@ -16,6 +16,19 @@ own changes are in its CHANGELOG.md.
 
 ### Changed
 
+- The coverage map of a floor is an inverse-distance-weighted (IDW)
+  interpolation of its measured points (IND-41): grid 0.5 m, power 2,
+  search radius 10 m by default, all set in the Interpolation settings
+  dialog and stored in the project; a grid cell holding a measured point
+  takes that point's level (the median when several). It no longer uses
+  walls, antennas or a fitted propagation model. The confidence mask
+  fades from 2 m to the search radius (IND-43); it runs in the
+  background with progress and cancel (IND-45). The map, the mouse-survey
+  click (DEMO-14), the report (EXP-05) and the demo projects use it; the
+  report gives the method and its settings instead of the fit quality.
+  Project schema 8: the ray-tracing settings and stored ray-tracing maps
+  of older project files are dropped when they are opened (a backup of the
+  old file is kept; run the interpolation again).
 - The simulator gets its signal levels from fixed demo scenes shipped
   with the demo data (DEMO-05, DEMO-12, DEMO-13, PLG-27): one scene file
   per bundled example floor (the Fraunces Tavern and the three MAK

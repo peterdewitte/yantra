@@ -1,15 +1,17 @@
 // SPDX-FileCopyrightText: 2026 The Yantra contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The interpolated coverage map (IND-41..45, EXP-06); see interpolation.h
-// and docs/PROPAGATION.md "Interpolation of a floor".
+// The interpolated coverage map (IND-41, IND-43, IND-45, EXP-06): IDW of
+// the measured points; see interpolation.h and docs/INTERPOLATION.md.
 //
-// Copied from yantra-v2 68ea20a: core/src/survey/interpolation.cpp, adapted
-// (survey::Metric, plan-frame metres, per-cell carriers and the group of
-// the metric's carrier, the floor outline, the floor-area acceptance
-// basis, a shared project in the job).
+// Storage, statistics, readout and job copied from yantra-v2 68ea20a:
+// core/src/survey/interpolation.cpp, adapted (IDW instead of the
+// ray-tracing model, Yantra 0.4).
 
 #include "yantra/core/survey/interpolation.h"
+
+#include "idw_kernels.h"
+#include "parallel.h"
 
 #include "yantra/core/building/model_json.h"
 #include "yantra/core/plan/trim.h"
@@ -20,6 +22,7 @@
 #include <cstdio>
 #include <cstring>
 #include <limits>
+#include <map>
 #include <mutex>
 #include <stdexcept>
 
@@ -33,12 +36,15 @@ using Code = ProjectError::Code;
 
 namespace {
 
-constexpr int kFormat = 1;  // version of the parameters/result JSON
+constexpr int kFormat = 2;  // version of the parameters/result JSON (1: the ray-tracing map of 0.3)
+
+std::string fmt(double v) {
+    char b[64];
+    std::snprintf(b, sizeof b, "%g", v);
+    return b;
+}
 
 // ---- JSON of the parameters and results ---------------------------------
-
-json bounds_json(const raytrace::Bounds& b) { return json::array({b.lo, b.hi}); }
-raytrace::Bounds bounds_of(const json& j) { return {j.at(0).get<double>(), j.at(1).get<double>()}; }
 
 template <class E, std::size_t N>
 const char* name_of(E e, const std::pair<E, const char*> (&names)[N]) {
@@ -53,19 +59,12 @@ E value_of(const std::string& s, const std::pair<E, const char*> (&names)[N], co
     throw std::invalid_argument(std::string(what) + ": " + s);
 }
 
-constexpr std::pair<raytrace::EirpFit, const char*> kEirp[] = {
-    {raytrace::EirpFit::Unknown, "unknown"}, {raytrace::EirpFit::All, "all"}, {raytrace::EirpFit::None, "none"}};
 constexpr std::pair<Metric::Carrier, const char*> kCarrier[] = {
     {Metric::Carrier::Serving, "serving"},
     {Metric::Carrier::Strongest, "strongest"},
     {Metric::Carrier::Frequency, "frequency"}};
 constexpr std::pair<Metric::Value, const char*> kValue[] = {
     {Metric::Value::Level, "level"}, {Metric::Value::C1, "c1"}, {Metric::Value::Quality, "quality"}};
-constexpr std::pair<raytrace::FitParameter::Kind, const char*> kKind[] = {
-    {raytrace::FitParameter::Kind::Eirp, "eirp"},
-    {raytrace::FitParameter::Kind::Exponent, "exponent"},
-    {raytrace::FitParameter::Kind::WallClass, "wall_class"},
-    {raytrace::FitParameter::Kind::FloorLoss, "floor_loss"}};
 
 json to_json(const Metric& m) {
     json failed = json::array();
@@ -89,205 +88,46 @@ Metric metric_of(const json& j) {
     return m;
 }
 
-json to_json(const raytrace::FitOptions& o) {
-    json wc = json::object();
-    for (const auto& [id, b] : o.wall_class_bounds) wc[id] = bounds_json(b);
-    json j{{"eirp", name_of(o.eirp, kEirp)},
-           {"eirp_dbm", bounds_json(o.eirp_dbm)},
-           {"fit_exponent", o.fit_exponent},
-           {"exponent", bounds_json(o.exponent)},
-           {"fit_wall_classes", o.fit_wall_classes},
-           {"wall_class_bounds", wc},
-           {"fit_floor_loss", o.fit_floor_loss},
-           {"floor_loss_db", bounds_json(o.floor_loss_db)},
-           {"max_iterations", o.max_iterations},
-           {"group_key", nullptr}};
-    if (o.group_key) j["group_key"] = *o.group_key;
-    return j;
+json to_json(const project::InterpolationSettings& s) {
+    return {{"grid_m", s.grid_m}, {"power", s.power}, {"radius_m", s.radius_m}, {"full_confidence_m", s.full_confidence_m}};
 }
-raytrace::FitOptions fit_options_of(const json& j) {
-    raytrace::FitOptions o;
-    o.eirp = value_of(j.at("eirp").get<std::string>(), kEirp, "eirp");
-    o.eirp_dbm = bounds_of(j.at("eirp_dbm"));
-    o.fit_exponent = j.at("fit_exponent").get<bool>();
-    o.exponent = bounds_of(j.at("exponent"));
-    o.fit_wall_classes = j.at("fit_wall_classes").get<bool>();
-    for (const auto& [id, b] : j.at("wall_class_bounds").items()) o.wall_class_bounds[id] = bounds_of(b);
-    o.fit_floor_loss = j.at("fit_floor_loss").get<bool>();
-    o.floor_loss_db = bounds_of(j.at("floor_loss_db"));
-    o.max_iterations = j.at("max_iterations").get<int>();
-    if (!j.at("group_key").is_null()) o.group_key = j.at("group_key").get<std::string>();
-    return o;
-}
-
-json to_json(const raytrace::ResidualOptions& o) {
-    return {{"radius_m", o.radius_m},
-            {"power", o.power},
-            {"walls_limit", o.walls_limit},
-            {"full_confidence_m", o.full_confidence_m},
-            {"zero_confidence_m", o.zero_confidence_m}};
-}
-raytrace::ResidualOptions residual_options_of(const json& j) {
-    raytrace::ResidualOptions o;
-    o.radius_m = j.at("radius_m").get<double>();
-    o.power = j.at("power").get<double>();
-    o.walls_limit = j.at("walls_limit").get<bool>();
-    o.full_confidence_m = j.at("full_confidence_m").get<double>();
-    o.zero_confidence_m = j.at("zero_confidence_m").get<double>();
-    return o;
-}
-
-json to_json(const raytrace::SourceSearchOptions& o) {
-    return {{"max_sources", o.max_sources},           {"min_improvement_db", o.min_improvement_db},
-            {"step_m", o.step_m},                     {"height_m", o.height_m},
-            {"eirp_dbm", bounds_json(o.eirp_dbm)}, {"one_cell", o.one_cell}};
-}
-raytrace::SourceSearchOptions source_options_of(const json& j) {
-    raytrace::SourceSearchOptions o;
-    o.max_sources = j.at("max_sources").get<int>();
-    o.min_improvement_db = j.at("min_improvement_db").get<double>();
-    o.step_m = j.at("step_m").get<double>();
-    o.height_m = j.at("height_m").get<double>();
-    o.eirp_dbm = bounds_of(j.at("eirp_dbm"));
-    o.one_cell = j.at("one_cell").get<bool>();
-    return o;
+project::InterpolationSettings settings_of(const json& j) {
+    project::InterpolationSettings s;
+    s.grid_m = j.at("grid_m").get<double>();
+    s.power = j.at("power").get<double>();
+    s.radius_m = j.at("radius_m").get<double>();
+    s.full_confidence_m = j.at("full_confidence_m").get<double>();
+    return s;
 }
 
 json to_json(const InterpolationRequest& r) {
-    json j{{"floor_id", r.floor_id},
-           {"metric", to_json(r.metric)},
-           {"sessions", r.sessions},
-           {"frequency_hz", nullptr},
-           {"grid_m", nullptr},
-           {"fit", to_json(r.fit)},
-           {"residuals", to_json(r.residuals)},
-           {"sources", to_json(r.sources)}};
-    if (r.frequency_hz) j["frequency_hz"] = *r.frequency_hz;
-    if (r.grid_m) j["grid_m"] = *r.grid_m;
-    return j;
+    return {{"floor_id", r.floor_id},
+            {"metric", to_json(r.metric)},
+            {"sessions", r.sessions},
+            {"settings", r.settings ? to_json(*r.settings) : json(nullptr)}};
 }
 InterpolationRequest request_of(const json& j) {
     InterpolationRequest r;
     r.floor_id = j.at("floor_id").get<std::string>();
     r.metric = metric_of(j.at("metric"));
     r.sessions = j.at("sessions").get<std::vector<std::int64_t>>();
-    if (!j.at("frequency_hz").is_null()) r.frequency_hz = j.at("frequency_hz").get<double>();
-    if (!j.at("grid_m").is_null()) r.grid_m = j.at("grid_m").get<double>();
-    r.fit = fit_options_of(j.at("fit"));
-    r.residuals = residual_options_of(j.at("residuals"));
-    r.sources = source_options_of(j.at("sources"));
+    if (!j.at("settings").is_null()) r.settings = settings_of(j.at("settings"));
     return r;
 }
 
-json to_json(const raytrace::ModelParams& p) {
-    json j{{"frequency_hz", nullptr},
-           {"grid_m", p.grid_m},
-           {"max_reflections", p.max_reflections},
-           {"rx_height_m", p.rx_height_m},
-           {"other_floors", p.other_floors},
-           {"path_loss_exponent", p.path_loss_exponent},
-           {"reference_distance_m", p.reference_distance_m},
-           {"reflection_loss_db", p.reflection_loss_db},
-           {"floor_loss_db", nullptr},
-           {"wall_class_loss_db", p.wall_class_loss_db},
-           {"antenna_eirp_dbm", p.antenna_eirp_dbm},
-           {"default_eirp_dbm", p.default_eirp_dbm}};
-    if (p.frequency_hz) j["frequency_hz"] = *p.frequency_hz;
-    if (p.floor_loss_db) j["floor_loss_db"] = *p.floor_loss_db;
-    return j;
-}
-raytrace::ModelParams params_of(const json& j) {
-    raytrace::ModelParams p;
-    if (!j.at("frequency_hz").is_null()) p.frequency_hz = j.at("frequency_hz").get<double>();
-    p.grid_m = j.at("grid_m").get<double>();
-    p.max_reflections = j.at("max_reflections").get<int>();
-    p.rx_height_m = j.at("rx_height_m").get<double>();
-    p.other_floors = j.at("other_floors").get<bool>();
-    p.path_loss_exponent = j.at("path_loss_exponent").get<double>();
-    p.reference_distance_m = j.at("reference_distance_m").get<double>();
-    p.reflection_loss_db = j.at("reflection_loss_db").get<double>();
-    if (!j.at("floor_loss_db").is_null()) p.floor_loss_db = j.at("floor_loss_db").get<double>();
-    p.wall_class_loss_db = j.at("wall_class_loss_db").get<std::map<std::string, double>>();
-    p.antenna_eirp_dbm = j.at("antenna_eirp_dbm").get<std::map<std::string, double>>();
-    p.default_eirp_dbm = j.at("default_eirp_dbm").get<double>();
-    return p;
-}
-
 json result_json(const Interpolation& r) {
-    json fitted = json::array();
-    for (const auto& f : r.fitted)
-        fitted.push_back({{"kind", name_of(f.kind, kKind)},
-                          {"id", f.id},
-                          {"start", f.start},
-                          {"value", f.value},
-                          {"bounds", bounds_json(f.bounds)},
-                          {"at_bound", f.at_bound}});
-    json sources = json::array();
-    for (const auto& a : r.sources)
-        sources.push_back({{"id", a.id},
-                           {"name", a.name},
-                           {"x", a.position.x},
-                           {"y", a.position.y},
-                           {"height_m", a.height_m},
-                           {"eirp_dbm", a.eirp_dbm ? json(*a.eirp_dbm) : json(nullptr)},
-                           {"cell", a.cell}});
     json points = json::array();
     for (const auto& p : r.points)
-        points.push_back(json::array({p.session_id, p.sequence, p.position_m.x, p.position_m.y, p.measured_dbm,
-                                      p.model_dbm, p.residual_db}));
-    return {{"format", kFormat},
-            {"label", r.label()},
-            {"group_key", r.group_key},
-            {"quality",
-             {{"points", r.quality.points},
-              {"rms_db", r.quality.rms_db},
-              {"mean_db", r.quality.mean_db},
-              {"max_abs_db", r.quality.max_abs_db},
-              {"start_rms_db", r.quality.start_rms_db}}},
-            {"fitted", fitted},
-            {"not_fitted", r.not_fitted},
-            {"iterations", r.iterations},
-            {"stop_reason", r.stop_reason},
-            {"estimated_sources", r.estimated_sources},
-            {"sources", sources},
-            {"floor_cells", r.floor_cells},
-            {"points", points}};
+        points.push_back(json::array({p.session_id, p.sequence, p.position_m.x, p.position_m.y, p.measured_dbm}));
+    return {{"format", kFormat}, {"label", r.label()}, {"floor_cells", r.floor_cells}, {"points", points}};
 }
 
 void read_result(const json& j, Interpolation& r) {
     if (j.at("format").get<int>() != kFormat) throw std::invalid_argument("unknown result format");
-    r.group_key = j.at("group_key").get<std::string>();
-    const json& q = j.at("quality");
-    r.quality.points = q.at("points").get<std::size_t>();
-    r.quality.rms_db = q.at("rms_db").get<double>();
-    r.quality.mean_db = q.at("mean_db").get<double>();
-    r.quality.max_abs_db = q.at("max_abs_db").get<double>();
-    r.quality.start_rms_db = q.at("start_rms_db").get<double>();
-    for (const json& f : j.at("fitted"))
-        r.fitted.push_back({value_of(f.at("kind").get<std::string>(), kKind, "parameter kind"),
-                            f.at("id").get<std::string>(), f.at("start").get<double>(), f.at("value").get<double>(),
-                            bounds_of(f.at("bounds")), f.at("at_bound").get<bool>()});
-    r.not_fitted = j.at("not_fitted").get<std::vector<std::string>>();
-    r.iterations = j.at("iterations").get<int>();
-    r.stop_reason = j.at("stop_reason").get<std::string>();
-    r.estimated_sources = j.at("estimated_sources").get<bool>();
-    for (const json& s : j.at("sources")) {
-        building::Antenna a;
-        a.id = s.at("id").get<std::string>();
-        a.name = s.at("name").get<std::string>();
-        a.model = "estimated";
-        a.position = {s.at("x").get<double>(), s.at("y").get<double>()};
-        a.height_m = s.at("height_m").get<double>();
-        if (!s.at("eirp_dbm").is_null()) a.eirp_dbm = s.at("eirp_dbm").get<double>();
-        a.cell = s.at("cell").get<std::string>();
-        a.gain_dbi = 0.0;
-        r.sources.push_back(a);
-    }
     r.floor_cells = j.at("floor_cells").get<std::size_t>();
     for (const json& p : j.at("points"))
         r.points.push_back({p.at(0).get<std::int64_t>(), p.at(1).get<std::int64_t>(),
-                            {p.at(2).get<double>(), p.at(3).get<double>()}, p.at(4).get<double>(),
-                            p.at(5).get<double>(), p.at(6).get<double>()});
+                            Point2{p.at(2).get<double>(), p.at(3).get<double>()}, p.at(4).get<double>()});
 }
 
 // ---- cells ------------------------------------------------------------------
@@ -303,6 +143,14 @@ float get_f32(const std::uint8_t* p) {
     float v = 0.0f;
     std::memcpy(&v, &u, 4);
     return v;
+}
+
+/// 1 for the cells of `grid` holding one of `positions`.
+std::vector<std::uint8_t> measured_cells(const Grid& grid, const std::vector<Point2>& positions) {
+    std::vector<std::uint8_t> out(grid.size(), 0);
+    for (const Point2& p : positions)
+        if (auto c = grid.cell_at(p)) out[*c] = 1;
+    return out;
 }
 
 // ---- inputs -----------------------------------------------------------------
@@ -356,86 +204,186 @@ std::string building_fingerprint(const building::Building& b) {
     return h.finish_hex();
 }
 
-json settings_json(const project::PropagationSettings& s) {
-    return {{"grid_m", s.grid_m},
-            {"max_reflections", s.max_reflections},
-            {"path_loss_exponent", s.path_loss_exponent},
-            {"reference_distance_m", s.reference_distance_m},
-            {"reflection_loss_db", s.reflection_loss_db},
-            {"rx_height_m", s.rx_height_m},
-            {"other_floors", s.other_floors},
-            {"default_eirp_dbm", s.default_eirp_dbm}};
+project::InterpolationSettings settings_for(const project::Project& project, const InterpolationRequest& r) {
+    return r.settings ? *r.settings : project.interpolation_settings();
 }
 
-std::string settings_fingerprint(const project::PropagationSettings& s, const InterpolationRequest& r) {
-    const json j{{"propagation", settings_json(s)}, {"request", to_json(r)}};
+std::string settings_fingerprint(const project::InterpolationSettings& s, const InterpolationRequest& r) {
+    const json j{{"settings", to_json(s)}, {"request", to_json(r)}};
     util::Sha256 h;
-    h.update("yantra-interpolation-settings 1\n" + j.dump());
+    h.update("yantra-interpolation-settings 2\n" + j.dump());
     return h.finish_hex();
 }
 
-void check_request(const InterpolationRequest& r) {
-    if (r.metric.value != Metric::Value::Level)
-        throw ProjectError(Code::Invalid, "interpolation: the metric must be a level");
-    std::vector<std::string> problems = r.fit.validate();
-    for (auto& x : r.residuals.validate()) problems.push_back(x);
-    for (auto& x : r.sources.validate()) problems.push_back(x);
-    if (r.grid_m && !(std::isfinite(*r.grid_m) && *r.grid_m >= 0.05 && *r.grid_m <= 10.0))
-        problems.push_back("grid_m: outside 0.05 .. 10");
-    if (r.frequency_hz && !(std::isfinite(*r.frequency_hz) && *r.frequency_hz > 0.0))
-        problems.push_back("frequency_hz: must be > 0");
-    if (!problems.empty()) throw ProjectError(Code::Invalid, "interpolation: " + problems.front());
+void check_settings(const project::InterpolationSettings& s) {
+    const auto problems = s.validate();
+    if (!problems.empty()) throw std::invalid_argument("interpolation settings: " + problems.front());
 }
 
-/// The antennas that reach the floor in the model (on the floor, or on
-/// another scaled floor with other_floors), not outdoor donor directions.
-std::vector<const building::Antenna*> reaching(const building::Building& b, const std::string& floor_id,
-                                               bool other_floors) {
-    std::vector<const building::Antenna*> out;
-    for (const auto& f : b.floors) {
-        if (!b.has_scale(f) || (f.id != floor_id && !other_floors)) continue;
-        for (const auto& a : f.antennas)
-            if (a.type != building::AntennaType::OutdoorDonor) out.push_back(&a);
+// ---- IDW --------------------------------------------------------------------
+
+/// The samples sorted into square buckets of side `size` (row-major by
+/// bucket, then sample order), as structure of arrays for the kernel.
+struct Buckets {
+    double size = 1.0;
+    std::vector<double> x, y, v;
+    std::map<std::pair<std::int64_t, std::int64_t>, std::pair<std::size_t, std::size_t>> ranges;
+
+    std::int64_t idx(double c) const { return static_cast<std::int64_t>(std::floor(c / size)); }
+
+    Buckets(const std::vector<IdwSample>& s, double bucket) : size(bucket) {
+        std::vector<std::pair<std::pair<std::int64_t, std::int64_t>, std::size_t>> order;
+        order.reserve(s.size());
+        for (std::size_t i = 0; i < s.size(); ++i)
+            order.push_back({{idx(s[i].position_m.y), idx(s[i].position_m.x)}, i});
+        std::sort(order.begin(), order.end());
+        for (std::size_t k = 0; k < order.size(); ++k) {
+            const auto& [key, i] = order[k];
+            auto [it, fresh] = ranges.try_emplace(key, k, k);
+            it->second.second = k + 1;
+            (void)fresh;
+            x.push_back(s[i].position_m.x);
+            y.push_back(s[i].position_m.y);
+            v.push_back(s[i].value_db);
+        }
     }
-    return out;
-}
+};
 
-/// A free cell id for the estimated sources (kEstimatedCellId unless used).
-std::string free_cell_id(const building::Building& b) {
-    std::string id = raytrace::kEstimatedCellId;
-    for (int n = 2; b.find_cell(id) != nullptr; ++n) id = std::string(raytrace::kEstimatedCellId) + "-" + std::to_string(n);
-    return id;
+double median(std::vector<double>& v) {
+    std::sort(v.begin(), v.end());
+    const std::size_t n = v.size();
+    return n % 2 == 1 ? v[n / 2] : (v[n / 2 - 1] + v[n / 2]) / 2.0;
 }
 
 }  // namespace
 
-raytrace::ModelParams model_params(const project::PropagationSettings& s) {
-    raytrace::ModelParams p;
-    p.grid_m = s.grid_m;
-    p.max_reflections = s.max_reflections;
-    p.path_loss_exponent = s.path_loss_exponent;
-    p.reference_distance_m = s.reference_distance_m;
-    p.reflection_loss_db = s.reflection_loss_db;
-    p.rx_height_m = s.rx_height_m;
-    p.other_floors = s.other_floors;
-    p.default_eirp_dbm = s.default_eirp_dbm;
-    return p;
+bool simd_built() noexcept { return YANTRA_IDW_SIMD != 0; }
+
+std::optional<std::size_t> Grid::cell_at(Point2 m) const {
+    const double cx = std::floor((m.x - origin_m.x) / cell_m);
+    const double cy = std::floor((m.y - origin_m.y) / cell_m);
+    if (!(cx >= 0.0 && cy >= 0.0 && cx < cols && cy < rows)) return std::nullopt;
+    return index(static_cast<int>(cx), static_cast<int>(cy));
+}
+
+Grid floor_grid(const building::Building& b, const building::Floor& f, double cell_m,
+                const std::vector<Point2>& points_m) {
+    const auto mpu = b.metres_per_unit(f);
+    if (!mpu) throw std::logic_error("floor '" + f.id + "' has no scale");
+    if (!std::isfinite(cell_m) || cell_m < 0.05 || cell_m > 10.0)
+        throw std::invalid_argument("grid cell size " + fmt(cell_m) + " m is outside 0.05 .. 10 m");
+    Point2 lo;
+    Point2 hi;
+    if (f.plan_width > 0.0 && f.plan_height > 0.0) {
+        hi = {f.plan_width * *mpu, f.plan_height * *mpu};
+    } else {
+        if (points_m.empty()) throw std::invalid_argument("floor '" + f.id + "' has no plan size and no points");
+        lo = hi = points_m.front();
+        for (const Point2& m : points_m) {
+            lo = {std::min(lo.x, m.x), std::min(lo.y, m.y)};
+            hi = {std::max(hi.x, m.x), std::max(hi.y, m.y)};
+        }
+        lo = {lo.x - 1.0, lo.y - 1.0};
+        hi = {hi.x + 1.0, hi.y + 1.0};
+    }
+    Grid g;
+    g.origin_m = lo;
+    g.cell_m = cell_m;
+    const double cols = std::ceil((hi.x - lo.x) / cell_m - 1e-9);
+    const double rows = std::ceil((hi.y - lo.y) / cell_m - 1e-9);
+    if (!(cols >= 1.0 && rows >= 1.0) || cols * rows > static_cast<double>(kMaxGridCells))
+        throw std::invalid_argument("grid of floor '" + f.id + "' would have " + fmt(cols) + " x " + fmt(rows) +
+                                    " cells (1 .. " + std::to_string(kMaxGridCells) + ")");
+    g.cols = static_cast<int>(cols);
+    g.rows = static_cast<int>(rows);
+    return g;
+}
+
+IdwField idw(const Grid& grid, const std::vector<IdwSample>& samples, const project::InterpolationSettings& s,
+             const RunControl& run) {
+    check_settings(s);
+    if (grid.cols <= 0 || grid.rows <= 0 || !(grid.cell_m > 0.0)) throw std::invalid_argument("idw: empty grid");
+    detail::Dist2Fn dist2 = detail::dist2_scalar;
+#if YANTRA_IDW_SIMD
+    if (run.isa == Isa::Simd) dist2 = detail::dist2_simd;
+#endif
+    const std::size_t n = grid.size();
+    IdwField out;
+    out.value_db.assign(n, -std::numeric_limits<float>::infinity());
+    out.confidence.assign(n, 0.0f);
+    out.measured.assign(n, 0);
+
+    // The measured cells: the median of their points.
+    std::map<std::size_t, std::vector<double>> in_cell;
+    for (const IdwSample& p : samples)
+        if (auto c = grid.cell_at(p.position_m)) in_cell[*c].push_back(p.value_db);
+
+    const Buckets buckets(samples, s.radius_m);
+    const double r2 = s.radius_m * s.radius_m;
+    const double half_power = s.power / 2.0;
+    const bool square = s.power == 2.0;
+    const std::size_t rows = static_cast<std::size_t>(grid.rows);
+    const std::size_t cols = static_cast<std::size_t>(grid.cols);
+    // One job per grid row; every cell is computed on its own, in a fixed
+    // order of the points, so the thread count does not change a value.
+    const bool done = detail::run_parallel(run, rows, [&](std::size_t row) {
+        std::vector<double> d2;
+        for (std::size_t col = 0; col < cols; ++col) {
+            const std::size_t i = row * cols + col;
+            const Point2 c = grid.centre(static_cast<int>(col), static_cast<int>(row));
+            const std::int64_t bi = buckets.idx(c.x);
+            const std::int64_t bj = buckets.idx(c.y);
+            double sw = 0.0;
+            double swv = 0.0;
+            double nearest2 = std::numeric_limits<double>::infinity();
+            for (std::int64_t j = bj - 1; j <= bj + 1; ++j)
+                for (std::int64_t k = bi - 1; k <= bi + 1; ++k) {
+                    auto it = buckets.ranges.find({j, k});
+                    if (it == buckets.ranges.end()) continue;
+                    const auto [b0, b1] = it->second;
+                    d2.resize(b1 - b0);
+                    dist2(buckets.x.data() + b0, buckets.y.data() + b0, b1 - b0, c.x, c.y, d2.data());
+                    for (std::size_t q = 0; q < d2.size(); ++q) {
+                        const double dd = d2[q];
+                        if (!(dd <= r2)) continue;
+                        nearest2 = std::min(nearest2, dd);
+                        const double w = square ? 1.0 / dd : std::pow(dd, -half_power);
+                        sw += w;
+                        swv += w * buckets.v[b0 + q];
+                    }
+                }
+            if (auto m = in_cell.find(i); m != in_cell.end()) {
+                std::vector<double> v = m->second;
+                out.value_db[i] = static_cast<float>(median(v));
+                out.measured[i] = 1;
+            } else if (sw > 0.0) {
+                out.value_db[i] = static_cast<float>(swv / sw);
+            }
+            if (std::isfinite(nearest2)) {
+                const double d = std::sqrt(nearest2);
+                double conf = 0.0;
+                if (d <= s.full_confidence_m)
+                    conf = 1.0;
+                else if (d < s.radius_m)
+                    conf = (s.radius_m - d) / (s.radius_m - s.full_confidence_m);
+                out.confidence[i] = static_cast<float>(conf);
+            }
+        }
+    });
+    out.cancelled = !done;
+    return out;
 }
 
 std::string InterpolationRequest::key() const {
     std::string k = std::string(name_of(metric.value, kValue)) + "|" + name_of(metric.carrier, kCarrier);
     if (metric.carrier == Metric::Carrier::Frequency) k += ":" + std::to_string(metric.frequency_hz);
     if (!metric.device.empty()) k += "|device:" + metric.device;
-    k += "|" + (fit.group_key ? *fit.group_key : std::string("auto"));
     return k;
 }
 
-std::string Interpolation::label() const {
-    return estimated_sources ? std::string(kInterpolatedLabel) + ", " + kEstimatedSourcesLabel
-                             : std::string(kInterpolatedLabel);
-}
+std::string Interpolation::label() const { return kInterpolatedLabel; }
 
-std::vector<bool> floor_cells(const building::Building& b, const building::Floor& f, const raytrace::Grid& grid) {
+std::vector<bool> floor_cells(const building::Building& b, const building::Floor& f, const Grid& grid) {
     std::vector<bool> out(grid.size(), false);
     const auto mpu = b.metres_per_unit(f);
     if (!mpu) return out;
@@ -462,154 +410,60 @@ std::vector<bool> floor_cells(const building::Building& b, const building::Floor
 InputFingerprints fingerprints(const project::Project& project, const InterpolationRequest& request) {
     const auto list = request_points(project, request);
     return {building_fingerprint(project.building()), points_fingerprint(request, measured_points(list)),
-            settings_fingerprint(project.propagation(), request)};
+            settings_fingerprint(settings_for(project, request), request)};
 }
 
 std::optional<Interpolation> interpolate(const project::Project& project, const InterpolationRequest& request,
-                                         const raytrace::RunControl& run,
+                                         const RunControl& run,
                                          const std::function<void(const std::string&)>& stage) {
-    check_request(request);
     auto tell = [&](const char* s) {
         if (stage) stage(s);
     };
-    auto cancelled = [&] { return run.cancel != nullptr && run.cancel->load(); };
+    if (request.metric.value != Metric::Value::Level)
+        throw ProjectError(Code::Invalid, "interpolation: the metric must be a level");
+    const project::InterpolationSettings settings = settings_for(project, request);
+    if (const auto problems = settings.validate(); !problems.empty())
+        throw ProjectError(Code::Invalid, "interpolation: " + problems.front());
     tell("Points");
-    building::Building b = project.building();
+    const building::Building b = project.building();
     const building::Floor* bf = b.find_floor(request.floor_id);
     if (bf == nullptr) throw ProjectError(Code::NotFound, "no floor " + request.floor_id);
     if (!b.has_scale(*bf))
         throw ProjectError(Code::Invalid, "interpolation: floor " + request.floor_id + " has no scale");
-    const std::size_t floor_index = static_cast<std::size_t>(bf - b.floors.data());
-    const project::PropagationSettings settings = project.propagation();
     const PointList list = request_points(project, request);
     const Measured m = measured_points(list);
     if (m.points.empty()) throw ProjectError(Code::Invalid, "interpolation: no measured point with a level in dBm");
 
     Interpolation out;
     out.request = request;
+    out.params = settings;
     out.building_sha256 = building_fingerprint(b);
     out.points_sha256 = points_fingerprint(request, m);
     out.settings_sha256 = settings_fingerprint(settings, request);
-
-    // The measured carrier: the request's, the metric's, else the lower
-    // median of the points' carriers (a measured carrier).
-    std::optional<double> freq = request.frequency_hz;
-    if (!freq && request.metric.carrier == Metric::Carrier::Frequency && request.metric.frequency_hz > 0)
-        freq = static_cast<double>(request.metric.frequency_hz);
-    if (!freq) {
-        std::vector<std::uint64_t> f;
-        for (const SurveyPoint* p : m.points)
-            if (p->frequency_hz > 0) f.push_back(p->frequency_hz);
-        if (!f.empty()) {
-            std::sort(f.begin(), f.end());
-            freq = static_cast<double>(f[(f.size() - 1) / 2]);
-        }
+    std::vector<IdwSample> samples;
+    samples.reserve(m.points.size());
+    for (std::size_t i = 0; i < m.points.size(); ++i) {
+        const SurveyPoint& sp = *m.points[i];
+        out.points.push_back({sp.session_id, sp.sequence, m.metres[i], m.dbm[i]});
+        samples.push_back({m.metres[i], m.dbm[i]});
     }
-    raytrace::ModelParams p0 = model_params(settings);
-    if (request.grid_m) p0.grid_m = *request.grid_m;
-    if (request.frequency_hz) p0.frequency_hz = *request.frequency_hz;
-    const auto sources = reaching(b, request.floor_id, p0.other_floors);
-    // Sources whose cell has no carrier need the measured one.
-    if (!p0.frequency_hz)
-        for (const building::Antenna* a : sources) {
-            const building::Cell* c = a->cell.empty() ? nullptr : b.find_cell(a->cell);
-            if (c == nullptr || c->carrier_hz == 0) {
-                if (!freq)
-                    throw ProjectError(Code::Invalid, "interpolation: antenna " + a->id +
-                                                          " has no carrier and the points give none");
-                p0.frequency_hz = *freq;
-                break;
-            }
-        }
-    out.frequency_hz = freq.value_or(0.0);
-    out.start_params = p0;
-
-    raytrace::FitOptions fit_options = request.fit;
-    // IND-42: no antenna reaches the floor - estimate the sources.
-    if (sources.empty()) {
-        tell("Sources");
-        if (!freq) throw ProjectError(Code::Invalid, "interpolation: no carrier frequency for estimated sources");
-        raytrace::ModelParams sp = p0;
-        sp.frequency_hz = *freq;
-        auto est = raytrace::estimate_sources(b, request.floor_id, m.metres, m.dbm, sp, request.sources, run);
-        if (est.cancelled || cancelled()) return std::nullopt;
-        if (est.antennas.empty())
-            throw ProjectError(Code::Invalid, "interpolation: no source could be estimated from the points");
-        if (est.cell) {
-            const std::string id = free_cell_id(b);
-            est.cell->id = id;
-            for (auto& a : est.antennas) a.cell = id;
-        } else {
-            p0.frequency_hz = *freq;  // sources without a cell
-        }
-        raytrace::add_estimated_sources(b, request.floor_id, est);
-        bf = &b.floors[floor_index];
-        out.estimated_sources = true;
-        out.sources = est.antennas;
-        fit_options.eirp = raytrace::EirpFit::All;
-        fit_options.group_key.reset();  // the estimated sources' own group(s)
-    } else if (!fit_options.group_key && request.metric.carrier == Metric::Carrier::Frequency) {
-        // The cell on the metric's carrier, when an antenna serves it.
-        for (const building::Antenna* a : sources) {
-            const building::Cell* c = a->cell.empty() ? nullptr : b.find_cell(a->cell);
-            if (c != nullptr && c->carrier_hz == request.metric.frequency_hz) {
-                fit_options.group_key = "cell:" + c->id;
-                break;
-            }
-        }
+    try {
+        out.grid = floor_grid(b, *bf, settings.grid_m, m.metres);
+    } catch (const std::exception& e) {
+        throw ProjectError(Code::Invalid, std::string("interpolation: ") + e.what());
     }
-    out.group_key = fit_options.group_key.value_or("");
-
-    tell("Fit");
-    raytrace::RunControl sub = run;
-    sub.progress = nullptr;
-    const auto rays = raytrace::trace_points(b, request.floor_id, m.metres, p0, sub);
-    if (rays.cancelled || cancelled()) return std::nullopt;
-    const auto fit = raytrace::fit_model(b, rays, m.dbm, p0, fit_options, run.cancel);
-    if (fit.cancelled || cancelled()) return std::nullopt;
-    out.params = fit.params;
-    out.quality = fit.quality;
-    out.fitted = fit.parameters;
-    out.not_fitted = fit.not_fitted;
-    out.iterations = fit.iterations;
-    out.stop_reason = fit.stop_reason;
-    if (out.estimated_sources)
-        for (auto& a : out.sources) a.eirp_dbm = fit.params.antenna_eirp_dbm.at(a.id);
 
     tell("Map");
-    const auto map = raytrace::compute_map(b, request.floor_id, fit.params, run);
-    if (map.cancelled || cancelled()) return std::nullopt;
-    int group = -1;
-    if (fit_options.group_key)
-        for (std::size_t g = 0; g < map.groups.size(); ++g)
-            if (map.groups[g].key == *fit_options.group_key) group = static_cast<int>(g);
-    const auto& model = group >= 0 ? map.level_dbm[static_cast<std::size_t>(group)] : map.best_dbm;
-
-    tell("Residuals");
-    std::vector<raytrace::Residual> res;
-    for (std::size_t i = 0; i < m.points.size(); ++i) {
-        if (!fit.used[i]) continue;
-        const SurveyPoint& sp = *m.points[i];
-        const double resid = m.dbm[i] - fit.model_dbm[i];
-        out.points.push_back({sp.session_id, sp.sequence, m.metres[i], m.dbm[i], fit.model_dbm[i], resid});
-        res.push_back({m.metres[i], resid});
-    }
-    const auto field = raytrace::interpolate_residuals(b, request.floor_id, map.grid, res, request.residuals, sub);
-    if (field.cancelled || cancelled()) return std::nullopt;
-
-    out.grid = map.grid;
-    const std::vector<bool> on_floor = floor_cells(b, *bf, map.grid);
-    const std::size_t n = map.grid.size();
-    out.value_dbm.resize(n);
-    out.model_dbm.resize(n);
-    out.confidence.resize(n);
-    for (std::size_t i = 0; i < n; ++i) {
-        out.model_dbm[i] = static_cast<float>(model[i]);
-        out.value_dbm[i] = std::isfinite(model[i]) ? static_cast<float>(model[i] + field.correction_db[i])
-                                                   : -std::numeric_limits<float>::infinity();
-        out.confidence[i] = on_floor[i] ? field.confidence[i] : 0.0f;
+    IdwField field = idw(out.grid, samples, settings, run);
+    if (field.cancelled || (run.cancel != nullptr && run.cancel->load())) return std::nullopt;
+    const std::vector<bool> on_floor = floor_cells(b, *bf, out.grid);
+    for (std::size_t i = 0; i < on_floor.size(); ++i) {
+        if (!on_floor[i]) field.confidence[i] = 0.0f;
         out.floor_cells += on_floor[i] ? 1 : 0;
     }
+    out.value_dbm = std::move(field.value_db);
+    out.confidence = std::move(field.confidence);
+    out.measured = std::move(field.measured);
     return out;
 }
 
@@ -623,21 +477,16 @@ project::StoredInterpolation to_stored(const Interpolation& r) {
     s.building_sha256 = r.building_sha256;
     s.points_sha256 = r.points_sha256;
     s.settings_sha256 = r.settings_sha256;
-    s.parameters_json = json{{"format", kFormat},
-                             {"request", to_json(r.request)},
-                             {"frequency_hz", r.frequency_hz},
-                             {"start_params", to_json(r.start_params)},
-                             {"params", to_json(r.params)}}
-                            .dump();
+    s.parameters_json =
+        json{{"format", kFormat}, {"request", to_json(r.request)}, {"params", to_json(r.params)}}.dump();
     s.result_json = result_json(r).dump();
     s.origin_m = r.grid.origin_m;
     s.cell_m = r.grid.cell_m;
     s.cols = r.grid.cols;
     s.rows = r.grid.rows;
-    s.cells.reserve(r.grid.size() * 12);
+    s.cells.reserve(r.grid.size() * 8);
     for (std::size_t i = 0; i < r.grid.size(); ++i) {
         put_f32(s.cells, r.value_dbm.at(i));
-        put_f32(s.cells, r.model_dbm.at(i));
         put_f32(s.cells, r.confidence.at(i));
     }
     return s;
@@ -649,15 +498,13 @@ Interpolation from_stored(const project::StoredInterpolation& s) {
         const json pj = json::parse(s.parameters_json);
         if (pj.at("format").get<int>() != kFormat) throw std::invalid_argument("unknown parameters format");
         r.request = request_of(pj.at("request"));
-        r.frequency_hz = pj.at("frequency_hz").get<double>();
-        r.start_params = params_of(pj.at("start_params"));
-        r.params = params_of(pj.at("params"));
+        r.params = settings_of(pj.at("params"));
         read_result(json::parse(s.result_json), r);
     } catch (const std::exception& e) {
         throw ProjectError(Code::Damaged, "interpolation " + std::to_string(s.id) + ": " + e.what());
     }
     if (s.cols <= 0 || s.rows <= 0 || !(s.cell_m > 0.0) ||
-        s.cells.size() != static_cast<std::size_t>(s.cols) * static_cast<std::size_t>(s.rows) * 12u)
+        s.cells.size() != static_cast<std::size_t>(s.cols) * static_cast<std::size_t>(s.rows) * 8u)
         throw ProjectError(Code::Damaged,
                            "interpolation " + std::to_string(s.id) + ": the cells do not match the grid");
     r.id = s.id;
@@ -669,14 +516,15 @@ Interpolation from_stored(const project::StoredInterpolation& s) {
     r.grid = {s.origin_m, s.cell_m, s.cols, s.rows};
     const std::size_t n = r.grid.size();
     r.value_dbm.resize(n);
-    r.model_dbm.resize(n);
     r.confidence.resize(n);
     for (std::size_t i = 0; i < n; ++i) {
-        const std::uint8_t* c = s.cells.data() + i * 12;
+        const std::uint8_t* c = s.cells.data() + i * 8;
         r.value_dbm[i] = get_f32(c);
-        r.model_dbm[i] = get_f32(c + 4);
-        r.confidence[i] = get_f32(c + 8);
+        r.confidence[i] = get_f32(c + 4);
     }
+    std::vector<Point2> positions;
+    for (const auto& p : r.points) positions.push_back(p.position_m);
+    r.measured = measured_cells(r.grid, positions);
     return r;
 }
 
@@ -704,10 +552,9 @@ Staleness staleness(const project::Project& project, const Interpolation& r) {
         return out;
     }
     const auto now = fingerprints(project, r.request);
-    if (now.building != r.building_sha256)
-        out.reasons.emplace_back("walls, antennas, cells, wall classes or scales changed");
+    if (now.building != r.building_sha256) out.reasons.emplace_back("floors or scales changed");
     if (now.points != r.points_sha256) out.reasons.emplace_back("measured points changed");
-    if (now.settings != r.settings_sha256) out.reasons.emplace_back("propagation settings or parameters changed");
+    if (now.settings != r.settings_sha256) out.reasons.emplace_back("interpolation settings changed");
     out.stale = !out.reasons.empty();
     return out;
 }
@@ -727,15 +574,12 @@ Readout readout(const Interpolation& r, Point2 pos) {
     const auto cell = r.grid.cell_at(pos);
     if (!cell) return out;
     out.on_map = true;
-    out.model_dbm = r.model_dbm[*cell];
     out.confidence = r.confidence[*cell];
-    if (out.nearest && best <= r.grid.cell_m / 2.0) {
+    if (*cell < r.measured.size() && r.measured[*cell] != 0) {
         out.measured = true;
         out.label = "measured";
-        out.value_dbm = out.nearest->measured_dbm;
-    } else if (std::isfinite(r.value_dbm[*cell])) {
-        out.value_dbm = r.value_dbm[*cell];
     }
+    if (std::isfinite(r.value_dbm[*cell])) out.value_dbm = r.value_dbm[*cell];
     return out;
 }
 
@@ -750,12 +594,10 @@ std::vector<std::uint32_t> cell_colours(const Interpolation& r, const ColourScal
     }
     return out;
 }
-
 InterpolatedAreaStats area_stats(const Interpolation& r, const std::vector<double>& thresholds,
                                  double min_confidence) {
     InterpolatedAreaStats s;
     s.min_confidence = min_confidence;
-    s.estimated_sources = r.estimated_sources;
     const double cell_area = r.grid.cell_m * r.grid.cell_m;
     s.floor_area_m2 = static_cast<double>(r.floor_cells) * cell_area;
     std::vector<std::size_t> above(thresholds.size(), 0);
@@ -818,7 +660,6 @@ CoverageSummary coverage_summary(const project::Project& project, const Interpol
     o.thresholds = thresholds;
     s.measured = coverage_stats(request_points(project, r.request), o);
     s.interpolated = area_stats(r, thresholds, min_confidence);
-    s.fit = r.quality;
     s.stale = staleness(project, r).stale;
     return s;
 }
@@ -839,7 +680,7 @@ std::unique_ptr<InterpolationJob> InterpolationJob::start(std::shared_ptr<projec
     auto shared = j->shared_;
     j->job_ = util::Job::start(
         [project = std::move(project), request = std::move(request), options, shared](util::JobContext& ctx) {
-            raytrace::RunControl run;
+            RunControl run;
             run.isa = options.isa;
             run.threads = options.threads;
             run.cancel = ctx.cancel_flag();
@@ -853,9 +694,7 @@ std::unique_ptr<InterpolationJob> InterpolationJob::start(std::shared_ptr<projec
                     const char* stage;
                     double base, span;
                 };
-                static constexpr Share kShares[] = {{"Points", 0.0, 0.05}, {"Sources", 0.05, 0.4},
-                                                    {"Fit", 0.45, 0.05},   {"Map", 0.5, 0.35},
-                                                    {"Residuals", 0.85, 0.1}};
+                static constexpr Share kShares[] = {{"Points", 0.0, 0.05}, {"Map", 0.05, 0.9}};
                 for (const Share& x : kShares)
                     if (s == x.stage) {
                         base = x.base;

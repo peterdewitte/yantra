@@ -143,7 +143,7 @@ TEST_CASE("DEMO-05 the Fraunces demo project opens with 2 floors, trims, scales,
         // The stored interpolation of the floor (DEMO-05).
         const auto stored = ys::stored_interpolations(*p, df.id);
         REQUIRE(stored.size() == 1);
-        CHECK(stored[0].quality.points == list.count());
+        CHECK(stored[0].points.size() == list.count());
         CHECK(!ys::staleness(*p, stored[0]).stale);
     }
 }
@@ -181,7 +181,7 @@ TEST_CASE("DEMO-06 the demo walk recordings replay to the stored points and stat
     }
 }
 
-TEST_CASE("DEMO-05 each floor's stored interpolation is the ray-tracing interpolation of its walk (IND-41..45)") {
+TEST_CASE("DEMO-05 each floor's stored interpolation is the point interpolation of its walk (IND-41, IND-45)") {
     if (!demo_built()) return;
     const yd::DemoDescription d = yd::read_description(kDescription);
     const fs::path dir = demo_copy("interpolation");
@@ -192,13 +192,11 @@ TEST_CASE("DEMO-05 each floor's stored interpolation is the ray-tracing interpol
         REQUIRE(stored.size() == 1);
         const ys::Interpolation& s = stored[0];
         CHECK(s.request == yd::interpolation_request(*p, d, f));
-        CHECK(!s.estimated_sources);  // the floor's DAS antennas serve T1
         CHECK(s.floor_cells > 0);
-        CHECK(s.quality.rms_db < 3.0);
+        CHECK(s.params == p->interpolation_settings());
         const auto again = ys::interpolate(*p, s.request, demo_run());
         REQUIRE(again);
-        CHECK(again->quality.points == s.quality.points);
-        CHECK(again->quality.rms_db == doctest::Approx(s.quality.rms_db).epsilon(1e-6));
+        CHECK(again->points == s.points);
         REQUIRE(again->value_dbm.size() == s.value_dbm.size());
         double worst = 0.0;
         for (std::size_t i = 0; i < s.value_dbm.size(); ++i)
@@ -244,7 +242,7 @@ TEST_CASE("RAD-18 the simulator picks the Fraunces scenario by the floors' examp
     const fs::path dir = scratch("simulator");
     std::shared_ptr<yj::Project> p = yd::create_project(d, dir / "fraunces.yantra");
     const yb::Building b = p->building();
-    rt::ModelParams params = ys::model_params(p->propagation());
+    rt::ModelParams params;  // the 0.3 defaults of the ray-tracing settings
     params.max_reflections = 0;  // the multi-wall model has none (the Fraunces scenario)
 
     Rig rig{true};

@@ -938,7 +938,7 @@ Result AppState::close_project() {
     if (dialog_ == Dialog::AddFloor || dialog_ == Dialog::Browse || dialog_ == Dialog::FloorProperties ||
         dialog_ == Dialog::RemoveFloor || dialog_ == Dialog::PlanImport)
         cancel_dialog();
-    if (dialog_ == Dialog::AntennaProperties || dialog_ == Dialog::Materials || dialog_ == Dialog::Propagation)
+    if (dialog_ == Dialog::AntennaProperties || dialog_ == Dialog::Materials || dialog_ == Dialog::InterpolationSettings)
         dialog_ = Dialog::None;
     import_window_.reset();
     drop_tools();
@@ -1222,14 +1222,14 @@ Result AppState::edit_materials() {
     return {};
 }
 
-Result AppState::edit_propagation() {
+Result AppState::edit_interpolation_settings() {
     if (!runner_) return fail(tr("No project is open."));
     runner_->open_settings();
-    dialog_ = Dialog::Propagation;
+    dialog_ = Dialog::InterpolationSettings;
     return {};
 }
 
-Result AppState::confirm_propagation() {
+Result AppState::confirm_interpolation_settings() {
     if (!runner_) return fail(tr("No project is open."));
     const Result r = runner_->apply_settings();
     if (!r.ok) return fail(r.message);

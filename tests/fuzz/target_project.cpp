@@ -26,7 +26,7 @@ void exercise(const std::filesystem::path& file) {
     (void)p->meta();
     const auto floors = p->floors();
     (void)p->building();
-    (void)p->propagation();
+    (void)p->interpolation_settings();
     (void)p->wall_classes();
     (void)p->cells();
     (void)p->cell_database();

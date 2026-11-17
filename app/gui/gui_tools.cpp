@@ -3,7 +3,7 @@
 //
 // The project window's tools (step 9.4): wall and antenna editing
 // (IND-11, IND-12), the walk test and the mouse survey (IND-20, GEO-02,
-// GEO-05, DEMO-14), the interpolation commands and the propagation
+// GEO-05, DEMO-14), the interpolation commands and the interpolation
 // settings (IND-41..45). Drawing and input only; the logic is in
 // FloorEditor, LiveSurvey and InterpolationRunner (app/model).
 #include <imgui.h>
@@ -341,10 +341,8 @@ void Gui::draw_interpolation_section(const FloorContent* c) {
         for (const std::string& r : c->interpolation->stale_reasons) reasons += (reasons.empty() ? "" : ", ") + r;
         wrapped(tr("Stale: ") + reasons + ". Run again to update it.", true);
     }
-    if (c->interpolation && c->interpolation->estimated_sources)
-        wrapped(tr("No placed antenna reaches this floor: the map uses estimated sources (dashed markers)."), true);
-    if (ImGui::Button(tr("Settings...###interp.settings"))) (void)state_.edit_propagation();
-    text_tooltip(tr("Grid size, reflections, path-loss exponent and the other ray-tracing settings of the project."));
+    if (ImGui::Button(tr("Settings...###interp.settings"))) (void)state_.edit_interpolation_settings();
+    text_tooltip(tr("Grid size, power, search radius and confidence distance of the interpolation (stored in the project)."));
 }
 
 // -- the plan: overlay and input -------------------------------------------------------------
@@ -638,32 +636,23 @@ void Gui::draw_materials_dialog() {
     error_line(state_);
 }
 
-void Gui::draw_propagation_dialog() {
+void Gui::draw_interpolation_dialog() {
     InterpolationRunner* run = state_.interpolation();
     if (run == nullptr) {
         state_.cancel_dialog();
         return;
     }
-    PropagationForm& f = run->settings_form();
-    project::PropagationSettings& s = f.settings;
-    (void)input_double("Grid (m)###grid", s.grid_m, 0.05, "%.2f", "The size of a map cell, 0.05 to 10 m (default 0.25 m).");
-    ImGui::InputInt(tr("Reflections###reflections"), &s.max_reflections);
-    text_tooltip(tr("Specular reflections per ray, 0 to 3 (default 2); more is slower."));
-    (void)input_double("Path-loss exponent###exponent", s.path_loss_exponent, 0.1, "%.2f",
-                       tr("The starting value of the fit, 1 to 8 (2 = free space)."));
-    (void)input_double("Reference distance (m)###ref_distance", s.reference_distance_m, 0.1, "%.2f",
-                       tr("Where the exponent starts to apply, 0.01 to 100 m."));
-    (void)input_double("Reflection loss (dB)###reflection_loss", s.reflection_loss_db, 0.5, "%.1f",
-                       tr("Loss at a reflection when the wall class has none, 0 to 60 dB."));
-    (void)input_double("Receiver height (m)###rx_height", s.rx_height_m, 0.1, "%.2f", "The height of the measured radio, 0 to 10 m.");
-    (void)input_double("Default EIRP (dBm)###default_eirp", s.default_eirp_dbm, 0.5, "%.1f",
-                       tr("The starting EIRP of an antenna without one, -50 to 80 dBm."));
-    ImGui::Checkbox(tr("Antennas on other floors###other_floors"), &s.other_floors);
-    text_tooltip(tr("Let antennas on other floors contribute through the floors' slabs (IND-44)."));
-    (void)input_double("Attenuation per floor (dB)###floor_attenuation", f.floor_attenuation_db, 1.0, "%.1f",
-                       tr("The slab attenuation between two floors, 0 to 100 dB (a floor may have its own)."));
+    InterpolationForm& f = run->settings_form();
+    project::InterpolationSettings& s = f.settings;
+    (void)input_double(tr("Grid (m)###grid"), s.grid_m, 0.05, "%.2f", tr("The size of a map cell, 0.05 to 10 m (default 0.5 m)."));
+    (void)input_double(tr("Power###power"), s.power, 0.5, "%.1f",
+                       tr("The inverse-distance weight is 1 / distance ^ power, 0.5 to 6 (default 2)."));
+    (void)input_double(tr("Search radius (m)###radius"), s.radius_m, 1.0, "%.1f",
+                       tr("Measured points farther than this do not count; no value beyond it, 0.5 to 1000 m (default 10 m)."));
+    (void)input_double(tr("Full confidence (m)###full_confidence"), s.full_confidence_m, 0.5, "%.1f",
+                       tr("Up to this distance from a measured point the map is not faded; it fades out at the search radius (default 2 m)."));
     ImGui::Spacing();
-    if (dialog_button(tr("Apply###dlg.ok"), tr("Store the settings; maps made with others become stale"))) (void)state_.confirm_propagation();
+    if (dialog_button(tr("Apply###dlg.ok"), tr("Store the settings; maps made with others become stale"))) (void)state_.confirm_interpolation_settings();
     ImGui::SameLine();
     if (dialog_button(tr("Defaults###prop.defaults"), tr("Put the default values in the form (stored with Apply)"))) run->default_settings();
     ImGui::SameLine();

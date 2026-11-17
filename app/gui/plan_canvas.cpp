@@ -123,22 +123,6 @@ void PlanCanvas::draw_interpolation(ImDrawList* dl, ImVec2 origin, const FloorCo
     dl->AddImage(interpolation_.ref(), to_screen(origin, in.min), to_screen(origin, in.max), ImVec2(0, 0),
                  ImVec2(1, 1), IM_COL32(255, 255, 255, 215));
     stats_.interpolation = true;
-    // IND-42: estimated sources, hollow and dashed (they are not placed antennas).
-    for (const PlanAntenna& a : in.sources) {
-        const ImVec2 p = to_screen(origin, a.position);
-        const float k = ImGui::GetFontSize() / 13.0F;
-        const float th = ImGui::GetTextLineHeight();
-        constexpr int kDashes = 12;
-        for (int i = 0; i < kDashes; i += 2) {
-            const float a0 = 6.2831853F * static_cast<float>(i) / kDashes;
-            const float a1 = 6.2831853F * static_cast<float>(i + 1) / kDashes;
-            dl->PathArcTo(p, 11.0F * k, a0, a1, 6);
-            dl->PathStroke(IM_COL32(150, 40, 170, 255), 2.5F);
-        }
-        dl->AddText(ImVec2(p.x - ImGui::CalcTextSize("?").x * 0.5F, p.y - th * 0.5F), IM_COL32(150, 40, 170, 255), "?");
-        dl->AddText(ImVec2(p.x + 14.0F * k, p.y - th * 0.5F), IM_COL32(110, 20, 130, 255), a.label.c_str());
-        ++stats_.estimated_sources;
-    }
 }
 
 void PlanCanvas::draw_binned(ImDrawList* dl, ImVec2 origin, const FloorContent& c) {

@@ -98,7 +98,7 @@ TEST_CASE("EXP-05/06 TST-34 the Fraunces demo report: window points, maps, accep
         CHECK(s.map->request.metric == o.metric);
         REQUIRE(s.summary);
         CHECK_FALSE(s.summary->stale);
-        CHECK(s.summary->fit.points > 0);
+        CHECK(s.map->points.size() > 0);
         const auto a = ys::area_stats(*s.map, {o.threshold}, rep.profiles.front().min_confidence);
         REQUIRE(s.summary->interpolated.thresholds.size() == 1);
         CHECK(s.summary->interpolated.thresholds[0].percent == doctest::Approx(a.thresholds[0].percent));

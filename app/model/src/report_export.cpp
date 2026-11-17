@@ -68,7 +68,7 @@ std::optional<exports::MapLayer> map_layer(const project::Project& p, const expo
     const building::Building b = p.building();
     const building::Floor* f = b.find_floor(table.floor_id);
     if (f == nullptr) return std::nullopt;
-    const raytrace::Grid& g = pick->grid;
+    const survey::Grid& g = pick->grid;
     const auto lo = b.from_plan_metres(*f, g.origin_m);
     const auto hi = b.from_plan_metres(*f, building::Point2{g.origin_m.x + g.cell_m * g.cols, g.origin_m.y + g.cell_m * g.rows});
     if (!lo || !hi) return std::nullopt;

@@ -9,13 +9,15 @@
 # name,limit
 raytrace_office_simd,267.71
 raytrace_office_scalar,447.58
-# bench_interpolation and bench_pipeline (step 8.2): twice the units
-# measured on 2026-11-05 (same machine, calibration 0.0315 s per unit):
-# fit 0.168 s = 5.35, residuals SIMD 0.128 s = 4.06, scalar 0.308 s =
-# 9.81, source search (4 m step) 3.601 s = 114.80, record pipeline
-# (1.6 M records, 4000 cycles) 0.967 s = 30.87.
-interpolation_fit,10.70
-interpolation_residuals_simd,8.13
-interpolation_residuals_scalar,19.63
-interpolation_sources,229.61
+# bench_pipeline (step 8.2): twice the units measured on 2026-11-05 (same
+# machine, calibration 0.0315 s per unit): record pipeline (1.6 M records,
+# 4000 cycles) 0.967 s = 30.87.
 pipeline_records,61.74
+# bench_interpolation (step 14.2, point interpolation IND-41): twice the
+# units measured on 2026-11-17 on the build server (x86-64, clang,
+# RelWithDebInfo, one thread, calibration 0.0359 s per unit): 0.5 m grid
+# 0.015 s = 0.42 units (limit raised to 2.00: a 15 ms run is noisy), 0.1 m
+# grid SIMD 0.276 s = 7.69, scalar 0.272 s = 7.58.
+interpolation_idw_0_5m,2.00
+interpolation_idw_fine_simd,15.39
+interpolation_idw_fine_scalar,15.16

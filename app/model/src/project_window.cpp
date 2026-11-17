@@ -332,7 +332,7 @@ void ProjectWindow::build_interpolation(FloorContent& c, const building::Buildin
     layer.id = in->id;
     layer.label = in->label();
     layer.key = in->request.key();
-    const raytrace::Grid& g = in->grid;
+    const survey::Grid& g = in->grid;
     const auto lo = b.from_plan_metres(f, g.origin_m);
     const auto hi = b.from_plan_metres(f, Point2{g.origin_m.x + g.cell_m * g.cols, g.origin_m.y + g.cell_m * g.rows});
     if (!lo || !hi) return;
@@ -351,15 +351,7 @@ void ProjectWindow::build_interpolation(FloorContent& c, const building::Buildin
     const survey::Staleness st = survey::staleness(project_, *in);
     layer.stale = st.stale;
     layer.stale_reasons = st.reasons;
-    layer.rms_db = in->quality.rms_db;
-    layer.fit_points = in->quality.points;
-    layer.estimated_sources = in->estimated_sources;
-    if (in->estimated_sources)
-        for (const building::Antenna& a : in->sources) {
-            std::string label = "estimated";
-            if (a.eirp_dbm) label += ", EIRP " + fixed(*a.eirp_dbm, 1, " dBm");
-            layer.sources.push_back(PlanAntenna{a.position, label, false, std::nullopt});
-        }
+    layer.points = in->points.size();
     layer.data = std::move(*in);
     c.interpolation = std::move(layer);
 }

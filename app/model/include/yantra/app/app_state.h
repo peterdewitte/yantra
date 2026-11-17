@@ -162,7 +162,7 @@ enum class Dialog {
     RemoveFloor,      ///< the confirmation before a floor is removed (IND-04)
     AntennaProperties,  ///< the selected antenna's properties (IND-12): floor_editor()->antenna_form()
     Materials,          ///< the wall-class table (IND-11): floor_editor()->materials()
-    Propagation,        ///< the ray-tracing settings (IND-40, IND-44): interpolation()->settings_form()
+    InterpolationSettings,  ///< the interpolation settings (IND-41, UI-19): interpolation()->settings_form()
     Settings,           ///< the settings window (general, survey, plugins): settings_form()
     ResetSettings,      ///< Reset all settings (UI-16): reset_form()
     TourConsent,        ///< the tour asks before a MAK sheet is downloaded (DEMO-12): tour().consent()
@@ -542,13 +542,13 @@ public:
 
     // -- editing, walk test, interpolation (IND-11, IND-12, IND-20, IND-41..45) --
     /// Opens the antenna properties of the selected antenna, the wall-class
-    /// table or the propagation settings (their dialogs).
+    /// table or the interpolation settings (their dialogs).
     Result edit_antenna();
     Result edit_materials();
-    Result edit_propagation();
-    /// Applies the open dialog's form (antenna, propagation) and closes it on success.
+    Result edit_interpolation_settings();
+    /// Applies the open dialog's form (antenna, interpolation settings) and closes it on success.
     Result confirm_antenna();
-    Result confirm_propagation();
+    Result confirm_interpolation_settings();
     /// Runs the interpolation of the selected floor (again with the shown
     /// map's request when `again`, e.g. a stale map).
     Result run_interpolation(bool again);

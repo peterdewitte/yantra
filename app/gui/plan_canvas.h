@@ -41,7 +41,6 @@ struct CanvasStats {
     bool stale_badge = false;
     bool view_badge = false;              ///< the post-processing view label (PP-02, PP-04)
     std::size_t serving_changes = 0;      ///< serving-change markers drawn (PP-02)
-    std::size_t estimated_sources = 0;  ///< IND-42 markers drawn
     std::vector<Layer> drawn;  ///< the layers drawn, bottom first
     ScaleBar scale;
 };

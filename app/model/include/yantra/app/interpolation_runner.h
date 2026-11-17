@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The interpolation layer's commands (IND-41..45, DEMO-14 "click to
-// interpolate"), without drawing: run or re-run the ray-tracing
+// interpolate"), without drawing: run or re-run the point (IDW)
 // interpolation of a floor in the background (survey::InterpolationJob,
 // OA-03), its progress and stage through the job's listener, cancel, and
-// the propagation settings dialog (project::PropagationSettings, stored in
-// the project, IND-45). The result is stored in the project by the job
+// the interpolation settings dialog (project::InterpolationSettings,
+// stored in the project, IND-41, IND-45). The result is stored in the project by the job
 // (its change notification marks the project window dirty); the project
 // window then shows it (ProjectWindow::show_interpolation).
 //
@@ -38,15 +38,14 @@ struct InterpolationProgress {
     bool running = false;
     std::string floor_id;
     double progress = 0.0;  ///< 0..1
-    std::string stage;      ///< "Fit", "Map", ...
-    std::string text;       ///< "Interpolating Ground floor: Fit (40 %)"
+    std::string stage;      ///< "Points", "Map", ...
+    std::string text;       ///< "Interpolating Ground floor: Map (40 %)"
 };
 
-/// The propagation settings dialog (IND-40, IND-44): the project's
-/// settings and the building's dB per floor.
-struct PropagationForm {
-    project::PropagationSettings settings;
-    double floor_attenuation_db = 15.0;
+/// The interpolation settings dialog (IND-41, UI-19): grid, power, search
+/// radius and full-confidence distance of the project.
+struct InterpolationForm {
+    project::InterpolationSettings settings;
 };
 
 class InterpolationRunner {
@@ -78,10 +77,10 @@ public:
     /// Changes whenever the job's status changed (the UI redraws).
     std::uint64_t generation() const;
 
-    // -- propagation settings ---------------------------------------------------
+    // -- interpolation settings -------------------------------------------------
     /// Opens the form with the project's values.
-    PropagationForm& open_settings();
-    PropagationForm& settings_form() { return form_; }
+    InterpolationForm& open_settings();
+    InterpolationForm& settings_form() { return form_; }
     /// Validates and stores; the stored maps become stale (their settings changed).
     Result apply_settings();
     /// The defaults in the form (not stored until applied).
@@ -100,7 +99,7 @@ private:
         std::uint64_t generation = 0;
     };
     std::shared_ptr<Shared> shared_ = std::make_shared<Shared>();
-    PropagationForm form_;
+    InterpolationForm form_;
 };
 
 }  // namespace yantra::app

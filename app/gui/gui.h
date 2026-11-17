@@ -196,7 +196,7 @@ private:
     void handle_canvas_input();
     void draw_antenna_dialog();
     void draw_materials_dialog();
-    void draw_propagation_dialog();
+    void draw_interpolation_dialog();
     // Survey panels, recording and replay (survey_view.cpp, step 9.5).
     void draw_survey_section();
     void draw_post_section();  // step 9.8, post_view.cpp

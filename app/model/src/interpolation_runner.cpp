@@ -42,7 +42,7 @@ Result InterpolationRunner::run(const std::string& floor_id, const survey::Inter
     survey::InterpolationRequest r;
     if (again != nullptr && again->request.floor_id == floor_id) {
         r = again->request;
-        r.grid_m.reset();  // the project's current grid setting
+        r.settings.reset();  // the project's current settings
     } else {
         r.floor_id = floor_id;
         r.metric = survey::Metric{};  // the serving carrier's level, as the points layer
@@ -110,8 +110,8 @@ std::optional<Result> InterpolationRunner::poll(std::int64_t* stored_id) {
         const auto r = job_->result();
         if (r && stored_id != nullptr) *stored_id = r->id;
         char buf[96] = "";
-        if (r) std::snprintf(buf, sizeof buf, tr(" (fit: RMS %.1f dB over %zu points)"), r->quality.rms_db, r->quality.points);
-        return Result{true, tr("Interpolated ") + job_floor_name_ + buf + (r && r->estimated_sources ? tr(", estimated sources.") : ".")};
+        if (r) std::snprintf(buf, sizeof buf, tr(" (%zu measured points)"), r->points.size());
+        return Result{true, tr("Interpolated ") + job_floor_name_ + buf + "."};
     }
     case util::JobState::Cancelled: return Result{true, tr("The interpolation of ") + job_floor_name_ + tr(" was cancelled; nothing was stored.")};
     case util::JobState::Failed: return Result{false, tr("The interpolation of ") + job_floor_name_ + " failed: " + s.error};
@@ -129,30 +129,22 @@ std::uint64_t InterpolationRunner::generation() const {
     return shared_->generation;
 }
 
-PropagationForm& InterpolationRunner::open_settings() {
-    form_.settings = project_->propagation();
-    form_.floor_attenuation_db = project_->building().floor_attenuation_db;
+InterpolationForm& InterpolationRunner::open_settings() {
+    form_.settings = project_->interpolation_settings();
     return form_;
 }
 
-void InterpolationRunner::default_settings() {
-    form_.settings = project::PropagationSettings{};
-    form_.floor_attenuation_db = building::Building{}.floor_attenuation_db;
-}
+void InterpolationRunner::default_settings() { form_.settings = project::InterpolationSettings{}; }
 
 Result InterpolationRunner::apply_settings() {
     const auto problems = form_.settings.validate();
     if (!problems.empty()) return Result{false, tr("Not stored: ") + problems.front()};
-    if (!std::isfinite(form_.floor_attenuation_db) || form_.floor_attenuation_db < 0.0 || form_.floor_attenuation_db > 100.0)
-        return Result{false, tr("Not stored: the attenuation per floor must be between 0 and 100 dB.")};
     try {
-        project_->set_propagation(form_.settings);
-        if (project_->building().floor_attenuation_db != form_.floor_attenuation_db)
-            project_->set_floor_attenuation_db(form_.floor_attenuation_db);
+        project_->set_interpolation_settings(form_.settings);
     } catch (const std::exception& e) {
         return Result{false, std::string(tr("Not stored: ")) + e.what()};
     }
-    return Result{true, tr("Propagation settings stored. Maps made with other settings are marked stale until run again.")};
+    return Result{true, tr("Interpolation settings stored. Maps made with other settings are marked stale until run again.")};
 }
 
 }  // namespace yantra::app

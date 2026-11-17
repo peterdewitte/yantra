@@ -94,9 +94,6 @@ struct ReportFixture : Fixture {
         a.eirp_dbm = 10.0;
         g.antennas.push_back(a);
         p->replace_building(b);
-        auto s = p->propagation();
-        s.max_reflections = 0;
-        p->set_propagation(s);
         std::vector<bm::Point2> pts;
         for (int i = 0; i < 10; ++i) pts.push_back({1.0 + 1.8 * i, 2.0 + (i % 3) * 3.0});
         add_points(*p, ground, pts, ground_levels, {1, 1, 1, 1, 1, 1, 2, 2, 2, 2});
@@ -237,7 +234,7 @@ TEST_CASE("EXP-05/06 report content: statistics, cells, changes and acceptance o
     REQUIRE(g.map);
     CHECK(g.map->label() == "interpolated");
     REQUIRE(g.summary);
-    CHECK(g.summary->fit.points == 10);
+    CHECK(g.map->points.size() == 10);
     const auto area_stats = ys::area_stats(*g.map, {-95.0, -85.0}, area.min_confidence);
     CHECK(g.summary->interpolated.thresholds[0].percent == doctest::Approx(area_stats.thresholds[0].percent));
     CHECK_FALSE(f1.map);
@@ -289,7 +286,7 @@ TEST_CASE("EXP-05/06 report content: statistics, cells, changes and acceptance o
     CHECK(contains(t, "4 measured points"));
     CHECK(contains(t, "Coverage map (interpolated)"));
     CHECK(contains(t, "No interpolated map is stored for this floor."));
-    CHECK(contains(t, "rms "));
+    CHECK(contains(t, "Inverse-distance weighting of 10 measured points, power 2.0, search radius 10.0 m"));
     CHECK(contains(t, "50.0 % of the measured points are at or above -95.0 dBm"));
     CHECK(contains(t, "Walk: FAIL"));
     CHECK(contains(t, "Share of measured points (%)"));  // IND-43: both shares, side by side

@@ -4,8 +4,8 @@
 // The interpolation commands of the project window (TST-50, step 9.4):
 // why a floor cannot run, a background run with progress through the
 // job's listener and its message once it ended, run again with a stored
-// map's request, cancel, and the propagation settings dialog (IND-40,
-// IND-41..45, OA-03).
+// map's request, cancel, and the interpolation settings dialog (IND-41,
+// IND-45, UI-19, OA-03).
 #include <doctest/doctest.h>
 
 #include <cmath>
@@ -113,7 +113,8 @@ TEST_CASE("IND-41, OA-03: a background run reports progress, then its message on
     REQUIRE(msg);
     INFO(msg->message);
     CHECK(msg->ok);
-    CHECK(msg->message.rfind("Interpolated Ground floor (fit: RMS", 0) == 0);
+    CHECK(msg->message.rfind("Interpolated Ground floor (", 0) == 0);
+    CHECK(msg->message.find("measured points)") != std::string::npos);
     CHECK(id != 0);
     CHECK_FALSE(run.poll());  // once
     CHECK_FALSE(run.progress().running);
@@ -122,7 +123,7 @@ TEST_CASE("IND-41, OA-03: a background run reports progress, then its message on
     CHECK(stored->request.floor_id == r.floor);
 
     // Settings changed: the map is stale; run again with its request.
-    run.open_settings().settings.max_reflections = 1;
+    run.open_settings().settings.power = 3.0;
     REQUIRE(run.apply_settings().ok);
     CHECK(ys::staleness(*r.project, *stored).stale);
     REQUIRE(run.run(r.floor, &*stored).ok);
@@ -153,24 +154,24 @@ TEST_CASE("OA-03: a cancelled run stores nothing and says so") {
         CHECK(msg->message.rfind("Interpolated", 0) == 0);
 }
 
-TEST_CASE("IND-40, IND-44: the propagation settings dialog validates, stores and resets") {
+TEST_CASE("IND-41, UI-19: the interpolation settings dialog validates, stores and resets") {
     Rig r("settings", true, false);
     InterpolationRunner run(r.project);
-    PropagationForm& f = run.open_settings();
-    CHECK(f.settings.grid_m == doctest::Approx(r.project->propagation().grid_m));
+    InterpolationForm& f = run.open_settings();
+    CHECK(f.settings == r.project->interpolation_settings());
     f.settings.grid_m = 50.0;
     const Result bad = run.apply_settings();
     CHECK_FALSE(bad.ok);
     CHECK(bad.message.rfind("Not stored: ", 0) == 0);
-    f.settings.grid_m = 0.5;
-    f.floor_attenuation_db = 120.0;
+    f.settings.grid_m = 0.25;
+    f.settings.full_confidence_m = 20.0;  // not below the radius
     CHECK_FALSE(run.apply_settings().ok);
-    f.floor_attenuation_db = 18.0;
-    f.settings.other_floors = !f.settings.other_floors;
+    f.settings.full_confidence_m = 1.0;
+    f.settings.power = 3.0;
+    f.settings.radius_m = 6.0;
     REQUIRE(run.apply_settings().ok);
-    CHECK(r.project->propagation().grid_m == doctest::Approx(0.5));
-    CHECK(r.project->building().floor_attenuation_db == doctest::Approx(18.0));
+    CHECK(r.project->interpolation_settings() == f.settings);
     run.default_settings();
-    CHECK(run.settings_form().settings.grid_m == doctest::Approx(pj::PropagationSettings{}.grid_m));
-    CHECK(r.project->propagation().grid_m == doctest::Approx(0.5));  // not stored until applied
+    CHECK(run.settings_form().settings == pj::InterpolationSettings{});
+    CHECK(r.project->interpolation_settings().grid_m == doctest::Approx(0.25));  // not stored until applied
 }

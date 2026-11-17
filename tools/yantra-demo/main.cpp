@@ -314,13 +314,13 @@ int main(int argc, char** argv) {
                       << w.recording_session << " (" << w.files.size() << " file)\n";
         }
         for (const yd::DemoFloor& f : d.floors) {
-            yantra::raytrace::RunControl run;
+            yantra::survey::RunControl run;
             run.threads = threads;
             const auto r = yantra::survey::interpolate(*project, yd::interpolation_request(*project, d, f), run);
             if (!r) throw std::runtime_error("interpolation of " + f.id + " was cancelled");
             yantra::survey::store(*project, *r);
-            std::cout << "  interpolation " << f.id << ": " << r->quality.points << " points, rms "
-                      << r->quality.rms_db << " dB\n";
+            std::cout << "  interpolation " << f.id << ": " << r->points.size() << " points, "
+                      << r->grid.cols << " x " << r->grid.rows << " cells\n";
         }
         project->close();
         if (!keep_work) fs::remove_all(work);

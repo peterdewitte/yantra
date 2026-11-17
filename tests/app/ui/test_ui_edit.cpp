@@ -5,7 +5,7 @@
 // harness (TST-50): drawing, selecting, deleting walls with undo / redo
 // by button and by key, placing an antenna and its properties dialog, the
 // wall-class table (IND-11, IND-12); the interpolation run with its
-// result on the plan, the propagation settings dialog and "run again" on
+// result on the plan, the interpolation settings dialog and "run again" on
 // a stale map (IND-40, IND-41, IND-45); the walk-test panel without radios
 // (the reasons on disabled controls, DOC-07 c).
 #include <doctest/doctest.h>
@@ -464,16 +464,16 @@ TEST_CASE("interpolation: run with the map on the plan, settings dialog, stale b
 
     // The settings dialog: a bad grid keeps it open; a good one stores it.
     REQUIRE(s.ui.click("interp.settings"));
-    REQUIRE(s.ui.wait_window("dlg.propagation"));
-    REQUIRE(s.ui.fill("grid", "50", "dlg.propagation"));
-    REQUIRE(s.ui.click("dlg.ok", "dlg.propagation"));
+    REQUIRE(s.ui.wait_window("dlg.interpolation"));
+    REQUIRE(s.ui.fill("grid", "50", "dlg.interpolation"));
+    REQUIRE(s.ui.click("dlg.ok", "dlg.interpolation"));
     REQUIRE(s.ui.frames(3));
-    CHECK(s.ui.window_open("dlg.propagation"));
+    CHECK(s.ui.window_open("dlg.interpolation"));
     CHECK(s.state.status().rfind("Not stored", 0) == 0);
-    REQUIRE(s.ui.fill("grid", "0.5", "dlg.propagation"));
-    REQUIRE(s.ui.click("dlg.ok", "dlg.propagation"));
-    REQUIRE(s.ui.wait_window_closed("dlg.propagation"));
-    CHECK(s.state.project()->propagation().grid_m == doctest::Approx(0.5));
+    REQUIRE(s.ui.fill("grid", "1", "dlg.interpolation"));
+    REQUIRE(s.ui.click("dlg.ok", "dlg.interpolation"));
+    REQUIRE(s.ui.wait_window_closed("dlg.interpolation"));
+    CHECK(s.state.project()->interpolation_settings().grid_m == doctest::Approx(1.0));
 
     // The map is stale now: the badge, "Run again (stale)"; run it again.
     REQUIRE(s.ui.run_until([&] { return s.gui.canvas().stats().stale_badge; }, 30));
@@ -486,26 +486,6 @@ TEST_CASE("interpolation: run with the map on the plan, settings dialog, stale b
     const auto now = s.state.project()->interpolations(s.state.project_window()->selected());
     REQUIRE(now.size() == 1);
     CHECK(now[0].id != maps[0].id);
-}
-
-TEST_CASE("interpolation: no antenna on the floor, the estimated sources are drawn and named (IND-42)") {
-    const fs::path dir = scratch("estimated");
-    make_floor(dir / "o.yantra", true, false);
-    Shell s({});
-    REQUIRE(s.state.open_project(dir / "o.yantra").ok);
-    REQUIRE(s.ui.frames(3));
-    REQUIRE(s.ui.click("panel.map"));
-    REQUIRE(s.ui.frames(2));
-    REQUIRE(s.ui.click("interp.run"));
-    s.state.interpolation()->wait();
-    REQUIRE(s.ui.run_until([&] { return s.gui.canvas().stats().interpolation; }, 30));
-    const FloorContent* c = s.state.project_window()->content(s.state.settings().layers.bin_size_m);
-    REQUIRE(c);
-    REQUIRE(c->interpolation);
-    CHECK(c->interpolation->estimated_sources);
-    REQUIRE_FALSE(c->interpolation->sources.empty());
-    CHECK(c->interpolation->sources[0].label.rfind("estimated", 0) == 0);
-    CHECK(s.gui.canvas().stats().estimated_sources == c->interpolation->sources.size());
 }
 
 TEST_CASE("walk test panel without radios: the reason on Start, the note after a search (DOC-07 c)") {

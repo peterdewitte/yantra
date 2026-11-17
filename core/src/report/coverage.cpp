@@ -634,17 +634,16 @@ CoverageReport coverage_report(const project::Project& project, const CoverageOp
         d.key_values(std::move(k));
         TableBlock t;
         t.header = {c.tr("Floor"), c.tr("Points"), c.tr("Median"), c.fill("Points >= {}", {num(o.threshold, 1)}),
-                    c.fill("Area >= {} (interpolated)", {num(o.threshold, 1)}), c.tr("Map fit (rms)"), c.tr("Changes")};
-        t.numeric = {false, true, true, true, true, true, true};
-        t.widths = {1.3, 0.8, 1.0, 1.1, 1.3, 1.2, 1.0};
+                    c.fill("Area >= {} (interpolated)", {num(o.threshold, 1)}), c.tr("Changes")};
+        t.numeric = {false, true, true, true, true, true};
+        t.widths = {1.3, 0.8, 1.0, 1.1, 1.3, 1.0};
         for (const FloorSection& s : rep.floors) {
             const std::string area = s.summary && !s.summary->interpolated.thresholds.empty()
                                          ? pct(s.summary->interpolated.thresholds.front().percent)
                                          : "-";
-            const std::string fit = s.map ? num(s.map->quality.rms_db, 2) + " dB" : "-";
             t.rows.push_back({s.name, std::to_string(s.points.count()), opt_value(s.stats.all.median, s.points.unit),
                               s.stats.all.thresholds.empty() ? "-" : pct(s.stats.all.thresholds.front().percent_at_or_above),
-                              area, fit, std::to_string(s.stats.all.serving_cell_changes)});
+                              area, std::to_string(s.stats.all.serving_cell_changes)});
         }
         d.table(std::move(t));
         d.heading(2, c.tr("Acceptance"), "acceptance");
@@ -699,7 +698,7 @@ CoverageReport coverage_report(const project::Project& project, const CoverageOp
         // The interpolated map.
         d.heading(2, c.tr("Coverage map (interpolated)"), "map-" + s.floor_id);
         if (s.map && floor) {
-            const raytrace::Grid& g = s.map->grid;
+            const survey::Grid& g = s.map->grid;
             const auto lo = building.from_plan_metres(*floor, g.origin_m);
             const auto hi = building.from_plan_metres(
                 *floor, building::Point2{g.origin_m.x + g.cell_m * g.cols, g.origin_m.y + g.cell_m * g.rows});
@@ -724,10 +723,10 @@ CoverageReport coverage_report(const project::Project& project, const CoverageOp
             }
             KeyValues k;
             k.rows.emplace_back(c.tr("Label"), s.map->label());
-            k.rows.emplace_back(c.tr("Fit quality"),
-                                c.fill("rms {} dB over {} measured points (before the fit {} dB)",
-                                       {num(s.map->quality.rms_db, 2), std::to_string(s.map->quality.points),
-                                        num(s.map->quality.start_rms_db, 2)}));
+            k.rows.emplace_back(c.tr("Method"),
+                                c.fill("Inverse-distance weighting of {} measured points, power {}, search radius {} m",
+                                       {std::to_string(s.map->points.size()), num(s.map->params.power, 1),
+                                        num(s.map->params.radius_m, 1)}));
             k.rows.emplace_back(c.tr("Grid"), num(g.cell_m, 2) + " m, " + std::to_string(g.cols) + " x " + std::to_string(g.rows));
             if (s.summary) {
                 k.rows.emplace_back(c.tr("Floor area"), num(s.summary->interpolated.floor_area_m2, 1) + " m\xc2\xb2");
@@ -736,10 +735,6 @@ CoverageReport coverage_report(const project::Project& project, const CoverageOp
                                                                          num(s.summary->interpolated.min_confidence, 2)}));
             }
             d.key_values(std::move(k));
-            if (s.map->estimated_sources)
-                d.paragraph(c.tr("No antenna reaches this floor: the sources of the map are estimated from the "
-                                 "measurements (estimated sources)."),
-                            Tone::Note);
             if (s.map->request.metric != o.metric)
                 d.paragraph(c.fill("The map is of \"{}\", not of the report's metric.", {s.map->request.metric.label()}),
                             Tone::Note);

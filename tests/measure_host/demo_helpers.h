@@ -25,6 +25,7 @@
 #include <yantra/core/project/project.h>
 #include <yantra/core/raytrace/model.h>
 #include <yantra/core/survey/interpolation.h>
+#include <yantra/core/survey/interpolation.h>
 #include <yantra/core/survey/points.h>
 #include <yantra/core/util/sha256.h>
 
@@ -73,8 +74,8 @@ inline ys::PointList points_of(const yj::Project& p, const yd::DemoDescription& 
 /// -j (the TSan tree). The results do not depend on it (IND-45).
 inline constexpr unsigned kDemoThreads = 4;
 
-inline yantra::raytrace::RunControl demo_run() {
-    yantra::raytrace::RunControl run;
+inline yantra::survey::RunControl demo_run() {
+    yantra::survey::RunControl run;
     run.threads = kDemoThreads;
     return run;
 }

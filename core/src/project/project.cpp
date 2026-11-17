@@ -2179,9 +2179,9 @@ void Project::remove_source(const std::string& id) {
     notify({Change::Kind::SourceRemoved, id});
 }
 
-// ---- propagation model and interpolation results (schema 6) ------------------
-// Copied from yantra-v2 68ea20a: core/src/project/project.cpp (propagation,
-// interpolation results), adapted (dB per floor in the building table).
+// ---- interpolation settings and results (schema 8) ----------------------------
+// Copied from yantra-v2 68ea20a: core/src/project/project.cpp (interpolation
+// results), adapted (IDW settings, 8-byte cells).
 
 namespace {
 
@@ -2229,61 +2229,47 @@ StoredInterpolation interpolation_row(const sql::Stmt& s, bool with_cells) {
 
 }  // namespace
 
-std::vector<std::string> PropagationSettings::validate() const {
+std::vector<std::string> InterpolationSettings::validate() const {
     std::vector<std::string> out;
     check_range(out, "grid_m", grid_m, 0.05, 10.0);
-    if (max_reflections < 0 || max_reflections > 3)
-        out.push_back("max_reflections: " + std::to_string(max_reflections) + " is outside 0 .. 3");
-    check_range(out, "path_loss_exponent", path_loss_exponent, 1.0, 8.0);
-    check_range(out, "reference_distance_m", reference_distance_m, 0.01, 100.0);
-    check_range(out, "reflection_loss_db", reflection_loss_db, 0.0, 60.0);
-    check_range(out, "rx_height_m", rx_height_m, 0.0, 10.0);
-    check_range(out, "default_eirp_dbm", default_eirp_dbm, -50.0, 80.0);
+    check_range(out, "power", power, 0.5, 6.0);
+    check_range(out, "radius_m", radius_m, 0.5, 1000.0);
+    check_range(out, "full_confidence_m", full_confidence_m, 0.0, 1000.0);
+    if (std::isfinite(full_confidence_m) && std::isfinite(radius_m) && full_confidence_m >= radius_m)
+        out.emplace_back("full_confidence_m: must be below radius_m");
     return out;
 }
 
-PropagationSettings Project::propagation() const {
+InterpolationSettings Project::interpolation_settings() const {
     const std::lock_guard l(impl_->mutex);
     impl_->require_open();
-    sql::Stmt s(impl_->db, "SELECT grid_m, max_reflections, path_loss_exponent, reference_distance_m, "
-                           "reflection_loss_db, rx_height_m, other_floors, default_eirp_dbm "
-                           "FROM propagation WHERE id = 1");
-    PropagationSettings r;
+    sql::Stmt s(impl_->db, "SELECT grid_m, power, radius_m, full_confidence_m FROM interpolation_settings WHERE id = 1");
+    InterpolationSettings r;
     if (!s.step()) return r;
     r.grid_m = s.f64(0);
-    r.max_reflections = static_cast<int>(s.i64(1));
-    r.path_loss_exponent = s.f64(2);
-    r.reference_distance_m = s.f64(3);
-    r.reflection_loss_db = s.f64(4);
-    r.rx_height_m = s.f64(5);
-    r.other_floors = s.i64(6) != 0;
-    r.default_eirp_dbm = s.f64(7);
+    r.power = s.f64(1);
+    r.radius_m = s.f64(2);
+    r.full_confidence_m = s.f64(3);
     return r;
 }
 
-void Project::set_propagation(const PropagationSettings& v) {
+void Project::set_interpolation_settings(const InterpolationSettings& v) {
     const auto problems = v.validate();
-    if (!problems.empty()) throw ProjectError(Code::Invalid, "propagation settings: " + problems.front());
+    if (!problems.empty()) throw ProjectError(Code::Invalid, "interpolation settings: " + problems.front());
     {
         const std::lock_guard l(impl_->mutex);
         impl_->require_open();
         sql::Transaction tx(impl_->db);
         sql::Stmt s(impl_->db,
-                    "INSERT INTO propagation (id, grid_m, max_reflections, path_loss_exponent, reference_distance_m, "
-                    "reflection_loss_db, rx_height_m, other_floors, default_eirp_dbm) "
-                    "VALUES (1, ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8) ON CONFLICT (id) DO UPDATE SET "
-                    "grid_m = excluded.grid_m, max_reflections = excluded.max_reflections, "
-                    "path_loss_exponent = excluded.path_loss_exponent, "
-                    "reference_distance_m = excluded.reference_distance_m, "
-                    "reflection_loss_db = excluded.reflection_loss_db, rx_height_m = excluded.rx_height_m, "
-                    "other_floors = excluded.other_floors, default_eirp_dbm = excluded.default_eirp_dbm");
-        s.bind(1, v.grid_m).bind(2, v.max_reflections).bind(3, v.path_loss_exponent);
-        s.bind(4, v.reference_distance_m).bind(5, v.reflection_loss_db).bind(6, v.rx_height_m);
-        s.bind(7, v.other_floors ? 1 : 0).bind(8, v.default_eirp_dbm).run();
+                    "INSERT INTO interpolation_settings (id, grid_m, power, radius_m, full_confidence_m) "
+                    "VALUES (1, ?1, ?2, ?3, ?4) ON CONFLICT (id) DO UPDATE SET grid_m = excluded.grid_m, "
+                    "power = excluded.power, radius_m = excluded.radius_m, "
+                    "full_confidence_m = excluded.full_confidence_m");
+        s.bind(1, v.grid_m).bind(2, v.power).bind(3, v.radius_m).bind(4, v.full_confidence_m).run();
         impl_->touch();
         tx.commit();
     }
-    notify({Change::Kind::Propagation, ""});
+    notify({Change::Kind::InterpolationSettings, ""});
 }
 
 // ---- acceptance profiles (schema 7) -------------------------------------------
@@ -2332,7 +2318,7 @@ std::int64_t Project::store_interpolation(StoredInterpolation r) {
     if (!std::isfinite(r.origin_m.x) || !std::isfinite(r.origin_m.y) || !std::isfinite(r.cell_m) || r.cell_m <= 0.0 ||
         r.cols <= 0 || r.rows <= 0)
         throw ProjectError(Code::Invalid, "interpolation: the grid is not valid");
-    if (r.cells.size() != static_cast<std::uint64_t>(r.cols) * static_cast<std::uint64_t>(r.rows) * 12u)
+    if (r.cells.size() != static_cast<std::uint64_t>(r.cols) * static_cast<std::uint64_t>(r.rows) * 8u)
         throw ProjectError(Code::Invalid, "interpolation: the cells do not match the grid");
     if (r.cells.size() > kMaxSourceBytes) throw ProjectError(Code::Invalid, "interpolation: the grid is too large");
     {
