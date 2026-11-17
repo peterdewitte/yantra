@@ -212,6 +212,9 @@ bool EmulatedContext::configure(const ContextOptions& options, std::string& erro
         floors.push_back({scene.floor.id, scene.floor.name, false, 0.0, 0.0,
                           radios::scene_to_json(scene)});
     }
+    if (options.no_scene)
+        for (Floor& f : floors)
+            f.json.clear();
     std::size_t shown = 0;
     if (!options.shown_floor.empty()) {
         auto it = std::find_if(floors.begin(), floors.end(),
@@ -328,7 +331,9 @@ yr_status EmulatedContext::get_scene(const char* floor_id, char* buffer, uint32_
         if (f == nullptr)
             st = YR_ERR_NOT_FOUND;
     }
-    if (f != nullptr) {
+    if (f != nullptr && f->json.empty()) {
+        st = YR_ERR_NOT_FOUND; // a floor without a scene
+    } else if (f != nullptr) {
         const auto len = static_cast<uint32_t>(f->json.size());
         if (out_length != nullptr)
             *out_length = len;

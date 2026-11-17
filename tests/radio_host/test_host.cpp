@@ -382,6 +382,22 @@ TEST_CASE("context: plan, cursor, walk and scene callbacks")
     CHECK(scene.antennas.size() == 3);
     CHECK(ctx.get_scene("f9", buffer.data(), len + 1, &len) == YR_ERR_NOT_FOUND);
 
+    // A floor without a scene (Yantra 0.4, a user's own floor): NOT_FOUND
+    // for the shown floor, the plan itself stays (RAD-18).
+    {
+        ContextOptions ns = o;
+        ns.no_scene = true;
+        EmulatedContext nctx;
+        REQUIRE(nctx.configure(ns, error));
+        REQUIRE(nctx.get_floor_plan(&info) == YR_OK);
+        CHECK(std::string(info.floor_id) == "f1");
+        CHECK(nctx.get_scene("", buffer.data(), len + 1, &len) == YR_ERR_NOT_FOUND);
+        CHECK(nctx.get_scene("f1", buffer.data(), len + 1, &len) == YR_ERR_NOT_FOUND);
+        ns.scene_json.clear();
+        REQUIRE(nctx.configure(ns, error));
+        CHECK(nctx.get_scene(nullptr, nullptr, 0, &len) == YR_ERR_NOT_FOUND);
+    }
+
     // A struct older than API 1.0 is refused.
     yr_plan_position old{};
     old.struct_size = 8;

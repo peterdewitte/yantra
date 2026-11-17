@@ -60,6 +60,11 @@ struct ContextOptions {
      *  otherwise. Without a scene the shown floor is "floor-1" without scale. */
     std::vector<std::string> scene_json;
     std::string shown_floor;           ///< Floor id shown, "" = the first scene's floor.
+    /** The floors have no scene: get_scene gives NOT_FOUND for them, as
+     *  Yantra 0.4 does for a user's own floor ("no scene, use the
+     *  defaults", RAD-18). Scenes given still name the floors (id, name,
+     *  scale). */
+    bool no_scene = false;
     std::vector<PlanPoint> cursor;     ///< Mouse path; empty = mouse not over the plan.
     std::vector<PlanPoint> walk;       ///< Walk path; empty = no walk runs.
     /** Records between two path steps (0: the paths stay at their first point). */
@@ -100,7 +105,7 @@ private:
         bool scale_set = false;
         double width_m = 0.0;
         double height_m = 0.0;
-        std::string json;
+        std::string json; ///< "" = no scene (get_scene NOT_FOUND)
     };
     const Floor* shown_floor_locked() const;
     yr_status position_locked(const std::optional<PlanPoint>& p, int64_t moved_ns,

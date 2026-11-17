@@ -113,6 +113,8 @@ Context, emulated Yantra for SCENE plugins (RAD-18):
   --plan-name TEXT          name of the plan shown (shows a plan)
   --example-id ID           bundled example plan id
   --no-plan                 no plan shown (NO_PLAN), even with --scene
+  --no-scene                the floors have no scene (get_scene NOT_FOUND:
+                            "no scene, use the defaults"); shows a plan
   --cursor X,Y[;X,Y...]     mouse position, or a path of positions
   --walk X,Y[;X,Y...]       walk-test position, or a path
   --path-step N             records between two path points (0: stay)
@@ -882,6 +884,9 @@ int main(int argc, char** argv)
             o.plan.flags |= YR_PLAN_MEASURE_NEIGHBOURS;
         } else if (a == "--no-plan") {
             o.no_plan = true;
+        } else if (a == "--no-scene") {
+            o.context.no_scene = true;
+            context_plan = true;
         } else if (a == "--serving") {
             o.plan.type = YR_PLAN_SERVING;
             if (i + 1 < args.size() && parse_u64(args[i + 1], o.plan.serving_hz))

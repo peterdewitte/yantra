@@ -1502,6 +1502,21 @@ void Kit::check_context(Check& c)
     if ((caps() & YR_CAP_SIMULATED) != 0)
         c.expect(with_position > 0, "a SIMULATED SCENE plugin delivered no sim_position (RAD-19)");
 
+    // C: a plan whose floor has no scene (get_scene NOT_FOUND, as Yantra 0.4
+    // for a user's own floor): "no scene, use the defaults" (RAD-18).
+    ContextOptions no_scene = shown;
+    no_scene.no_scene = true;
+    Collected nc;
+    if (ctx.configure(no_scene, error)) {
+        host_->notify({YR_CONTEXT_PLAN_CHANGED});
+        records_of(5.0, 3, nc, nullptr);
+        host_->wait_notifications_idle();
+        c.expect(!nc.records.empty(),
+                 "no record on a floor without a scene (NOT_FOUND means \"use the defaults\")");
+    } else {
+        c.fail("the kit cannot configure the context: " + error);
+    }
+
     // The plugin asked for the context, and every case was offered.
     const auto calls = ctx.call_counts();
     uint64_t asked = 0;
@@ -1523,7 +1538,7 @@ void Kit::check_context(Check& c)
         }
         return "";
     };
-    for (const Collected* got : {&a, &b})
+    for (const Collected* got : {&a, &b, &nc})
         for (const Record& r : got->records) {
             const radios::SchemaDef& s = schemas[r.schema_index];
             for (std::size_t i = 0; i < r.values.size() && i < s.fields.size(); ++i) {
