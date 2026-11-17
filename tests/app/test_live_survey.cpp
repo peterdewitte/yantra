@@ -112,7 +112,7 @@ TEST_CASE("PLG-27: the radios are found and the simulator is chosen by default; 
     REQUIRE(c != nullptr);
     CHECK(c->simulated);
     CHECK(c->uses_context);
-    CHECK(c->label.find("(") != std::string::npos);
+    CHECK(c->label == "Demo (simulated network)");  // the device label equals the plugin name: once
     CHECK(live.start_reason(r.floor).empty());
     CHECK(live.start_reason("no-such-floor") == "Choose a floor first.");
     CHECK_FALSE(live.choose_radio(99).ok);

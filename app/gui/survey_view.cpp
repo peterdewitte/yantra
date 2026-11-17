@@ -87,8 +87,12 @@ void Gui::draw_radio_controls(LiveSurvey& live) {
     ReplaySession* replay = state_.replay();
     const bool replaying = replay != nullptr && replay->is_open();
     const RadioState rs = live.radio_state();
-    if (rs.lost) ImGui::TextColored(kWarnColour, "%s", rs.text.c_str());
-    else ImGui::TextDisabled("%s", rs.text.c_str());
+    // UI-21: the state alone; the radio's name (or "No radio") is on the line above.
+    if (rs.chosen || rs.running) {
+        survey_.walk_radio_state = trf("State: {}", {rs.state});
+        if (rs.lost) ImGui::TextColored(kWarnColour, "%s", survey_.walk_radio_state.c_str());
+        else ImGui::TextDisabled("%s", survey_.walk_radio_state.c_str());
+    }
     if (live.radio_running()) {
         const std::string why = live.running() ? tr("Stop the walk test first.")
                                 : live.recording() ? tr("Stop the recording first.") : "";

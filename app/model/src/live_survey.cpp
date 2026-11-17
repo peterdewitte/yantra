@@ -414,7 +414,10 @@ Result LiveSurvey::find_radios() {
             RadioChoice c;
             c.plugin_id = e.id;
             c.device_key = d.key;
-            c.label = e.name + " (" + (d.label.empty() ? d.key : d.label) + ")";
+            // The plugin's name, and the device's only when it says more
+            // ("Demo (simulated network)", not the name twice).
+            const std::string& dev = d.label.empty() ? d.key : d.label;
+            c.label = dev.empty() || dev == e.name ? e.name : e.name + " (" + dev + ")";
             c.simulated = (e.capabilities & YR_CAP_SIMULATED) != 0 || (d.flags & YR_DEVICE_SIMULATED) != 0;
             c.uses_context = e.uses_context;
             if (d.flags & (YR_DEVICE_IN_USE | YR_DEVICE_NO_PERMISSION)) {
@@ -865,11 +868,12 @@ RadioState LiveSurvey::radio_state() const {
     s.label = s.running ? m.device_label : c ? c->label : std::string();
     s.cycles = cycles();
     s.lost = s.running && (m.monitor->last_flags() & measure::sample_flag::kDeviceLost) != 0;
-    if (!searched_) s.text = tr("Radio: not searched");
-    else if (!s.chosen && !s.running) s.text = tr("No radio");
-    else if (s.lost) s.text = s.label + tr(": unplugged, waiting");
-    else if (s.running) s.text = s.label + (running() ? tr(": walk test") : tr(": measuring"));
-    else s.text = s.label + tr(": idle");
+    if (!searched_) s.text = s.state = tr("Radio: not searched");
+    else if (!s.chosen && !s.running) s.text = s.state = tr("No radio");
+    else {
+        s.state = s.lost ? tr("unplugged, waiting") : !s.running ? tr("idle") : running() ? tr("walk test") : tr("measuring");
+        s.text = s.label + ": " + s.state;
+    }
     return s;
 }
 

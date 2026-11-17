@@ -199,6 +199,12 @@ TEST_CASE("UI-01..04, UI-08, UI-11, REC-01, REC-05, REC-07, REC-08, REC-11 in th
     REQUIRE(ui.frames(2));
     state.radio_windows()->close(RadioWindow::List);
     REQUIRE(ui.frames(2));
+    // UI-21: the radio's name once ("Radio: <name>") and its state alone;
+    // the search's diagnostics stay in Radio > Radios....
+    REQUIRE(state.live()->chosen() != nullptr);
+    CHECK(gui.survey_overlay().walk_radio == "Radio: Demo (simulated network)");
+    CHECK(gui.survey_overlay().walk_radio_state == "State: idle");
+    CHECK(state.radio_windows()->list_view().note == state.live()->radio_note());
     // UI-21: the recording controls are closed until their arrow opens them.
     CHECK_FALSE(ui.has("rec.record"));
     REQUIRE(ui.click("walk.recording"));
@@ -208,6 +214,7 @@ TEST_CASE("UI-01..04, UI-08, UI-11, REC-01, REC-05, REC-07, REC-08, REC-11 in th
     REQUIRE(ui.click("walk.radio_start"));
     REQUIRE(ui.frames(2));
     REQUIRE_MESSAGE(state.live()->radio_running(), state.status());
+    CHECK(gui.survey_overlay().walk_radio_state == "State: measuring");
     // The live values of the Walk tab: the serving cell, its level large and the compact graph.
     const double deadline = 20.0 * YANTRA_TEST_TIME_SCALE;
     const auto until = [&](const std::function<bool()>& done) {

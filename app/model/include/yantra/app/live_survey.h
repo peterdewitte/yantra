@@ -134,6 +134,7 @@ struct RadioState {
     bool lost = false;       ///< unplugged (NFR-04)
     std::string label;
     std::string text;        ///< "Simulator (sim:0): measuring", "No radio", ...
+    std::string state;       ///< the state alone: "measuring", "idle", "No radio", ...
     std::uint64_t cycles = 0;
 };
 

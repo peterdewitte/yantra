@@ -95,6 +95,8 @@ public:
                 if (x == w) return true;
             return false;
         }
+        std::string walk_radio;           ///< the Walk tab's radio line (UI-21)
+        std::string walk_radio_state;     ///< the Walk tab's radio state line ("" none)
         std::string serving;              ///< the serving cell line ("" none)
         std::vector<std::string> large;   ///< UI-01 large values, "label value"
         std::size_t neighbour_rows = 0;

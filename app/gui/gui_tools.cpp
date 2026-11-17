@@ -199,10 +199,11 @@ void Gui::draw_walk_section(const FloorContent* c) {
     // UI-21: the radio in use, chosen in Radio > Radios... (Select...).
     const RadioChoice* ch = live->chosen();
     ImGui::PushTextWrapPos(0.0F);
+    survey_.walk_radio = ch != nullptr ? trf("Radio: {}", {ch->label}) : std::string(tr("No radio"));
     if (ch != nullptr)
-        ImGui::Text(tr("Radio: %s"), ch->label.c_str());
+        ImGui::TextUnformatted(survey_.walk_radio.c_str());
     else
-        ImGui::TextDisabled("%s", tr("No radio"));
+        ImGui::TextDisabled("%s", survey_.walk_radio.c_str());
     ImGui::PopTextWrapPos();
     text_tooltip(tr("The radio the walk test measures with."));
     same_line_if(label_w(tr("Select...###walk.radio_select")));
@@ -214,7 +215,8 @@ void Gui::draw_walk_section(const FloorContent* c) {
         }
     }
     text_tooltip(tr("Open Radio > Radios...: find the radios and choose the one the walk test measures with."));
-    wrapped(live->radio_note(), live->radios().empty() && live->radios_searched());
+    // UI-21: only the radio and its state here; the search's diagnostics
+    // (radio_note) are in Radio > Radios....
     if (live->radios_searched()) draw_radio_controls(*live);
 
     WalkForm& f = live->form();

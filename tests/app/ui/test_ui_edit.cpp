@@ -156,6 +156,9 @@ TEST_CASE("walk test panel without radios: the reason on Start, the note after a
     REQUIRE(s.ui.frames(3));
     CHECK(s.state.live()->radios().empty());
     CHECK(s.state.live()->radio_note().find("No radio found") == 0);
+    // UI-21: the Walk tab says "No radio" only; the note is in Radio > Radios....
+    CHECK(s.gui.survey_overlay().walk_radio == "No radio");
+    CHECK(s.gui.survey_overlay().walk_radio_state.empty());
     CHECK(s.ui.find("walk.start")->disabled);
     CHECK(s.ui.has("walk.name"));
     CHECK(s.ui.find("walk.start")->disabled);
