@@ -23,6 +23,7 @@
 // release). The reports' half is test_report_overflow.cpp.
 #include <doctest/doctest.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cstdio>
 #include <iterator>
@@ -127,9 +128,25 @@ bool have_radios() {
 // deterministically (13.11: seen only under the sanitizers).
 void check_every_flag(UiHarness& ui, AppState& state, Checker& c) {
     namespace sf = yantra::measure::sample_flag;
+    // A cycle with other carriers: the simulator's scan channels come in
+    // some cycles only, so the newest one may have none (seen once).
+    auto has_scan = [](const yantra::measure::MeasurementCycle& cy) {
+        return std::any_of(cy.samples.begin(), cy.samples.end(), [](const yantra::measure::CarrierSample& s) {
+            return s.latest.role == yantra::measure::CarrierRole::ScanChannel ||
+                   s.latest.role == yantra::measure::CarrierRole::Other;
+        });
+    };
+    std::optional<yantra::measure::MeasurementCycle> cycle;
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::seconds(30);
+    while (std::chrono::steady_clock::now() < deadline) {
+        cycle = state.monitor()->newest_cycle();
+        if (cycle && has_scan(*cycle)) break;
+        cycle.reset();
+        REQUIRE(ui.frame());
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    }
+    REQUIRE_MESSAGE(cycle.has_value(), "no cycle with other carriers in 30 s");
     REQUIRE(state.live()->stop_radio().ok);
-    std::optional<yantra::measure::MeasurementCycle> cycle = state.monitor()->newest_cycle();
-    REQUIRE(cycle.has_value());
     cycle->flags = sf::kAllMask;
     for (yantra::measure::CarrierSample& s : cycle->samples) s.flags = sf::kAllMask;
     state.monitor()->freeze_history(true);

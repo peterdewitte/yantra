@@ -122,7 +122,34 @@ inline float combo_w(std::initializer_list<const char*> items) {
     for (const char* i : items) w = std::max(w, ImGui::CalcTextSize(i, nullptr, true).x);
     return std::min(w + ImGui::GetStyle().FramePadding.x * 2.0F + ImGui::GetFrameHeight(), ImGui::GetContentRegionAvail().x);
 }
-/// The width of a button that fits its label.
+/// `text` shortened with "..." to fit `width` (TST-52: a combo's preview
+/// in a narrow panel); `cut` tells whether it was.
+inline std::string fit_text(const std::string& text, float width, bool* cut = nullptr) {
+    if (cut) *cut = false;
+    if (ImGui::CalcTextSize(text.c_str()).x <= width) return text;
+    if (cut) *cut = true;
+    std::string t = text;
+    while (!t.empty() && ImGui::CalcTextSize((t + "...").c_str()).x > width) {
+        t.pop_back();
+        while (!t.empty() && (static_cast<unsigned char>(t.back()) & 0xC0U) == 0x80U) t.pop_back();  // UTF-8
+        if (!t.empty() && (static_cast<unsigned char>(t.back()) & 0xC0U) == 0xC0U) t.pop_back();
+    }
+    return t + "...";
+}
+/// The preview width of a combo `w` wide.
+inline float combo_preview_w(float w) { return std::max(1.0F, w - ImGui::GetFrameHeight() - ImGui::GetStyle().FramePadding.x * 2.0F); }
+/// The label of an item `item_w` wide ("Label###id"): when label and item
+/// do not fit side by side, the label goes on its own line above and the
+/// item keeps only its id (TST-52: long translations, narrow panels).
+inline std::string label_above_if_narrow(const char* label, float item_w) {
+    const std::string l(label);
+    const std::size_t hash = l.find("###");
+    const std::string shown = l.substr(0, hash);
+    const float need = item_w + ImGui::GetStyle().ItemInnerSpacing.x + ImGui::CalcTextSize(shown.c_str()).x;
+    if (shown.empty() || need <= ImGui::GetContentRegionAvail().x) return l;
+    ImGui::TextUnformatted(shown.c_str());
+    return hash == std::string::npos ? "###" + l : l.substr(hash);
+}
 inline float label_w(const char* label) {
     return ImGui::CalcTextSize(label, nullptr, true).x + ImGui::GetStyle().FramePadding.x * 2.0F;
 }

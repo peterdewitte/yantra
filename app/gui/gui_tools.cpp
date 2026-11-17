@@ -119,8 +119,10 @@ void Gui::draw_map_page(ProjectWindow& w, const FloorContent* c) {
     {
         float pct = static_cast<float>(state_.settings().layers.map_opacity * 100.0);
         ImGui::BeginDisabled(!state_.settings().layers.visible(Layer::Interpolation));
-        ImGui::SetNextItemWidth(std::min(em(140.0F), ImGui::GetContentRegionAvail().x * 0.6F));
-        if (ImGui::SliderFloat(tr("Map opacity###map.opacity"), &pct, static_cast<float>(kMinMapOpacity * 100.0), 100.0F,
+        const float slider_w = std::min(em(140.0F), ImGui::GetContentRegionAvail().x * 0.6F);
+        const std::string opacity_label = label_above_if_narrow(tr("Map opacity###map.opacity"), slider_w);
+        ImGui::SetNextItemWidth(slider_w);
+        if (ImGui::SliderFloat(opacity_label.c_str(), &pct, static_cast<float>(kMinMapOpacity * 100.0), 100.0F,
                                "%.0f %%", ImGuiSliderFlags_AlwaysClamp))
             state_.set_map_opacity(static_cast<double>(pct) / 100.0);
         ImGui::EndDisabled();
@@ -182,9 +184,12 @@ void Gui::draw_walk_section(const FloorContent* c) {
     text_tooltip(tr("Load the radio plugins and list their devices (a second or two; the simulator needs no hardware)."));
     if (live->radios_searched() && !live->radios().empty()) {
         const RadioChoice* ch = live->chosen();
-        ImGui::SetNextItemWidth(-1.0F);
         ImGui::BeginDisabled(running);
-        if (ImGui::BeginCombo("###walk.radio", ch ? ch->label.c_str() : tr("Choose a radio"))) {
+        bool cut = false;
+        const std::string preview = fit_text(ch ? ch->label : std::string(tr("Choose a radio")),
+                                             combo_preview_w(ImGui::GetContentRegionAvail().x), &cut);
+        ImGui::SetNextItemWidth(-1.0F);
+        if (ImGui::BeginCombo("###walk.radio", preview.c_str())) {
             for (std::size_t i = 0; i < live->radios().size(); ++i) {
                 const RadioChoice& r = live->radios()[i];
                 ImGui::BeginDisabled(!r.usable);
@@ -196,16 +201,22 @@ void Gui::draw_walk_section(const FloorContent* c) {
             ImGui::EndCombo();
         }
         ImGui::EndDisabled();
-        text_tooltip(tr("The radio the walk test measures with."));
+        if (cut && ch)
+            text_tooltip((ch->label + "\n" + tr("The radio the walk test measures with.")).c_str());
+        else
+            text_tooltip(tr("The radio the walk test measures with."));
     }
     wrapped(live->radio_note(), live->radios().empty() && live->radios_searched());
     if (live->radios_searched()) draw_radio_controls(*live);
 
     WalkForm& f = live->form();
     ImGui::BeginDisabled(running);
-    ImGui::SetNextItemWidth(combo_w({walk_kind_label(WalkKind::PointAndClick), walk_kind_label(WalkKind::Continuous),
-                                     walk_kind_label(WalkKind::Manual), walk_kind_label(WalkKind::MouseSurvey)}));
-    if (ImGui::BeginCombo(tr("Kind###walk.kind"), walk_kind_label(f.kind))) {
+    const float kind_w = combo_w({walk_kind_label(WalkKind::PointAndClick), walk_kind_label(WalkKind::Continuous),
+                                  walk_kind_label(WalkKind::Manual), walk_kind_label(WalkKind::MouseSurvey)});
+    const std::string kind_label = label_above_if_narrow(tr("Kind###walk.kind"), kind_w);
+    ImGui::SetNextItemWidth(std::min(kind_w, ImGui::GetContentRegionAvail().x));
+    const std::string kind_preview = fit_text(walk_kind_label(f.kind), combo_preview_w(ImGui::CalcItemWidth()));
+    if (ImGui::BeginCombo(kind_label.c_str(), kind_preview.c_str())) {
         for (WalkKind k : {WalkKind::PointAndClick, WalkKind::Continuous, WalkKind::Manual, WalkKind::MouseSurvey})
             if (ImGui::Selectable((std::string(walk_kind_label(k)) + "###walk.kind." + walk_kind_key(k)).c_str(), f.kind == k))
                 f.kind = k;
