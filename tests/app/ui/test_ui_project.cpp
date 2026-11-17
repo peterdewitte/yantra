@@ -143,8 +143,10 @@ TEST_CASE("project window: floor tabs, \"+\", properties, reorder by dragging a 
     CHECK(w->selected() == roof);
     CHECK(s.ui.has(tab_key(roof)));
 
-    // Properties: rename it.
-    REQUIRE(s.ui.click("floor.properties"));
+    // Plan and properties (UI-23): a floor without a plan gets its
+    // properties: rename it.
+    CHECK_FALSE(s.ui.has("floor.properties"));
+    REQUIRE(s.ui.click("floor.plan"));
     REQUIRE(s.ui.wait_window("dlg.floor_properties"));
     REQUIRE(s.ui.fill("name", "Plant room", "dlg.floor_properties"));
     REQUIRE(s.ui.click("dlg.ok", "dlg.floor_properties"));
@@ -273,7 +275,7 @@ TEST_CASE("project window: the Map tab's Show row and map opacity, zoom and pan,
     // A small window: everything still drawn inside it.
     s.ui.set_display_size(800.0F, 600.0F);
     REQUIRE(s.ui.frames(4));
-    for (const char* id : {"floor.properties", "plan.fit", "layer.points", "plan.canvas"}) {
+    for (const char* id : {"floor.plan", "plan.fit", "layer.points", "plan.canvas"}) {
         const auto it = s.ui.find(id);
         REQUIRE_MESSAGE(it, id);
         CHECK(it->x0 >= 0.0F);

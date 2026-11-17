@@ -64,7 +64,8 @@ public:
 
 private:
     void reset(PlanImportWindow& w);
-    void draw_panel(PlanImportWindow& w);
+    void draw_panel(AppState& state, PlanImportWindow& w);
+    void draw_properties(AppState& state, PlanImportWindow& w);
     void draw_pages(PlanImportWindow& w);
     void draw_preview(PlanImportWindow& w);
     void draw_scale(PlanImportWindow& w);

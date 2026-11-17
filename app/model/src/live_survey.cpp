@@ -635,7 +635,7 @@ std::string LiveSurvey::start_reason(const std::string& floor_id) const {
     if (form_.kind == WalkKind::MouseSurvey) {
         if (!(r->simulated && r->uses_context))
             return tr("The mouse survey needs the simulator as the radio: it calculates the levels where the mouse is.");
-        if (!b.has_scale(*f)) return tr("The mouse survey needs a floor with a scale (Plan and scale...).");
+        if (!b.has_scale(*f)) return tr("The mouse survey needs a floor with a scale (Plan and properties...).");
     }
     if (impl_->recorder && impl_->period_ns != (form_.kind == WalkKind::MouseSurvey ? kMousePeriodNs : kWalkPeriodNs))
         return tr("Stop the recording first: the mouse survey measures every 0.2 s, walks every second.");

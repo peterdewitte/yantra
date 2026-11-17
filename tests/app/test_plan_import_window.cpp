@@ -670,7 +670,27 @@ TEST_CASE("AppState: Add floor -> plan import window -> project window (IND-01, 
     REQUIRE(st.add_floor("Roof", 5, 3.0).ok);
     const std::string roof = st.project_window()->tabs().back().id;
     CHECK(st.edit_plan_reason(roof).find("without a plan") != std::string::npos);
-    CHECK_FALSE(st.edit_floor_plan(roof).ok);
+    // UI-23: Plan and properties of a floor without a plan: its properties.
+    REQUIRE(st.edit_floor_plan(roof).ok);
+    CHECK(st.dialog() == Dialog::FloorProperties);
+    CHECK(st.floor_properties_form().floor_id == roof);
+    CHECK(st.plan_import() == nullptr);
+    st.cancel_dialog();
+    // With a plan: the window, with the floor's properties in the form;
+    // Apply stores them and keeps the window open.
+    REQUIRE(st.edit_floor_plan(up).ok);
+    CHECK(st.dialog() == Dialog::PlanImport);
+    FloorForm& form = st.floor_properties_for(up);
+    CHECK(form.floor_id == up);
+    form.level = 7;
+    REQUIRE(st.apply_floor_properties().ok);
+    CHECK(st.project()->floor(up)->level == 7);
+    CHECK(st.dialog() == Dialog::PlanImport);
+    form.level = 5;  // the roof's
+    CHECK_FALSE(st.apply_floor_properties().ok);
+    CHECK(&st.floor_properties_for(roof) == &form);
+    CHECK(form.floor_id == roof);
+    st.cancel_dialog();
     // Closing the project closes the window too.
     REQUIRE(st.edit_floor_plan(up).ok);
     REQUIRE(st.close_project().ok);

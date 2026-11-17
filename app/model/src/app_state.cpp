@@ -1117,9 +1117,13 @@ std::string AppState::edit_plan_reason(const std::string& floor_id) const {
 }
 
 Result AppState::edit_floor_plan(const std::string& floor_id) {
+    if (!project_) return fail(tr("No project is open."));
+    const std::optional<building::Floor> f = project_->floor(floor_id);
+    if (f && f->source.empty()) return edit_floor(floor_id);  // UI-23: no plan, its properties
     if (const std::string why = edit_plan_reason(floor_id); !why.empty()) return fail(why);
-    const Result r = import_plan_source(project_->floor(floor_id)->source);
+    const Result r = import_plan_source(f->source);
     if (!r.ok) return r;
+    props_form_ = FloorForm{f->id, f->name, f->level, f->height_m};
     return show(import_window_->select_floor(floor_id));
 }
 
@@ -1148,7 +1152,21 @@ Result AppState::edit_floor(const std::string& floor_id) {
     return Result{};
 }
 
+FloorForm& AppState::floor_properties_for(const std::string& floor_id) {
+    if (props_form_.floor_id != floor_id && project_) {
+        if (const std::optional<building::Floor> f = project_->floor(floor_id))
+            props_form_ = FloorForm{f->id, f->name, f->level, f->height_m};
+    }
+    return props_form_;
+}
+
 Result AppState::confirm_floor_properties() {
+    const Result r = apply_floor_properties();
+    if (r.ok) dialog_ = Dialog::None;
+    return r;
+}
+
+Result AppState::apply_floor_properties() {
     if (!window_) return fail(tr("No project is open."));
     const FloorForm f = props_form_;
     const std::optional<building::Floor> now = project_->floor(f.floor_id);
@@ -1162,7 +1180,6 @@ Result AppState::confirm_floor_properties() {
         const Result r = window_->set_level(f.floor_id, f.level, f.height_m);
         if (!r.ok) return fail(r.message);
     }
-    dialog_ = Dialog::None;
     return done(tr("Floor ") + f.name + tr(": level ") + std::to_string(f.level));
 }
 

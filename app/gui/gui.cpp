@@ -347,16 +347,13 @@ void Gui::draw_project_screen() {
     }
     // Floor commands (IND-04).
     const std::string id = c->floor_id;
-    if (ImGui::Button(tr("Properties...###floor.properties"))) (void)state_.edit_floor(id);
-    text_tooltip(tr("Rename the floor, or change its level number and floor-to-floor height."));
-    same_line_if(label_w(tr("Plan and scale...###floor.plan")));
-    const std::string no_plan = state_.edit_plan_reason(id);
-    ImGui::BeginDisabled(!no_plan.empty());
-    if (ImGui::Button(tr("Plan and scale...###floor.plan"))) (void)state_.edit_floor_plan(id);
-    ImGui::EndDisabled();
-    text_tooltip(no_plan.empty() ? tr("Open the floor's plan in the plan import window: adjust its trim, rotation, "
-                                   "scale and reference point, or trim more floors from the same sheet.")
-                                 : (tr("Adjust the floor's trim and scale. ") + no_plan).c_str());
+    // UI-23: one button for the floor's plan and its properties.
+    if (ImGui::Button(tr("Plan and properties...###floor.plan"))) (void)state_.edit_floor_plan(id);
+    text_tooltip(state_.edit_plan_reason(id).empty()
+                     ? tr("Open the floor in the plan import window: its name, level and height, its trim, rotation, "
+                          "scale and reference point, and more floors from the same sheet.")
+                     : tr("This floor has no plan: change its name, level and height. Add its plan with File > Add "
+                          "floor."));
     // IND-04, UI-20: no Move or Remove buttons here: a floor tab is dragged
     // to its place, and its right-click menu moves or removes it
     // (draw_floor_tabs).

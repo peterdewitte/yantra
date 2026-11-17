@@ -104,7 +104,7 @@ label from the demo description, `AppState::demo_label()`), floor tabs
 `tab.<floor id>` (reorderable: a tab dragged to its place calls
 `move_floor` once, on release; its right-click menu has `floor.down`,
 `floor.up` and `floor.remove`) and `floors.add`, buttons
-`floor.properties`, `plan.fit`, `plan.zoom_in`,
+`floor.plan` ("Plan and properties...", UI-23), `plan.fit`, `plan.zoom_in`,
 `plan.zoom_out`, the layer panel (`layer.<key>` checkboxes,
 `layer.<key>.up` / `.down`, `layer.bin_size`,
 `layer.interpolation.choose`) and the canvas `plan.canvas` (drag pans,
@@ -134,8 +134,13 @@ file (`af.plan_file`, the in-app browser with `plan_file_filters()`), a
 plan already in the project (`af.src.<source id>`, disabled with the
 reason when a referenced file is gone) or a blank floor (`dlg.ok`). A
 plan opens the plan import window `dlg.plan_import`, a large modal; the
-project window's `floor.plan` ("Plan and scale...") opens it again for a
-floor's sheet with that floor selected.
+project window's `floor.plan` ("Plan and properties...", UI-23; there is no
+separate Properties button) opens it again for a floor's sheet with that
+floor selected and its name, level and height in the panel's "Floor
+properties" (`pi.prop.name`, `pi.prop.level`, `pi.prop.height`,
+`pi.prop.apply`: `AppState::floor_properties_for`,
+`apply_floor_properties`, the window stays open); for a floor without a
+plan it opens the Floor properties dialog (`dlg.floor_properties`).
 
 - Model: `PlanImportWindow` (app/model/include/yantra/app/plan_import_window.h)
   holds the editing state over core `plan::PlanImport`: tools

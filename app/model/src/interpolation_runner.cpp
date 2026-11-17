@@ -32,7 +32,7 @@ std::string InterpolationRunner::run_reason(const std::string& floor_id) const {
     const building::Building b = project_->building();
     const building::Floor* f = b.find_floor(floor_id);
     if (f == nullptr) return tr("Choose a floor first.");
-    if (!b.has_scale(*f)) return tr("The floor has no scale: set one in Plan and scale... first (IND-08).");
+    if (!b.has_scale(*f)) return tr("The floor has no scale: set one in Plan and properties... first (IND-08).");
     if (project_->point_count(floor_id) == 0) return tr("The floor has no measured points yet: walk it first.");
     return {};
 }

@@ -150,7 +150,7 @@ bool PlanImportView::draw(AppState& state, PlanImportWindow& w) {
     const float bottom = ImGui::GetFrameHeightWithSpacing() * 1.8F;
     ImGui::BeginChild("###pi.panel", ImVec2(std::min(gui_detail::em(kPanelWidth), ImGui::GetContentRegionAvail().x * 0.45F), -bottom), ImGuiChildFlags_None);
     gui_detail::wrap_texts();
-    draw_panel(w);
+    draw_panel(state, w);
     ImGui::EndChild();
     ImGui::SameLine();
     ImGui::BeginChild("###pi.canvas_area", ImVec2(0.0F, -bottom), ImGuiChildFlags_None,
@@ -342,7 +342,7 @@ void PlanImportView::draw_scale(PlanImportWindow& w) {
     }
 }
 
-void PlanImportView::draw_panel(PlanImportWindow& w) {
+void PlanImportView::draw_panel(AppState& state, PlanImportWindow& w) {
     // UI-20: the file name with an Info button; the details behind it.
     ImGui::PushTextWrapPos(0.0F);
     ImGui::TextUnformatted(w.title().c_str());
@@ -371,6 +371,7 @@ void PlanImportView::draw_panel(PlanImportWindow& w) {
         stats_.credit = true;
     }
     ImGui::PopTextWrapPos();
+    draw_properties(state, w);
     if (w.page_count() > 1) draw_pages(w);
 
     // -- trim: every option with its "(?)" (UI-20) --------------------------------
@@ -475,6 +476,33 @@ void PlanImportView::draw_panel(PlanImportWindow& w) {
     }
     draw_preview(w);
     draw_scale(w);
+}
+
+// UI-23: the selected floor's name, level and height ("Plan and
+// properties..." in the project window opens the window on it).
+void PlanImportView::draw_properties(AppState& state, PlanImportWindow& w) {
+    if (w.selected().empty()) return;
+    FloorForm& f = state.floor_properties_for(w.selected());
+    if (f.floor_id != w.selected()) return;
+    ImGui::SeparatorText(tr("Floor properties"));
+    help(tr("The selected floor's name, its level number (0 = ground floor, 1 = first floor, -1 = basement; the tabs "
+            "are ordered by level) and its floor-to-floor height. Apply stores them."));
+    const float field = -ImGui::CalcTextSize(tr("Height (m)###pi.prop.height"), nullptr, true).x -
+                        ImGui::GetStyle().ItemInnerSpacing.x;
+    ImGui::SetNextItemWidth(field);
+    gui_detail::input_text(tr("Name###pi.prop.name"), f.name);
+    tooltip(tr("For example \"Ground floor\" or \"Basement\"."));
+    ImGui::SetNextItemWidth(field);
+    ImGui::InputInt(tr("Level###pi.prop.level"), &f.level);
+    tooltip(tr("0 = ground floor, 1 = first floor, -1 = basement. Every floor has its own level; the tabs are "
+               "ordered by level."));
+    float height = static_cast<float>(f.height_m);
+    ImGui::SetNextItemWidth(field);
+    if (ImGui::InputFloat(tr("Height (m)###pi.prop.height"), &height, 0.1F, 0.5F, "%.2f"))
+        f.height_m = static_cast<double>(height);
+    tooltip(tr("Floor-to-floor height in metres (more than 0, at most 50)."));
+    if (ImGui::Button(tr("Apply###pi.prop.apply"))) report(state.apply_floor_properties());
+    tooltip(tr("Store the floor's name, level and height."));
 }
 
 void PlanImportView::draw_add_popup(PlanImportWindow& w) {

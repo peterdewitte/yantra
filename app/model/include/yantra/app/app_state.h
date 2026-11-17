@@ -560,6 +560,11 @@ public:
     FloorForm& floor_properties_form() { return props_form_; }
     /// Confirms Floor properties: name, then level and height.
     Result confirm_floor_properties();
+    /// UI-23: the form of `floor_id` for the plan import window's floor
+    /// properties (loaded from the project when the form holds another
+    /// floor), and storing it without closing a window.
+    FloorForm& floor_properties_for(const std::string& floor_id);
+    Result apply_floor_properties();
     /// Moves a floor one place up (+1) or down (-1) in the level order.
     Result move_floor(const std::string& floor_id, int steps);
     /// Asks before a floor is removed (dialog RemoveFloor; the question
@@ -596,8 +601,11 @@ public:
     /// reason (IND-02).
     Result import_plan_file(const std::filesystem::path& file);
     Result import_plan_source(const std::string& source_id);
-    /// Re-opens the plan import window on a floor's source with the floor
-    /// selected (IND-07: adjust its trim, scale and reference point).
+    /// The project window's "Plan and properties..." (UI-23): re-opens the
+    /// plan import window on a floor's source with the floor selected and
+    /// its properties (name, level, height) in the window (IND-04, IND-07:
+    /// adjust its trim, scale and reference point); a floor without a plan
+    /// gets the Floor properties dialog.
     Result edit_floor_plan(const std::string& floor_id);
     /// Why a floor's plan cannot be edited ("" when it can).
     std::string edit_plan_reason(const std::string& floor_id) const;

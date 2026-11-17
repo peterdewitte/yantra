@@ -194,7 +194,8 @@ TEST_CASE("plan import: choose a file, trim, preview, add as floor, scale, close
     CHECK(*mpu == doctest::Approx(0.05).epsilon(0.03));
     CHECK_FALSE(s.gui.import_view().message_is_error());
 
-    // Close: the project window shows the floor; Plan and scale reopens it.
+    // Close: the project window shows the floor; Plan and properties
+    // reopens it (UI-23: the one floor button; no Properties button).
     REQUIRE(s.ui.click("dlg.cancel", "dlg.plan_import"));
     REQUIRE(s.ui.wait_window_closed("dlg.plan_import"));
     REQUIRE(s.ui.frames(3));
@@ -209,10 +210,27 @@ TEST_CASE("plan import: choose a file, trim, preview, add as floor, scale, close
     REQUIRE(s.state.plan_import());
     CHECK(s.state.plan_import()->selected() == hall);
     CHECK(s.gui.import_view().stats().placed == 1);
+    // UI-23: the floor's properties are in the window; Apply stores them
+    // and the window stays open.
+    REQUIRE_MESSAGE(s.ui.has("pi.prop.name", "dlg.plan_import"), s.ui.dump());
+    CHECK(s.state.floor_properties_form().floor_id == hall);
+    const std::string hall_name = s.state.project()->floor(hall)->name;
+    CHECK(s.state.floor_properties_form().name == hall_name);
+    REQUIRE(s.ui.fill("pi.prop.name", "Main hall", "dlg.plan_import"));
+    REQUIRE(s.ui.fill("pi.prop.height", "4.5", "dlg.plan_import"));
+    REQUIRE(s.ui.click("pi.prop.apply", "dlg.plan_import"));
+    REQUIRE(s.ui.frames(2));
+    CHECK(s.state.project()->floor(hall)->name == "Main hall");
+    CHECK(s.state.project()->floor(hall)->height_m == doctest::Approx(4.5));
+    CHECK(s.ui.has("dlg.plan_import"));
+    CHECK(s.state.plan_import()->selected() == hall);
     s.ui.key(ImGuiKey_Escape);  // nothing drafted: Escape is not a close
     REQUIRE(s.ui.frames(2));
     REQUIRE(s.ui.click("dlg.cancel", "dlg.plan_import"));
     REQUIRE(s.ui.wait_window_closed("dlg.plan_import"));
+    REQUIRE(s.ui.frames(2));
+    CHECK_FALSE(s.ui.has("floor.properties"));
+    CHECK(s.ui.find("floor.plan")->label.find("Plan and properties") == 0);
 
     // Add floor lists the plan already in the project.
     REQUIRE(s.state.trigger(Action::AddFloor).ok);
