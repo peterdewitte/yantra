@@ -101,7 +101,11 @@ their stored settings (RAD-47), starts streams and receives records and
 events through a non-blocking sink per stream. It reopens a device after
 an unplug (DEVICE_BACK), resolves the calibration key of a device at each
 record's measurement time (HW-01b) and gives control calls a time limit
-(RAD-15) on a control thread. Yantra makes no simulator scenes: the
+(RAD-15) on a control thread. Spectra (radio API 1.2, UI-24) come through
+the host table's `push_spectrum`: checked, copied and handed at once to
+the `SpectrumStore` (`radio/spectrum.h`, latest and a bounded ring for
+the Spectrum window); only power per bin, never IQ (RAD-26), and never
+recorded. Yantra makes no simulator scenes: the
 fixed demo scenes of the example floors are data files (docs/DEMO.md).
 
 ### Measurement pipeline (`measure/`)
@@ -238,6 +242,8 @@ radio plugin --record--> RadioHost sink queue --> delivery thread
 project points --> point interpolation (IDW) --> stored maps
 project + maps + cell DB  --> report (PDF, HTML), export (CSV, DXF, images)
 recording file --> replay --> the same pipeline (post-processing, PP-01)
+radio plugin --spectrum--> RadioHost push_spectrum --> SpectrumStore
+   --> Tools > Spectrum (spectrum, waterfall; not recorded)
 ```
 
 ## Threads and queues
@@ -269,6 +275,8 @@ memory without limit:
 
 - the radio host's sink per stream holds at most `sink_capacity` (4096)
   records; when full, records are dropped and counted (RAD-24);
+- the spectrum store keeps the latest spectrum and a ring of 120 (at most
+  4096 bins each, as float); older ones are overwritten;
 - the recorder's queue for its flush thread is bounded by
   `RecorderConfig::max_pending_bytes`; when the disk cannot keep up, lines
   are dropped and counted in the recorder status (OA-03);

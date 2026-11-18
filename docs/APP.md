@@ -35,12 +35,13 @@ e.g. Tour "9.10"). Disabled entries stay visible with their reason
 
 ImGui labels are `"<text>###<id>"`; tests and screenshots use the id:
 
-- menus `menu.file`, `menu.radio`, `menu.view` and `menu.tools` (only when
-  a plugin adds entries), `menu.network`, `menu.help`; menu items the action id (`file.new_project`,
+- menus `menu.file`, `menu.radio`, `menu.view` (only when a plugin adds
+  entries), `menu.network`, `menu.window`, `menu.tools` (always: Spectrum,
+  then the plugins' entries), `menu.help`; menu items the action id (`file.new_project`,
   `file.open_project`, `file.recent`, `file.open_demo`, `file.save`, `file.save_as`,
   `file.add_floor`, `file.close_project`, `file.export`, `file.report`,
   `file.settings`, `file.about`, `file.exit`, `network.cell_db`,
-  `network.verification`, `network.reselection`, `help.tour`, `help.user_manual`,
+  `network.verification`, `network.reselection`, `tools.spectrum`, `help.tour`, `help.user_manual`,
   `help.quick_starts`, `help.reset_settings`, `help.about`);
 - windows `main` (the screen below the menu bar), `status_bar`;
 - start screen buttons `start.<action id>`, recent projects `start.recent.<n>`;
@@ -894,6 +895,47 @@ press is never also a click. Model: `app/model/include/yantra/app/plan_notes.h`
 - `Gui::notes_overlay()` tells the tests what was drawn (pins, the
   dragged pin, the window, its picture and position).
 - The report lists the notes per floor (EXP-05, docs/REPORT.md).
+
+## Spectrum (step 15.5, UI-24)
+
+Tools > Spectrum (`tools.spectrum`, `Action::ToolsSpectrum`) opens the
+window `win.spectrum` (`AppState::spectrum_window()`; model
+`app/model/include/yantra/app/spectrum_window.h`, view
+`app/gui/spectrum_view.cpp`; manual 5.6). Radio API 1.2 (radios RAD-140,
+api_definition 7.10): a plugin with `YR_CAP_SPECTRUM` delivers about one
+`yr_spectrum` a second while its plan has `YR_PLAN_SPECTRUM`.
+
+- Asking: every frame the window is open, `spectrum_view()` calls
+  `LiveSurvey::request_spectrum(band)`; `AppState::tick()` asks for none
+  while it is closed. `LiveSurvey::update()` gives a measuring radio the
+  new plan (`set_plan` with RETUNE_LIVE, else stop and start of the
+  stream; on failure the old plan again and `spectrum_note()` says why),
+  not while a walk test runs. Only a radio with SPECTRUM is asked
+  (`RadioChoice::spectrum`); the PEI terminal and the beacon never are.
+- Receiving: the radio host's `push_spectrum` checks each spectrum
+  (`validate_spectrum`), copies it (`radio::Spectrum`, power as float)
+  and hands it to `RadioHostConfig::spectra`: the LiveSurvey's
+  `radio::SpectrumStore` (thread-safe; the latest and a ring of 120, at
+  most 120 x 4096 bins, about 2 MB). dBFS spectra get the calibration at
+  their centre frequency (RF-02). Counted in `SinkCounters::spectra` and
+  `spectra_invalid`.
+- Band: `SpectrumForm` (`spectrum.first`, `spectrum.last` in MHz,
+  `spectrum.default` = 380-400) clipped by `clip_band()` to the open
+  device's plan ranges (`RadioDevice::plan_ranges`); `coverage_note()`
+  when the spectrum covers less (an SDR's instantaneous span, open point
+  11.2/5 of the radio API definition).
+- Drawing: `spectrum.plot` (the strongest bin per pixel column, unit and
+  flags SIMULATED / OVERLOAD / UNCALIBRATED, markers from
+  `SurveyMonitor::frame()`), `spectrum.waterfall` (a 512 x 120 texture from
+  `waterfall_pixels()`, rebuilt when a spectrum arrives), `spectrum.legend`
+  (`waterfall_rgb()`: dark blue, then the coverage map's red, orange,
+  yellow, green; `colour_range()` from the noise to the peak).
+- States without a spectrum (`SpectrumView::State`): no project, no radio,
+  no SPECTRUM capability (only the explanation), not measuring
+  (`spectrum.start_radio`), waiting.
+- Spectra are not recorded: recordings and record files hold records
+  only (record files name the capability and the plan flag `spectrum`,
+  yantra-radios RECORD_FILES.md); a replay shows no spectrum.
 
 ## Screenshots and layout check (step 9.11)
 

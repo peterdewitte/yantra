@@ -20,6 +20,18 @@ points only, and the demo uses fixed scenes. The version stays 0.2.0
 until the next release. Not run for this state: the sanitizer trees and
 the Windows build and tests.
 
+### Added
+
+- Tools > Spectrum (UI-24, radio API 1.2): the spectrum of the TETRA band
+  and a waterfall of the last two minutes from a radio with the SPECTRUM
+  capability (the simulator, HackRF and other SDR radios), with the
+  serving and neighbour carriers marked, the band in MHz (380-400 by
+  default, narrowed to what the radio measures; an SDR shows the span it
+  receives at once) and the flags SIMULATED, OVERLOAD and UNCALIBRATED.
+  The radio is asked for spectra only while the window is open; spectra
+  are not recorded. The Tools menu is now always there (Spectrum, then
+  the plugins' entries). Manual 5.6.
+
 ### Changed
 
 - The project window has two tabs, Walk and Map (UI-18, UI-19); the
