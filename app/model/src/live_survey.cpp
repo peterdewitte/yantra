@@ -29,6 +29,7 @@
 #include "yantra/app/plugin_state_file.h"
 #include "yantra/core/project/project.h"
 #include "yantra/core/radio/radio_host.h"
+#include "yantra/core/radio/spectrum.h"
 #include "yantra/core/recording/cut.h"
 #include "yantra/core/survey/recordings.h"
 #include "yantra/core/survey/walk_test.h"
@@ -112,6 +113,16 @@ struct LiveSurvey::Impl {
     std::unique_ptr<radio::RadioHost> host;
     std::shared_ptr<radio::RadioDevice> device;
     std::unique_ptr<measure::CycleRunner> runner;
+    // UI-24: spectra asked (band), the plan the stream runs with, the
+    // store, and the open device's plan ranges (read once per device).
+    std::optional<std::pair<std::uint64_t, std::uint64_t>> spectrum_band;
+    radio::Plan running_plan;
+    std::optional<radio::Plan> failed_plan;  // a restart that failed: not retried
+    std::string spectrum_error;
+    std::shared_ptr<radio::SpectrumStore> spectra = std::make_shared<radio::SpectrumStore>();
+    std::optional<radio::PlanRanges> ranges;
+    std::uint64_t ranges_generation = 0;
+    bool ranges_read = false;
 
     // The walk.
     std::shared_ptr<survey::WalkTest> walk;
@@ -260,8 +271,11 @@ struct LiveSurvey::Impl {
     std::string open_radio(const RadioChoice& radio, std::int64_t period) {
         if (std::string e = open_device(radio, period); !e.empty()) return e;
         runner = std::make_unique<measure::CycleRunner>(*pipeline);
-        radio::Plan plan;
-        plan.type = YR_PLAN_SERVING;
+        const radio::Plan plan = radio_plan();
+        running_plan = plan;
+        failed_plan.reset();
+        spectrum_error.clear();
+        spectra->clear();
         if (const yr_status st = device->start(plan); st != YR_OK) {
             const std::string why = device->last_error();
             release_radio();
@@ -314,7 +328,54 @@ struct LiveSurvey::Impl {
         if (!pipeline) return;
         std::shared_ptr<const measure::LevelCorrector> c;  // none: identity
         if (table) c = std::make_shared<calibration::TableCorrector>(table, calibration::AntennaSettings{});
+        spectra->set_corrector(c);
         pipeline->set_corrector(std::move(c));
+    }
+
+    std::uint32_t device_capabilities() const {
+        if (!device || !host) return 0;
+        for (const radio::RadioPluginEntry& e : host->list())
+            if (e.id == device_plugin) return e.capabilities;
+        return 0;
+    }
+
+    // The plan of the measuring radio: the serving cell, and spectra while
+    // the Spectrum window asks for them and the radio has SPECTRUM (UI-24).
+    radio::Plan radio_plan() const {
+        radio::Plan p;
+        p.type = YR_PLAN_SERVING;
+        if (spectrum_band && (device_capabilities() & YR_CAP_SPECTRUM) != 0) {
+            p.flags |= YR_PLAN_SPECTRUM;
+            p.spectrum_first_hz = spectrum_band->first;
+            p.spectrum_last_hz = spectrum_band->second;
+        }
+        return p;
+    }
+
+    // UI-24: a measuring radio gets the asked plan (not during a walk).
+    void apply_spectrum_plan(bool walk_running) {
+        if (!running_radio()) return;
+        const radio::Plan want = radio_plan();
+        if (want == running_plan || (failed_plan && *failed_plan == want) || walk_running) return;
+        yr_status st = YR_OK;
+        if ((device_capabilities() & YR_CAP_RETUNE_LIVE) != 0) {
+            st = device->set_plan(want);
+        } else {
+            (void)device->stop();
+            st = device->start(want);
+            if (st != YR_OK) (void)device->start(running_plan);  // measure on as before
+        }
+        if (st != YR_OK) {
+            failed_plan = want;
+            const std::string why = device->last_error();
+            spectrum_error = tr("The radio did not take the spectrum plan: ") +
+                             (why.empty() ? std::string("error ") + std::to_string(st) : why);
+            return;
+        }
+        failed_plan.reset();
+        spectrum_error.clear();
+        running_plan = want;
+        spectra->clear();
     }
 
     // The open device reports dBm itself (HW-01b): a SELF_CALIBRATED
@@ -349,6 +410,7 @@ struct LiveSurvey::Impl {
         o.config.period_ns = period;
         o.catalog = catalog;
         if (table) o.corrector = std::make_shared<calibration::TableCorrector>(table, calibration::AntennaSettings{});
+        spectra->set_corrector(o.corrector);
         pipeline = std::make_shared<measure::MeasurementPipeline>(std::move(o));
         pipeline->add_observer(monitor);
         for (const auto& ob : observers) pipeline->add_observer(ob);
@@ -357,6 +419,7 @@ struct LiveSurvey::Impl {
         c.state = state;
         c.pipeline = pipeline;
         c.context = publisher;
+        c.spectra = spectra;
         host = std::make_unique<radio::RadioHost>(std::move(c));
         host->load_all();
         period_ns = period;
@@ -420,6 +483,7 @@ Result LiveSurvey::find_radios() {
             c.label = dev.empty() || dev == e.name ? e.name : e.name + " (" + dev + ")";
             c.simulated = (e.capabilities & YR_CAP_SIMULATED) != 0 || (d.flags & YR_DEVICE_SIMULATED) != 0;
             c.uses_context = e.uses_context;
+            c.spectrum = (e.capabilities & YR_CAP_SPECTRUM) != 0;
             if (d.flags & (YR_DEVICE_IN_USE | YR_DEVICE_NO_PERMISSION)) {
                 c.usable = false;
                 c.reason = d.flags_reason.empty() ? std::string(tr("The device is in use or not accessible.")) : d.flags_reason;
@@ -591,6 +655,47 @@ void LiveSurvey::update() {
         impl_->context.set_building(impl_->project->building());
         if (impl_->shown) impl_->context.show_floor(impl_->shown);
     }
+    impl_->apply_spectrum_plan(running());
+}
+
+void LiveSurvey::request_spectrum(std::optional<std::pair<std::uint64_t, std::uint64_t>> band) {
+    if (band == impl_->spectrum_band) return;
+    impl_->spectrum_band = band;
+    impl_->failed_plan.reset();
+    impl_->spectrum_error.clear();
+}
+
+std::optional<std::pair<std::uint64_t, std::uint64_t>> LiveSurvey::spectrum_request() const {
+    return impl_->spectrum_band;
+}
+
+bool LiveSurvey::spectrum_active() const {
+    return impl_->running_radio() && (impl_->running_plan.flags & YR_PLAN_SPECTRUM) != 0;
+}
+
+std::string LiveSurvey::spectrum_note() const {
+    const Impl& m = *impl_;
+    if (!m.spectrum_band || spectrum_active()) return {};
+    if (!m.spectrum_error.empty()) return m.spectrum_error;
+    if (m.running_radio() && running() && m.radio_plan() != m.running_plan)
+        return tr("The spectrum starts when the walk test ends: changing the radio's plan now would interrupt the "
+                  "measurement.");
+    return {};
+}
+
+std::shared_ptr<radio::SpectrumStore> LiveSurvey::spectra() const { return impl_->spectra; }
+
+std::optional<radio::PlanRanges> LiveSurvey::plan_ranges() {
+    Impl& m = *impl_;
+    if (!m.device) return std::nullopt;
+    if (!m.ranges_read || m.ranges_generation != m.device_generation) {
+        m.ranges_read = true;
+        m.ranges_generation = m.device_generation;
+        m.ranges.reset();
+        radio::PlanRanges r;
+        if (m.device->plan_ranges(r) == YR_OK) m.ranges = std::move(r);
+    }
+    return m.ranges;
 }
 
 void LiveSurvey::cursor(std::optional<Point2> plan, double t_s) {

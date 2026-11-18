@@ -9,7 +9,8 @@
 // the plugin's translations (UI-12). The model is PluginUi
 // (app/model/plugin_ui.h). Ids: windows "plg.<plugin id>.<window id>",
 // controls "plg.<control id>" inside their window, menu entries
-// "plg.<plugin id>.<item id>", menus "menu.view" / "menu.tools".
+// "plg.<plugin id>.<item id>", menus "menu.view" / "menu.tools" (Tools
+// always, with Spectrum, UI-24; the plugins' entries below a separator).
 #include "gui.h"
 #include "yantra/app/i18n.h"
 #include "gui_widgets.h"
@@ -363,7 +364,7 @@ void Gui::draw_plugin_entries(std::uint32_t menu) {
     PluginUi& ui = state_.plugin_ui();
     const std::vector<PluginMenuEntry> entries = ui.menu(menu);
     if (entries.empty()) return;
-    if (menu != YANTRA_MENU_VIEW && menu != YANTRA_MENU_TOOLS) ImGui::Separator();
+    if (menu != YANTRA_MENU_VIEW) ImGui::Separator();
     std::string open_sub;  // the submenu being drawn ("" none)
     bool sub_shown = false;
     for (const PluginMenuEntry& e : entries) {
@@ -391,7 +392,7 @@ void Gui::draw_plugin_menus() {
     const struct {
         std::uint32_t menu;
         const char* label;
-    } menus[] = {{YANTRA_MENU_VIEW, tr("View###menu.view")}, {YANTRA_MENU_TOOLS, tr("Tools###menu.tools")}};
+    } menus[] = {{YANTRA_MENU_VIEW, tr("View###menu.view")}};  // Tools is always there (UI-24)
     for (const auto& m : menus) {
         // The menus appear when an enabled plugin adds entries (UI-14).
         if (!ui.has_menu(m.menu)) continue;

@@ -80,6 +80,7 @@ add_library(yantra_app_model STATIC
   ${CMAKE_CURRENT_BINARY_DIR}/i18n_tables.cpp
   model/src/interpolation_runner.cpp
   model/src/live_survey.cpp
+  model/src/spectrum_window.cpp
   model/src/manual.cpp
   model/src/osm_map.cpp
   model/src/plan_import_window.cpp
@@ -151,7 +152,7 @@ endif()
 
 add_library(yantra_app_gui STATIC gui/about_view.cpp gui/note_view.cpp gui/gui.cpp gui/gui_tools.cpp gui/plan_canvas.cpp gui/plan_import_view.cpp
   gui/survey_view.cpp gui/radio_view.cpp gui/user_texture.cpp gui/plugin_view.cpp gui/settings_view.cpp
-  gui/network_view.cpp gui/post_view.cpp gui/help_view.cpp gui/tour_view.cpp gui/screenshot.cpp
+  gui/network_view.cpp gui/spectrum_view.cpp gui/post_view.cpp gui/help_view.cpp gui/tour_view.cpp gui/screenshot.cpp
   gui/report_view.cpp)
 add_library(yantra::app_gui ALIAS yantra_app_gui)
 target_include_directories(yantra_app_gui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/gui)

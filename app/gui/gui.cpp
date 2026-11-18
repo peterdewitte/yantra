@@ -241,6 +241,7 @@ void Gui::draw_menu_bar() {
         // PLG-06: the entries enabled plugins add to this menu.
         if (m.id == "file") draw_plugin_entries(YANTRA_MENU_FILE);
         if (m.id == "help") draw_plugin_entries(YANTRA_MENU_HELP);
+        if (m.id == "tools") draw_plugin_entries(YANTRA_MENU_TOOLS);
         ImGui::EndMenu();
         if (m.id == "file") {
             draw_radio_menu();  // PLG-16: between File and Help
@@ -1227,6 +1228,7 @@ void Gui::draw() {
     draw_status_bar(status, status_h);
     draw_radio_windows();
     draw_network_windows();
+    draw_spectrum_window();
     draw_survey_windows();
     draw_plugin_windows();
     draw_tour();

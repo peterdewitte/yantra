@@ -59,6 +59,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <utility>
 #include <string>
 #include <vector>
 
@@ -75,6 +76,8 @@ class Project;
 namespace yantra::radio {
 class RadioHost;
 class RadioDevice;
+class SpectrumStore;
+struct PlanRanges;
 }
 namespace yantra::plugin {
 class PluginStateStore;
@@ -145,6 +148,7 @@ struct RadioChoice {
     std::string label;  ///< "Simulator (sim:0)"
     bool simulated = false;   ///< simulated data (DEMO-07)
     bool uses_context = false;  ///< follows the plan, cursor and walk position (PLG-27)
+    bool spectrum = false;      ///< delivers spectra (YR_CAP_SPECTRUM, radio API 1.2, UI-24)
     bool usable = true;
     std::string reason;  ///< why not usable (in use, no permission)
 };
@@ -310,6 +314,25 @@ public:
     /// the pipeline is rebuilt.
     void add_observer(std::shared_ptr<measure::MeasurementObserver> observer);
     void remove_observer(const std::shared_ptr<measure::MeasurementObserver>& observer);
+    // -- spectrum (UI-24, radio API 1.2 RAD-140) --------------------------------------
+    /// Asks the chosen radio for spectra of first_hz..last_hz (the Spectrum
+    /// window is open), or for none (nullopt: closed). Only a radio with
+    /// SPECTRUM is asked; a measuring radio gets the new plan in update()
+    /// (a short restart of its stream without RETUNE_LIVE), except while a
+    /// walk test runs: then after it.
+    void request_spectrum(std::optional<std::pair<std::uint64_t, std::uint64_t>> band);
+    /// The band asked for (nullopt: no spectra asked).
+    std::optional<std::pair<std::uint64_t, std::uint64_t>> spectrum_request() const;
+    /// The measuring radio's plan has the spectrum flag now.
+    bool spectrum_active() const;
+    /// Why the asked spectra are not active ("" when they are or none is asked).
+    std::string spectrum_note() const;
+    /// The spectra received (latest and the waterfall's history); kept
+    /// across radio host rebuilds, cleared when the radio or band changes.
+    std::shared_ptr<radio::SpectrumStore> spectra() const;
+    /// The open device's plan ranges (RAD-32), read once per device; nullopt
+    /// when none is open or the plugin gave none.
+    std::optional<radio::PlanRanges> plan_ranges();
     /// The calibration table that corrects the levels (RF-02; nullptr none).
     std::shared_ptr<const calibration::Table> calibration_table() const;
     /// Uses `table` from now on and saves it as the user's table

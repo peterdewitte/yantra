@@ -308,6 +308,12 @@ inline void visit_all(Shell& s, const std::function<void(const std::string&)>& c
     for (Action a : {Action::CellDatabase, Action::Verification, Action::Reselection}) REQUIRE(s.state.trigger(a).ok);
     settle_check("network windows");
     s.state.network_windows() = NetworkWindows{};
+    // UI-24: Tools > Spectrum (no radio found here: what to do; the
+    // simulator's spectrum and waterfall are the screenshot scene "spectrum").
+    REQUIRE(s.state.trigger(Action::ToolsSpectrum).ok);
+    settle_check("spectrum window");
+    s.state.spectrum_window() = false;
+    REQUIRE(s.ui.frames(2));
     if (RadioWindows* rw = s.state.radio_windows()) {
         REQUIRE(rw->open(RadioWindow::List).ok);
         settle_check("radio list");

@@ -28,7 +28,7 @@ file(MAKE_DIRECTORY ${_scratch})
 add_executable(test_app test_app_model.cpp test_file_browser.cpp test_interpolation_runner.cpp test_plan_import_window.cpp test_project_window.cpp
                         test_radio_windows.cpp test_settings_plugins.cpp test_survey_monitor.cpp test_network.cpp test_i18n_sound.cpp
                         test_tour.cpp test_report_export.cpp test_app_control.cpp test_about_building.cpp
-                        test_plan_notes.cpp)
+                        test_plan_notes.cpp test_spectrum_window.cpp)
 # Step 9.10: the tour's sheet download through libcurl (file:// and loopback only).
 target_link_libraries(test_app PRIVATE yantra_test_main yantra_warnings yantra::app_model yantra::app_net yantra::audio yantra::core
                                        yantra_plan_fixtures yantra::json)
@@ -92,7 +92,8 @@ yantra_doctest_tests(test_app_ui GROUP test_app_ui LABELS "fast;app" TIMEOUT 300
 
 # The walk-test view with the simulator (step 9.4): real time, one ctest
 # per case; the technology plugins and the simulator of the build tree.
-add_executable(test_app_live test_live_survey.cpp test_live_ui.cpp test_radio_windows_live.cpp test_radio_ui.cpp test_screenshots.cpp)
+add_executable(test_app_live test_live_survey.cpp test_live_ui.cpp test_radio_windows_live.cpp test_radio_ui.cpp test_screenshots.cpp
+                             test_spectrum_ui.cpp)
 target_link_libraries(test_app_live PRIVATE yantra_test_main yantra_warnings yantra_ui_harness yantra::app_gui
                                             yantra::app_model yantra::core yantra_plan_fixtures)
 target_compile_definitions(test_app_live PRIVATE YANTRA_TEST_SCRATCH_DIR="${_scratch}/test_app_live"

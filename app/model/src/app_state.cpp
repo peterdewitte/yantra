@@ -127,6 +127,10 @@ const ActionDef kActions[] = {
      tr_mark("Show or hide the window with the events of the walk: cell changes, alerts and markers."), nullptr},
     {Action::WindowStatistics, "window.statistics", tr_mark("Statistics"), "",
      tr_mark("Show or hide the window with the statistics of the measurements and the coverage threshold."), nullptr},
+    {Action::ToolsSpectrum, "tools.spectrum", tr_mark("Spectrum..."), "",
+     tr_mark("The spectrum of the TETRA band and a waterfall of the last two minutes, from a radio that delivers "
+     "spectra (the simulator, HackRF and other SDR radios), with the serving and neighbour carriers marked."),
+     nullptr},
 };
 
 const ActionDef& def(Action a) {
@@ -276,6 +280,7 @@ ActionView AppState::action(Action a) const {
     case Action::WindowScanner:
     case Action::WindowEvents:
     case Action::WindowStatistics:
+    case Action::ToolsSpectrum:
         if (!open) {
             v.enabled = false;
             v.disabled_reason = tr("No project is open: create one (File > New indoor project) or open one first.");
@@ -362,11 +367,14 @@ std::vector<Menu> AppState::menus() const {
     Menu window{"window", tr("Window"), {}};
     window.entries = {item(Action::WindowNeighbours), item(Action::WindowGraphs), item(Action::WindowScanner),
                       item(Action::WindowEvents), item(Action::WindowStatistics)};
+    // UI-24; enabled plugins add their own Tools entries (PLG-06).
+    Menu tools{"tools", tr("Tools"), {}};
+    tools.entries = {item(Action::ToolsSpectrum)};
     Menu help{"help", tr("Help"), {}};
     help.entries = {item(Action::Tour),        item(Action::UserManual),    item(Action::UserManualPdf),
                     item(Action::QuickStarts), sep,                         item(Action::ResetSettings),
                     sep,                       item(Action::HelpAbout)};
-    return {file, network, window, help};
+    return {file, network, window, tools, help};
 }
 
 std::vector<RecentView> AppState::recent_projects() const {
@@ -557,6 +565,7 @@ Result AppState::trigger(Action a) {
     case Action::CellDatabase: network_windows_.cell_db = true; return Result{};
     case Action::Verification: network_windows_.verification = true; return Result{};
     case Action::Reselection: network_windows_.reselection = true; return Result{};
+    case Action::ToolsSpectrum: spectrum_window_ = true; return Result{};
     case Action::WindowNeighbours:
     case Action::WindowGraphs:
     case Action::WindowScanner:
@@ -1300,6 +1309,7 @@ void AppState::drop_network() {
     checks_.reset();
     cell_db_.reset();
     network_windows_ = NetworkWindows{};
+    spectrum_window_ = false;
     survey_windows_ = SurveyWindows{};
 }
 
@@ -1377,6 +1387,8 @@ void AppState::tick() {
     if (live_ && window_) {
         const std::string& f = window_->selected();
         live_->show_floor(f.empty() ? std::nullopt : std::optional<std::string>(f));
+        // UI-24: spectra only while the Spectrum window is open.
+        if (!spectrum_window_) live_->request_spectrum(std::nullopt);
         live_->update();
     }
     if (radios_) radios_->tick(static_cast<double>(platform::monotonic_ns()) / 1e9);
@@ -2005,6 +2017,10 @@ void AppState::set_notes_visible(bool on) {
     if (settings_.layers.notes == on) return;
     settings_.layers.notes = on;
     settings_changed_ = true;
+}
+
+SpectrumView AppState::spectrum_view() {
+    return app::spectrum_view(live_.get(), monitor_ ? monitor_->frame() : SurveyFrame{}, spectrum_form_);
 }
 
 }  // namespace yantra::app

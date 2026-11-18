@@ -275,6 +275,9 @@ private:
     void draw_radio_confirmation(RadioWindows& rw);
     // Network menu windows (step 9.8, network_view.cpp).
     void draw_network_windows();
+    // Tools > Spectrum (UI-24, spectrum_view.cpp).
+    void draw_spectrum_window();
+    void draw_spectrum_body();
     void draw_cell_db(CellDbEditor& ed);
     void draw_verification(NetworkChecks& nc);
     void draw_reselection(NetworkChecks& nc);
@@ -351,6 +354,8 @@ private:
     bool note_dragged_ = false;
     Point2 note_drag_pos_;
     UserTexture note_tex_;
+    UserTexture spectrum_tex_;               // UI-24: the waterfall
+    std::uint64_t spectrum_tex_received_ = 0;  // the spectra it was made from
     const void* note_tex_bytes_ = nullptr;
     std::size_t note_tex_size_ = 0;
     ImVec2 note_window_size_{0.0F, 0.0F};  // the Note window's size in the last frame

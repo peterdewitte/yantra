@@ -61,6 +61,7 @@
 #include "yantra/app/settings.h"
 #include "yantra/app/settings_reset.h"
 #include "yantra/app/sheet_fetch.h"
+#include "yantra/app/spectrum_window.h"
 #include "yantra/app/tour.h"
 
 namespace yantra::project {
@@ -100,6 +101,7 @@ enum class Action {
     WindowScanner,     ///< every carrier the radios report
     WindowEvents,      ///< the event list (UI-09, UI-10)
     WindowStatistics,  ///< the statistics (UI-11)
+    ToolsSpectrum,     ///< Tools > Spectrum: spectrum and waterfall (UI-24)
 };
 
 /// The help window (DOC-07 e): a section of the user manual.
@@ -385,6 +387,11 @@ public:
     /// DB-08; nullptr on the start screen).
     NetworkChecks* network_checks() { return checks_.get(); }
     NetworkWindows& network_windows() { return network_windows_; }
+    /// Tools > Spectrum (UI-24): shown (the Gui closes it), its band, and
+    /// what it shows this frame (asks the radio for spectra while shown).
+    bool& spectrum_window() { return spectrum_window_; }
+    SpectrumForm& spectrum_form() { return spectrum_form_; }
+    SpectrumView spectrum_view();
     SurveyWindows& survey_windows() { return survey_windows_; }
     /// The flag of a Window-menu action's window (nullptr for other actions).
     bool* survey_window(Action a);
@@ -746,6 +753,8 @@ private:
     std::vector<std::filesystem::path> report_ready_;  // UI-22
     std::string walk_floor_;
     NetworkWindows network_windows_;
+    bool spectrum_window_ = false;
+    SpectrumForm spectrum_form_;
     SurveyWindows survey_windows_;
     HelpView help_;
     AudibleAlerts alerts_;

@@ -145,7 +145,18 @@ TEST_CASE("settings window: tabs, range check, Apply, OK and Cancel; Ctrl+, open
 
 TEST_CASE("plugin manager (PLG-09) in the settings window: the switch turns the beacon off and its menu goes") {
     Shell s(paths_with_beacon(scratch("manager")));
-    CHECK(s.ui.has("menu.tools"));  // the beacon adds a Tools entry (PLG-06)
+    // The Tools menu is always there (Spectrum, UI-24); the beacon adds an
+    // entry to it (PLG-06).
+    const auto beacon_entry = [&s] {
+        REQUIRE(s.ui.click("menu.tools"));
+        REQUIRE(s.ui.frames(2));
+        const bool has = s.ui.has("plg.yantra.example.beacon.beacon_channels_open");
+        CHECK(s.ui.has("tools.spectrum"));
+        s.ui.key(ImGuiKey_Escape);
+        REQUIRE(s.ui.frames(2));
+        return has;
+    };
+    CHECK(beacon_entry());
     REQUIRE(s.ui.click_menu("file", "file.settings"));
     REQUIRE(s.ui.wait_window("dlg.settings"));
     REQUIRE(s.ui.click("settings.tab.plugins", "dlg.settings"));
@@ -159,7 +170,7 @@ TEST_CASE("plugin manager (PLG-09) in the settings window: the switch turns the 
     REQUIRE(s.ui.click("dlg.cancel", "dlg.settings"));
     REQUIRE(s.ui.wait_window_closed("dlg.settings"));
     REQUIRE(s.ui.frames(2));
-    CHECK_FALSE(s.ui.has("menu.tools"));
+    CHECK_FALSE(beacon_entry());
 }
 
 TEST_CASE("Reset all settings (UI-16): what is reset and kept, also calibration, backup, the UI restarts") {
