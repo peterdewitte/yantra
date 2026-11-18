@@ -26,7 +26,8 @@
 // attenuations and ray-tracing settings and maps of 0.3 (IND-46; a
 // migration from an older file reports what it dropped, migration_note());
 // version 9 (step 15.3) the "About building" information (IND-47: address,
-// map position, photo, surveyor, survey date, notes).
+// map position, photo, surveyor, survey date, notes); version 10 (step
+// 15.4) the notes on the plan (IND-48: position, text, picture, audio).
 // No other part of a model is ever dropped.
 //
 // Storage rules (data safety):
@@ -79,7 +80,7 @@ inline constexpr std::int32_t kApplicationId = 0x594E5452;
 /// The value of the format mark in the meta table.
 inline constexpr const char* kFormat = "yantra-project";
 /// Schema version written by this build (docs/formats/PROJECT.md).
-inline constexpr int kSchemaVersion = 9;
+inline constexpr int kSchemaVersion = 10;
 
 class ProjectError : public std::runtime_error {
 public:
@@ -192,6 +193,7 @@ struct Change {
         Interpolations,   ///< an interpolation result was stored or removed (id: its floor)
         Acceptance,       ///< the stored acceptance profiles (EXP-06)
         About,            ///< the "About building" information (IND-47)
+        Notes,            ///< a plan note was added, changed, moved or removed (id: its floor; IND-48)
     };
     Kind kind = Kind::Info;
     std::string id;  ///< floor or source id
@@ -324,6 +326,37 @@ struct AboutBuilding {
 
 /// The largest photo a project keeps (IND-47): 32 MiB.
 inline constexpr std::size_t kMaxPhotoBytes = std::size_t{32} << 20;
+
+/// IND-48: a note on a floor's plan (schema 10): where it is (plan units
+/// of the floor, as the measured points), a text, a picture and an audio
+/// fragment, each optional. Numbered on the plan 1, 2, ... per floor in
+/// the order of their ids (notes()).
+struct PlanNote {
+    std::int64_t id = 0;        ///< given by add_note
+    std::string floor_id;
+    building::Point2 plan;      ///< plan units of the floor
+    std::string text;           ///< multi-line
+    /// The picture as an image file's bytes (a format stb_image reads);
+    /// empty: none. At most kMaxPhotoBytes.
+    std::vector<std::uint8_t> picture;
+    std::string picture_name;   ///< the file's name, or "camera.jpg"
+    std::string picture_source; ///< "file", "camera" or "" (none)
+    /// The audio fragment as a WAV file's bytes (recording/wav.h: 16-bit
+    /// mono PCM); empty: none. At most kMaxNoteAudioBytes.
+    std::vector<std::uint8_t> audio;
+    double audio_seconds = 0.0; ///< its length, 0..120 s (0 without audio)
+    std::string created_utc;    ///< set by add_note
+    std::string modified_utc;   ///< set by add_note, update_note and move_note
+    bool has_picture() const { return !picture.empty(); }
+    bool has_audio() const { return !audio.empty(); }
+    bool operator==(const PlanNote&) const = default;
+};
+
+/// The largest audio fragment of a plan note (IND-48): 2 minutes of 48 kHz
+/// 16-bit mono with its WAV header.
+inline constexpr std::size_t kMaxNoteAudioBytes = std::size_t{120} * 48000 * 2 + 1024;
+/// The longest audio fragment of a plan note, in seconds.
+inline constexpr double kMaxNoteAudioSeconds = 120.0;
 
 struct ProjectOptions {
     /// Current UTC time as ISO 8601 ("...Z"); the system clock when empty.
@@ -540,6 +573,27 @@ public:
     /// "", a photo above kMaxPhotoBytes, or a photo source other than
     /// "file", "camera" or "" (which needs an empty photo). Notifies About.
     void set_about(const AboutBuilding& about);
+
+    // -- notes on the plan (IND-48; schema 10) -----------------------------
+    /// The notes of a floor in the order of their ids (the plan's numbers
+    /// 1, 2, ...); every floor's notes with an empty floor id.
+    std::vector<PlanNote> notes(const std::string& floor_id = {}) const;
+    std::optional<PlanNote> note(std::int64_t id) const;
+    /// Adds a note and returns its id (sets created_utc and modified_utc).
+    /// NotFound for an unknown floor; Invalid for a position that is not a
+    /// finite number, a picture above kMaxPhotoBytes or without its source
+    /// ("file" or "camera"; only a picture has one), an audio fragment
+    /// above kMaxNoteAudioBytes, or a length outside 0..120 s (above 0
+    /// needs audio). Notifies Notes.
+    std::int64_t add_note(PlanNote note);
+    /// Replaces a note's position, text, picture and audio (the floor and
+    /// the creation time stay). NotFound for an unknown note; Invalid as
+    /// add_note. Notifies Notes.
+    void update_note(const PlanNote& note);
+    /// Moves a note on its floor. NotFound / Invalid as update_note.
+    void move_note(std::int64_t id, building::Point2 plan);
+    /// NotFound when there is none. Notifies Notes.
+    void remove_note(std::int64_t id);
 
     // -- source files (IND-03) -------------------------------------------
     /// Copies a file into the project unchanged; its id is

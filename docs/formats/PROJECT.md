@@ -23,7 +23,7 @@ form is the building model of [BUILDING_MODEL.md](../BUILDING_MODEL.md)
 | Item | Value |
 | --- | --- |
 | `PRAGMA application_id` | `0x594E5452` ("YNTR"); other files are refused as "not a Yantra project" |
-| `PRAGMA user_version` | schema version, now **9** |
+| `PRAGMA user_version` | schema version, now **10** |
 | `meta.format` | `yantra-project` |
 
 | Version | Change |
@@ -37,6 +37,7 @@ form is the building model of [BUILDING_MODEL.md](../BUILDING_MODEL.md)
 | 7 | the project's acceptance profiles (`acceptance_profiles`, EXP-06), used by the report. Existing projects get none (the report then uses the default profile) |
 | 8 | after Yantra 0.2.0 (spec 0.4), the point interpolation (IND-41, IND-45). Dropped (IND-46): the table `propagation` and the stored ray-tracing maps; the walls, wall classes and antennas (`walls`, `wall_points`, `wall_classes`, `wall_class_bands`, `antennas`, `antenna_pattern_gains`); the slab attenuations (`building.floor_attenuation_db`, `floors.slab_attenuation_db`); the meta counters `next_wall_number` and `next_antenna_number`. Yantra says once, after opening such a file, how many walls, own wall classes, antennas and ray-tracing maps it dropped; the backup keeps them. New: `interpolation_settings`, and `interpolations` again with 8 bytes per cell (value, confidence). Existing projects keep their floors, cells, sources, recordings, sessions and points and get the default settings and no maps |
 | 9 | after Yantra 0.4 (spec 0.5), the "About building" information (IND-47): `about_building`. Existing projects get an empty row with the day of the migration as survey date |
+| 10 | the notes on the plan (IND-48): `plan_notes`. Existing projects get none |
 
 Rules:
 
@@ -458,14 +459,33 @@ folder).
 | `photo_name` | TEXT | the photo's file name (a camera photo: `camera.jpg`) |
 | `photo_source` | TEXT `''`, `file`, `camera` | where the photo came from; `''` without a photo |
 
-### `sqlite_sequence`
+### `plan_notes`
 
-SQLite's own table of the last id given out in `interpolations` (version
-6), so result ids are never reused.
+The notes on a floor's plan (version 10, IND-48): a long click (long
+press) on the plan adds one. Numbered on the plan and in the report 1, 2,
+... per floor in the order of their ids. Removed with their floor.
 
 | Column | Type | Meaning |
 | --- | --- | --- |
-| `name` | TEXT | table name (`interpolations`) |
+| `id` | INTEGER, AUTOINCREMENT | the note (never reused) |
+| `floor` | TEXT, references `floors.id` | the floor |
+| `x`, `y` | REAL | the position in plan units of the floor (as `points.x`, `points.y`; moved with the points when the floor's trim changes) |
+| `text` | TEXT | the note's text (multi-line), may be empty |
+| `picture` | BLOB or NULL | a picture: the bytes of an image file in a format stb_image reads (a camera picture: JPEG), at most 32 MiB |
+| `picture_name` | TEXT | the picture's file name (a camera picture: `camera.jpg`) |
+| `picture_source` | TEXT `''`, `file`, `camera` | where the picture came from; `''` without a picture |
+| `audio` | BLOB or NULL | an audio fragment: the bytes of a WAV file (16-bit signed PCM, mono, 8000..48000 Hz, as the voice notes of [RECORDING.md](RECORDING.md)), at most 2 minutes |
+| `audio_seconds` | REAL, 0..120 | its length (0 without audio) |
+| `created_utc`, `modified_utc` | TEXT | ISO 8601 UTC times |
+
+### `sqlite_sequence`
+
+SQLite's own table of the last id given out in `interpolations` (version
+6) and `plan_notes` (version 10), so ids are never reused.
+
+| Column | Type | Meaning |
+| --- | --- | --- |
+| `name` | TEXT | table name (`interpolations`, `plan_notes`) |
 | `seq` | INTEGER | the highest id given out so far |
 
 ## Example

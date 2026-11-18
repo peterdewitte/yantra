@@ -414,6 +414,30 @@ CREATE TABLE about_building (
 INSERT INTO about_building (id) VALUES (1);
 )sql";
 
+// Version 10 (step 15.4, Yantra 0.5): the notes on the plan of IND-48:
+// a position on a floor's plan (plan units, as the measured points), a
+// text, a picture (an image file's bytes) and an audio fragment (a WAV
+// file's bytes, 16-bit mono, recording/wav.h) with its length.
+const char* const kV10 = R"sql(
+CREATE TABLE plan_notes (
+  id             INTEGER PRIMARY KEY AUTOINCREMENT,
+  floor          TEXT NOT NULL REFERENCES floors (id) ON DELETE CASCADE,
+  x              REAL NOT NULL,
+  y              REAL NOT NULL,
+  text           TEXT NOT NULL DEFAULT '',
+  picture        BLOB,
+  picture_name   TEXT NOT NULL DEFAULT '',
+  picture_source TEXT NOT NULL DEFAULT '' CHECK (picture_source IN ('', 'file', 'camera')),
+  audio          BLOB,
+  audio_seconds  REAL NOT NULL DEFAULT 0 CHECK (audio_seconds >= 0 AND audio_seconds <= 120),
+  created_utc    TEXT NOT NULL,
+  modified_utc   TEXT NOT NULL,
+  CHECK ((picture IS NULL) = (picture_source = '')),
+  CHECK (audio IS NOT NULL OR audio_seconds = 0)
+);
+CREATE INDEX plan_notes_floor ON plan_notes (floor);
+)sql";
+
 }  // namespace
 
 void migrate(sql::Db& db, int from, int to, const std::string& now, const std::string& tool,
@@ -445,6 +469,8 @@ void migrate(sql::Db& db, int from, int to, const std::string& now, const std::s
             db.exec(kV9, what);
             sql::Stmt date(db, "UPDATE about_building SET survey_date = substr(?1, 1, 10) WHERE id = 1");
             date.bind(1, now).run();
+        } else if (v == 10) {
+            db.exec(kV10, what);
         } else if (v > kSchemaVersion && static_cast<std::size_t>(v - kSchemaVersion) <= extra.size()) {
             db.exec(extra[static_cast<std::size_t>(v - kSchemaVersion - 1)], what);
         } else {

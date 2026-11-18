@@ -938,6 +938,19 @@ struct Project::Impl {
             u.reset();
             u.bind(1, session).bind(2, sequence).bind(3, p.x).bind(4, p.y).run();
         }
+        // IND-48: the floor's notes stay where they are on the sheet too.
+        std::vector<std::pair<std::int64_t, building::Point2>> notes;
+        {
+            sql::Stmt q(db, "SELECT id, x, y FROM plan_notes WHERE floor = ?1");
+            q.bind(1, floor_id);
+            while (q.step())
+                notes.emplace_back(q.i64(0), plan::trim_page_to_floor(to, plan::trim_floor_to_page(from, {q.f64(1), q.f64(2)})));
+        }
+        sql::Stmt un(db, "UPDATE plan_notes SET x = ?2, y = ?3 WHERE id = ?1");
+        for (const auto& [id, p] : notes) {
+            un.reset();
+            un.bind(1, id).bind(2, p.x).bind(3, p.y).run();
+        }
     }
 
     bool floor_has_sessions(const std::string& floor_id) const {
@@ -1930,6 +1943,161 @@ void Project::set_about(const AboutBuilding& a) {
         tx.commit();
     }
     notify({Change::Kind::About, ""});
+}
+
+// ---- notes on the plan (IND-48; schema 10) ------------------------------------
+
+namespace {
+
+void require_note_values(const PlanNote& n) {
+    if (!std::isfinite(n.plan.x) || !std::isfinite(n.plan.y))
+        throw ProjectError(Code::Invalid, "note: the position is not a number");
+    if (n.picture.size() > kMaxPhotoBytes) throw ProjectError(Code::Invalid, "note: the picture is larger than 32 MiB");
+    if (n.picture_source != "" && n.picture_source != "file" && n.picture_source != "camera")
+        throw ProjectError(Code::Invalid, "note: the picture source is not file or camera");
+    if (n.picture.empty() != n.picture_source.empty())
+        throw ProjectError(Code::Invalid, "note: a picture needs its source (file or camera), and only a picture has one");
+    if (n.audio.size() > kMaxNoteAudioBytes) throw ProjectError(Code::Invalid, "note: the audio fragment is too large");
+    if (!std::isfinite(n.audio_seconds) || n.audio_seconds < 0.0 || n.audio_seconds > kMaxNoteAudioSeconds)
+        throw ProjectError(Code::Invalid, "note: the audio length is outside 0..120 s");
+    if (n.audio.empty() && n.audio_seconds != 0.0)
+        throw ProjectError(Code::Invalid, "note: an audio length needs the audio");
+}
+
+constexpr const char* kNoteColumns =
+    "id, floor, x, y, text, picture, picture_name, picture_source, audio, audio_seconds, created_utc, modified_utc";
+
+PlanNote read_note(const sql::Stmt& s) {
+    PlanNote n;
+    n.id = s.i64(0);
+    n.floor_id = s.text(1);
+    n.plan = building::Point2{s.f64(2), s.f64(3)};
+    n.text = s.text(4);
+    if (!s.is_null(5)) n.picture = s.blob(5);
+    n.picture_name = s.text(6);
+    n.picture_source = s.text(7);
+    if (!s.is_null(8)) n.audio = s.blob(8);
+    n.audio_seconds = s.f64(9);
+    n.created_utc = s.text(10);
+    n.modified_utc = s.text(11);
+    return n;
+}
+
+void bind_note_content(sql::Stmt& s, const PlanNote& n) {
+    s.bind(2, n.plan.x).bind(3, n.plan.y).bind(4, n.text);
+    if (n.picture.empty())
+        s.bind_null(5);
+    else
+        s.bind_blob(5, n.picture);
+    s.bind(6, n.picture.empty() ? std::string() : n.picture_name).bind(7, n.picture_source);
+    if (n.audio.empty())
+        s.bind_null(8);
+    else
+        s.bind_blob(8, n.audio);
+    s.bind(9, n.audio_seconds);
+}
+
+}  // namespace
+
+std::vector<PlanNote> Project::notes(const std::string& floor_id) const {
+    const std::lock_guard l(impl_->mutex);
+    impl_->require_open();
+    sql::Stmt s(impl_->db, std::string("SELECT ") + kNoteColumns + " FROM plan_notes WHERE ?1 = '' OR floor = ?1 ORDER BY id");
+    s.bind(1, floor_id);
+    std::vector<PlanNote> out;
+    while (s.step()) out.push_back(read_note(s));
+    return out;
+}
+
+std::optional<PlanNote> Project::note(std::int64_t id) const {
+    const std::lock_guard l(impl_->mutex);
+    impl_->require_open();
+    sql::Stmt s(impl_->db, std::string("SELECT ") + kNoteColumns + " FROM plan_notes WHERE id = ?1");
+    s.bind(1, id);
+    if (!s.step()) return std::nullopt;
+    return read_note(s);
+}
+
+std::int64_t Project::add_note(PlanNote n) {
+    require_note_values(n);
+    std::int64_t id = 0;
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        if (!impl_->floor_locked(n.floor_id)) throw ProjectError(Code::NotFound, "no floor " + n.floor_id);
+        sql::Transaction tx(impl_->db);
+        const std::string now = impl_->now();
+        sql::Stmt s(impl_->db, "INSERT INTO plan_notes (floor, x, y, text, picture, picture_name, picture_source, audio, "
+                               "audio_seconds, created_utc, modified_utc) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?10)");
+        s.bind(1, n.floor_id);
+        bind_note_content(s, n);
+        s.bind(10, now).run();
+        id = impl_->db.last_rowid();
+        impl_->touch();
+        tx.commit();
+    }
+    notify({Change::Kind::Notes, n.floor_id});
+    return id;
+}
+
+void Project::update_note(const PlanNote& n) {
+    require_note_values(n);
+    std::string floor;
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        sql::Stmt f(impl_->db, "SELECT floor FROM plan_notes WHERE id = ?1");
+        f.bind(1, n.id);
+        if (!f.step()) throw ProjectError(Code::NotFound, "no note " + std::to_string(n.id));
+        floor = f.text(0);
+        sql::Stmt s(impl_->db, "UPDATE plan_notes SET x = ?2, y = ?3, text = ?4, picture = ?5, picture_name = ?6, "
+                               "picture_source = ?7, audio = ?8, audio_seconds = ?9, modified_utc = ?10 WHERE id = ?1");
+        s.bind(1, n.id);
+        bind_note_content(s, n);
+        s.bind(10, impl_->now()).run();
+        impl_->touch();
+        tx.commit();
+    }
+    notify({Change::Kind::Notes, floor});
+}
+
+void Project::move_note(std::int64_t id, building::Point2 plan) {
+    if (!std::isfinite(plan.x) || !std::isfinite(plan.y))
+        throw ProjectError(Code::Invalid, "note: the position is not a number");
+    std::string floor;
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        sql::Stmt f(impl_->db, "SELECT floor FROM plan_notes WHERE id = ?1");
+        f.bind(1, id);
+        if (!f.step()) throw ProjectError(Code::NotFound, "no note " + std::to_string(id));
+        floor = f.text(0);
+        sql::Stmt s(impl_->db, "UPDATE plan_notes SET x = ?2, y = ?3, modified_utc = ?4 WHERE id = ?1");
+        s.bind(1, id).bind(2, plan.x).bind(3, plan.y).bind(4, impl_->now()).run();
+        impl_->touch();
+        tx.commit();
+    }
+    notify({Change::Kind::Notes, floor});
+}
+
+void Project::remove_note(std::int64_t id) {
+    std::string floor;
+    {
+        const std::lock_guard l(impl_->mutex);
+        impl_->require_open();
+        sql::Transaction tx(impl_->db);
+        sql::Stmt f(impl_->db, "SELECT floor FROM plan_notes WHERE id = ?1");
+        f.bind(1, id);
+        if (!f.step()) throw ProjectError(Code::NotFound, "no note " + std::to_string(id));
+        floor = f.text(0);
+        sql::Stmt d(impl_->db, "DELETE FROM plan_notes WHERE id = ?1");
+        d.bind(1, id).run();
+        impl_->touch();
+        tx.commit();
+    }
+    notify({Change::Kind::Notes, floor});
 }
 
 // ---- acceptance profiles (schema 7) -------------------------------------------
