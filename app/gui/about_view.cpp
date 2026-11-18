@@ -173,7 +173,9 @@ void Gui::draw_about_map(AboutBuildingView& a, ImVec2 size) {
     {
         const char* hint = tr("Drag to pan, wheel to zoom, right click to move the marker");
         same_line_if(ImGui::CalcTextSize(hint).x);
+        ImGui::PushTextWrapPos(0.0F);  // wraps at the map's edge when it is still too long on its own line
         ImGui::TextDisabled("%s", hint);
+        ImGui::PopTextWrapPos();
     }
     const ImVec2 origin = ImGui::GetCursorScreenPos();
     const ImVec2 area(std::max(1.0F, ImGui::GetContentRegionAvail().x), std::max(em(200.0F), ImGui::GetContentRegionAvail().y));

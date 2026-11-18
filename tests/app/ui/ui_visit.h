@@ -15,11 +15,13 @@
 
 #include <imgui.h>
 
+#include <chrono>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <functional>
 #include <string>
+#include <thread>
 #include <utility>
 
 #include "gui.h"
@@ -157,6 +159,22 @@ inline void visit_all(Shell& s, const std::function<void(const std::string&)>& c
 #ifdef YANTRA_TEST_DEMO_DATA_DIR
     REQUIRE(s.state.open_demo().ok);
     REQUIRE(s.ui.run_until([&] { return s.state.screen() == Screen::Project; }, 10));
+    // IND-47: the About building tab (offline: the map placeholder) and
+    // its Take a photo dialog with the fake camera.
+    REQUIRE_MESSAGE(s.ui.click("tab.about"), s.ui.dump());
+    settle_check("project about building");
+    s.state.set_camera_backend(make_fake_camera_backend());
+    REQUIRE(s.state.take_photo([&](const Photo& p) { return s.state.about_building()->set_photo(p); }).ok);
+    for (int i = 0; i < 4000 && !(s.state.camera() != nullptr && s.state.camera()->frame(nullptr) > 0); ++i) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(5));  // the camera's thread
+        REQUIRE(s.ui.frame());
+    }
+    REQUIRE(s.ui.frames(3));  // the dialog fits the preview
+    settle_check("take a photo");
+    s.state.cancel_dialog();
+    REQUIRE(s.ui.frames(2));
+    REQUIRE(s.ui.click("tab." + s.state.project_window()->selected()));  // back to the floor
+    REQUIRE(s.ui.frames(2));
     for (const char* page : {"walk", "map"}) {
         REQUIRE(s.ui.frames(2));
         REQUIRE_MESSAGE(s.ui.click(std::string("panel.") + page), s.ui.dump());
