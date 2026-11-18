@@ -138,9 +138,8 @@ install -m 0755 "$here/postinst" "$stage/DEBIAN/postinst"
 install -m 0755 "$here/postrm" "$stage/DEBIAN/postrm"
 (cd "$stage" && find . -path ./DEBIAN -prune -o -type f -printf '%P\0' | sort -z | xargs -0 md5sum) \
   >"$stage/DEBIAN/md5sums"
-chmod 0644 "$stage/DEBIAN/md5sums" "$stage/DEBIAN/control"
-find "$stage" -type d -exec chmod 0755 {} +
-find "$stage/usr/share" -type f -exec chmod 0644 {} +
+# Explicit modes, independent of a setgid parent folder or the umask.
+bash "$here/stage_perms.sh" "$stage"
 
 deb=$outdir/yantra_${version}-${rev}_${arch}.deb
 case $compress in

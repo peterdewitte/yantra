@@ -89,4 +89,7 @@ if(YANTRA_BUILD_TESTS)
   # Installs what the build made, after the build, on its own.
   set_tests_properties(package_deb PROPERTIES LABELS "package" SKIP_RETURN_CODE 77 TIMEOUT 900
                        RUN_SERIAL TRUE FIXTURES_REQUIRED yantra_docs_site)
+  # The staging modes dpkg-deb needs below a setgid folder or odd umask.
+  add_test(NAME package_deb_perms COMMAND bash ${CMAKE_CURRENT_SOURCE_DIR}/deb/test_stage_perms.sh)
+  set_tests_properties(package_deb_perms PROPERTIES LABELS "fast;package" SKIP_RETURN_CODE 77)
 endif()
