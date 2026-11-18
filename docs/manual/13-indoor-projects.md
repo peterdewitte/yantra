@@ -66,6 +66,8 @@ The map is always labelled "interpolated" and kept apart from the measured point
 
 ## 13.6 About building
 
+![The About building tab of the demo project, offline: the map placeholder with the marker](../img/about_building_dark.png) [light theme](../img/about_building_light.png)
+
 The first tab of every project, About building, is about the building as a whole; it cannot be removed or moved (the floor tabs after it can be dragged). It holds:
 
 - **Address**: free text, as you would write it on a letter. **Find on map** looks it up on OpenStreetMap (Nominatim) and puts the marker there. Only the address is sent, only when you press the button, once per press; Yantra identifies itself as "Yantra/<version>" and sends nothing else.

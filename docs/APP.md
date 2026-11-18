@@ -874,7 +874,7 @@ The documentation's screenshot set (SCR-01..05, SCR-07) is made by the app itsel
            [--touch] [--scale PERCENT] [--size WxH] [--input SHEET]
     yantra --list-shots          # name<TAB>flags<TAB>what; flags demo, touch, radio=..., input
 
-- `app/gui/screenshot.{h,cpp}`: `shot_scenes()` (27 scenes: start menu, survey with graphs, events and
+- `app/gui/screenshot.{h,cpp}`: `shot_scenes()` (28 scenes: start menu, the About building tab, survey with graphs, events and
   scanner, plan import of two floors from one sheet, walk test, interpolation, About, reset, radio list,
   the four generated windows of the simulator and of the HackRF, survey settings, cell database,
   verification, reselection, the Export and Report dialogs, Tools > Remote probes (step 11.2;
@@ -891,7 +891,7 @@ The documentation's screenshot set (SCR-01..05, SCR-07) is made by the app itsel
   two Fraunces sheets, which the app combines into one (`--input data/demo/fraunces`); then oxipng
   (Python's standard library only). `--compare DIR` fails on a new, missing or
   changed picture (more than `--threshold` % pixels, SCR-05). Data: the Fraunces demo and the simulated
-  radios only, never a MAK sheet (DEMO-12). The set is `docs/img/` (58 pictures, about 6.2 MB),
+  radios only, never a MAK sheet (DEMO-12). The set is `docs/img/` (60 pictures, about 6.2 MB),
   referenced by the manual; `.github/workflows/screenshots.yml` regenerates it on release branches
   (artifact) and compares it on pull requests.
 - Tests: `tests/app/test_screenshots.cpp` plays every scene in the harness; the launch tests
