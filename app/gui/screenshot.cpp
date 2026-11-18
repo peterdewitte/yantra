@@ -41,6 +41,7 @@ std::vector<ShotScene> make_scenes() {
         v.push_back(s);
     }
     v.push_back(scene("walk_test", "indoor project window: floor tabs, the Walk tab and a walk test's points with legend (IND-10, UI-18)"));
+    v.push_back(scene("about_building", "the About building tab of the demo project: address, map placeholder (no tiles offline), surveyor, date, notes (IND-47)"));
     v.push_back(scene("interpolation", "Map tab: interpolated coverage map and the open Advanced dropdown (IND-41, IND-43, UI-19)"));
     v.push_back(scene("about", "About dialog with the Yantra and curtat.be logos (UI-15)", false));
     v.push_back(scene("reset_settings", "Reset all settings dialog (UI-16)", false));
@@ -343,6 +344,12 @@ void ShotRunner::build() {
             return Result{};
         });
         frames(3);
+    } else if (n == "about_building") {
+        run("show the About building tab", [this] {
+            state_.request_panel("about");
+            return Result{};
+        });
+        frames(5);
     } else if (n == "interpolation") {
         run("show the Map tab", [this] {
             state_.request_panel("map");

@@ -118,8 +118,15 @@ void play(const std::string& name, const std::function<void(UiHarness&, AppState
 
 TEST_CASE("SCR-03: the screenshot scenes without a radio reach their capture") {
     if (!available()) return;
-    CHECK(shot_scenes().size() == 27);  // step 11.2: remote_probes
+    CHECK(shot_scenes().size() == 28);  // step 11.2: remote_probes; 15.3: about_building
     play("start_menu", [](UiHarness& ui, AppState&, Gui&) { CHECK(ui.has("file.new_project")); });
+    play("about_building", [](UiHarness& ui, AppState& s, Gui& g) {
+        CHECK(s.about_tab());
+        CHECK(ui.has("about.address"));
+        CHECK(g.building_overlay().attribution);
+        REQUIRE(s.about_building());
+        CHECK(s.about_building()->stored().surveyor == "Demo surveyor");
+    });
     play("about", [](UiHarness&, AppState& s, Gui& g) {
         CHECK(s.dialog() == Dialog::About);
         CHECK(g.about_overlay().curtat_logo);

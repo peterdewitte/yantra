@@ -211,7 +211,7 @@ void Gui::draw_about_map(AboutBuildingView& a, ImVec2 size) {
         // No position: no tiles (nothing is fetched); say how to get one.
         const char* t = tr("No position yet: write the address and press Find on map (or right click on the map after zooming in).");
         ImGui::SetCursorScreenPos(ImVec2(origin.x + em(12.0F), origin.y + em(12.0F)));
-        ImGui::PushTextWrapPos(origin.x + area.x - em(12.0F));
+        ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + area.x - em(24.0F));  // window-local x
         ImGui::TextDisabled("%s", t);
         ImGui::PopTextWrapPos();
         building_.placeholder = true;
@@ -253,7 +253,7 @@ void Gui::draw_about_map(AboutBuildingView& a, ImVec2 size) {
                                                         : tr("No map: these map tiles are not cached and Yantra is offline (or the "
                                                              "tile server did not answer).");
             ImGui::SetCursorScreenPos(ImVec2(origin.x + em(12.0F), origin.y + em(12.0F)));
-            ImGui::PushTextWrapPos(origin.x + area.x - em(12.0F));
+            ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + area.x - em(24.0F));  // window-local x
             ImGui::TextDisabled("%s", t);
             ImGui::PopTextWrapPos();
         }
