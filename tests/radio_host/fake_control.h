@@ -51,12 +51,20 @@ struct Control {
     std::vector<std::string> setting_order;
     std::map<std::uint32_t, int> context_events;
     std::uint64_t last_plan_hz = 0;
+    std::uint32_t last_plan_flags = 0;            // YR_PLAN_* of the last plan
+    std::uint64_t last_spectrum_first_hz = 0;     // its band (API 1.2)
+    std::uint64_t last_spectrum_last_hz = 0;
 };
 
 using ControlFn = Control* (*)();
 using PushFn = int (*)(int count, int invalid);  // returns the YR_OK results
 using PushOneFn = int (*)(std::int64_t monotonic_ns, std::uint64_t hz, double level,
                           std::uint32_t flags);  // returns the yr_status of push_record
+// Pushes one spectrum of `bins` bins from `start_hz`, `width_hz` each, at
+// -100 dBFS plus one bin per 10 at -60; `invalid` 1 breaks it (a NaN
+// bin). Returns the yr_status of push_spectrum (BUSY: no host sink or no
+// stream).
+using PushSpectrumFn = int (*)(std::uint32_t bins, double start_hz, double width_hz, int invalid);
 using EventFn = void (*)(std::uint32_t event, std::int64_t value);
 using UnplugFn = void (*)();
 using ReplugFn = void (*)(int send_back);  // 1: DEVICE_BACK on the stream, 0: devices_changed

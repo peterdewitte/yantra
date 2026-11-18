@@ -2,13 +2,15 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // A fake radio plugin for the radio host tests (PLG-25, PLG-27): radio
-// API 1.0 (yantra/radio.h of the yantra-radios submodule) with the
-// SIMULATED, SCENE and HOTPLUG capabilities, one device "fake:0", one
+// API 1.2 (yantra/radio.h of the yantra-radios submodule) with the
+// SIMULATED, SCENE, HOTPLUG and (API 1.2) SPECTRUM capabilities, one device "fake:0", one
 // MEASUREMENT schema with the core fields and the sim_position group. It
 // processes no signal: the test drives it through fake_control.h.
 // Built a second time with FAKE_API_MAJOR=2 for the version refusal.
 
+#include <cmath>
 #include <cstring>
+#include <vector>
 #include <string>
 #include <yantra/radio.hpp>
 
@@ -138,11 +140,21 @@ std::uint32_t state(yr_device*) {
 
 yr_status plan_ranges(yr_device*, yr_plan_ranges_cb, void*) { return YR_ERR_UNSUPPORTED; }
 
+// Under g_ctl.m.
+void remember_plan(const yr_plan* plan) {
+    yr_plan p{};
+    if (plan != nullptr) yr_plan_read(plan, &p);
+    g_ctl.last_plan_hz = p.serving_hz;
+    g_ctl.last_plan_flags = p.flags;
+    g_ctl.last_spectrum_first_hz = p.spectrum_first_hz;
+    g_ctl.last_spectrum_last_hz = p.spectrum_last_hz;
+}
+
 yr_status set_plan(yr_device*, const yr_plan* plan) {
     const std::lock_guard lock(g_ctl.m);
     if (g_lost) return YR_ERR_DEVICE_LOST;
     if (g_streaming) return YR_ERR_BUSY;  // no RETUNE_LIVE
-    g_ctl.last_plan_hz = plan != nullptr ? plan->serving_hz : 0;
+    remember_plan(plan);
     return YR_OK;
 }
 
@@ -154,7 +166,7 @@ yr_status start_stream(yr_device*, const yr_plan* plan, yr_stream* sink) {
     if (g_streaming) return YR_ERR_BUSY;
     const yr_status st = result_of(fake::kStart, YR_OK);
     if (st != YR_OK) return st;
-    g_ctl.last_plan_hz = plan != nullptr ? plan->serving_hz : 0;
+    remember_plan(plan);
     g_sink = sink;
     g_streaming = true;
     return YR_OK;
@@ -278,7 +290,7 @@ void on_context_event(yr_plugin*, std::uint32_t event) {
 
 const yr_descriptor descriptor = {sizeof(yr_descriptor),
                                   {FAKE_API_MAJOR, YR_API_VERSION_MINOR},
-                                  YR_CAP_SIMULATED | YR_CAP_SCENE | YR_CAP_HOTPLUG,
+                                  YR_CAP_SIMULATED | YR_CAP_SCENE | YR_CAP_HOTPLUG | YR_CAP_SPECTRUM,
                                   "test.fake",
                                   "Fake radio",
                                   "0.1.0",
@@ -367,6 +379,28 @@ YR_EXPORT int fake_push_one(std::int64_t monotonic_ns, std::uint64_t hz, double 
     r.value_count = 11;
     r.values = v;
     return g_plugin.host->push_record(g_sink, &r);
+}
+
+YR_EXPORT int fake_push_spectrum(std::uint32_t bins, double start_hz, double width_hz, int invalid) {
+    const std::lock_guard lock(g_ctl.m);
+    if (g_plugin.host == nullptr) return YR_ERR_BUSY;
+    const yr_push_spectrum_fn push = yr_host_spectrum_sink(g_plugin.host);
+    if (push == nullptr || g_sink == nullptr) return YR_ERR_BUSY;
+    std::vector<double> power(bins, -100.0);
+    for (std::uint32_t i = 0; i < bins; i += 10) power[i] = -60.0;
+    if (invalid != 0 && bins > 0) power[bins / 2] = std::nan("");
+    yr_spectrum s{};
+    s.struct_size = sizeof s;
+    s.flags = YR_RECORD_SIMULATED;
+    s.time.monotonic_ns = g_plugin.host->monotonic_ns(g_plugin.host->host);
+    s.time.utc_ns = g_plugin.host->utc_now_ns(g_plugin.host->host);
+    s.time.utc_source = YR_TIME_SOURCE_SYSTEM;
+    s.start_hz = start_hz;
+    s.bin_width_hz = width_hz;
+    s.bin_count = bins;
+    s.stop_hz = start_hz + bins * width_hz;
+    s.power_db = power.data();
+    return push(g_sink, &s);
 }
 
 YR_EXPORT void fake_event(std::uint32_t event, std::int64_t value) {

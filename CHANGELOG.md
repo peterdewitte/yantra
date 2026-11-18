@@ -112,6 +112,15 @@ the Windows build and tests.
 
 ### Radio plugins
 
+- 2026-11-18: pinned to yantra-radios **v0.4.0** (commit 2526090), radio
+  API 1.2 (RAD-140): an optional SPECTRUM capability, the plan flag
+  `YR_PLAN_SPECTRUM` with a band, and spectra (power per frequency bin)
+  through the host table's new `push_spectrum` sink. The radio host checks
+  and counts every spectrum and offers it to the app; plugins of radio API
+  1.0 and 1.1 still load. The simulator, HackRF and SoapySDR plugins have
+  the capability, the PEI terminal and the beacon do not. Record and scene
+  files are unchanged. The sample report names yantra-gen 0.4.0 and was
+  regenerated (DEMO-06).
 - 2026-11-17: pinned to yantra-radios **v0.3.2** (commit d6e8c41): a
   floor without a scene (a user's own floor, PLG-27) means "no scene, use
   the defaults" to the simulator, which says so once in its log at INFO

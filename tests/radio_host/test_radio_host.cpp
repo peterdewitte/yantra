@@ -165,7 +165,7 @@ TEST_CASE("radio host: the fake plugin loads with the host table and is listed")
     CHECK(e.id == "test.fake");
     CHECK(e.technology_id == "faketech");
     CHECK(e.uses_context);
-    CHECK(yr::capabilities_text(e.capabilities) == "hotplug, simulated, scene");
+    CHECK(yr::capabilities_text(e.capabilities) == "hotplug, simulated, scene, spectrum");
     CHECK(s.log.has("test.fake/: fake radio ready"));
     CHECK(fake.with([](auto& c) { return c.inits; }) == 1);
     CHECK(host.descriptor("test.fake") != nullptr);
@@ -762,4 +762,148 @@ TEST_CASE("radio host: an SDR unplugged and plugged in again is reopened and its
     CHECK(st.sink.invalid == 0);
     CHECK(s.log.has("device back"));
     dev->close();
+}
+
+// UI-24, RAD-140 (radio API 1.2): the host table's spectrum sink checks
+// each spectrum (validate_spectrum), copies it to RadioHostConfig::spectra
+// and counts; a broken one is refused and counted; outside a stream BUSY.
+TEST_CASE("radio host: spectra are checked, copied to the spectrum receiver and counted (RAD-140)") {
+    Fake fake;
+    std::string error;
+    auto push_spectrum = reinterpret_cast<fake::PushSpectrumFn>(fake.lib->symbol("fake_push_spectrum", error));
+    REQUIRE_MESSAGE(push_spectrum != nullptr, error);
+    Setup s;
+    auto store = std::make_shared<yr::SpectrumStore>(4);
+    yr::RadioHostConfig c = s.config();
+    c.spectra = store;
+    yr::RadioHost host(std::move(c));
+    const yr::RadioPluginEntry e = host.load_file(FAKE_RADIO_PATH);
+    REQUIRE(e.status == yr::RadioPluginStatus::Enabled);
+    CHECK((e.capabilities & YR_CAP_SPECTRUM) != 0);
+    CHECK(yr::capabilities_text(e.capabilities).find("spectrum") != std::string::npos);
+    auto dev = open_fake(host);
+    // Not streaming: BUSY.
+    CHECK(push_spectrum(100, 390e6, 5000.0, 0) == YR_ERR_BUSY);
+
+    // The plan's spectrum flag and band reach the plugin.
+    yr::Plan plan = serving();
+    plan.flags = YR_PLAN_SPECTRUM;
+    plan.spectrum_first_hz = 390'000'000;
+    plan.spectrum_last_hz = 395'000'000;
+    REQUIRE(dev->start(plan) == YR_OK);
+    fake.with([](fake::Control& ctl) {
+        CHECK((ctl.last_plan_flags & YR_PLAN_SPECTRUM) != 0);
+        CHECK(ctl.last_spectrum_first_hz == 390'000'000);
+        CHECK(ctl.last_spectrum_last_hz == 395'000'000);
+        return 0;
+    });
+    REQUIRE(push_spectrum(100, 390e6, 5000.0, 0) == YR_OK);
+    CHECK(push_spectrum(100, 390e6, 5000.0, 1) == YR_ERR_INVALID_ARGUMENT);  // a NaN bin
+    CHECK(push_spectrum(0, 390e6, 5000.0, 0) == YR_ERR_INVALID_ARGUMENT);    // no bins
+    CHECK(push_spectrum(YR_SPECTRUM_MAX_BINS + 1, 390e6, 1000.0, 0) == YR_ERR_INVALID_ARGUMENT);
+    const auto sp = store->latest();
+    REQUIRE(sp != nullptr);
+    CHECK(sp->plugin_id == "test.fake");
+    CHECK(sp->device_key == "fake:0");
+    CHECK(sp->stream_id == dev->stream_id());
+    CHECK(sp->bin_count() == 100);
+    CHECK(sp->start_hz == doctest::Approx(390e6));
+    CHECK(sp->stop_hz == doctest::Approx(390.5e6));
+    CHECK(sp->bin_centre_hz(0) == doctest::Approx(390.0025e6));
+    CHECK(sp->power_db[0] == doctest::Approx(-60.0));
+    CHECK(sp->power_db[1] == doctest::Approx(-100.0));
+    CHECK(sp->simulated);
+    CHECK(!sp->dbm);  // dBFS: no LEVEL_DBM
+    CHECK((sp->flags & YR_RECORD_SIMULATED) != 0);
+    REQUIRE(sp->calibration_key != nullptr);
+    CHECK(store->received() == 1);
+
+    // Changing the plan while streaming is BUSY for this plugin (no RETUNE_LIVE).
+    CHECK(dev->set_plan(serving()) == YR_ERR_BUSY);
+    CHECK(dev->stop() == YR_OK);
+    CHECK(push_spectrum(100, 390e6, 5000.0, 0) == YR_ERR_BUSY);
+    const yr::DeviceStats st = dev->stats();
+    CHECK(st.sink.spectra == 1);
+    CHECK(st.sink.spectra_invalid == 3);
+    bool named = false;
+    for (const auto& p : st.sink.problems) named = named || p.find("spectrum:") == 0;
+    CHECK(named);
+
+    // A plan without the flag in state OPEN is kept for the next start.
+    REQUIRE(dev->set_plan(serving()) == YR_OK);
+    fake.with([](fake::Control& ctl) {
+        CHECK((ctl.last_plan_flags & YR_PLAN_SPECTRUM) == 0);
+        return 0;
+    });
+}
+
+TEST_CASE("radio host: without a spectrum receiver spectra are still checked and counted") {
+    Fake fake;
+    std::string error;
+    auto push_spectrum = reinterpret_cast<fake::PushSpectrumFn>(fake.lib->symbol("fake_push_spectrum", error));
+    REQUIRE_MESSAGE(push_spectrum != nullptr, error);
+    Setup s;
+    yr::RadioHost host(s.config());
+    REQUIRE(host.load_file(FAKE_RADIO_PATH).status == yr::RadioPluginStatus::Enabled);
+    auto dev = open_fake(host);
+    REQUIRE(dev->start(serving()) == YR_OK);
+    CHECK(push_spectrum(50, 390e6, 25000.0, 0) == YR_OK);
+    CHECK(dev->stop() == YR_OK);
+    CHECK(dev->stats().sink.spectra == 1);
+}
+
+TEST_CASE("radio host: the simulator delivers spectra of the asked band only with the plan flag (UI-24)") {
+    const fs::path path = fs::path(RADIO_PLUGIN_DIR) / "simulator" YANTRA_PLUGIN_SUFFIX;
+    if (!fs::exists(path)) {
+        MESSAGE("no simulator plugin built: skipped");
+        return;
+    }
+    Setup s;
+    auto store = std::make_shared<yr::SpectrumStore>();
+    yr::RadioHostConfig c = s.config();
+    c.spectra = store;
+    yr::RadioHost host(std::move(c));
+    const yr::RadioPluginEntry e = host.load_file(path);
+    INFO(e.message);
+    REQUIRE(e.status == yr::RadioPluginStatus::Enabled);
+    REQUIRE((e.capabilities & YR_CAP_SPECTRUM) != 0);
+    const yr::EnumerateResult en = host.enumerate(e.id);
+    REQUIRE(en.status == YR_OK);
+    REQUIRE(!en.devices.empty());
+    std::string error;
+    auto dev = host.open(e.id, en.devices.front().key, error);
+    REQUIRE_MESSAGE(dev, error);
+    yr::PlanRanges ranges;
+    REQUIRE(dev->plan_ranges(ranges) == YR_OK);
+    REQUIRE(!ranges.ranges.empty());
+    CHECK(ranges.ranges.front().first_hz < ranges.ranges.front().last_hz);
+
+    // Without the flag: records, no spectrum.
+    REQUIRE(dev->start(serving(0)) == YR_OK);
+    REQUIRE(s.queue->wait_records(3, kWait));
+    CHECK(dev->stop() == YR_OK);
+    CHECK(store->received() == 0);
+
+    // With the flag: spectra within the asked band.
+    yr::Plan plan = serving(0);
+    plan.flags = YR_PLAN_SPECTRUM;
+    plan.spectrum_first_hz = 390'000'000;
+    plan.spectrum_last_hz = 392'000'000;
+    REQUIRE(dev->start(plan) == YR_OK);
+    bool got = false;
+    for (int i = 0; i < 3000 * YANTRA_TEST_TIME_SCALE && !got; ++i) {
+        got = store->received() >= 2;
+        if (!got) std::this_thread::sleep_for(milliseconds(10));
+    }
+    CHECK(dev->stop() == YR_OK);
+    REQUIRE(got);
+    const auto sp = store->latest();
+    REQUIRE(sp != nullptr);
+    CHECK(sp->simulated);
+    CHECK(sp->start_hz >= 390e6 - 1.0);
+    CHECK(sp->stop_hz <= 392e6 + 1.0);
+    CHECK(sp->bin_count() >= 1);
+    CHECK(sp->bin_count() <= YR_SPECTRUM_MAX_BINS);
+    CHECK(dev->stats().sink.spectra_invalid == 0);
+    CHECK(store->history().size() >= 2);
 }

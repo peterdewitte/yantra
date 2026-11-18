@@ -79,7 +79,8 @@ std::string capabilities_text(std::uint32_t caps) {
     static const std::pair<std::uint32_t, const char*> names[] = {
         {YR_CAP_SCAN, "scan"},           {YR_CAP_HOTPLUG, "hotplug"},
         {YR_CAP_RETUNE_LIVE, "retune live"}, {YR_CAP_SIMULATED, "simulated"},
-        {YR_CAP_SCENE, "scene"},         {YR_CAP_SELF_CALIBRATED, "self calibrated"}};
+        {YR_CAP_SCENE, "scene"},         {YR_CAP_SELF_CALIBRATED, "self calibrated"},
+        {YR_CAP_SPECTRUM, "spectrum"}};
     std::string out;
     for (const auto& [bit, name] : names) {
         if ((caps & bit) == 0) continue;
@@ -276,6 +277,7 @@ struct Sink {
     std::uint64_t stream_id = 0;
     std::shared_ptr<measure::MeasurementInput> pipeline;
     std::shared_ptr<const KeyHistory> keys;  // the device's calibration keys (HW-01b)
+    std::shared_ptr<SpectrumInput> spectra;  // UI-24: receiver of the spectra (nullptr: counted)
     std::size_t capacity = 4096;
     // Called on the delivery thread for the events the host acts on.
     std::function<void(std::uint32_t event, std::int64_t value)> on_control_event;
@@ -405,6 +407,51 @@ struct Sink {
         cv.notify_one();
     }
 
+    // API 1.2 (RAD-140): checked, copied and handed on at once (the
+    // receiver keeps the latest and a bounded history; it never blocks).
+    yr_status push_spectrum(const yr_spectrum* spectrum) {
+        if (spectrum == nullptr) return YR_ERR_INVALID_ARGUMENT;
+        {
+            const std::lock_guard lock(m);
+            if (!active) {
+                if (stopped) ++c.late;
+                return YR_ERR_BUSY;
+            }
+        }
+        std::vector<std::string> problems = radio::validate_spectrum(*rt->d, *spectrum);
+        if (!problems.empty()) {
+            const std::lock_guard lock(m);
+            ++c.spectra_invalid;
+            for (std::string& p : problems)
+                if (c.problems.size() < 10) c.problems.push_back(std::move(p));
+            return YR_ERR_INVALID_ARGUMENT;
+        }
+        Spectrum out;
+        out.plugin_id = rt->entry.id;
+        out.device_key = device_key;
+        out.stream_id = stream_id;
+        out.flags = spectrum->flags;
+        out.dbm = yr_record_level_is_dbm(rt->d->capabilities, spectrum->flags) != 0;
+        out.simulated = (rt->d->capabilities & YR_CAP_SIMULATED) != 0;
+        out.monotonic_ns = spectrum->time.monotonic_ns;
+        out.utc_ns = spectrum->time.utc_ns;
+        out.start_hz = spectrum->start_hz;
+        out.stop_hz = spectrum->stop_hz;
+        out.bin_width_hz = spectrum->bin_width_hz;
+        out.power_db.assign(spectrum->power_db, spectrum->power_db + spectrum->bin_count);
+        if (keys) out.calibration_key = keys->at(spectrum->time.monotonic_ns);
+        {
+            const std::lock_guard lock(m);
+            if (!active) {
+                if (stopped) ++c.late;
+                return YR_ERR_BUSY;
+            }
+            ++c.spectra;
+        }
+        if (spectra) spectra->on_spectrum(std::move(out));
+        return YR_OK;
+    }
+
     void deliver_main() {
         std::unique_lock lock(m);
         for (;;) {
@@ -448,6 +495,15 @@ yr_status api_push(yr_stream* stream, const yr_record* record) {
     if (stream == nullptr || stream->sink == nullptr) return YR_ERR_INVALID_ARGUMENT;
     try {
         return stream->sink->push(record);
+    } catch (...) {
+        return YR_ERR_NO_MEMORY;
+    }
+}
+
+yr_status api_push_spectrum(yr_stream* stream, const yr_spectrum* spectrum) {
+    if (stream == nullptr || stream->sink == nullptr) return YR_ERR_INVALID_ARGUMENT;
+    try {
+        return stream->sink->push_spectrum(spectrum);
     } catch (...) {
         return YR_ERR_NO_MEMORY;
     }
@@ -771,6 +827,7 @@ struct RadioHost::Impl : std::enable_shared_from_this<RadioHost::Impl> {
         sink->stream_id = next_stream_id++;
         sink->pipeline = config.pipeline;
         sink->keys = d.keys;
+        sink->spectra = config.spectra;
         sink->capacity = std::max<std::size_t>(1, config.sink_capacity);
         std::weak_ptr<Impl> wh = weak_from_this();
         std::weak_ptr<RadioDevice::Impl> wd;
@@ -805,6 +862,8 @@ struct RadioHost::Impl : std::enable_shared_from_this<RadioHost::Impl> {
             p.scan_first_hz = storage->scan_first_hz;
             p.scan_last_hz = storage->scan_last_hz;
             p.scan_step_hz = storage->scan_step_hz;
+            p.spectrum_first_hz = storage->spectrum_first_hz;
+            p.spectrum_last_hz = storage->spectrum_last_hz;
             return desc->stream->start_stream(dev, &p, handle);
         });
         if (st != YR_OK) {
@@ -853,6 +912,8 @@ struct RadioHost::Impl : std::enable_shared_from_this<RadioHost::Impl> {
         d.totals.dropped += c.dropped;
         d.totals.invalid += c.invalid;
         d.totals.late += c.late;
+        d.totals.spectra += c.spectra;
+        d.totals.spectra_invalid += c.spectra_invalid;
         for (const auto& p : c.problems)
             if (d.totals.problems.size() < 10) d.totals.problems.push_back(p);
     }
@@ -1512,6 +1573,7 @@ RadioPluginEntry RadioHost::load_file(const std::filesystem::path& path) {
     api.utc_now_ns = api_utc;
     api.push_record = api_push;
     api.stream_event = api_event;
+    api.push_spectrum = api_push_spectrum;  // API 1.2 (RAD-140, UI-24)
     api.devices_changed = api_devices_changed;
     api.settings_changed = api_settings_changed;
     if (e.uses_context) {  // RAD-14: only for SCENE plugins
@@ -1735,6 +1797,8 @@ yr_status RadioDevice::set_plan(const Plan& plan) {
         p.scan_first_hz = storage->scan_first_hz;
         p.scan_last_hz = storage->scan_last_hz;
         p.scan_step_hz = storage->scan_step_hz;
+        p.spectrum_first_hz = storage->spectrum_first_hz;
+        p.spectrum_last_hz = storage->spectrum_last_hz;
         return desc->stream->set_plan(dev, &p);
     });
     if (st == YR_OK) {
@@ -1855,6 +1919,8 @@ DeviceStats RadioDevice::stats() const {
         out.sink.dropped += c.dropped;
         out.sink.invalid += c.invalid;
         out.sink.late += c.late;
+        out.sink.spectra += c.spectra;
+        out.sink.spectra_invalid += c.spectra_invalid;
         for (const auto& p : c.problems)
             if (out.sink.problems.size() < 10) out.sink.problems.push_back(p);
     }
@@ -1991,6 +2057,30 @@ yr_status RadioDevice::read_sensor(const std::string& key, plugin::Value& out) {
         const yr_status s = desc->device->read_sensor(dev, key.c_str(), &v, b, sizeof b);
         if (s == YR_OK) *result = value_from_c(v);
         return s;
+    });
+    if (st == YR_OK) out = *result;
+    return st;
+}
+
+yr_status RadioDevice::plan_ranges(PlanRanges& out) {
+    auto result = std::make_shared<PlanRanges>();
+    const yr_status st = device_call(*impl_, "plan_ranges", false, [result](const yr_descriptor* desc, yr_device* dev) {
+        return desc->stream->plan_ranges(
+            dev,
+            [](void* user, const yr_plan_ranges* r) {
+                if (r == nullptr || !YR_HAS_FIELD(r, yr_plan_ranges, ranges)) return;
+                try {
+                    auto& o = *static_cast<PlanRanges*>(user);
+                    o.plan_types = r->plan_types;
+                    o.max_carriers = r->max_carriers;
+                    if (YR_HAS_FIELD(r, yr_plan_ranges, max_span_hz)) o.max_span_hz = r->max_span_hz;
+                    o.ranges.clear();
+                    for (std::uint32_t i = 0; r->ranges != nullptr && i < r->range_count; ++i)
+                        o.ranges.push_back(FrequencyRange{r->ranges[i].first_hz, r->ranges[i].last_hz});
+                } catch (...) {
+                }
+            },
+            result.get());
     });
     if (st == YR_OK) out = *result;
     return st;

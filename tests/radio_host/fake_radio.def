@@ -11,6 +11,7 @@ EXPORTS
     fake_control
     fake_push
     fake_push_one
+    fake_push_spectrum
     fake_event
     fake_unplug
     fake_replug

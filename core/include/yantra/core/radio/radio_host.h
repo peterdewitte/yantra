@@ -53,6 +53,7 @@
 #include "yantra/core/measure/pipeline.h"
 #include "yantra/core/plugin/record.h"
 #include "yantra/core/plugin/state_store.h"
+#include "yantra/core/radio/spectrum.h"
 
 namespace yantra::radio {
 
@@ -113,6 +114,22 @@ struct Plan {
     std::uint64_t scan_first_hz = 0;
     std::uint64_t scan_last_hz = 0;
     std::uint64_t scan_step_hz = 0;
+    // YR_PLAN_SPECTRUM (API 1.2, RAD-140): the band; 0 and 0 = 380-400 MHz.
+    std::uint64_t spectrum_first_hz = 0;
+    std::uint64_t spectrum_last_hz = 0;
+    bool operator==(const Plan&) const = default;
+};
+
+// What an opened device can measure (yr_plan_ranges, RAD-32).
+struct FrequencyRange {
+    std::uint64_t first_hz = 0;
+    std::uint64_t last_hz = 0;
+};
+struct PlanRanges {
+    std::uint32_t plan_types = 0;  // bit (1u << YR_PLAN_*)
+    std::uint32_t max_carriers = 0;
+    double max_span_hz = 0.0;      // widest span measured at once
+    std::vector<FrequencyRange> ranges;
 };
 
 // Device-specific control as data (RAD-40..46), copied from the plugin's
@@ -182,6 +199,9 @@ struct SinkCounters {
     std::uint64_t invalid = 0;   // did not match the schema (RAD-21): INVALID_ARGUMENT
     std::uint64_t late = 0;      // pushed after stop_stream returned (RAD-33)
     std::vector<std::string> problems;  // first schema findings
+    // Spectra (push_spectrum, API 1.2, RAD-140).
+    std::uint64_t spectra = 0;          // copied and handed to RadioHostConfig::spectra
+    std::uint64_t spectra_invalid = 0;  // broke the spectrum rules: INVALID_ARGUMENT
 };
 
 struct DeviceStats {
@@ -201,6 +221,9 @@ struct RadioHostConfig {
     std::shared_ptr<measure::MeasurementInput> pipeline;
     // Floor plan, positions and scenes for SCENE plugins; nullptr = NO_PLAN.
     std::shared_ptr<context::ContextProvider> context;
+    // Receiver of the spectra (API 1.2, UI-24); nullptr = checked, counted
+    // and dropped. Called on the plugin's thread: it must not block.
+    std::shared_ptr<SpectrumInput> spectra;
     // Log of the plugins (device_key "" for plugin-level lines) and of the
     // host (plugin_id ""). Any thread.
     std::function<void(const std::string& plugin_id, const std::string& device_key,
@@ -250,6 +273,8 @@ public:
     // The device entry (RAD-30) read after open; nullopt when the plugin
     // gave none.
     std::optional<DeviceInfo> info() const;
+    // What the device can measure (RAD-32: plan types, frequency ranges).
+    yr_status plan_ranges(PlanRanges& out);
 
     DeviceStats stats() const;
     std::string last_error() const;
