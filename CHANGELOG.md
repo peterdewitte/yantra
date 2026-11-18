@@ -18,7 +18,7 @@ A simpler indoor workflow (specification 0.4): the project window has a
 Walk and a Map tab, the coverage map is interpolated from the measured
 points only, and the demo uses fixed scenes. The version stays 0.2.0
 until the next release. Not run for this state: the sanitizer trees and
-the Windows build and tests.
+the Windows tests (the Windows tree is cross-built and packaged).
 
 ### Added
 
@@ -31,6 +31,13 @@ the Windows build and tests.
   The radio is asked for spectra only while the window is open; spectra
   are not recorded. The Tools menu is now always there (Spectrum, then
   the plugins' entries). Manual 5.6.
+
+- The packages workflow `packages.yml` (TST-64): Linux x86-64 and
+  Windows x64 (cross-compiled) with clang from the cross SDK, the fast
+  tests on Linux and on a Windows runner, the .deb, the setup .exe and
+  the portable zip as artifacts, and a GitHub release with them on a
+  version tag. The Windows jobs of `ci.yml` moved to the reusable
+  `windows-cross.yml`, the SDK steps to `.github/actions/linux-sdk`.
 
 ### Changed
 
@@ -97,6 +104,10 @@ the Windows build and tests.
 
 ### Fixed
 
+- Windows: the camera code (Media Foundation) loads its DLLs when a
+  camera is first used instead of importing them, so the package passes
+  its DLL import check and Yantra starts on Windows editions without
+  Media Foundation (no camera then).
 - In the Walk tab a long radio name and the walk kind end in "..." with
   the whole text on hover, and labels move above their field in a narrow
   panel, so no text is cut off in any language (TST-52).
