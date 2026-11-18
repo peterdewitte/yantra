@@ -34,6 +34,7 @@ const std::vector<ManualSection>& manual_sections() {
         {"5.3", tr_mark("Scanner, events and statistics"), "05-live-survey.md"},
         {"5.4", tr_mark("The status bar"), "05-live-survey.md"},
         {"5.5", tr_mark("Sounds and level alerts"), "05-live-survey.md"},
+        {"5.6", tr_mark("Spectrum and waterfall"), "05-live-survey.md"},
         {"6", tr_mark("Recording and replay"), "06-recording.md"},
         {"6.1", tr_mark("Recording"), "06-recording.md"},
         {"6.2", tr_mark("Replay"), "06-recording.md"},

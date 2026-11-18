@@ -65,16 +65,19 @@ void Gui::draw_spectrum_body() {
 
     // The band (MHz), clipped to the radio's plan ranges.
     SpectrumForm& form = state_.spectrum_form();
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextUnformatted(tr("Band"));
-    ImGui::SameLine();
     const float field_w = em(110.0F);
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted(tr("First MHz"));
+    ImGui::SameLine();
     ImGui::SetNextItemWidth(field_w);
-    ImGui::InputDouble(tr("First MHz###spectrum.first"), &form.first_mhz, 0.0, 0.0, "%.3f");
+    ImGui::InputDouble("###spectrum.first", &form.first_mhz, 0.0, 0.0, "%.3f");
     text_tooltip(tr("The lowest frequency of the spectrum, in MHz."));
     same_line_if(field_w + label_w(tr("Last MHz")) + em(20.0F));
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted(tr("Last MHz"));
+    ImGui::SameLine();
     ImGui::SetNextItemWidth(field_w);
-    ImGui::InputDouble(tr("Last MHz###spectrum.last"), &form.last_mhz, 0.0, 0.0, "%.3f");
+    ImGui::InputDouble("###spectrum.last", &form.last_mhz, 0.0, 0.0, "%.3f");
     text_tooltip(tr("The highest frequency of the spectrum, in MHz."));
     same_line_if(button_w(tr("380-400 MHz"), em(80.0F)));
     if (ImGui::Button(tr("380-400 MHz###spectrum.default"))) form = SpectrumForm{};
@@ -109,10 +112,10 @@ void Gui::draw_spectrum_body() {
         char width[32];
         std::snprintf(f_lo, sizeof f_lo, "%.3f", s.start_hz / 1e6);
         std::snprintf(f_hi, sizeof f_hi, "%.3f", s.stop_hz / 1e6);
-        std::snprintf(width, sizeof width, "%.1f", s.bin_width_hz / 1e3);
-        const char* scale = s.calibrated ? tr("calibrated") : s.dbm ? tr("dBm from the radio") : tr("uncalibrated");
-        ImGui::TextDisabled("%s", trf("{}-{} MHz, {} bins of {} kHz, {} ({})",
-                                      {f_lo, f_hi, std::to_string(s.bin_count()), width, v.unit, scale})
+        std::snprintf(width, sizeof width, "%.2f", s.bin_width_hz / 1e3);
+        const char* scale = s.calibrated ? tr("dBm (calibrated)") : s.dbm ? tr("dBm from the radio") : tr("dBFS (uncalibrated)");
+        ImGui::TextDisabled("%s", trf("{}-{} MHz, {} bins of {} kHz, {}",
+                                      {f_lo, f_hi, std::to_string(s.bin_count()), width, scale})
                                       .c_str());
         for (const std::string& f : v.flags) {
             ImGui::SameLine();
