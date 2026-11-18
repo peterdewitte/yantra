@@ -114,8 +114,8 @@ void Gui::draw_walk_page(const FloorContent* c) {
 void Gui::draw_map_page(ProjectWindow& w, const FloorContent* c) {
     // The Show row: plan, measured points and the map with its opacity.
     ImGui::SeparatorText(tr("Show"));
-    help_marker(tr("Switch the plan, the measured points and the interpolated map on or off. These are your viewing "
-                   "settings: they do not change the project or its report."));
+    help_marker(tr("Switch the plan, the measured points, the interpolated map and the notes on or off. These are your "
+                   "viewing settings: they do not change the project or its report."));
     const std::vector<LayerRow> rows = w.layer_rows(state_.settings().layers);
     auto row_of = [&](Layer l) -> const LayerRow* {
         for (const LayerRow& r : rows)
@@ -134,6 +134,16 @@ void Gui::draw_map_page(ProjectWindow& w, const FloorContent* c) {
         bool on = r->visible;
         if (ImGui::Checkbox(label, &on)) state_.set_layer_visible(layer, on);
         text_tooltip(r->tooltip.c_str());
+    }
+    {
+        // IND-48: the notes' pins (the Walk tab shows them too).
+        const char* label = tr("Notes###layer.notes");
+        if (!first) same_line_if(switch_w(label));
+        first = false;
+        bool on = state_.settings().layers.notes;
+        if (ImGui::Checkbox(label, &on)) state_.set_notes_visible(on);
+        text_tooltip(tr("The notes on the plan as numbered pins. A long click (long press) on the plan adds a note; a "
+                        "click on a pin opens it, a drag moves it."));
     }
     {
         float pct = static_cast<float>(state_.settings().layers.map_opacity * 100.0);
@@ -365,14 +375,17 @@ void Gui::handle_canvas_input() {
     LiveSurvey* live = state_.live();
     if (live != nullptr) live->cursor(in.hovered ? in.mouse : std::nullopt, ImGui::GetTime());
     const bool keys = !ImGui::GetIO().WantTextInput && !ImGui::IsPopupOpen(nullptr, ImGuiPopupFlags_AnyPopupId);
+    // IND-48: a long press opens a note (and is no click); a pin is
+    // clicked or dragged.
+    handle_note_input();
     if (live != nullptr && live->running()) {
         const WalkView v = live->view();
         if (v.kind == WalkKind::MouseSurvey) {
             // DEMO-14: a click interpolates the floor's points; Esc stops.
-            if (in.pressed) (void)state_.run_interpolation(false);
+            if (in.clicked) (void)state_.run_interpolation(false);
             if (keys && ImGui::IsKeyPressed(ImGuiKey_Escape)) (void)state_.show(live->stop());
-        } else if (in.pressed && in.mouse) {
-            (void)state_.show(live->click(*in.mouse));
+        } else if (in.clicked && in.press) {
+            (void)state_.show(live->click(*in.press));
         }
         return;
     }

@@ -39,6 +39,7 @@
 #include <vector>
 
 #include "yantra/app/about_building.h"
+#include "yantra/app/plan_notes.h"
 #include "yantra/app/app_control.h"
 #include "yantra/app/audible_alerts.h"
 #include "yantra/app/cell_db_editor.h"
@@ -189,6 +190,7 @@ enum class Dialog {
     Sharing,            ///< where exports and reports are sent (EXP-07): sharing_form()
     ReportReady,        ///< UI-22: the report is written; Open, Show in folder, Close: report_ready()
     Camera,             ///< IND-47: take a photo with a camera: camera(), camera_take()
+    Note,               ///< IND-48: a note on the plan: notes()->form()
 };
 
 /// What the file browser was opened for.
@@ -506,6 +508,25 @@ public:
     void close_tour_consent() {
         if (dialog_ == Dialog::TourConsent) dialog_ = Dialog::None;
     }
+    // -- notes on the plan (IND-48) ----------------------------------------------
+    /// The open project's notes; nullptr without a project.
+    PlanNotes* notes() { return notes_.get(); }
+    /// A long press on the selected floor's plan: the Note window for a
+    /// new note there (refused while another window is open).
+    Result open_note_at(building::Point2 at);
+    /// A click on a pin: the Note window of that note.
+    Result open_note(std::int64_t id);
+    /// A pin dragged to `to` (plan units of its floor).
+    Result move_note(std::int64_t id, building::Point2 to);
+    /// The Note window's Save; Delete (the first press asks, the second
+    /// deletes); a picture from a file or a camera (back to the window).
+    Result note_save();
+    Result note_delete();
+    void note_picture_file();
+    Result note_picture_camera();
+    /// The Show row's "Notes" (a viewing setting, stored with the settings).
+    void set_notes_visible(bool on);
+
     // -- About building (IND-47) ------------------------------------------------
     /// The About building tab's model of the open project; nullptr without one.
     AboutBuildingView* about_building() { return about_.get(); }
@@ -758,6 +779,7 @@ private:
     std::shared_ptr<Downloader> downloader_;  // the constructor: none, with the reason
     std::string panel_request_;
     std::unique_ptr<AboutBuildingView> about_;
+    std::unique_ptr<PlanNotes> notes_;
     bool about_tab_ = false;
     std::shared_ptr<CameraBackend> camera_backend_;
     std::unique_ptr<CameraCapture> camera_;

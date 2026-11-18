@@ -88,6 +88,9 @@ struct ImageBlock {
     /// The credit of the plan in the picture (report/figure.h fills it);
     /// printed under the picture.
     std::optional<PlanCredit> credit;
+    /// The PDF width at most, in points (a thumbnail, IND-48); 0: the text
+    /// width.
+    float max_width_pt = 0.0F;
 };
 
 struct LegendBlock {

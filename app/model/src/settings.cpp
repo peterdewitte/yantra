@@ -131,6 +131,8 @@ std::string check_settings(const AppSettings& s) {
     if (!within(s.survey.graph_span_min, kMinGraphSpanMin, kMaxGraphSpanMin))
         return tr("The graphs show 1 to 60 minutes.");
     if (!within(s.survey.ring_minutes, kMinRingMinutes, kMaxRingMinutes)) return tr("The ring buffer keeps 2 to 60 minutes.");
+    if (!within(s.survey.note_audio_max_s, kMinNoteAudioS, kMaxNoteAudioS))
+        return tr("An audio note is at most 5 to 120 seconds long.");
     if (!parse_language(s.language)) return tr("The language is en, nl, fr or de.");
     if (!within(s.ui_scale, kMinUiScale, kMaxUiScale)) return tr("The UI scale is 75 to 250 %.");
     if (!within(s.sound.volume, 0.0, 1.0)) return tr("The volume is 0 to 100 %.");
@@ -159,6 +161,7 @@ std::string settings_to_json(const AppSettings& s) {
     for (Layer l : s.layers.hidden) j["layers"]["hidden"].push_back(layer_key(l));
     j["layers"]["bin_size_m"] = s.layers.bin_size_m;
     j["layers"]["map_opacity"] = s.layers.map_opacity;
+    j["layers"]["notes"] = s.layers.notes;
     j["window_system"] = s.window_system;
     j["tooltips"] = s.tooltips;
     j["tooltip_delay_s"] = s.tooltip_delay_s;
@@ -183,6 +186,7 @@ std::string settings_to_json(const AppSettings& s) {
     j["survey"]["graph_span_min"] = s.survey.graph_span_min;
     j["survey"]["ring"] = s.survey.ring;
     j["survey"]["ring_minutes"] = s.survey.ring_minutes;
+    j["survey"]["note_audio_max_s"] = s.survey.note_audio_max_s;
     j["tour"] = {{"offered", s.tour.offered}, {"building", s.tour.building}, {"step", s.tour.step},
                  {"done", s.tour.done}, {"finished", s.tour.finished}};
     j["sharing"] = {{"method", sharing_method_key(s.sharing.method)}, {"folder", s.sharing.folder.string()},
@@ -252,6 +256,7 @@ AppSettings settings_from_json(const std::string& text, std::string& error) {
             const double v = o->get<double>();
             if (v >= kMinMapOpacity && v <= 1.0) s.layers.map_opacity = v;
         }
+        if (const auto n = it->find("notes"); n != it->end() && n->is_boolean()) s.layers.notes = n->get<bool>();
     }
     if (const auto it = j.find("window_system"); it != j.end() && it->is_string() && parse_window_system(it->get<std::string>()))
         s.window_system = to_string(*parse_window_system(it->get<std::string>()));
@@ -303,6 +308,7 @@ AppSettings settings_from_json(const std::string& text, std::string& error) {
         number("threshold_dbm", kMinThresholdDbm, kMaxThresholdDbm, s.survey.threshold_dbm);
         number("graph_span_min", kMinGraphSpanMin, kMaxGraphSpanMin, s.survey.graph_span_min);
         number("ring_minutes", kMinRingMinutes, kMaxRingMinutes, s.survey.ring_minutes);
+        number("note_audio_max_s", kMinNoteAudioS, kMaxNoteAudioS, s.survey.note_audio_max_s);
         if (const auto v = it->find("ring"); v != it->end() && v->is_boolean()) s.survey.ring = v->get<bool>();
     }
     if (const auto it = j.find("tour"); it != j.end() && it->is_object()) {

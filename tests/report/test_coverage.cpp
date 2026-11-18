@@ -606,3 +606,77 @@ TEST_CASE("IND-47 the report starts with the About building information: address
               return std::vector<std::uint8_t>(pdf.begin(), pdf.end());
           }()).ok);
 }
+
+TEST_CASE("IND-48 EXP-05 the report lists each floor's notes: number on the plan, picture thumbnail, text, audio length") {
+    ReportFixture fx("coverage-notes");
+    yantra::project::PlanNote a;
+    a.floor_id = fx.ground;
+    a.plan = {5, 5};
+    a.text = "Riser cupboard\nkey at the desk";
+    a.picture = yantra::exports::encode_png(yantra::exports::Canvas(640, 400, yantra::exports::Rgba8{200, 90, 60, 255}));
+    a.picture_name = "riser.png";
+    a.picture_source = "file";
+    (void)fx.p->add_note(a);
+    yantra::project::PlanNote b;
+    b.floor_id = fx.ground;
+    b.plan = {12, 6};
+    b.audio = {1, 2, 3, 4};  // the bytes are not read by the report
+    b.audio_seconds = 12.4;
+    (void)fx.p->add_note(b);
+
+    auto o = fx.options();
+    // Without notes on the plan the floor picture is the same as before.
+    o.floors = {fx.first};
+    const auto plain = yr::coverage_report(*fx.p, o);
+    REQUIRE(plain.floors.size() == 1);
+    CHECK(plain.floors[0].notes.empty());
+    CHECK_FALSE(contains(text_of(plain.document), "Notes on the plan"));
+
+    o.floors = {fx.ground};
+    const auto rep = yr::coverage_report(*fx.p, o);
+    REQUIRE(rep.floors.size() == 1);
+    const auto& notes = rep.floors[0].notes;
+    REQUIRE(notes.size() == 2);
+    CHECK(notes[0].number == 1);
+    CHECK(notes[0].picture);
+    CHECK(notes[0].audio_seconds == 0.0);
+    CHECK(notes[1].number == 2);
+    CHECK(notes[1].audio_seconds == doctest::Approx(12.4));
+    std::string all;
+    int thumbnails = 0;
+    for (const yr::Block& blk : rep.document.blocks) {
+        all += blk.heading.text + "\n" + blk.paragraph.text + "\n" + blk.image.caption + "\n";
+        for (const auto& [k, v] : blk.kv.rows) all += k + ": " + v + "\n";
+        if (blk.type == yr::Block::Type::Image && blk.image.max_width_pt > 0) {
+            ++thumbnails;
+            CHECK(blk.image.image.width() <= 360);
+        }
+    }
+    CHECK(contains(all, "Notes on the plan"));
+    CHECK(contains(all, "2 notes; their numbers are the markers on the plan above."));
+    CHECK(contains(all, "Note 1: Riser cupboard\nkey at the desk"));
+    CHECK(contains(all, "Note 1: picture (riser.png)"));
+    CHECK(contains(all, "Note 2: -\naudio note, 12 s"));
+    CHECK(thumbnails == 1);
+
+    // The markers are in the floor picture: it differs from one without notes.
+    yantra::exports::ImageOptions io;
+    io.plan = false;
+    const yantra::exports::Table t = yantra::exports::floor_table(*fx.p, fx.ground);
+    const auto without = yantra::exports::floor_image(*fx.p, t, io);
+    io.notes = {{{5, 5}, "1"}};
+    const auto with = yantra::exports::floor_image(*fx.p, t, io);
+    CHECK(without.canvas.pixels() != with.canvas.pixels());
+
+    // PDF and HTML.
+    const fs::path out = scratch("coverage-notes-out");
+    yr::write_coverage_report(*fx.p, o, out / "r.pdf", out / "r.html");
+    const std::string html = file_text(out / "r.html");
+    CHECK(contains(html, "Notes on the plan"));
+    CHECK(contains(html, "audio note, 12 s"));
+    CHECK(contains(html, "Picture of note 1"));
+    CHECK(yr::check_pdf([&] {
+              const std::string pdf = file_text(out / "r.pdf");
+              return std::vector<std::uint8_t>(pdf.begin(), pdf.end());
+          }()).ok);
+}

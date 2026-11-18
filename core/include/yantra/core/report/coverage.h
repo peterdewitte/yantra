@@ -142,6 +142,14 @@ struct ChangeRow {
     std::size_t count = 0;
 };
 
+/// IND-48: a note on the floor's plan as the report lists it.
+struct NoteRow {
+    int number = 0;  ///< its marker in the floor picture
+    std::string text;
+    bool picture = false;
+    double audio_seconds = 0.0;  ///< 0: no audio
+};
+
 struct FloorSection {
     std::string floor_id;
     std::string name;
@@ -154,6 +162,7 @@ struct FloorSection {
     std::vector<AcceptanceRow> acceptance;
     std::vector<CellRow> cells;
     std::vector<ChangeRow> changes;
+    std::vector<NoteRow> notes;  ///< IND-48, in the order of their numbers
     std::vector<std::string> warnings;
 };
 

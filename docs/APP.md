@@ -866,6 +866,35 @@ docs/formats/PROJECT.md).
 - The report starts with this information (EXP-05, docs/REPORT.md); the
   tour has a step for the tab (`about_building`).
 
+## Notes on the plan (step 15.4, IND-48)
+
+A long click (left button held `LongPressConfig::long_s` = 0.6 s within
+6 px, a touch press within 16 px) on the plan canvas (Walk and Map tabs)
+opens the Note window (`dlg.note`, `Dialog::Note`) for a new note there;
+a short click is reported on release (`CanvasInput::clicked`, at
+`press`), so the walk test and the mouse survey act on it and a long
+press is never also a click. Model: `app/model/include/yantra/app/plan_notes.h`
+(`LongPress`, `PlanNotes` owned by `AppState::notes()`); view:
+`app/gui/note_view.cpp`; manual 13.7; stored in the project (schema 10,
+`plan_notes`, docs/formats/PROJECT.md).
+
+- Pins: numbered per floor in id order, drawn over the layers while
+  `layers.notes` is on (`layer.notes` in the Map tab's Show row; the Walk
+  tab shows them too). A press on a pin is taken by the canvas's grab
+  test (no pan): a click opens it (`AppState::open_note`), a drag moves
+  it (`move_note` on release). Not while a walk test runs.
+- The Note window is anchored beside the spot and kept inside the app
+  window: `note.text`, `note.picture_open` (photo browser),
+  `note.picture_take` (`dlg.camera`), `note.picture_remove`,
+  `note.audio_record` / `note.audio_stop` (AudioIo capture at 16 kHz, at
+  most `survey.note_audio_max_s`, `settings.note_audio_max`),
+  `note.audio_play` / `note.audio_stop_play`, `note.audio_delete`,
+  `dlg.ok` (Save; an empty note is refused), `note.delete` then
+  `note.delete_confirm` / `note.delete_keep`, `dlg.cancel`.
+- `Gui::notes_overlay()` tells the tests what was drawn (pins, the
+  dragged pin, the window, its picture and position).
+- The report lists the notes per floor (EXP-05, docs/REPORT.md).
+
 ## Screenshots and layout check (step 9.11)
 
 The documentation's screenshot set (SCR-01..05, SCR-07) is made by the app itself:

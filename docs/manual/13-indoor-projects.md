@@ -52,7 +52,7 @@ This version of Yantra has no walls, antennas or propagation model: the coverage
 
 ## 13.4 Layers
 
-The Show row of the Map tab shows or hides the plan, the measured points and the map, with the map's opacity; the binned squares are switched on in its Advanced dropdown. The binned layer groups the points into squares of the size you set (Square, 2 m by default), each with the percentile of its points (11.1); it is labelled as binned and never replaces the points. The map's opacity (85 % by default) sets how much of the plan shows through it. The layers are always drawn in the same order, from the bottom: the plan, the map, the binned squares and the points on top. When several coverage maps are stored, choose the one to show. The layer settings are kept for the next start; they are not part of the project.
+The Show row of the Map tab shows or hides the plan, the measured points, the map (with its opacity) and the notes on the plan (13.7); the binned squares are switched on in its Advanced dropdown. The binned layer groups the points into squares of the size you set (Square, 2 m by default), each with the percentile of its points (11.1); it is labelled as binned and never replaces the points. The map's opacity (85 % by default) sets how much of the plan shows through it. The layers are always drawn in the same order, from the bottom: the plan, the map, the binned squares and the points on top. When several coverage maps are stored, choose the one to show. The layer settings are kept for the next start; they are not part of the project.
 
 ## 13.5 Interpolation
 
@@ -76,3 +76,15 @@ The first tab of every project, About building, is about the building as a whole
 - **Surveyor**, **Survey date** (YYYY-MM-DD; a new project starts with the day it was made, **Today** sets today) and **Notes** (several lines).
 
 Every field is written to the project file when you leave it, like every other change of a project. The report starts with this information (10.2): the address and position, the map made of the cached tiles (with the attribution), the photo, the surveyor, the date and the notes. Nothing of it leaves the computer except the address search and the map tiles you ask for by showing the map.
+
+## 13.7 Notes on the plan
+
+A note keeps something you see at a spot of a floor: a picture, a text and a short sound recording, each optional.
+
+- **Add a note**: hold the left mouse button down on the spot for a little over half a second without moving (a long press with a finger on a touch screen). The Note window opens beside the spot. A normal click keeps its usual meaning (a walk test point, or the interpolation in a mouse survey); a long press never also counts as a click.
+- **Picture**: **Open picture...** adds a picture file (the formats of the building photo, 13.6); **Take picture...** opens the camera window; **Remove picture** takes it out.
+- **Text**: several lines.
+- **Audio**: **Record** records with the microphone, **Stop** ends it; **Play** plays it back and **Delete audio** removes it. A recording stops by itself at the longest length, 2 minutes unless File > Settings > Survey sets a shorter one ("Longest audio note"). Without a microphone or sound system Yantra says why.
+- **Save** stores the note in the project; **Delete...** asks first and then removes it; **Cancel** closes the window without storing the changes.
+
+The notes show as numbered yellow pins on the plan, in the Walk and Map tabs; **Notes** in the Map tab's Show row hides or shows them. Hover over a pin for its text, click it to open the note, and drag it to move it. While a walk test runs, a click on the plan stays the walk's, so the pins cannot be clicked then (a long press still adds a note). The report lists the notes of every floor after its statistics: the number of its pin on the plan picture, the picture as a thumbnail, the text and "audio note, n s" for a recording (the sound itself is not in the report).

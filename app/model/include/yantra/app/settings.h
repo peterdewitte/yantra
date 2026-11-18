@@ -56,6 +56,9 @@ struct LayerSettings {
     /// The interpolated map's opacity (UI-19), kMinMapOpacity .. 1: the
     /// plan stays visible under it.
     double map_opacity = 0.85;
+    /// IND-48: the notes' pins on the plan (Map tab, Show row; the Walk
+    /// tab shows them too).
+    bool notes = true;
 
     bool visible(Layer layer) const;
     void set_visible(Layer layer, bool visible);
@@ -117,11 +120,14 @@ struct SurveySettings {
     /// (2 .. 60 minutes).
     bool ring = false;
     double ring_minutes = 10.0;
+    /// IND-48: the longest audio fragment of a plan note, 5 .. 120 s.
+    double note_audio_max_s = 120.0;
     bool operator==(const SurveySettings&) const = default;
 };
 inline constexpr double kMinThresholdDbm = -150.0, kMaxThresholdDbm = -20.0;
 inline constexpr double kMinGraphSpanMin = 1.0, kMaxGraphSpanMin = 60.0;
 inline constexpr double kMinRingMinutes = 2.0, kMaxRingMinutes = 60.0;
+inline constexpr double kMinNoteAudioS = 5.0, kMaxNoteAudioS = 120.0;
 inline constexpr double kMaxTooltipDelayS = 5.0;
 
 /// EXP-07: where exports and reports are sent after they are written

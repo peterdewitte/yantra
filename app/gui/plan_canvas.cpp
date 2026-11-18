@@ -259,7 +259,20 @@ void PlanCanvas::draw(ProjectWindow& window, const FloorContent& c, const LayerS
     const bool hovered = ImGui::IsItemHovered();
     origin_ = origin;
     input_ = CanvasInput{};
-    if (ImGui::IsItemActive() && ((left_pans_ && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0F)) ||
+    // IND-48: a left press is a click, a long press or a drag (LongPress);
+    // a press the grab test takes (a note pin) does not pan.
+    const Point2 here{io.MousePos.x - origin.x, io.MousePos.y - origin.y};
+    const bool dbl_now = hovered && ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left);
+    const bool begins = !press_.active() && hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left) && !dbl_now;
+    if (begins && view_.zoom() > 0.0) {
+        press_at_ = view_.screen_to_page(here);
+        touch_ = io.MouseSource == ImGuiMouseSource_TouchScreen;
+        grabbed_ = grab_ && grab_(*press_at_, (touch_ ? 16.0 : 10.0) / view_.zoom());
+    }
+    LongPress::Event press_event = LongPress::Event::None;
+    if (begins || press_.active())
+        press_event = press_.update(ImGui::IsMouseDown(ImGuiMouseButton_Left), here.x, here.y, ImGui::GetTime(), touch_);
+    if (ImGui::IsItemActive() && ((left_pans_ && !grabbed_ && ImGui::IsMouseDragging(ImGuiMouseButton_Left, 0.0F)) ||
                                   ImGui::IsMouseDragging(ImGuiMouseButton_Middle, 0.0F) ||
                                   ImGui::IsMouseDragging(ImGuiMouseButton_Right, 0.0F)))
         view_.pan_by(Point2{io.MouseDelta.x, io.MouseDelta.y});
@@ -275,7 +288,16 @@ void PlanCanvas::draw(ProjectWindow& window, const FloorContent& c, const LayerS
         input_.pressed = hovered && !dbl && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
         input_.dragging = ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left);
         input_.released = ImGui::IsItemDeactivated() && ImGui::IsMouseReleased(ImGuiMouseButton_Left);
+        input_.clicked = press_event == LongPress::Event::Click;
+        input_.long_pressed = press_event == LongPress::Event::Long;
+        input_.drag_started = press_event == LongPress::Event::DragStart;
+        input_.press_dragging = press_.active() && press_.moved();
+        input_.press = press_at_;
+        input_.grabbed = grabbed_;
+        input_.touch = touch_;
+        if (input_.press_dragging) input_.mouse = view_.screen_to_page(mouse);
     }
+    if (!press_.active() && press_event == LongPress::Event::None) grabbed_ = false;
 
     // Hover readout (IND-43; a point's short readout, PP-01 in 9.8).
     hover_ = HoverReadout{};

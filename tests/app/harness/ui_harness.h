@@ -90,6 +90,11 @@ public:
     /// Presses a mouse button (0 left, 1 right, 2 middle) at (x0, y0),
     /// moves to (x1, y1) in `steps` frames and releases it (pan, draw).
     void drag(float x0, float y0, float x1, float y1, int button = 0, int steps = 4);
+    /// The left button goes down at (x, y) (and stays down) or up, one
+    /// frame each; `touch`: the events come from a touch screen (IND-48
+    /// long press).
+    void press(float x, float y, bool touch = false);
+    void release(bool touch = false);
     /// Turns the mouse wheel by `delta` notches at (x, y) (zoom).
     void wheel(float x, float y, float delta);
     /// Hovers the item (moves the mouse to its centre and runs frames

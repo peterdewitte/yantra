@@ -111,6 +111,9 @@ void Gui::draw_settings_survey(AppSettings& f) {
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
     ImGui::InputDouble(tr("Ring buffer length (min)###settings.ring_minutes"), &f.survey.ring_minutes, 1.0, 5.0, "%.0f");
     text_tooltip(tr("How many minutes the ring buffer keeps (2 to 60). A running ring buffer keeps its length."));
+    ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
+    ImGui::InputDouble(tr("Longest audio note (s)###settings.note_audio_max"), &f.survey.note_audio_max_s, 5.0, 30.0, "%.0f");
+    text_tooltip(tr("A note on the plan records at most this many seconds of audio (5 to 120)."));
 }
 
 void Gui::draw_settings_sound(AppSettings& f) {

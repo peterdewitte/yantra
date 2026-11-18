@@ -52,6 +52,7 @@ const char* dialog_id(Dialog d, const AppState& state) {
     case Dialog::Sharing: return tr("Sharing###dlg.sharing");
     case Dialog::ReportReady: return tr("Report ready###dlg.report_ready");
     case Dialog::Camera: return tr("Take a photo###dlg.camera");
+    case Dialog::Note: return tr("Note###dlg.note");
     case Dialog::None: break;
     }
     return "###dlg.none";
@@ -450,7 +451,11 @@ void Gui::draw_project_screen() {
     if (c != nullptr) {
         const bool walking = state_.live() != nullptr && state_.live()->running();
         canvas_->set_left_pans(!walking);
-        canvas_->set_overlay([this](ImDrawList* dl) { draw_plan_overlay(dl); });
+        canvas_->set_overlay([this](ImDrawList* dl) {
+            draw_note_pins(dl);  // IND-48
+            draw_plan_overlay(dl);
+        });
+        canvas_->set_grab_test([this](Point2 at, double tolerance) { return grab_note(at, tolerance); });
         canvas_->draw(*w, *c, state_.settings().layers, ImGui::GetContentRegionAvail());
         handle_canvas_input();
     }
@@ -1038,6 +1043,7 @@ const char* dialog_section(Dialog d) {
     case Dialog::PlanImport: return "13.2";
     case Dialog::About: return "1.2";
     case Dialog::Camera: return "13.6";
+    case Dialog::Note: return "13.7";
     case Dialog::InterpolationSettings: return "13.5";
     case Dialog::Settings: return "15";
     case Dialog::ResetSettings: return "15.4";
@@ -1077,6 +1083,7 @@ void Gui::draw_dialog_body(Dialog d) {
     case Dialog::PlanImport: draw_plan_import(); break;
     case Dialog::About: draw_about(); break;
     case Dialog::Camera: draw_camera_dialog(); break;
+    case Dialog::Note: draw_note_dialog(); break;
     case Dialog::FloorProperties: draw_floor_properties(); break;
     case Dialog::RemoveFloor: draw_remove_floor(); break;
     case Dialog::InterpolationSettings: draw_interpolation_dialog(); break;
@@ -1122,11 +1129,31 @@ void Gui::draw_dialogs() {
         // every frame.
         const bool grows = d == Dialog::Settings ||
                            d == Dialog::Export || d == Dialog::Report || d == Dialog::AcceptanceProfiles ||
-                           d == Dialog::Sharing || d == Dialog::Camera;
+                           d == Dialog::Sharing || d == Dialog::Camera || d == Dialog::Note;
         ImGui::SetNextWindowSize(ImVec2(width, 0.0F), grows ? ImGuiCond_Always : ImGuiCond_Appearing);
     }
     // The camera dialog grows when the preview starts: kept centred.
-    ImGui::SetNextWindowPos(vp->GetCenter(), d == Dialog::Camera ? ImGuiCond_Always : ImGuiCond_Appearing, ImVec2(0.5F, 0.5F));
+    if (const NoteForm* nf = state_.notes() != nullptr ? state_.notes()->form() : nullptr; d == Dialog::Note && nf != nullptr) {
+        // IND-48: anchored at the note's spot on the plan: beside it, on
+        // the side with more room.
+        // The window stays inside the app window (its size of the last
+        // frame; the first frame: its width and a guess).
+        const ImVec2 a = canvas_ ? canvas_->screen_of(nf->plan) : vp->GetCenter();
+        const float gap = em(18.0F);
+        const float width = std::min(em(600.0F), vp->WorkSize.x * 0.95F);
+        const ImVec2 size(note_window_size_.x > 0.0F ? note_window_size_.x : width,
+                          note_window_size_.y > 0.0F ? note_window_size_.y : std::min(em(420.0F), vp->WorkSize.y * 0.9F));
+        const bool right = a.x < vp->WorkPos.x + vp->WorkSize.x * 0.5F;
+        const bool below = a.y < vp->WorkPos.y + vp->WorkSize.y * 0.5F;
+        ImVec2 at(right ? a.x + gap : a.x - gap - size.x, below ? a.y + gap : a.y - gap - size.y);
+        at.x = std::clamp(at.x, vp->WorkPos.x, std::max(vp->WorkPos.x, vp->WorkPos.x + vp->WorkSize.x - size.x));
+        at.y = std::clamp(at.y, vp->WorkPos.y, std::max(vp->WorkPos.y, vp->WorkPos.y + vp->WorkSize.y - size.y));
+        ImGui::SetNextWindowPos(at, ImGuiCond_Always);
+        notes_.anchor = a;
+    } else {
+        ImGui::SetNextWindowPos(vp->GetCenter(), d == Dialog::Camera ? ImGuiCond_Always : ImGuiCond_Appearing,
+                                ImVec2(0.5F, 0.5F));
+    }
     ImGui::SetNextWindowSizeConstraints(ImVec2(0.0F, 0.0F), ImVec2(vp->WorkSize.x, vp->WorkSize.y * 0.98F));
     if (!ImGui::BeginPopupModal(id, nullptr, ImGuiWindowFlags_NoSavedSettings)) {
         // Closed by ImGui (it should not happen for modals without a close
@@ -1153,6 +1180,7 @@ void Gui::draw() {
     about_ = AboutOverlay{};
     building_ = BuildingOverlay{};
     camera_ = CameraOverlay{};
+    notes_ = NotesOverlay{};
     UserTexture::collect();
     state_.tick();
     if (state_.ui_generation() != ui_generation_) {

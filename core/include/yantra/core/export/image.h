@@ -37,6 +37,13 @@ struct MapLayer {
     std::vector<std::uint32_t> argb;
 };
 
+/// IND-48: a note's pin in a floor picture: a numbered marker at a plan
+/// position (the report's notes list uses the same numbers).
+struct NoteMarker {
+    building::Point2 plan;
+    std::string label;  ///< "1", "2", ...
+};
+
 struct ImageOptions {
     int max_plan_px = 1600;        ///< the plan's longer side in pixels (100..8000)
     double point_radius_px = 0.0;  ///< 0: from the point density (1.5..6 px)
@@ -57,6 +64,9 @@ struct ImageOptions {
     std::filesystem::path reference_file;
     std::string title;   ///< "" = "<project>, <floor>"
     std::string banner;  ///< e.g. the demo label (DEMO-07); "" none
+    /// IND-48: the floor's notes, drawn over the points (the report sets
+    /// them; empty: none).
+    std::vector<NoteMarker> notes;
 };
 
 struct ImageResult {

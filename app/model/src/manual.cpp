@@ -69,6 +69,7 @@ const std::vector<ManualSection>& manual_sections() {
         {"13.4", tr_mark("Layers"), "13-indoor-projects.md"},
         {"13.5", tr_mark("Interpolation"), "13-indoor-projects.md"},
         {"13.6", tr_mark("About building"), "13-indoor-projects.md"},
+        {"13.7", tr_mark("Notes on the plan"), "13-indoor-projects.md"},
         {"14", tr_mark("Plugins"), "14-plugins.md"},
         {"14.1", tr_mark("The plugin manager"), "14-plugins.md"},
         {"14.2", tr_mark("Plugin windows"), "14-plugins.md"},

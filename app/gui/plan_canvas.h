@@ -24,6 +24,7 @@
 #include <unordered_set>
 
 #include "user_texture.h"
+#include "yantra/app/plan_notes.h"
 #include "yantra/app/project_window.h"
 #include "yantra/core/plan/import.h"
 
@@ -53,6 +54,22 @@ struct CanvasInput {
     bool dragging = false;        ///< left button held since a press on the canvas
     bool released = false;        ///< left button went up after a press on the canvas
     bool double_clicked = false;
+    /// IND-48 (plan_notes.h LongPress): a short click, released without
+    /// moving before the long-press time (a tool's click acts on this, so
+    /// a long press is never also a click); at `press`.
+    bool clicked = false;
+    /// The button held the long-press time without moving (once per press).
+    bool long_pressed = false;
+    /// The press moved beyond the slop (once per press).
+    bool drag_started = false;
+    /// The press is held and has moved: `mouse` is where it is now.
+    bool press_dragging = false;
+    /// Where the current or last press began.
+    std::optional<Point2> press;
+    /// The press began on something the grab test took (a note pin): the
+    /// left drag does not pan.
+    bool grabbed = false;
+    bool touch = false;  ///< the press comes from a touch screen
 };
 
 class PlanCanvas {
@@ -62,6 +79,11 @@ public:
     void set_left_pans(bool on) { left_pans_ = on; }
     /// Drawn over the layers, inside the canvas clip (editing and walk overlays).
     void set_overlay(std::function<void(ImDrawList*)> overlay) { overlay_ = std::move(overlay); }
+    /// Asked when a left press begins at a plan point (tolerance in plan
+    /// units): true when it takes the press (no panning; IND-48 pins).
+    void set_grab_test(std::function<bool(Point2, double)> grab) { grab_ = std::move(grab); }
+    /// The long-press rules (tests may shorten them).
+    void set_long_press(LongPressConfig c) { press_ = LongPress(c); }
     /// The screen position of a plan point in the last frame.
     ImVec2 screen_of(Point2 plan) const { return to_screen(origin_, plan); }
     const CanvasInput& input() const { return input_; }
@@ -102,6 +124,11 @@ private:
     bool wait_for_tiles_ = false;
     bool left_pans_ = true;
     std::function<void(ImDrawList*)> overlay_;
+    std::function<bool(Point2, double)> grab_;
+    LongPress press_;
+    std::optional<Point2> press_at_;
+    bool grabbed_ = false;
+    bool touch_ = false;
     ImVec2 origin_{0.0F, 0.0F};
     CanvasInput input_;
     UserTexture interpolation_;

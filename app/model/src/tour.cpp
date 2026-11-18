@@ -75,9 +75,10 @@ const StepDef kSteps[] = {
      "7.1"},
     {TourStep::Results, "results", tr_mark("The Map tab: points and coverage map"),
      tr_mark("The Map tab shows the measured points, coloured by level, and the interpolated coverage map between "
-             "them, always labelled \"interpolated\". Its Show row switches the plan, the points and the map on or "
-             "off; Compute map makes the map again. Advanced holds the post-processing settings. Rest the pointer on "
-             "the plan for the values."),
+             "them, always labelled \"interpolated\". Its Show row switches the plan, the points, the map and the notes "
+             "on or off; Compute map makes the map again. Advanced holds the post-processing settings. Rest the pointer "
+             "on the plan for the values. Hold the mouse button down on a spot (a long press) to add a note there: a "
+             "picture, a text or a sound recording."),
      "13.5"},
     {TourStep::SwitchFloors, "switch_floors", tr_mark("Switch floors"),
      tr_mark("Each floor has its own tab above the plan: click another floor's tab."), "13.1"},

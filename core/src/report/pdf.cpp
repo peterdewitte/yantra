@@ -612,7 +612,8 @@ private:
     // Height of an image scaled to the text width (at most one page).
     static float image_height(const ImageBlock& ib) {
         if (ib.image.empty()) return 0;
-        const float h = width() * static_cast<float>(ib.image.height()) / static_cast<float>(ib.image.width());
+        const float w = ib.max_width_pt > 0 ? std::min(width(), ib.max_width_pt) : width();
+        const float h = w * static_cast<float>(ib.image.height()) / static_cast<float>(ib.image.width());
         return std::min(h, kTop - kBottom - 60);
     }
 
@@ -620,7 +621,7 @@ private:
         const exports::Canvas& c = ib.image;
         if (c.empty()) return;
         HPDF_Image img = image_of(c);
-        float w = width();
+        float w = ib.max_width_pt > 0 ? std::min(width(), ib.max_width_pt) : width();
         float h = w * static_cast<float>(c.height()) / static_cast<float>(c.width());
         const float max_h = kTop - kBottom - 60;
         if (h > max_h) {

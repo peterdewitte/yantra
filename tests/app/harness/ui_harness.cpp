@@ -204,6 +204,27 @@ void UiHarness::wheel(float x, float y, float delta) {
     frame();
 }
 
+void UiHarness::press(float x, float y, bool touch) {
+    ImGui::SetCurrentContext(ctx_);
+    ImGuiIO& io = ImGui::GetIO();
+    io.AddMouseSourceEvent(touch ? ImGuiMouseSource_TouchScreen : ImGuiMouseSource_Mouse);
+    io.AddMousePosEvent(x, y);
+    frame();
+    ImGui::SetCurrentContext(ctx_);
+    ImGui::GetIO().AddMouseSourceEvent(touch ? ImGuiMouseSource_TouchScreen : ImGuiMouseSource_Mouse);
+    ImGui::GetIO().AddMouseButtonEvent(ImGuiMouseButton_Left, true);
+    frame();
+}
+
+void UiHarness::release(bool touch) {
+    ImGui::SetCurrentContext(ctx_);
+    ImGui::GetIO().AddMouseSourceEvent(touch ? ImGuiMouseSource_TouchScreen : ImGuiMouseSource_Mouse);
+    ImGui::GetIO().AddMouseButtonEvent(ImGuiMouseButton_Left, false);
+    frame();
+    ImGui::SetCurrentContext(ctx_);
+    ImGui::GetIO().AddMouseSourceEvent(ImGuiMouseSource_Mouse);
+}
+
 void UiHarness::mouse_move(float x, float y) {
     ImGui::SetCurrentContext(ctx_);
     ImGui::GetIO().AddMousePosEvent(x, y);

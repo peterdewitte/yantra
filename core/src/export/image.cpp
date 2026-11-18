@@ -159,6 +159,16 @@ ImageResult floor_image(const project::Project& project, const Table& table, con
         ++res.points;
     }
 
+    // IND-48: the notes' numbered markers over the points.
+    for (const NoteMarker& n : o.notes) {
+        const auto q = px(n.plan);
+        const double r = 11 * ui;
+        c.fill_circle(q.x, q.y, r, Rgba8{250, 200, 40, 255});
+        c.ring(q.x, q.y, r, 2 * ui, Rgba8{40, 30, 0, 255});
+        const double tp = 13 * ui;
+        font.draw(c, q.x - font.text_width(n.label, tp) / 2, q.y - tp / 2, n.label, tp, Rgba8{40, 30, 0, 255});
+    }
+
     // Banner, title, legend.
     if (banner_h > 0) {
         c.fill_rect(0, 0, width, banner_h, {200, 30, 30, 255});

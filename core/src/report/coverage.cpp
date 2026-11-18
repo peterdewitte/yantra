@@ -496,6 +496,46 @@ void about_section(Document& d, const Ctx& c, const project::AboutBuilding& a, c
     }
 }
 
+// IND-48: the notes on a floor's plan: each with its number (the marker
+// in the floor picture), its text, its picture as a thumbnail and its
+// audio as "audio note, n s" (the sound itself is not in the report).
+void notes_section(Document& d, const Ctx& c, FloorSection& s, const std::vector<project::PlanNote>& notes) {
+    d.heading(2, c.tr("Notes on the plan"), "notes-" + s.floor_id);
+    d.paragraph(c.fill("{} notes; their numbers are the markers on the plan above.", {std::to_string(notes.size())}));
+    for (std::size_t i = 0; i < notes.size(); ++i) {
+        const project::PlanNote& n = notes[i];
+        NoteRow row;
+        row.number = static_cast<int>(i + 1);
+        row.text = n.text;
+        row.picture = n.has_picture();
+        row.audio_seconds = n.has_audio() ? n.audio_seconds : 0.0;
+        KeyValues k;
+        std::string value = n.text.empty() ? std::string("-") : n.text;
+        if (n.has_audio())
+            value += "\n" + c.fill("audio note, {} s", {std::to_string(static_cast<long long>(std::lround(n.audio_seconds)))});
+        k.rows.emplace_back(c.fill("Note {}", {std::to_string(row.number)}), value);
+        d.key_values(std::move(k));
+        if (n.has_picture()) {
+            std::string error;
+            if (auto r = about::decode_photo(n.picture, 360, &error)) {
+                ImageBlock img;
+                img.image = exports::Canvas(r->width, r->height);
+                img.image.draw_rgba(r->rgba.data(), r->width, r->height, 0, 0, r->width, r->height);
+                img.alt = c.fill("Picture of note {}", {std::to_string(row.number)});
+                img.max_width_pt = 200.0F;  // a thumbnail
+                img.caption = n.picture_source == "camera"
+                                  ? c.fill("Note {}: picture (taken with a camera)", {std::to_string(row.number)})
+                                  : c.fill("Note {}: picture ({})", {std::to_string(row.number), n.picture_name});
+                d.image(std::move(img));
+            } else {
+                d.paragraph(c.fill("The picture of note {} cannot be shown: {}", {std::to_string(row.number), error}),
+                            Tone::Note);
+            }
+        }
+        s.notes.push_back(std::move(row));
+    }
+}
+
 CoverageReport coverage_report(const project::Project& project, const CoverageOptions& o) {
     const Ctx c{project, o};
     if (!std::isfinite(o.threshold)) throw ReportError("report: the threshold is not a number");
@@ -806,6 +846,10 @@ CoverageReport coverage_report(const project::Project& project, const CoverageOp
         fo.image.title = meta.info.name + ", " + s.name;
         fo.sheets = sheets;
         fo.sheet_cache = o.sheet_cache;
+        // IND-48: the floor's notes, numbered as in the project window.
+        const std::vector<project::PlanNote> notes = project.notes(s.floor_id);
+        for (std::size_t i = 0; i < notes.size(); ++i)
+            fo.image.notes.push_back(exports::NoteMarker{notes[i].plan, std::to_string(i + 1)});
         Figure fig = floor_figure(project, s.table, fo);
         s.drawn_points = fig.points;
         for (std::string& w : fig.warnings) s.warnings.push_back(std::move(w));
@@ -942,6 +986,7 @@ CoverageReport coverage_report(const project::Project& project, const CoverageOp
                 t.rows.push_back({cell_label(r.from, r.from_hz), cell_label(r.to, r.to_hz), std::to_string(r.count)});
             d.table(std::move(t));
         }
+        if (!notes.empty()) notes_section(d, c, s, notes);
         for (const std::string& w : s.warnings) d.paragraph(w, Tone::Note);
         if (o.point_table) {
             d.heading(2, c.tr("Measured points"), "points-" + s.floor_id);

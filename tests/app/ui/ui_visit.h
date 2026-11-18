@@ -185,6 +185,19 @@ inline void visit_all(Shell& s, const std::function<void(const std::string&)>& c
     settle_check("project map advanced");
     REQUIRE(s.ui.click("map.advanced"));
     REQUIRE(s.ui.frames(2));
+    // IND-48: the Note window of a new note (as a long press opens it),
+    // and its delete question.
+    {
+        const auto fl = s.state.project()->floor(s.state.project_window()->selected());
+        REQUIRE(fl);
+        REQUIRE(s.state.open_note_at({fl->plan_width * 0.3, fl->plan_height * 0.3}).ok);
+        s.state.notes()->form()->text = "Riser cupboard\nsecond line";
+        settle_check("note window");
+        REQUIRE(s.state.note_delete().ok);  // asks first
+        settle_check("note delete question");
+        s.state.cancel_dialog();
+        REQUIRE(s.ui.frames(2));
+    }
     // UI-18: the Walk tab's replay part, open.
     REQUIRE(s.ui.click("panel.walk"));
     REQUIRE(s.ui.frames(2));

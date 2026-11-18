@@ -223,6 +223,7 @@ AppState::~AppState() {
     drop_tools();
     drop_network();
     camera_.reset();
+    notes_.reset();
     about_.reset();
     window_.reset();
     try {
@@ -595,6 +596,7 @@ void AppState::cancel_dialog() {
         camera_cancel();
         return;
     }
+    if (dialog_ == Dialog::Note && notes_) notes_->cancel();
     if (dialog_ == Dialog::Sharing) {
         dialog_ = sharing_return_;
         return;
@@ -612,6 +614,7 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     drop_tools();
     drop_network();
     camera_cancel();
+    notes_.reset();
     about_.reset();
     window_.reset();
     if (project_) {
@@ -627,6 +630,8 @@ Result AppState::opened(std::unique_ptr<project::Project> p, const std::string& 
     // IND-47: the About building tab, shown first while there is no floor.
     about_ = std::make_unique<AboutBuildingView>(*project_, paths_.tile_cache, online_downloader());
     about_tab_ = project_->floors().empty();
+    notes_ = std::make_unique<PlanNotes>(*project_, audio_);  // IND-48
+    notes_->set_max_seconds(settings_.survey.note_audio_max_s);
     runner_ = std::make_unique<InterpolationRunner>(project_, InterpolationRunner::Options{paths_.interpolation_threads});
     RadioPaths radios = paths_.radios;
     if (radios.scene_folders.empty())
@@ -1040,6 +1045,7 @@ Result AppState::close_project() {
     drop_tools();
     drop_network();
     camera_cancel();
+    notes_.reset();
     about_.reset();
     window_.reset();
     demo_label_.clear();
@@ -1347,6 +1353,11 @@ Result AppState::run_interpolation(bool again) {
 
 void AppState::tick() {
     tour_->update();
+    if (notes_) {
+        notes_->set_max_seconds(settings_.survey.note_audio_max_s);
+        notes_->tick();
+        if (dialog_ == Dialog::Note && !notes_->is_open()) dialog_ = Dialog::None;
+    }
     if (plugins_) {
         // PLG-09: a plugin whose call failed is disabled with its message.
         if (plugins_->poll() > 0) (void)fail(tr("A plugin reported an error and was disabled (File > Settings > Plugins)."));
@@ -1485,6 +1496,7 @@ void AppState::set_audio(std::shared_ptr<AudioIo> audio) {
     audio_ = std::move(audio);
     if (live_) live_->set_audio(audio_);
     if (replay_) replay_->set_audio(audio_);
+    if (notes_) notes_->set_audio(audio_);
 }
 
 Result AppState::open_replay(const RecordingChoice& recording) {
@@ -1925,6 +1937,74 @@ void AppState::camera_cancel() {
     cameras_.clear();
     if (dialog_ == Dialog::Camera) dialog_ = camera_return_;
     camera_return_ = Dialog::None;
+}
+
+}  // namespace yantra::app
+
+namespace yantra::app {
+
+// -- notes on the plan (IND-48) -------------------------------------------------------------
+
+Result AppState::open_note_at(building::Point2 at) {
+    if (!notes_ || !window_ || window_->selected().empty()) return fail(tr("Open a floor first."));
+    if (dialog_ != Dialog::None) return fail(tr("Close the open window first."));
+    const Result r = notes_->open_new(window_->selected(), at);
+    if (!r.ok) return fail(r.message);
+    dialog_ = Dialog::Note;
+    return Result{};
+}
+
+Result AppState::open_note(std::int64_t id) {
+    if (!notes_) return fail(tr("No project is open."));
+    if (dialog_ != Dialog::None) return fail(tr("Close the open window first."));
+    const Result r = notes_->open(id);
+    if (!r.ok) return fail(r.message);
+    dialog_ = Dialog::Note;
+    return Result{};
+}
+
+Result AppState::move_note(std::int64_t id, building::Point2 to) {
+    if (!notes_) return fail(tr("No project is open."));
+    const Result r = notes_->move(id, to);
+    return r.ok ? done(r.message) : fail(r.message);
+}
+
+Result AppState::note_save() {
+    if (!notes_) return fail(tr("No project is open."));
+    const Result r = notes_->save();
+    if (!r.ok) return fail(r.message);
+    dialog_ = Dialog::None;
+    return done(r.message);
+}
+
+Result AppState::note_delete() {
+    if (!notes_ || !notes_->form()) return fail(tr("The note is closed."));
+    NoteForm& f = *notes_->form();
+    if (!f.confirm_delete) {
+        f.confirm_delete = true;  // the window asks first
+        return Result{};
+    }
+    const Result r = notes_->remove();
+    dialog_ = Dialog::None;
+    return r.ok ? done(r.message) : fail(r.message);
+}
+
+void AppState::note_picture_file() {
+    if (!notes_) return;
+    PlanNotes* n = notes_.get();
+    browse_photo([n](const Photo& p) { return n->set_picture(p); });
+}
+
+Result AppState::note_picture_camera() {
+    if (!notes_) return fail(tr("No project is open."));
+    PlanNotes* n = notes_.get();
+    return take_photo([n](const Photo& p) { return n->set_picture(p); });
+}
+
+void AppState::set_notes_visible(bool on) {
+    if (settings_.layers.notes == on) return;
+    settings_.layers.notes = on;
+    settings_changed_ = true;
 }
 
 }  // namespace yantra::app

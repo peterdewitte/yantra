@@ -134,6 +134,16 @@ public:
         std::size_t cameras = 0;
     };
     const CameraOverlay& camera_overlay() const { return camera_; }
+    /// IND-48: what the plan notes drew in the last frame (tests).
+    struct NotesOverlay {
+        std::size_t pins = 0;       ///< pins drawn on the plan
+        std::int64_t dragging = 0;  ///< the pin being dragged (0 none)
+        bool window = false;        ///< the Note window was drawn
+        bool picture = false;       ///< ... with its picture
+        ImVec2 anchor{0.0F, 0.0F};  ///< the note's spot on the screen
+        ImVec2 window_pos{0.0F, 0.0F};
+    };
+    const NotesOverlay& notes_overlay() const { return notes_; }
     /// What the About dialog drew in the last frame (tests).
     struct AboutOverlay {
         bool shown = false;
@@ -209,6 +219,10 @@ private:
     void draw_about_page();  // IND-47, about_view.cpp
     void draw_about_map(AboutBuildingView& a, ImVec2 size);
     void draw_camera_dialog();
+    void draw_note_dialog();  // IND-48, note_view.cpp
+    void draw_note_pins(ImDrawList* dl);
+    bool grab_note(Point2 at, double tolerance);
+    void handle_note_input();
     void draw_help_body();
     void draw_help_window();
     void draw_help_popup();
@@ -330,6 +344,16 @@ private:
     about::LatLon menu_position_;
     UserTexture camera_tex_;
     std::uint64_t camera_frame_ = 0;
+    // IND-48: the plan notes (pins, the pin pressed or dragged, the Note
+    // window's picture).
+    NotesOverlay notes_;
+    std::int64_t note_press_ = 0;
+    bool note_dragged_ = false;
+    Point2 note_drag_pos_;
+    UserTexture note_tex_;
+    const void* note_tex_bytes_ = nullptr;
+    std::size_t note_tex_size_ = 0;
+    ImVec2 note_window_size_{0.0F, 0.0F};  // the Note window's size in the last frame
 };
 
 /// The ImGui popup id of a dialog ("New indoor project###dlg.new_project").

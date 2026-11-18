@@ -33,13 +33,14 @@ without `format` is read leniently.
 | `layers.hidden` | layers switched off | `["binned"]` |
 | `layers.bin_size_m` | 0.5..50 m (PP-05) | `2` |
 | `layers.map_opacity` | the interpolated map's opacity, 0.1..1 (Map tab, Show row, UI-19) | `0.85` |
+| `layers.notes` | the plan notes' pins are shown (Map tab, Show row; IND-48) | `true` |
 | `window_system` | `auto`, `x11`, `wayland` | `auto` |
 | `tooltips`, `tooltip_delay_s` | bool; 0..5 s | `true`, `0.5` |
 | `theme` | `dark`, `light`, `high_contrast` | `dark` |
 | `language` | `en`, `nl`, `fr`, `de` | `en` |
 | `touch`, `ui_scale` | bool; 0.75..2.5 | `false`, `1` |
 | `sound` | `enabled` (false), `volume` 0..1 (0.6), `level_tone` (false), `level_interval_s` 2..120 (10), `sync_loss`, `reselection`, `low_battery`, `alert_popup` (true), `alerts`: at most 8 `{"cell": key, "threshold_dbm": -150..-20}` | |
-| `survey` | `threshold_dbm` -150..-20 (-95), `graph_span_min` 1..60 (10), `ring` (false), `ring_minutes` 2..60 (10) | |
+| `survey` | `threshold_dbm` -150..-20 (-95), `graph_span_min` 1..60 (10), `ring` (false), `ring_minutes` 2..60 (10), `note_audio_max_s` the longest audio of a plan note 5..120 s (120, IND-48) | |
 | `tour` | `offered`, `building` (the tour's project), `step`, `done` (at most 64 step ids), `finished` | not offered |
 | `sharing` (EXP-07) | `method` `off`, `folder`, `http`, `smtp`; `folder`, `url`, `smtp_server`, `mail_from`, `mail_to`, `user`, `on_walk_end`; a password is never stored | `off` |
 

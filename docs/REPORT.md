@@ -193,7 +193,12 @@ go through the caller's `translate` (the app's tr()). Content, in order:
   (IND-43; the same wording as the figures in the Map tab's Advanced dropdown and in NL/FR/DE); the
   acceptance table; the histogram and CDF of the values with the
   threshold marked; per-cell statistics; the serving-cell changes per
-  pair of cells; optionally the point list as a table.
+  pair of cells; the notes on the plan (IND-48), when the floor has
+  any: their numbered markers in the floor picture and a list in the same
+  order with each note's text, its picture as a thumbnail (at most
+  200 pt wide in the PDF) and "audio note, n s" for a recording (the
+  sound itself is not in the report); optionally the point list as a
+  table.
 - **Network verification**: the cells received in the walks
   (`observed_cells`, replaying the project's recordings through the
   technology plugins) against the cell database, every difference,
