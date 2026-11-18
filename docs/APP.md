@@ -829,6 +829,43 @@ opens no socket without the probe plugin, or with it but without
 plugin's feature), the UI lint (the window), and tests/api (TST-51, on
 the headless runner).
 
+## About building (step 15.3, IND-47)
+
+The first tab of every project window, "About building" (`tab.about`,
+`ImGuiTabItemFlags_Leading | NoReorder`, no context menu: it cannot be
+removed or moved). `AppState::about_tab()` says whether it is shown
+(`request_panel("about")` shows it; a project without floors opens on
+it, a floor tab click or a new floor leaves it). Model:
+`app/model/include/yantra/app/about_building.h` (`AboutBuildingView`,
+owned by `AppState::about_building()`); view: `app/gui/about_view.cpp`;
+manual 13.6; stored in the project (schema 9, `about_building` table,
+docs/formats/PROJECT.md).
+
+- Fields (`about.address`, `about.surveyor`, `about.date` with
+  `about.today`, `about.notes`) are written when left; a date not
+  `YYYY-MM-DD` is refused with a message. No undo (the project window
+  has none); every change is its own transaction as elsewhere.
+- `about.find` (Find on map): one Nominatim search per press
+  (`Geocoder`, at most one a second, refused offline or without an
+  address); the position found is stored with zoom 18.
+- The map (`about.map`): tiles from `MapTiles` (cache
+  `AppPaths::tile_cache` = `<user cache>/tiles/osm`, `YANTRA_TILE_CACHE`
+  overrides; none in screenshot mode), fetched only while the tab is
+  shown; `about.zoom_in/zoom_out/centre`, drag pans, right click: "Move
+  the marker here" / "Remove the marker". Offline or without a position:
+  the cached tiles or a placeholder; the attribution box is always
+  drawn. Policies: THIRD_PARTY.md "OpenStreetMap".
+- Photo: `about.photo_open` (a picture file, stb_image formats, at most
+  32 MiB), `about.photo_take` (the Take a photo dialog `dlg.camera`:
+  `camera.list`, a live preview, `camera.take`, `camera.refresh`,
+  `camera.cancel`; "No camera found" when there is none),
+  `about.photo_remove`. Camera code: `camera.h` (V4L2 / Media Foundation;
+  `YANTRA_FAKE_CAMERA=1` a fake camera, `none` no camera).
+- `Gui::building_overlay()` / `camera_overlay()` tell the tests what was
+  drawn (tiles, placeholder, attribution, photo, preview).
+- The report starts with this information (EXP-05, docs/REPORT.md); the
+  tour has a step for the tab (`about_building`).
+
 ## Screenshots and layout check (step 9.11)
 
 The documentation's screenshot set (SCR-01..05, SCR-07) is made by the app itself:

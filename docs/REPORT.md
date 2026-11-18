@@ -154,9 +154,15 @@ Report and the sample report). The composer is technology-free and has
 no clock: the same project and options give the same bytes. Its texts
 go through the caller's `translate` (the app's tr()). Content, in order:
 
-- **Cover**: project, site, network operator, the operator field (who
-  measured, typed in the dialog and never stored), the measurement dates,
+- **Cover**: project, site, the building's address (IND-47), network
+  operator, the operator field (who measured: typed in the dialog and
+  never stored, else the About building surveyor), the measurement dates,
   floors, measured points, equipment and the report time.
+- **About the building** (IND-47, first section): address, position
+  (WGS 84), surveyor, survey date, notes, the OpenStreetMap map from
+  cached tiles only (`CoverageOptions::tile_cache`; caption with
+  "© OpenStreetMap contributors" and ODbL; without tiles a "No map" note,
+  as in the sample) and the photo.
 - **Measurement metadata**: equipment (the walk tests' radio and the
   radios of the recordings with driver, serial and plugin), calibration,
   antenna correction, cell database, plugins, metric, date, operator,

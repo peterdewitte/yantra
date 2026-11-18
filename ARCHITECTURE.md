@@ -204,8 +204,18 @@ its own controller (`app/model/app_control.h`) over the same command set.
 - `app/audio` (`yantra_audio`): miniaudio for alerts and voice notes
   (UI-09, REC-06).
 - `app/net` (`yantra_app_net`): libcurl for the MAK sheet download
-  (DEMO-12) and optional sharing (EXP-07); linked only into the `yantra`
-  executable and its tests.
+  (DEMO-12), the OpenStreetMap tiles and Nominatim search (IND-47) and
+  optional sharing (EXP-07); linked only into the `yantra` executable and
+  its tests (the model sees only the `Downloader` interface; tests use a
+  fake one, no network).
+- IND-47, About building: `core/about` (tile maths, Nominatim URL and
+  answer, map composition from cached tiles, photo decoding; no network),
+  `app/model` `osm_map` (`MapTiles`: one worker, disk cache, OSM tile and
+  Nominatim policies, THIRD_PARTY.md "OpenStreetMap"; `Geocoder`),
+  `camera` (Yantra's own capture code, no library: V4L2 on Linux with
+  MJPEG via stb_image or YUYV, Media Foundation on Windows,
+  `YANTRA_FAKE_CAMERA` for tests; `PhotoSource` is the one photo interface,
+  reused by IND-48) and `about_building` (the tab's model).
 - `app/src/main.cpp`: GLFW window, OpenGL 3 backend, main loop.
 
 ### Tools
