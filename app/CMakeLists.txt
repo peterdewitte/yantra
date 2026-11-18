@@ -117,7 +117,7 @@ target_link_libraries(yantra_app_model
 # headers only), Media Foundation on Windows (system DLLs).
 if(WIN32)
   target_sources(yantra_app_model PRIVATE model/src/camera_mf.cpp)
-  target_link_libraries(yantra_app_model PRIVATE mfplat mf mfreadwrite mfuuid ole32)
+  target_link_libraries(yantra_app_model PRIVATE mfuuid ole32)  # Media Foundation DLLs loaded at run time
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
   target_sources(yantra_app_model PRIVATE model/src/camera_v4l2.cpp)
 endif()

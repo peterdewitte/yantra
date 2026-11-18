@@ -8,7 +8,10 @@
 // the device's preferred size, which this code turns into RGBA rows.
 // Media Foundation is started once per stream (MFStartup/MFShutdown are
 // reference counted) on the worker thread, which joins the multithreaded
-// COM apartment.
+// COM apartment. Its DLLs (mfplat, mf, mfreadwrite) are loaded from
+// System32 when a camera is first used, not imported: Windows N editions
+// without the Media Feature Pack lack them, and Yantra must still start
+// there (the camera list is then empty; NFR-09 DLL import check).
 
 #include "yantra/app/camera.h"
 
@@ -65,16 +68,54 @@ std::string hresult(const char* what, HRESULT hr) {
     return std::string(what) + " (" + buf + ")";
 }
 
+// The Media Foundation functions, from the system DLLs loaded once (never
+// unloaded); ok is false when one of them is missing.
+struct MfApi {
+    decltype(&MFStartup) startup = nullptr;
+    decltype(&MFShutdown) shutdown = nullptr;
+    decltype(&MFCreateAttributes) create_attributes = nullptr;
+    decltype(&MFCreateMediaType) create_media_type = nullptr;
+    decltype(&MFEnumDeviceSources) enum_device_sources = nullptr;
+    decltype(&MFCreateDeviceSource) create_device_source = nullptr;
+    decltype(&MFCreateSourceReaderFromMediaSource) create_source_reader = nullptr;
+    bool ok = false;
+};
+
+template <class F>
+void load(HMODULE dll, const char* name, F& f) {
+    if (dll != nullptr) f = reinterpret_cast<F>(reinterpret_cast<void*>(GetProcAddress(dll, name)));
+}
+
+const MfApi& mf() {
+    static const MfApi api = [] {
+        MfApi a;
+        const HMODULE plat = LoadLibraryExW(L"mfplat.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+        const HMODULE core = LoadLibraryExW(L"mf.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+        const HMODULE rw = LoadLibraryExW(L"mfreadwrite.dll", nullptr, LOAD_LIBRARY_SEARCH_SYSTEM32);
+        load(plat, "MFStartup", a.startup);
+        load(plat, "MFShutdown", a.shutdown);
+        load(plat, "MFCreateAttributes", a.create_attributes);
+        load(plat, "MFCreateMediaType", a.create_media_type);
+        load(core, "MFEnumDeviceSources", a.enum_device_sources);
+        load(core, "MFCreateDeviceSource", a.create_device_source);
+        load(rw, "MFCreateSourceReaderFromMediaSource", a.create_source_reader);
+        a.ok = a.startup && a.shutdown && a.create_attributes && a.create_media_type && a.enum_device_sources &&
+               a.create_device_source && a.create_source_reader;
+        return a;
+    }();
+    return api;
+}
+
 // COM and Media Foundation for the calling thread, for as long as it lives.
 class MfSession {
 public:
     MfSession() {
         const HRESULT co = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
         com_ = SUCCEEDED(co);  // S_FALSE: already initialised here, still counted
-        ok_ = SUCCEEDED(MFStartup(MF_VERSION, MFSTARTUP_LITE));
+        ok_ = mf().ok && SUCCEEDED(mf().startup(MF_VERSION, MFSTARTUP_LITE));
     }
     ~MfSession() {
-        if (ok_) MFShutdown();
+        if (ok_) mf().shutdown();
         if (com_) CoUninitialize();
     }
     MfSession(const MfSession&) = delete;
@@ -90,9 +131,9 @@ private:
 // frees the array with CoTaskMemFree.
 HRESULT enumerate(IMFActivate*** devices, UINT32* count) {
     IMFAttributes* attr = nullptr;
-    HRESULT hr = MFCreateAttributes(&attr, 1);
+    HRESULT hr = mf().create_attributes(&attr, 1);
     if (SUCCEEDED(hr)) hr = attr->SetGUID(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE, MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID);
-    if (SUCCEEDED(hr)) hr = MFEnumDeviceSources(attr, devices, count);
+    if (SUCCEEDED(hr)) hr = mf().enum_device_sources(attr, devices, count);
     release(attr);
     return hr;
 }
@@ -121,12 +162,12 @@ public:
         }
         // The device by its symbolic link.
         IMFAttributes* attr = nullptr;
-        HRESULT hr = MFCreateAttributes(&attr, 2);
+        HRESULT hr = mf().create_attributes(&attr, 2);
         const std::wstring link = wide(id);
         if (SUCCEEDED(hr))
             hr = attr->SetGUID(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE, MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_GUID);
         if (SUCCEEDED(hr)) hr = attr->SetString(MF_DEVSOURCE_ATTRIBUTE_SOURCE_TYPE_VIDCAP_SYMBOLIC_LINK, link.c_str());
-        if (SUCCEEDED(hr)) hr = MFCreateDeviceSource(attr, &source_);
+        if (SUCCEEDED(hr)) hr = mf().create_device_source(attr, &source_);
         release(attr);
         if (FAILED(hr)) {
             error = hresult("the camera cannot be opened", hr);
@@ -134,9 +175,9 @@ public:
         }
         // A source reader that converts to RGB32.
         IMFAttributes* rattr = nullptr;
-        hr = MFCreateAttributes(&rattr, 1);
+        hr = mf().create_attributes(&rattr, 1);
         if (SUCCEEDED(hr)) hr = rattr->SetUINT32(MF_SOURCE_READER_ENABLE_VIDEO_PROCESSING, TRUE);
-        if (SUCCEEDED(hr)) hr = MFCreateSourceReaderFromMediaSource(source_, rattr, &reader_);
+        if (SUCCEEDED(hr)) hr = mf().create_source_reader(source_, rattr, &reader_);
         release(rattr);
         if (FAILED(hr)) {
             error = hresult("the camera cannot be read", hr);
@@ -144,7 +185,7 @@ public:
         }
         const DWORD stream = static_cast<DWORD>(MF_SOURCE_READER_FIRST_VIDEO_STREAM);
         IMFMediaType* type = nullptr;
-        hr = MFCreateMediaType(&type);
+        hr = mf().create_media_type(&type);
         if (SUCCEEDED(hr)) hr = type->SetGUID(MF_MT_MAJOR_TYPE, MFMediaType_Video);
         if (SUCCEEDED(hr)) hr = type->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_RGB32);
         if (SUCCEEDED(hr)) hr = reader_->SetCurrentMediaType(stream, nullptr, type);
