@@ -962,7 +962,7 @@ The documentation's screenshot set (SCR-01..05, SCR-07) is made by the app itsel
   two Fraunces sheets, which the app combines into one (`--input data/demo/fraunces`); then oxipng
   (Python's standard library only). `--compare DIR` fails on a new, missing or
   changed picture (more than `--threshold` % pixels, SCR-05). Data: the Fraunces demo and the simulated
-  radios only, never a MAK sheet (DEMO-12). The set is `docs/img/` (60 pictures, about 6.2 MB),
+  radios only, never a MAK sheet (DEMO-12). The set is `docs/img/` (67 pictures, about 7.1 MB),
   referenced by the manual; `.github/workflows/screenshots.yml` regenerates it on release branches
   (artifact) and compares it on pull requests.
 - Tests: `tests/app/test_screenshots.cpp` plays every scene in the harness; the launch tests

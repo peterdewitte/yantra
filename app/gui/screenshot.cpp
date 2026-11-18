@@ -35,6 +35,7 @@ std::vector<ShotScene> make_scenes() {
     v.push_back(scene("survey_graphs", "Window > Graphs: level and C1 graphs (UI-04)"));
     v.push_back(scene("survey_events", "Window > Events: the event list (UI-09)"));
     v.push_back(scene("survey_scanner", "Window > Scanner: every carrier the radio sees"));
+    v.push_back(scene("spectrum", "Tools > Spectrum: the simulated radio's spectrum and waterfall with the serving and neighbour carriers (UI-24)"));
     {
         ShotScene s = scene("plan_import", "plan import window: several floors trimmed from one sheet (IND-04..06)", false);
         s.needs_input = true;
@@ -255,6 +256,27 @@ void ShotRunner::build() {
     if (n == "start_menu") {
         frames(3);
         click("menu.file");
+    } else if (n == "spectrum") {
+        // UI-24: the simulated radio measures live; its spectrum and the
+        // waterfall of the first seconds, the carriers marked.
+        run("find the radios", [this] { return state_.live()->find_radios(); });
+        run("choose the simulated radio", [this] {
+            LiveSurvey& live = *state_.live();
+            for (std::size_t i = 0; i < live.radios().size(); ++i)
+                if (live.radios()[i].simulated) return live.choose_radio(i);
+            return Result{false, "no simulated radio"};
+        });
+        run("start the radio", [this] { return state_.live()->start_radio(); });
+        run("show the Walk tab", [this] {
+            state_.request_panel("walk");
+            return Result{};
+        });
+        run("Tools > Spectrum", [this] { return state_.trigger(Action::ToolsSpectrum); });
+        until("spectra and the carriers marked", [this] {
+            const SpectrumView v = state_.spectrum_view();
+            return v.state == SpectrumView::State::Showing && v.history.size() >= 20 && !v.markers.empty();
+        });
+        frames(5);
     } else if (n == "survey_scanner") {
         // The scanner lists what the radio sees besides the serving cell and
         // its neighbours: the simulated radio measures live (DEMO-01).

@@ -118,7 +118,7 @@ void play(const std::string& name, const std::function<void(UiHarness&, AppState
 
 TEST_CASE("SCR-03: the screenshot scenes without a radio reach their capture") {
     if (!available()) return;
-    CHECK(shot_scenes().size() == 29);  // step 11.2: remote_probes; 15.3: about_building; 15.4: plan_note
+    CHECK(shot_scenes().size() == 30);  // 11.2: remote_probes; 15.3: about_building; 15.4: plan_note; 15.5: spectrum
     play("start_menu", [](UiHarness& ui, AppState&, Gui&) { CHECK(ui.has("file.new_project")); });
     play("about_building", [](UiHarness& ui, AppState& s, Gui& g) {
         CHECK(s.about_tab());
@@ -210,6 +210,11 @@ TEST_CASE("SCR-03: the simulator's scenes: scanner, radio list and generated rad
     play("survey_scanner", [](UiHarness&, AppState&, Gui& g) {
         CHECK(g.survey_overlay().shown("scanner"));
         CHECK(g.survey_overlay().scan_rows > 0);
+    });
+    play("spectrum", [](UiHarness& ui, AppState& s, Gui&) {
+        CHECK(s.spectrum_window());
+        CHECK(ui.has("spectrum.waterfall", "win.spectrum"));
+        CHECK(s.spectrum_view().state == SpectrumView::State::Showing);
     });
     play("radio_list", [](UiHarness&, AppState& s, Gui&) { CHECK(s.radio_windows()->is_open(RadioWindow::List)); });
     const std::pair<const char*, RadioWindow> windows[] = {{"settings", RadioWindow::Settings},
