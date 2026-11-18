@@ -117,6 +117,9 @@ struct DemoFloor {
     std::string scale_note;          ///< how the scale was found
     Point2 reference_point;  ///< plan units (IND-09)
     DemoWalk walk;
+    /// IND-48: notes on the plan ("notes": [{"at": [x, y], "text": ...}],
+    /// plan units; neutral demo texts only).
+    std::vector<std::pair<Point2, std::string>> notes;
 };
 
 struct DemoDescription {

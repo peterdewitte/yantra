@@ -53,8 +53,9 @@ unless noted:
   catalogue page;
 - `floors`: id, `example_id` (RAD-18, e.g. `fraunces-1`), name, level,
   height, the sheet, the trim rectangle (page units of the sheet), the
-  scale bar (ends and length in metres), the reference point and one walk route (`name`, `speed_mps`,
-  `waypoints`).
+  scale bar (ends and length in metres), the reference point, one walk route (`name`, `speed_mps`,
+  `waypoints`) and optional `notes` on the plan (IND-48: `at` in plan units and `text`; the Fraunces
+  floors have one neutral demo note each, at the start of their walk, listed in the sample report).
 
 ### How it is made
 

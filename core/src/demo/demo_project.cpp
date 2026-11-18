@@ -110,6 +110,13 @@ DemoFloor read_floor(const json& j, const fs::path& file, const std::string& whe
     if (f.id.empty() || f.name.empty()) fail(file, where + " needs an id and a name");
     if (!(f.walk.speed_mps > 0.0 && f.walk.speed_mps <= 10.0)) fail(file, where + ".walk.speed_mps must be in (0, 10]");
     if (f.walk.waypoints.size() < 2) fail(file, where + ".walk needs at least 2 waypoints");
+    if (const auto it = j.find("notes"); it != j.end()) {
+        for (std::size_t i = 0; i < it->size(); ++i) {
+            const std::string w = where + ".notes[" + std::to_string(i) + "]";
+            f.notes.emplace_back(point((*it)[i].at("at"), file, w + ".at"), (*it)[i].at("text").get<std::string>());
+            if (f.notes.back().second.empty()) fail(file, w + " needs a text");
+        }
+    }
     return f;
 }
 
@@ -249,6 +256,7 @@ DemoDescription read_description(const fs::path& file) {
                                ") is outside the trimmed plan");
         };
         for (const Point2& p : f.walk.waypoints) inside(p, "walk waypoint");
+        for (const auto& n : f.notes) inside(n.first, "a note");
         inside(f.reference_point, "the reference point");
     }
     return d;
@@ -374,7 +382,14 @@ std::shared_ptr<project::Project> create_project(const DemoDescription& d, const
         if (!scale) throw DemoError("floor " + df.id + ": the scale is not usable");
         f.scale = *scale;
         f.reference_point = df.reference_point;
-        p->add_floor(std::move(f));
+        const std::string id = p->add_floor(std::move(f));
+        for (const auto& [at, text] : df.notes) {  // IND-48
+            project::PlanNote n;
+            n.floor_id = id;
+            n.plan = at;
+            n.text = text;
+            (void)p->add_note(std::move(n));
+        }
     }
     return p;
 }

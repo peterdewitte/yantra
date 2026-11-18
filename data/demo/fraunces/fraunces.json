@@ -49,6 +49,9 @@
       "trim": [[1800, 440], [12800, 9100]],
       "scale_bar": {"a": [9672.5, 8185], "b": [10656.5, 8185], "length_m": 3.0},
       "reference_point": [10387, 500],
+      "notes": [
+        {"at": [9300, 1300], "text": "Demo note: the walk test starts here, at the main entrance on Pearl Street."}
+      ],
       "walk": {
         "name": "First floor walk",
         "speed_mps": 1.0,
@@ -84,6 +87,9 @@
       "trim": [[1800, 560], [12800, 8960]],
       "scale_bar": {"a": [9561, 8070], "b": [10542.5, 8070], "length_m": 3.0},
       "reference_point": [10461, 421],
+      "notes": [
+        {"at": [9300, 1100], "text": "Demo note: the walk test of this floor starts at the top of the stairs."}
+      ],
       "walk": {
         "name": "Second floor walk",
         "speed_mps": 1.0,
