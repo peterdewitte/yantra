@@ -49,6 +49,7 @@ enum class TourStep {
     Choose,        ///< pick the example building (MAK: consent and download)
     Downloaded,    ///< where the MAK plans were saved (path, Open folder), or the fallback
     NewProject,    ///< File > New indoor project
+    AboutBuilding, ///< IND-47: the About building tab (address, map, photo, surveyor)
     ImportSheet,   ///< File > Add floor > plan file: the sheet
     TrimFloors,    ///< trim several floors from the sheet (plan import window)
     SecondSource,  ///< a floor from a second plan source
@@ -59,7 +60,7 @@ enum class TourStep {
     Report,        ///< File > Report (phase 10)
     Finish,        ///< the end: the finished example project (DEMO-13)
 };
-inline constexpr int kTourStepCount = 12;
+inline constexpr int kTourStepCount = 13;
 const char* tour_step_key(TourStep s) noexcept;  ///< "choose", "new_project", ...
 std::optional<TourStep> parse_tour_step(std::string_view key) noexcept;
 
@@ -207,6 +208,7 @@ private:
     std::size_t described_floors(const demo::DemoSheet& s) const;
     void assign_example_ids();
     Result show_new_project();
+    Result show_about();
     Result show_import(const demo::DemoSheet& sheet, bool trim_all);
     Result show_scale();
     Result show_mouse_survey();

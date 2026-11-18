@@ -48,6 +48,11 @@ const StepDef kSteps[] = {
      tr_mark("File > New indoor project makes the project file of the building. Give it a name and a file, then OK. "
              "Show me makes the tour's project for you."),
      "13.1"},
+    {TourStep::AboutBuilding, "about_building", tr_mark("About the building"),
+     tr_mark("The first tab of every project, About building, holds the address with its map, a photo, the surveyor, "
+             "the survey date and notes; the report starts with them. Find on map looks the address up on "
+             "OpenStreetMap (online only). Show me fills in the example building's details."),
+     "13.6"},
     {TourStep::ImportSheet, "import_sheet", tr_mark("Import the plan sheet"),
      tr_mark("File > Add floor, then Plan file: choose the sheet {}. The plan import window opens on it."), "13.2"},
     {TourStep::TrimFloors, "trim_floors", tr_mark("Trim several floors from the sheet"),
@@ -510,6 +515,7 @@ bool Tour::step_done(TourStep s) const {
     case TourStep::Choose: return desc_.has_value();
     case TourStep::Downloaded: return desc_.has_value();
     case TourStep::NewProject: return is_tour_project();
+    case TourStep::AboutBuilding: return is_tour_project() && app_.about_tab();
     case TourStep::ImportSheet: return is_tour_project() && first_sheet() && !source_of(*first_sheet()).empty();
     case TourStep::TrimFloors:
         return is_tour_project() && first_sheet() &&
@@ -638,6 +644,7 @@ TourView Tour::view() const {
         v.targets = dlg == Dialog::NewProject ? std::vector<std::string>{"dlg.ok"}
                                               : std::vector<std::string>{"file.new_project", "start.file.new_project", "menu.file"};
         break;
+    case TourStep::AboutBuilding: v.targets = {"about.address", "tab.about"}; break;
     case TourStep::ImportSheet:
     case TourStep::SecondSource:
         v.targets = dlg == Dialog::AddFloor ? std::vector<std::string>{"af.plan_file"}
@@ -719,6 +726,7 @@ Result Tour::show_me() {
     if (!v.can_show) return Result{false, v.show_reason};
     switch (step_) {
     case TourStep::NewProject: return show_new_project();
+    case TourStep::AboutBuilding: return show_about();
     case TourStep::ImportSheet: return show_import(*first_sheet(), false);
     case TourStep::TrimFloors: return show_import(*first_sheet(), true);
     case TourStep::SecondSource: return show_import(*second_sheet(), true);
@@ -763,6 +771,29 @@ Result Tour::open_folder() {
     const TourView v = view();
     if (v.step != TourStep::Downloaded || !v.can_open_folder) return Result{false, tr("No downloaded plan to show.")};
     return app_.open_folder(app_.paths().sheet_cache);
+}
+
+Result Tour::show_about() {
+    if (app_.plan_import() != nullptr) app_.close_plan_import();
+    app_.request_panel("about");
+    // The example's details, unless the project has some already.
+    project::Project* p = app_.project();
+    const project::AboutBuilding& example = desc_->about;
+    if (p != nullptr && p->about().address.empty() && p->about().surveyor.empty() &&
+        !(example.address.empty() && example.surveyor.empty())) {
+        project::AboutBuilding a = example;
+        a.survey_date = p->about().survey_date;  // today: the tour's survey is now
+        try {
+            p->set_about(a);
+        } catch (const std::exception& e) {
+            return Result{false, e.what()};
+        }
+        if (AboutBuildingView* v = app_.about_building()) {
+            v->reload();
+            v->centre_on_position();
+        }
+    }
+    return Result{true, tr("The About building tab: the address, map, photo, surveyor, survey date and notes.")};
 }
 
 Result Tour::show_new_project() {

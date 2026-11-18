@@ -704,7 +704,7 @@ Help > Tour, the first-start offer on the start screen (`start.tour_offer.yes/no
 (DEMO-01). Model: `app/model/include/yantra/app/tour.h` (`Tour`, owned by `AppState::tour()`); views:
 `app/gui/tour_view.cpp`; manual 1.3.
 
-- Steps (`TourStep`, keys in `tour_step_key`): choose, new_project, import_sheet, trim_floors, second_source,
+- Steps (`TourStep`, keys in `tour_step_key`): choose, new_project, about_building (IND-47), import_sheet, trim_floors, second_source,
   scale, mouse_survey, results, switch_floors, report, finish. Each `TourView` has the title and
   text, `targets` (control ids, most specific first; the Gui frames the first one the UiProbe saw in the last
   frame, `Gui::tour_overlay().target`), `done` (from the app state), `progress`, "Show me" (`can_show`,

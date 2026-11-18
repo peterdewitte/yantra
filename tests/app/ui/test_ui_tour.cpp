@@ -128,6 +128,15 @@ TEST_CASE("DEMO-11 the tour by clicks: the offer, the tour window, the framed co
     REQUIRE(s.ui.frames(2));
     CHECK(s.state.tour().view().done);
     REQUIRE(s.ui.click("tour.next"));
+    // IND-47: the About building tab, shown (the new project has no floor yet).
+    REQUIRE(s.ui.frames(2));
+    CHECK(s.state.tour().view().step == TourStep::AboutBuilding);
+    CHECK(s.gui.building_overlay().shown);
+    CHECK(s.gui.tour_overlay().target == "about.address");
+    REQUIRE(s.ui.click("tour.show_me"));
+    REQUIRE(s.ui.frames(2));
+    CHECK(s.state.tour().view().done);
+    REQUIRE(s.ui.click("tour.next"));
     REQUIRE(s.ui.frames(2));
     CHECK(s.state.tour().view().step == TourStep::ImportSheet);
     CHECK(s.gui.tour_overlay().target == "floors.add");
@@ -182,7 +191,7 @@ TEST_CASE("DEMO-12 a MAK plan shows its credit, licence and approximate scale wi
     CHECK(s.gui.tour_overlay().folder == (dir / "cache").string());
     CHECK(s.gui.tour_overlay().target == "tour.open_folder");
     REQUIRE(t.next().ok);
-    for (TourStep step : {TourStep::NewProject, TourStep::ImportSheet, TourStep::TrimFloors}) {
+    for (TourStep step : {TourStep::NewProject, TourStep::AboutBuilding, TourStep::ImportSheet, TourStep::TrimFloors}) {
         REQUIRE(t.view().step == step);
         REQUIRE(t.show_me().ok);
         REQUIRE(t.next().ok);

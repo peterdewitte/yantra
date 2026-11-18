@@ -326,6 +326,22 @@ TEST_CASE("DEMO-11 DEMO-08 the tour with the Fraunces Tavern: every step by Show
     CHECK(st.project_view()->demo_label.find("DEMO") != std::string::npos);
     REQUIRE(t.next().ok);
 
+    // IND-47: the About building tab, with the example's details.
+    REQUIRE(t.view().step == TourStep::AboutBuilding);
+    CHECK(t.view().targets.front() == "about.address");
+    const std::string today = st.project()->about().survey_date;
+    st.request_panel("walk");
+    CHECK_FALSE(t.view().done);
+    REQUIRE(t.show_me().ok);
+    CHECK(st.about_tab());
+    CHECK(t.view().done);
+    CHECK(st.project()->about().surveyor == "Demo surveyor");
+    CHECK(st.project()->about().has_position());
+    CHECK(st.project()->about().survey_date == today);  // the tour's survey is today
+    REQUIRE(st.about_building());
+    CHECK(st.about_building()->form().surveyor == "Demo surveyor");
+    REQUIRE(t.next().ok);
+
     // Import, trim, second source, scale.
     CHECK_FALSE(t.view().done);
     show_through(st, TourStep::MouseSurvey);
