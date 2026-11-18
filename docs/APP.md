@@ -903,7 +903,7 @@ The documentation's screenshot set (SCR-01..05, SCR-07) is made by the app itsel
            [--touch] [--scale PERCENT] [--size WxH] [--input SHEET]
     yantra --list-shots          # name<TAB>flags<TAB>what; flags demo, touch, radio=..., input
 
-- `app/gui/screenshot.{h,cpp}`: `shot_scenes()` (28 scenes: start menu, the About building tab, survey with graphs, events and
+- `app/gui/screenshot.{h,cpp}`: `shot_scenes()` (29 scenes: start menu, the About building tab, a note on the plan, survey with graphs, events and
   scanner, plan import of two floors from one sheet, walk test, interpolation, About, reset, radio list,
   the four generated windows of the simulator and of the HackRF, survey settings, cell database,
   verification, reselection, the Export and Report dialogs, Tools > Remote probes (step 11.2;

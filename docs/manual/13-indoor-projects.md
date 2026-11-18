@@ -79,6 +79,8 @@ Every field is written to the project file when you leave it, like every other c
 
 ## 13.7 Notes on the plan
 
+![A demo note on the plan: its numbered pin and the Note window](../img/plan_note_dark.png) [light theme](../img/plan_note_light.png)
+
 A note keeps something you see at a spot of a floor: a picture, a text and a short sound recording, each optional.
 
 - **Add a note**: hold the left mouse button down on the spot for a little over half a second without moving (a long press with a finger on a touch screen). The Note window opens beside the spot. A normal click keeps its usual meaning (a walk test point, or the interpolation in a mouse survey); a long press never also counts as a click.

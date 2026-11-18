@@ -118,7 +118,7 @@ void play(const std::string& name, const std::function<void(UiHarness&, AppState
 
 TEST_CASE("SCR-03: the screenshot scenes without a radio reach their capture") {
     if (!available()) return;
-    CHECK(shot_scenes().size() == 28);  // step 11.2: remote_probes; 15.3: about_building
+    CHECK(shot_scenes().size() == 29);  // step 11.2: remote_probes; 15.3: about_building; 15.4: plan_note
     play("start_menu", [](UiHarness& ui, AppState&, Gui&) { CHECK(ui.has("file.new_project")); });
     play("about_building", [](UiHarness& ui, AppState& s, Gui& g) {
         CHECK(s.about_tab());
@@ -126,6 +126,12 @@ TEST_CASE("SCR-03: the screenshot scenes without a radio reach their capture") {
         CHECK(g.building_overlay().attribution);
         REQUIRE(s.about_building());
         CHECK(s.about_building()->stored().surveyor == "Demo surveyor");
+    });
+    play("plan_note", [](UiHarness& ui, AppState& s, Gui& g) {
+        CHECK(s.dialog() == Dialog::Note);
+        CHECK(ui.has("note.text"));
+        CHECK(g.notes_overlay().window);
+        CHECK(g.notes_overlay().pins >= 1);
     });
     play("about", [](UiHarness&, AppState& s, Gui& g) {
         CHECK(s.dialog() == Dialog::About);
