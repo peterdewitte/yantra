@@ -6,7 +6,7 @@
 # as errors + fast tests (clang of the cross SDK, the default compiler, and
 # the system gcc; RAD-03, RAD-139), the Windows x64 tree cross-compiled
 # with the SDK's clang on Linux (completeness checks there) and its tests
-# run natively on a Windows runner (RAD-131), and the completeness checks
+# run natively on a Windows runner (RAD-131; windows-cross.yml), and the completeness checks
 # (RAD-133). Locally the same Linux steps run with tools/ci/run_linux.sh
 # (YANTRA_CI_COMPILER=clang|gcc); the Windows tree with the preset
 # "windows" and its ctest in a Windows test VM (BUILD.md). The native MSYS2
@@ -191,104 +191,8 @@ jobs:
           path: conformance/
           if-no-files-found: ignore
 
-  # Windows x64 (RAD-131, RAD-139): cross-compiled on Linux with the
-  # SDK's clang, lld and Rust (target x86_64-pc-windows-gnu), bundled
-  # libraries cross-built statically (RAD-136). The .exe cannot run here,
-  # so every doctest binary is one ctest (<group>/all; ctest on Windows
-  # lists the cases); the completeness checks (imports, exports, build
-  # paths) and the release package run here, the tests on the Windows
-  # runner below.
-  windows-cross:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: Install build tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build python3 python3-yaml gpg zstd
-      - name: Cache the cross SDK (RAD-139)
-        uses: actions/cache@v4
-        with:
-          path: sdk
-          key: ${{ env.SDK_KEY }}-${{ runner.os }}-${{ runner.arch }}
-      - name: Cross SDK (made from the lock files, else checked)
-        run: python3 tools/sdk/yantra_sdk.py check || python3 tools/sdk/yantra_sdk.py make
-      - name: Cache the dependency builds (RAD-136)
-        uses: actions/cache@v4
-        with:
-          path: build-win-deps
-          key: ${{ env.DEPS_KEY }}-${{ env.SDK_KEY }}-windows-x86-64
-      - name: Static dependency builds for Windows (RAD-136)
-        env:
-          CMAKE_TOOLCHAIN_FILE: ${{ github.workspace }}/tools/sdk/toolchain-x86_64-w64-mingw32-clang.cmake
-        run: tools/deps/build_deps.sh build-win-deps
-      - name: Configure (warnings are errors)
-        run: cmake --preset ci-windows -DYANTRA_DEPS_PREFIX="$PWD/build-win-deps"
-      - name: Build
-        run: cmake --build --preset ci-windows -j "$(nproc)"
-      - name: Completeness checks and release package (RAD-133, RAD-98)
-        run: ctest --test-dir build-win -L 'completeness|release' --timeout 600 --output-on-failure
-      - name: Test list for the Windows runner
-        run: ctest --test-dir build-win --show-only=json-v1 > build-win/tests.json
-      # The tree without objects and archives: the programs, plugins, test
-      # data made by the build and the test list.
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows-x86-64-tree
-          path: |
-            build-win/
-            !build-win/**/*.obj
-            !build-win/**/*.a
-            !build-win/cargo/
-            !build-win/cargo-lib/
-            !build-win/CMakeFiles/
-          if-no-files-found: error
+  # Windows x64 (RAD-131, RAD-139): the cross build on Linux and its tests
+  # on a Windows runner (windows-cross.yml, also used by release.yml).
+  windows:
+    uses: ./.github/workflows/windows-cross.yml
 
-  # The cross-compiled tests natively on Windows: a machine without the
-  # build tools and without MSYS2 on PATH (RAD-132, RAD-133). The test
-  # programs hold the Linux paths of the cross job; Windows reads a rooted
-  # path on the current drive, so that path is linked to the checkout and
-  # the tests run from there (tools/ci/run_windows_tests.py).
-  windows-x86-64-tests:
-    needs: windows-cross
-    runs-on: windows-2022
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - uses: actions/download-artifact@v4
-        with:
-          name: windows-x86-64-tree
-          path: build-win
-      - name: Link the cross job's path to the checkout
-        shell: pwsh
-        run: |
-          $linux = "${{ github.workspace }}" -replace '^[A-Za-z]:\\a\\', '\home\runner\work\'
-          $drive = (Get-Location).Drive.Name + ':'
-          New-Item -ItemType Directory -Force -Path (Split-Path "$drive$linux") | Out-Null
-          New-Item -ItemType Junction -Path "$drive$linux" -Target "${{ github.workspace }}" | Out-Null
-          "YANTRA_LINUX_PATH=$drive$linux" | Out-File -FilePath $env:GITHUB_ENV -Append
-      - name: Tests (every Windows program of the tree)
-        shell: pwsh
-        run: |
-          Set-Location $env:YANTRA_LINUX_PATH
-          python tools/ci/run_windows_tests.py --tests build-win/tests.json
-      - name: Conformance kit on every plugin (RAD-91)
-        shell: pwsh
-        run: |
-          Set-Location $env:YANTRA_LINUX_PATH
-          New-Item -ItemType Directory -Force conformance | Out-Null
-          foreach ($p in Get-ChildItem build-win/bin/plugins/*.dll) {
-            if ($p.BaseName -eq 'pei') { continue }  # needs a terminal (13.5)
-            & build-win/bin/yantra-radio-host.exe conformance --plugin $p.FullName --report "conformance/$($p.BaseName).json"
-            if ($LASTEXITCODE -ne 0) { exit 1 }
-          }
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: windows-x86-64-conformance
-          path: conformance/
-          if-no-files-found: ignore
