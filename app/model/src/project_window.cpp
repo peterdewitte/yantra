@@ -118,7 +118,7 @@ void ProjectWindow::refresh() {
         for (const auto& [id, n] : counts)
             if (id == f.id) t.points = n;
         t.label = f.name + " (" + std::to_string(f.level) + ")";
-        t.tooltip = tr("Level ") + std::to_string(f.level) + tr(", floor-to-floor height ") + fixed(f.height_m, 2, " m") +
+        t.tooltip = trf("Level {}, floor-to-floor height {}", {std::to_string(f.level), fixed(f.height_m, 2, " m")}) +
                     "\n" + (t.to_scale ? tr("To scale") : tr("Not to scale: distances and areas are not shown")) + "\n" +
                     (t.has_plan ? tr("Plan: trimmed from its source") : tr("No plan picture yet")) + "\n" +
                     plural(t.points, tr("measured point"), tr("measured points"));
@@ -496,14 +496,14 @@ Result ProjectWindow::set_level(const std::string& id, int level, double height_
         return Result{false, tr("The floor height must be more than 0 and at most 50 m.")};
     for (const building::Floor& f : project_.floors())
         if (f.level == level && f.id != id)
-            return Result{false, tr("Level ") + std::to_string(level) + tr(" is used by floor \"") + f.name + "\"."};
+            return Result{false, trf("Level {} is used by floor \"{}\".", {std::to_string(level), f.name})};
     try {
         project_.set_floor_level(id, level, height_m);
     } catch (const std::exception& e) {
         return Result{false, std::string(tr("Cannot change the level: ")) + e.what()};
     }
     invalidate();
-    return Result{true, tr("Level ") + std::to_string(level) + tr(", height ") + fixed(height_m, 2, " m")};
+    return Result{true, trf("Level {}, height {}", {std::to_string(level), fixed(height_m, 2, " m")})};
 }
 
 Result ProjectWindow::move_floor(const std::string& id, int steps) {
@@ -532,10 +532,10 @@ Result ProjectWindow::request_remove(const std::string& id) {
     RemoveQuestion q;
     q.floor_id = id;
     q.title = tr("Remove floor?");
-    q.question = tr("Remove the floor \"") + f->name + "\" (level " + std::to_string(f->level) + tr(") with its ") +
-                 plural(sessions, tr("walk test"), tr("walk tests")) + " and " +
-                 plural(points, tr("measured point"), tr("measured points")) +
-                 tr("? This cannot be undone. The plan source stays in the project; recording files are not deleted.");
+    q.question = trf("Remove the floor \"{}\" (level {}) with its {} and {}? This cannot be undone. The plan source "
+                     "stays in the project; recording files are not deleted.",
+                     {f->name, std::to_string(f->level), plural(sessions, tr("walk test"), tr("walk tests")),
+                      plural(points, tr("measured point"), tr("measured points"))});
     pending_remove_ = q;
     return Result{true, q.question};
 }

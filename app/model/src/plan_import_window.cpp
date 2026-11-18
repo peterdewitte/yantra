@@ -50,7 +50,7 @@ std::string fmt(const char* f, double v) {
 #pragma GCC diagnostic pop
 #endif
 
-std::string floor_label(const building::Floor& f) { return f.name + tr(" (level ") + std::to_string(f.level) + ")"; }
+std::string floor_label(const building::Floor& f) { return trf("{} (level {})", {f.name, std::to_string(f.level)}); }
 
 std::string suggested_name(int level) {
     if (level == 0) return tr("Ground floor");
@@ -599,8 +599,8 @@ Result PlanImportWindow::confirm_add_floor() {
     if (!(f.height_m > 0.0 && f.height_m <= 50.0)) return fail(tr("The floor height must be more than 0 and at most 50 m."));
     for (const building::Floor& other : project_.floors())
         if (other.level == f.level)
-            return fail(tr("Level ") + std::to_string(f.level) + tr(" is already used by \"") + other.name +
-                        "\": every floor has its own level.");
+            return fail(trf("Level {} is already used by \"{}\": every floor has its own level.",
+                            {std::to_string(f.level), other.name}));
     try {
         const std::string id = import_->add_as_floor(trimmed(f.name), f.level, f.height_m);
         added_.push_back(id);
@@ -757,8 +757,7 @@ std::string PlanImportWindow::remove_question() const {
     if (!pending_remove_) return {};
     const auto f = project_.floor(*pending_remove_);
     if (!f) return {};
-    return tr("Remove the floor \"") + f->name + "\" (level " + std::to_string(f->level) +
-           tr(")? The plan file stays in the project.");
+    return trf("Remove the floor \"{}\" (level {})? The plan file stays in the project.", {f->name, std::to_string(f->level)});
 }
 
 Result PlanImportWindow::confirm_remove() {

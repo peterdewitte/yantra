@@ -856,7 +856,7 @@ void Gui::draw_add_floor() {
     AddFloorForm& f = state_.add_floor_form();
     input_text(tr("Name###name"), f.name);
     text_tooltip(tr("For example \"Ground floor\" or \"Basement\"."));
-    ImGui::InputInt(tr("Level###level"), &f.level);
+    ImGui::InputInt(tr("Level##floor###level"), &f.level);
     text_tooltip(tr("0 = ground floor, 1 = first floor, -1 = basement. Every floor has its own level."));
     float height = static_cast<float>(f.height_m);
     if (ImGui::InputFloat(tr("Height (m)###height"), &height, 0.1F, 0.5F, "%.2f")) f.height_m = static_cast<double>(height);
@@ -992,7 +992,7 @@ void Gui::draw_floor_properties() {
     if (ImGui::IsWindowAppearing()) ImGui::SetKeyboardFocusHere();
     input_text(tr("Name###name"), f.name);
     text_tooltip(tr("For example \"Ground floor\" or \"Basement\"."));
-    ImGui::InputInt(tr("Level###level"), &f.level);
+    ImGui::InputInt(tr("Level##floor###level"), &f.level);
     text_tooltip(tr("0 = ground floor, 1 = first floor, -1 = basement. Every floor has its own level; the tabs are "
                  "ordered by level."));
     float height = static_cast<float>(f.height_m);

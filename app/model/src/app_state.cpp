@@ -1012,7 +1012,7 @@ Result AppState::add_floor(const std::string& name, int level, double height_m) 
     if (name.empty()) return fail(tr("The floor needs a name."));
     if (!(height_m > 0.0 && height_m <= 50.0)) return fail(tr("The floor height must be more than 0 and at most 50 m."));
     for (const building::Floor& f : project_->floors())
-        if (f.level == level) return fail(tr("Level ") + std::to_string(level) + tr(" is used by floor \"") + f.name + "\".");
+        if (f.level == level) return fail(trf("Level {} is used by floor \"{}\".", {std::to_string(level), f.name}));
     try {
         building::Floor f;
         f.name = name;

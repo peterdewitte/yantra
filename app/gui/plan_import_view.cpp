@@ -493,7 +493,7 @@ void PlanImportView::draw_properties(AppState& state, PlanImportWindow& w) {
     gui_detail::input_text(tr("Name###pi.prop.name"), f.name);
     tooltip(tr("For example \"Ground floor\" or \"Basement\"."));
     ImGui::SetNextItemWidth(field);
-    ImGui::InputInt(tr("Level###pi.prop.level"), &f.level);
+    ImGui::InputInt(tr("Level##floor###pi.prop.level"), &f.level);
     tooltip(tr("0 = ground floor, 1 = first floor, -1 = basement. Every floor has its own level; the tabs are "
                "ordered by level."));
     float height = static_cast<float>(f.height_m);
