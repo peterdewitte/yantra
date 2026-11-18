@@ -32,6 +32,14 @@ well; they change independently of the radio API version.
 
 ## [Unreleased]
 
+### CI
+
+- `release.yml` is the packages workflow: also by hand and on pull
+  requests that touch the packaging (workflow artifacts only, version
+  v<project version>); a tag must name the project version. The Windows
+  zip is made by the reusable `windows-cross.yml` (shared with `ci.yml`),
+  so the release's Windows tree is also tested on a Windows runner.
+
 ## [0.4.0] - 2026-11-17
 
 Tag v0.4.0 (RAD-98). Radio API 1.2 (compatible): spectra (RAD-140). The

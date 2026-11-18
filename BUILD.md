@@ -381,7 +381,8 @@ its fake terminal, and the WinUSB/Zadig driver notes.
 Python, FFI widths, reuse, cargo-deny, `verify_sources.py`, workflow YAML
 with PyYAML; Linux build and fast tests with the SDK's clang (the SDK
 cached per lock-file version) and with the system gcc; the Windows tree
-cross-compiled with the SDK (`windows-cross`: build with warnings as
+cross-compiled with the SDK (the reusable `windows-cross.yml`, also used
+by `release.yml`; `windows-cross`: build with warnings as
 errors, completeness checks, release package) and its tests natively on
 a Windows runner (`windows-x86-64-tests`: the tree without objects as an
 artefact, `tools/ci/run_windows_tests.py` runs every `.exe` test of the
@@ -390,9 +391,13 @@ every `.dll`); completeness checks incl. the clean environment),
 `ci-full.yml` (nightly
 and before a release: opt-in and slow suites; clang trees x86-64, scalar,
 ASan+UBSan, TSan; gcc trees x86-64 and arm64), `sens-quick.yml` (sensitivity
-sweep), `windows-check.yml` and `release.yml`. The workflows are complete
-while the repository has no remote; `tools/ci/run_linux.sh` runs the same
-Linux steps locally.
+sweep), `windows-check.yml` and `release.yml` (the packages workflow: on
+a version tag, by hand and on pull requests touching the packaging; with
+clang from the SDK the Linux package with the fast tests and the Windows
+x64 zip, cross-compiled, with its tests and the conformance kit on a
+Windows runner, see "Making a release"). The workflows are complete
+while the repository has no remote (YAML-linted by `tools/ci/lint.sh`);
+`tools/ci/run_linux.sh` runs the same Linux steps locally.
 
 ## Docs
 
@@ -439,7 +444,10 @@ which runs `tools/ci/make_release.sh` into `build/release/v<version>/`:
 | `SHA256SUMS` | SHA-256 of the files above |
 
 The packaged plugins pass the completeness check before the folder is
-written. `release.yml` does the same on a pushed tag for Linux and
-Windows x64 (cross-compiled) and publishes the files. Yantra pins the tagged commit
+written. `release.yml` does the same for Linux and Windows x64
+(cross-compiled, tested on a Windows runner): on a pushed tag (which must
+name the project version) after the full CI, publishing the files as a
+GitHub release; by hand or on a pull request touching the packaging as
+workflow artifacts only (version `v<project version>`). Yantra pins the tagged commit
 as its submodule and builds the plugins with these scripts, or takes the
 release `.so` files of the tag (RAD-138).
