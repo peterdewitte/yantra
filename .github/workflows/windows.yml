@@ -3,8 +3,8 @@
 #
 # Windows x64 build with MSYS2 UCRT64 and its gcc (OA-02, TST-02): the
 # native second Windows check (the cross build with clang from the SDK, its
-# packages and its tests on a Windows runner are in ci.yml: windows-cross,
-# windows-x64-tests). Nightly (TST-02, TST-03) and when started by hand; it
+# packages and its tests on a Windows runner are in windows-cross.yml,
+# called by ci.yml and packages.yml). Nightly (TST-02, TST-03) and when started by hand; it
 # has never run (no remote).
 # Adapted from yantra-v2 68ea20a: .github/workflows/windows.yml.
 

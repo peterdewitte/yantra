@@ -7,11 +7,12 @@
 # submodule (RAD-139; cached by its lock files) and a second job with the
 # system's gcc, both with warnings as errors, then the fast tests (ctest
 # -LE slow, timeout 600 s) with the timing-sensitive tests retried once.
-# Windows x64 (OA-02, NFR-09): windows-cross builds the Windows tree on
-# Linux with the SDK's clang and Yantra's MSYS2 lock, runs the build-machine
-# checks and makes the zip and setup .exe; windows-x64-tests runs the
+# Windows x64 (OA-02, NFR-09): windows-cross.yml builds the Windows tree
+# on Linux with the SDK's clang and Yantra's MSYS2 lock, runs the
+# build-machine checks and makes the zip and setup .exe, then runs the
 # tree's ctest natively on a Windows runner, with the packages' tests. The
-# native MSYS2 UCRT64 check is windows.yml. Written and YAML-linted, never
+# SDK steps are the composite action .github/actions/linux-sdk. The native
+# MSYS2 UCRT64 check is windows.yml; the packages workflow packages.yml. Written and YAML-linted, never
 # run (no remote).
 # The yantra-radios submodule (third_party/yantra-radios, PLG-26) is
 # checked out with the repository.
@@ -50,7 +51,7 @@ jobs:
         run: |
           python3 -c 'import sys, yaml
           for f in sys.argv[1:]:
-              yaml.safe_load(open(f))' .github/workflows/*.yml
+              yaml.safe_load(open(f))' .github/workflows/*.yml .github/actions/*/action.yml
       - name: REUSE compliance
         run: reuse lint
 
@@ -60,24 +61,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Install build tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build python3 python3-yaml binutils pipx gpg zstd libsqlite3-dev libzstd-dev libhpdf-dev pkg-config \
-            libglfw3-dev libgl-dev libcurl4-openssl-dev doxygen curl
-          pipx install reuse
-      - name: Cache the cross SDK (OA-02, RAD-139)
-        uses: actions/cache@v4
-        with:
-          path: sdk
-          key: ${{ env.SDK_KEY }}-${{ runner.os }}-${{ runner.arch }}
-      - name: Cross SDK (made from the submodule's lock files, else checked)
-        env:
-          YANTRA_SDK_DIR: ${{ github.workspace }}/sdk
-        run: |
-          python3 third_party/yantra-radios/tools/sdk/yantra_sdk.py check --sdk-dir "$YANTRA_SDK_DIR" ||
-            python3 third_party/yantra-radios/tools/sdk/yantra_sdk.py make --sdk-dir "$YANTRA_SDK_DIR"
+      - name: Build tools and the cross SDK (OA-02, RAD-139)
+        uses: ./.github/actions/linux-sdk
       - name: Submodule commit
         id: radios
         run: echo "commit=$(git rev-parse HEAD:third_party/yantra-radios)" >> "$GITHUB_OUTPUT"
@@ -87,8 +72,6 @@ jobs:
           path: build/radios-cache
           key: radios-deps-${{ steps.radios.outputs.commit }}-${{ env.SDK_KEY }}-${{ runner.os }}-${{ runner.arch }}
       - name: Configure (warnings are errors)
-        env:
-          YANTRA_SDK_DIR: ${{ github.workspace }}/sdk
         run: cmake --preset ci
       - name: Build
         run: cmake --build --preset ci -j "$(nproc)"
@@ -153,125 +136,11 @@ jobs:
       - name: Timing-sensitive tests (retried once)
         run: ctest --test-dir build-gcc -L timing -LE slow --timeout 600 --output-on-failure --repeat until-pass:2
 
-  # Windows x64 (OA-02, TST-02, NFR-09): cross-compiled on Linux with
-  # clang from the SDK and Yantra's lock of MSYS2 UCRT64 packages. The
-  # Linux tree comes first (it makes the build-time data: demo projects,
-  # record files). The build-machine checks (label build_host, among them
-  # the packages' DLL import check) run here; the tests themselves on the
-  # Windows runner below.
-  windows-cross:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: Install build tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends \
-            cmake ninja-build python3 python3-yaml binutils pipx gpg zstd libsqlite3-dev libzstd-dev libhpdf-dev pkg-config \
-            libglfw3-dev libgl-dev libcurl4-openssl-dev doxygen curl pandoc weasyprint nsis
-          pipx install reuse
-      - name: Cache the cross SDK with Yantra's MSYS2 packages (OA-02, RAD-139)
-        uses: actions/cache@v4
-        with:
-          path: sdk
-          key: ${{ env.SDK_KEY }}-${{ hashFiles('tools/windows/msys2.lock') }}-${{ runner.os }}-${{ runner.arch }}
-      - name: Cross SDK (made from the lock files, else checked)
-        env:
-          YANTRA_SDK_DIR: ${{ github.workspace }}/sdk
-        run: |
-          python3 third_party/yantra-radios/tools/sdk/yantra_sdk.py check --sdk-dir "$YANTRA_SDK_DIR" --msys2-lock tools/windows/msys2.lock ||
-            python3 third_party/yantra-radios/tools/sdk/yantra_sdk.py make --sdk-dir "$YANTRA_SDK_DIR" --msys2-lock tools/windows/msys2.lock
-      - name: Submodule commit
-        id: radios
-        run: echo "commit=$(git rev-parse HEAD:third_party/yantra-radios)" >> "$GITHUB_OUTPUT"
-      - name: Cache the radio plugin dependency builds (PLG-26)
-        uses: actions/cache@v4
-        with:
-          path: |
-            build/radios-cache
-            build-win/radios-cache
-          key: radios-deps-windows-${{ steps.radios.outputs.commit }}-${{ env.SDK_KEY }}-${{ runner.os }}-${{ runner.arch }}
-      - name: Linux tree (build-time data of the Windows tree)
-        env:
-          YANTRA_SDK_DIR: ${{ github.workspace }}/sdk
-        run: |
-          cmake --preset ci
-          cmake --build --preset ci -j "$(nproc)"
-      - name: Configure the Windows tree (warnings are errors)
-        env:
-          YANTRA_SDK_DIR: ${{ github.workspace }}/sdk
-        run: cmake --preset ci-windows
-      - name: Build the Windows tree
-        run: cmake --build build-win -j "$(nproc)"
-      - name: Windows zip and setup .exe (NFR-09)
-        run: cmake --build build-win --target package-windows
-      - name: Build-machine checks (DLL import check of the packages, lints, docs)
-        run: ctest --test-dir build-win -L build_host --timeout 600 --output-on-failure
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows-x86_64-packages
-          path: |
-            build-win/package/*.zip
-            build-win/package/*-setup.exe
-            build-win/package/SHA256SUMS
-          if-no-files-found: error
-      # The tree without objects and archives: the programs, plugins, DLLs,
-      # test data made by the build, the packages and the ctest files.
-      - uses: actions/upload-artifact@v4
-        with:
-          name: windows-x86_64-tree
-          path: |
-            build-win/
-            !build-win/**/*.obj
-            !build-win/**/*.a
-            !build-win/**/CMakeFiles/
-            !build-win/radios/build/
-            !build-win/radios-cache/
-            !build-win/_deps/*.tgz
-          if-no-files-found: error
-
-  # The cross-compiled tree's ctest natively on Windows, without MSYS2 or
-  # build tools on PATH: the tests and the packages' tests (the unpacked
-  # zip, a silent install and uninstall of the setup .exe). The test files
-  # hold the Linux paths of the cross job (/home/runner/work/..., the
-  # Linux job's /usr/bin/cmake and /usr/bin/python3); Windows reads a rooted
-  # path on the current drive, so those paths are linked or copied there.
-  windows-x64-tests:
-    needs: windows-cross
-    runs-on: windows-2022
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - uses: actions/download-artifact@v4
-        with:
-          name: windows-x86_64-tree
-          path: build-win
-      - name: Link the cross job's paths to the checkout, CMake and Python
-        shell: pwsh
-        run: |
-          $linux = "${{ github.workspace }}" -replace '^[A-Za-z]:\\a\\', '\home\runner\work\'
-          $drive = (Get-Location).Drive.Name + ':'
-          New-Item -ItemType Directory -Force -Path (Split-Path "$drive$linux") | Out-Null
-          New-Item -ItemType Junction -Path "$drive$linux" -Target "${{ github.workspace }}" | Out-Null
-          $usr = "$drive\usr"
-          New-Item -ItemType Directory -Force -Path "$usr\bin" | Out-Null
-          Copy-Item -Recurse -Force "$env:ProgramFiles\CMake\*" $usr
-          Copy-Item -Recurse -Force "$(Split-Path (Get-Command python).Source)\*" "$usr\bin"
-          Copy-Item "$usr\bin\python.exe" "$usr\bin\python3.exe"
-          "YANTRA_LINUX_PATH=$drive$linux" | Out-File -FilePath $env:GITHUB_ENV -Append
-      - name: Fast tests and the packages' tests
-        shell: pwsh
-        run: |
-          Set-Location $env:YANTRA_LINUX_PATH
-          ctest --test-dir build-win -LE 'slow|timing' --timeout 600 --output-on-failure -j 4
-      - name: Timing-sensitive tests (retried once)
-        shell: pwsh
-        run: |
-          Set-Location $env:YANTRA_LINUX_PATH
-          ctest --test-dir build-win -L timing -LE slow --timeout 600 --output-on-failure --repeat until-pass:2
+  # Windows x64 (OA-02, TST-02, NFR-09): the cross build on Linux, its
+  # packages and its tests on a Windows runner (windows-cross.yml, also
+  # used by packages.yml).
+  windows:
+    uses: ./.github/workflows/windows-cross.yml
 
   docs:
     # DOC-20: the documentation built from Markdown to HTML and PDF
