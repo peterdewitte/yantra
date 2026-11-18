@@ -191,7 +191,11 @@ inline void visit_all(Shell& s, const std::function<void(const std::string&)>& c
         const auto fl = s.state.project()->floor(s.state.project_window()->selected());
         REQUIRE(fl);
         REQUIRE(s.state.open_note_at({fl->plan_width * 0.3, fl->plan_height * 0.3}).ok);
-        s.state.notes()->form()->text = "Riser cupboard\nsecond line";
+        auto* notes = s.state.notes();
+        REQUIRE(notes != nullptr);
+        auto* note_form = notes->form();
+        REQUIRE(note_form != nullptr);
+        note_form->text = "Riser cupboard\nsecond line";
         settle_check("note window");
         REQUIRE(s.state.note_delete().ok);  // asks first
         settle_check("note delete question");

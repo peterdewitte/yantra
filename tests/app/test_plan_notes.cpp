@@ -26,6 +26,14 @@ using namespace yantra::app;
 
 namespace {
 
+// The open note's form; REQUIRE stops the case when none is open (and
+// tells gcc's -Wnull-dereference that the pointer is checked).
+NoteForm& form_of(PlanNotes& notes) {
+    NoteForm* f = notes.form();
+    REQUIRE(f != nullptr);
+    return *f;
+}
+
 fs::path scratch(const std::string& name) {
     const fs::path dir = fs::path(YANTRA_TEST_SCRATCH_DIR) / name;
     fs::remove_all(dir);
@@ -111,12 +119,12 @@ TEST_CASE("IND-48 plan notes: a new note, edit, pins with numbers, move and dele
     CHECK_FALSE(notes.open_new("floor-99", {1, 1}).ok);
     REQUIRE(notes.open_new(floor, {100, 50}).ok);
     REQUIRE(notes.form() != nullptr);
-    CHECK(notes.form()->number == 1);
-    CHECK(notes.form()->id == 0);
+    CHECK(form_of(notes).number == 1);
+    CHECK(form_of(notes).id == 0);
     // An empty note is not stored.
     CHECK_FALSE(notes.save().ok);
     CHECK(notes.is_open());
-    notes.form()->text = "Lift lobby\nsecond line";
+    form_of(notes).text = "Lift lobby\nsecond line";
     REQUIRE(notes.save().ok);
     CHECK_FALSE(notes.is_open());
     REQUIRE(notes.pins(floor).size() == 1);
@@ -128,7 +136,7 @@ TEST_CASE("IND-48 plan notes: a new note, edit, pins with numbers, move and dele
 
     // A second note with a picture and audio.
     REQUIRE(notes.open_new(floor, {300, 200}).ok);
-    CHECK(notes.form()->number == 2);
+    CHECK(form_of(notes).number == 2);
     REQUIRE(notes.set_picture(Photo{{0x89, 'P', 'N', 'G'}, "lobby.png", "file"}).ok);
     REQUIRE(notes.record().ok);
     CHECK(notes.recording());
@@ -136,11 +144,11 @@ TEST_CASE("IND-48 plan notes: a new note, edit, pins with numbers, move and dele
     CHECK(notes.recorded_seconds() == doctest::Approx(3.2));
     REQUIRE(notes.stop_recording().ok);
     CHECK_FALSE(notes.recording());
-    CHECK(notes.form()->audio.seconds() == doctest::Approx(3.2));
+    CHECK(form_of(notes).audio.seconds() == doctest::Approx(3.2));
     REQUIRE(notes.play().ok);
     CHECK(notes.playing());
     CHECK(audio->played() == 1);
-    CHECK(audio->last_played().samples.size() == notes.form()->audio.samples.size());
+    CHECK(audio->last_played().samples.size() == form_of(notes).audio.samples.size());
     audio->finish_playback();
     CHECK_FALSE(notes.playing());
     REQUIRE(notes.save().ok);
@@ -161,17 +169,17 @@ TEST_CASE("IND-48 plan notes: a new note, edit, pins with numbers, move and dele
 
     // Edit: open, change the text, remove the audio, save.
     REQUIRE(notes.open(stored[1].id).ok);
-    CHECK(notes.form()->number == 2);
-    CHECK(notes.form()->picture.bytes.size() == 4);
-    CHECK(notes.form()->audio.seconds() == doctest::Approx(3.2));  // read back from the WAV
-    notes.form()->text = "Lobby";
+    CHECK(form_of(notes).number == 2);
+    CHECK(form_of(notes).picture.bytes.size() == 4);
+    CHECK(form_of(notes).audio.seconds() == doctest::Approx(3.2));  // read back from the WAV
+    form_of(notes).text = "Lobby";
     notes.delete_audio();
     REQUIRE(notes.save().ok);
     CHECK_FALSE(p->note(stored[1].id)->has_audio());
     CHECK(p->note(stored[1].id)->text == "Lobby");
     // Cancel keeps the stored note as it was.
     REQUIRE(notes.open(stored[1].id).ok);
-    notes.form()->text = "changed";
+    form_of(notes).text = "changed";
     notes.cancel();
     CHECK(p->note(stored[1].id)->text == "Lobby");
 
@@ -206,7 +214,7 @@ TEST_CASE("IND-48 plan notes: the recording stops at the longest length; no micr
     audio->advance(2);
     notes.tick();  // over 10 s: stopped, cut to 10 s
     CHECK_FALSE(notes.recording());
-    CHECK(notes.form()->audio.seconds() == doctest::Approx(10.0));
+    CHECK(form_of(notes).audio.seconds() == doctest::Approx(10.0));
     REQUIRE(notes.save().ok);
     CHECK(p->notes(floor).front().audio_seconds == doctest::Approx(10.0));
 
@@ -241,8 +249,8 @@ TEST_CASE("IND-48 plan notes: record and play through miniaudio's null back-end 
         std::this_thread::sleep_for(std::chrono::milliseconds(10));
     REQUIRE(notes.recorded_seconds() >= 0.2);
     REQUIRE(notes.stop_recording().ok);
-    CHECK(notes.form()->audio.sample_rate == 16000);
-    CHECK(notes.form()->audio.seconds() >= 0.2);
+    CHECK(form_of(notes).audio.sample_rate == 16000);
+    CHECK(form_of(notes).audio.seconds() >= 0.2);
     REQUIRE(notes.play().ok);
     notes.stop_playback();
     CHECK_FALSE(notes.playing());
