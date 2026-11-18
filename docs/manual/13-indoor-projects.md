@@ -13,12 +13,12 @@ The same eight seconds as [WebM](../img/indoor_workflow.webm): the start screen,
 
 ### The project window
 
-An open project shows the plan of one floor, the floor tabs above it and two tabs beside it, for the two parts of the work:
+An open project starts with the About building tab (13.6), the building as a whole; the floor tabs after it show the plan of one floor with two tabs beside it, for the two parts of the work:
 
 - Walk: measure. The radio in use with Select... (it opens Radio > Radios..., chapter 2), Start radio and Stop radio, the live values of the serving cell with a small level graph (chapter 5), the walk test with its kind (radio buttons, each with a "(?)") and Start, Pause, Delete last and Stop (chapter 7), the Recording and Replay sections, closed until you open them (chapter 6).
 - Map: look at the result. The Show row switches the plan, the measured points and the coverage map on and off, with the map's opacity (13.4); Compute map makes the floor's map (13.5). The Advanced dropdown holds the rest: the interpolation settings, the binned squares, the post-processing views of the points (chapter 11) and the acceptance check (11.2).
 
-The menus hold what is not part of the walk: File (projects, floors, File > Export and File > Report, chapter 10, Settings), Radio (the radios and their windows, chapter 2), Network (the cell database and the checks against it, chapter 8), Window (the survey windows Neighbours, Graphs, Scanner, Events and Statistics, chapter 5; each item opens or closes its window) and Help.
+The menus hold what is not part of the walk: File (projects, floors, File > Export and File > Report, chapter 10, Settings), Radio (the radios and their windows, chapter 2), Network (the cell database and the checks against it, chapter 8), Window (the survey windows Neighbours, Graphs, Scanner, Events and Statistics, chapter 5; each item opens or closes its window), Tools (Spectrum, 5.6, and the plugins' tools) and Help. A long press on the plan adds a note there (13.7).
 
 ## 13.1 Projects and floors
 

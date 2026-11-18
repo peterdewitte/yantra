@@ -14,14 +14,41 @@ own changes are in its CHANGELOG.md.
 
 ## [Unreleased]
 
-A simpler indoor workflow (specification 0.4): the project window has a
-Walk and a Map tab, the coverage map is interpolated from the measured
-points only, and the demo uses fixed scenes. The version stays 0.2.0
-until the next release. Not run for this state: the sanitizer trees and
-the Windows tests (the Windows tree is cross-built and packaged).
+A simpler indoor workflow (specification 0.4 and 0.4.1): the project
+window has a Walk and a Map tab, the coverage map is interpolated from
+the measured points only, and the demo uses fixed scenes. Then
+specification 0.5: an About building tab, notes on the plan, a Report
+ready window, one Plan and properties button, a failing demo report that
+names its weak area, Tools > Spectrum (radio API 1.2) and the packages
+workflow. The version stays 0.2.0 until the next release. Not run for
+this state: the sanitizer trees and the Windows tests (the Windows tree
+is cross-built and packaged).
 
 ### Added
 
+- The About building tab (IND-47), the first tab of every project: the
+  address, Find on map (OpenStreetMap's Nominatim, only on request), an
+  OpenStreetMap map of the position (tiles through libcurl, cached in the
+  user's cache folder, with the attribution; "No map" offline without
+  cached tiles), a photo of the building from a file or taken with a
+  camera (Yantra's own capture code: V4L2 on Linux, Media Foundation on
+  Windows), the surveyor, the survey date and notes. The report starts
+  with this information (EXP-05); the report's surveyor field replaces
+  the tab's surveyor only when filled in. Project schema 9. The tour has
+  an About building step. Manual 13.6.
+- Notes on the plan (IND-48): a long press (about 0.6 s) on a spot of the
+  plan opens the Note window there, with a picture (file or camera), a
+  text and an audio recording (record, play, delete; at most 2 minutes,
+  File > Settings > Survey sets a shorter limit). Notes show as numbered
+  pins (Map tab > Show > Notes), open with a click and move by dragging;
+  the report marks them on the floor's plan and lists them. The demo
+  floors have one note each. Project schema 10. Manual 13.7.
+- The Report ready window (UI-22): when a report is written, Open shows
+  it in the system viewer (the PDF first), Show in folder opens its
+  folder, Close closes the window.
+- A failing acceptance profile names its weak areas in the report (EXP-06):
+  the points below the threshold that lie together, by floor and by their
+  place on the plan ("First floor, centre of the plan"), with a table.
 - Tools > Spectrum (UI-24, radio API 1.2): the spectrum of the TETRA band
   and a waterfall of the last two minutes from a radio with the SPECTRUM
   capability (the simulator, HackRF and other SDR radios), with the
@@ -41,6 +68,25 @@ the Windows tests (the Windows tree is cross-built and packaged).
 
 ### Changed
 
+- The Fraunces Tavern demo has a weak inner area (DEMO-16): the first
+  floor's stairwell is a closed core of the fixed demo scene, its walk
+  loops through it, and the demo report's verdict is FAIL (90.8 % of the
+  points at or above -95 dBm, against 95 %), naming the first floor's
+  weak area. The sample report was regenerated (DEMO-06).
+- One Plan and properties... button per floor (UI-23) opens the plan
+  import window with the floor selected and its name, level and height in
+  a Floor properties section at the top (Apply); a floor without a plan
+  gets the properties alone.
+- The plan import window (UI-20): Info next to the file name (file type,
+  page, size, resolution; an example plan's credit and licence), a "(?)"
+  on every trim option, Add as floor... asks in a popup, the floors of
+  the sheet are listed above the preview, Scale and Alignment are closed
+  until opened.
+- The Walk tab (UI-21): the radio in use once with its state and
+  Select..., the walk test kind as radio buttons with a "(?)" each, the
+  Recording and Replay sections closed until opened.
+- Floor tabs are dragged to reorder the floors; a tab's menu has Move up,
+  Move down and Remove... (IND-04).
 - The project window has two tabs, Walk and Map (UI-18, UI-19); the
   Layers, Edit, Survey and Post pages are gone. Walk holds the radio
   (Find radios, Start radio, Stop radio), the live values of the serving
@@ -130,8 +176,13 @@ the Windows tests (the Windows tree is cross-built and packaged).
   of older projects and the green demo explanations (DOC-02, DOC-02a).
   The manual's chapter 1 names the Windows packages, the WinUSB driver
   and the Windows folders; the PDF manual's index has the new terms.
+- The manual, the quick starts (all four languages), the README, the
+  architecture and the project file format (schema 10) describe the
+  About building tab, the notes on the plan, the Report ready window,
+  the Plan and properties button, the weak area of the demo and
+  Tools > Spectrum; the PDF manual's index has their terms.
 - Screenshots, the indoor-workflow GIF and WebM show the new project
-  window (SCR-03, SCR-06).
+  window with the About building tab and the demo notes (SCR-03, SCR-06).
 
 ### Radio plugins
 

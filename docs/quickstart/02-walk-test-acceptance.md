@@ -19,7 +19,7 @@ Walk a building against agreed acceptance criteria and hand over a PASS or FAIL 
 
 6. **Verify the network.** Network > Verification... (live or on a replay) lists cells that differ from the database, new and missing cells, and the neighbour cross-check. They are also in the report.
 
-7. **Report.** File > Report: type your name as the surveyor, choose the floors and the profiles, PDF and HTML, and Make report. The report gives per floor the plan with every point, the coverage map, the statistics, the share of measured points next to the share of floor area (never mixed), and each profile's PASS or FAIL; the network verification follows.
+7. **Report.** File > Report: type a surveyor only to replace the one of the About building tab, choose the floors and the profiles, PDF and HTML, and Make report. The report gives per floor the plan with every point, the coverage map, the statistics, the share of measured points next to the share of floor area (never mixed), and each profile's PASS or FAIL; a FAIL names the weak areas where the points stay below the threshold. The network verification follows, and the notes on the plan are listed per floor. The Report ready window opens the report.
 
 8. **Hand it over.** Optionally tick "Send the files when written" with a shared folder, an upload address or your own mail server (Sharing settings). Nothing is sent unless you choose a method.
 

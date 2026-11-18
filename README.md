@@ -18,18 +18,25 @@ new programs with Claude, Anthropic's AI assistant.
 Yantra is an indoor tool, for example for DAS and indoor-coverage
 projects:
 
+- describe the building in its first tab, About building: the address
+  with an OpenStreetMap map, a photo (from a file or taken with the
+  camera), the surveyor, the survey date and notes;
 - import floor plans (PDF or image), cut several floors out of one sheet,
   scale them and line them up;
 - walk the floors with a radio and click your position on the plan (or
   practise with the mouse and the simulated radio);
+- keep notes on the plan: a long press on a spot adds a picture, a text
+  and a short audio recording, shown as a numbered pin;
 - watch the cells live: levels, C1, quality, the decoded broadcast
-  information and the neighbour lists;
+  information and the neighbour lists, and the TETRA band's spectrum and
+  waterfall (Tools > Spectrum) from a radio that measures it;
 - check the network against its cell database;
 - get a coverage map interpolated from your measured points, with a
   confidence mask where nobody measured;
 - write a coverage and acceptance report (PDF and HTML) per floor and for
   the building, against acceptance profiles on the measured points, the
-  tested area or the floor area.
+  tested area or the floor area; a failing profile names its weak areas,
+  and a popup opens the finished report.
 
 The project window has two tabs for the two parts of the work: **Walk**
 (the radio, the live values, the walk test and the recording) and **Map**
@@ -43,7 +50,8 @@ the measured points alone (inverse-distance weighting, IDW,
 
 Yantra reads only broadcast and system information, levels and quality.
 Short data messages, subscriber addresses, voice and decryption are out of
-scope by design, and there are no outdoor drive tests, GPS or maps. See
+scope by design, and there are no outdoor drive tests or GPS; the only
+map is the OpenStreetMap map of the building's address. See
 the [legal and scope note](docs/LEGAL.md).
 
 A sample report of the demo project, as Yantra writes it:

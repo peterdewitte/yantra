@@ -120,7 +120,7 @@ stored path again for its own folder, so it names the same files
 (`project::stored_path`, `project::resolve_stored_path`,
 `Project::stored_path`, `Project::resolve_path`).
 
-## Tables (version 8)
+## Tables (version 10)
 
 ### `meta`
 
@@ -495,7 +495,7 @@ it (`sqlite3 survey.yantra .dump`, content shortened):
 
 ```sql
 PRAGMA application_id = 1498305618;  -- 0x594E5452
-PRAGMA user_version = 8;
+PRAGMA user_version = 10;
 INSERT INTO meta VALUES ('format', 'yantra-project');
 INSERT INTO meta VALUES ('next_floor_number', '3');
 INSERT INTO meta VALUES ('next_source_number', '2');
@@ -527,4 +527,8 @@ INSERT INTO sessions VALUES (1, 'floor-1', 'walk', 'Ground floor walk', '2026-11
   '3f0c9a1b2d4e5f60', '{"simulator":"0.2.2","yantra.tetra":"0.1.0"}', NULL);
 INSERT INTO points VALUES (1, 1, 100000000000, 1793872300000000000, 40.0, 200.0, 1.4, 7.0, 'walk', 1, 1, '',
   '{"carriers":[{"dev":"simulator:0","tech":"tetra","schema":"tetra_cell","role":"serving",...}]}');
+INSERT INTO about_building VALUES (1, 'Example street 1, Example town', 50.85, 4.35, 17,
+  'Example surveyor', '2026-11-05', 'Entrance at the back', X'FFD8FFE0...', 'camera.jpg', 'camera');
+INSERT INTO plan_notes VALUES (1, 'floor-1', 120.0, 260.0, 'Riser cupboard, locked', NULL, '', '',
+  X'52494646...', 6.5, '2026-11-05T09:47:10Z', '2026-11-05T09:47:10Z');
 ```

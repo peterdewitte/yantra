@@ -19,4 +19,4 @@ File > Settings > Plugins lists every plugin with its name, version, API version
 
 ## 14.2 Plugin windows
 
-Plugins can add windows and entries to the File, View, Radio, Tools and Help menus (the View and Tools menus appear only when a plugin adds entries), for example the TETRA calculator and Remote probes under Tools. Their windows follow the app's theme, touch layout, language and help rules: every control has a tooltip, a greyed control says why, and a control that changes something important asks first. A plugin switched off loses its windows.
+Plugins can add windows and entries to the File, View, Radio, Tools and Help menus (the View menu appears only when a plugin adds entries; the Tools menu is always there, with Spectrum first), for example the TETRA calculator and Remote probes under Tools. Their windows follow the app's theme, touch layout, language and help rules: every control has a tooltip, a greyed control says why, and a control that changes something important asks first. A plugin switched off loses its windows.

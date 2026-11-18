@@ -19,7 +19,7 @@ Begehen Sie ein Gebäude nach vereinbarten Abnahmekriterien und übergeben Sie e
 
 6. **Netz prüfen.** Netz > Überprüfung... (live oder auf einer Wiedergabe) listet Zellen, die von der Datenbank abweichen, neue und fehlende Zellen und die Kreuzprüfung der Nachbarn. Sie stehen auch im Bericht.
 
-7. **Bericht.** Datei > Bericht: Geben Sie Ihren Namen als Messtechniker ein, wählen Sie die Etagen und die Profile, PDF und HTML, und Bericht erstellen. Der Bericht zeigt pro Etage den Grundriss mit jedem Punkt, die Versorgungskarte, die Statistik, den Anteil gemessener Punkte neben dem Anteil der Grundfläche (nie vermischt) und das PASS oder FAIL jedes Profils; die Netzüberprüfung folgt.
+7. **Bericht.** Datei > Bericht: Geben Sie nur dann einen Messtechniker ein, wenn er den des Reiters Über das Gebäude ersetzen soll, wählen Sie die Etagen und die Profile, PDF und HTML, und Bericht erstellen. Der Bericht zeigt pro Etage den Grundriss mit jedem Punkt, die Versorgungskarte, die Statistik, den Anteil gemessener Punkte neben dem Anteil der Grundfläche (nie vermischt) und das PASS oder FAIL jedes Profils; ein FAIL nennt die schwachen Bereiche, in denen die Punkte unter der Schwelle bleiben. Die Netzüberprüfung folgt, und die Notizen auf dem Grundriss werden pro Etage aufgeführt. Das Fenster Bericht fertig öffnet den Bericht.
 
 8. **Übergeben.** Kreuzen Sie bei Bedarf „Die Dateien nach dem Schreiben senden“ an, mit einem freigegebenen Ordner, einer Upload-Adresse oder Ihrem eigenen Mailserver (Einstellungen der Weitergabe). Es wird nichts gesendet, solange Sie keine Methode wählen.
 

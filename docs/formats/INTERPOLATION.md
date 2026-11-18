@@ -7,7 +7,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 The point interpolation of a floor (IND-41..45, [INTERPOLATION.md](../INTERPOLATION.md))
 is stored in the project file, one row of the table `interpolations` per
-floor and key (project schema 8, [PROJECT.md](PROJECT.md)
+floor and key (project schema 8 and later, [PROJECT.md](PROJECT.md)
 "`interpolations`"). A row holds three parts:
 
 1. the grid columns and the `cells` BLOB: the map itself;

@@ -19,7 +19,7 @@ Loop een gebouw af tegen afgesproken acceptatiecriteria en lever een rapport met
 
 6. **Controleer het netwerk.** Netwerk > Verificatie... (live of op een herhaling) toont cellen die afwijken van de database, nieuwe en ontbrekende cellen, en de kruiscontrole van de buren. Ze staan ook in het rapport.
 
-7. **Rapport.** Bestand > Rapport: typ je naam als meettechnicus, kies de verdiepingen en de profielen, PDF en HTML, en Rapport maken. Het rapport geeft per verdieping de plattegrond met elk punt, de dekkingskaart, de statistieken, het aandeel gemeten punten naast het aandeel vloeroppervlakte (nooit gemengd) en de PASS of FAIL van elk profiel; de netwerkverificatie volgt.
+7. **Rapport.** Bestand > Rapport: typ alleen een meettechnicus om die van het tabblad Over het gebouw te vervangen, kies de verdiepingen en de profielen, PDF en HTML, en Rapport maken. Het rapport geeft per verdieping de plattegrond met elk punt, de dekkingskaart, de statistieken, het aandeel gemeten punten naast het aandeel vloeroppervlakte (nooit gemengd) en de PASS of FAIL van elk profiel; een FAIL noemt de zwakke zones waar de punten onder de drempel blijven. De netwerkverificatie volgt, en de notities op de plattegrond staan per verdieping in de lijst. Het venster Rapport klaar opent het rapport.
 
 8. **Overdragen.** Vink eventueel "De bestanden verzenden na het schrijven" aan met een gedeelde map, een uploadadres of je eigen mailserver (instellingen voor Delen). Er wordt niets verzonden tenzij je een methode kiest.
 

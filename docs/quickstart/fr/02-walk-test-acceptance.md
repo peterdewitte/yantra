@@ -19,7 +19,7 @@ Parcourez un bâtiment selon des critères de réception convenus et remettez un
 
 6. **Vérifiez le réseau.** Réseau > Vérification... (en direct ou sur une relecture) liste les cellules qui diffèrent de la base de données, les cellules nouvelles et manquantes, et le contrôle croisé des voisines. Elles figurent aussi dans le rapport.
 
-7. **Rapport.** Fichier > Rapport : saisissez votre nom comme technicien de mesure, choisissez les étages et les profils, PDF et HTML, et Créer le rapport. Le rapport donne par étage le plan avec chaque point, la carte de couverture, les statistiques, la part des points mesurés à côté de la part de surface au sol (jamais mélangées) et le PASS ou FAIL de chaque profil ; la vérification du réseau suit.
+7. **Rapport.** Fichier > Rapport : saisissez un technicien de mesure seulement pour remplacer celui de l'onglet À propos du bâtiment, choisissez les étages et les profils, PDF et HTML, et Créer le rapport. Le rapport donne par étage le plan avec chaque point, la carte de couverture, les statistiques, la part des points mesurés à côté de la part de surface au sol (jamais mélangées) et le PASS ou FAIL de chaque profil ; un FAIL nomme les zones faibles où les points restent sous le seuil. La vérification du réseau suit, et les notes sur le plan sont listées par étage. La fenêtre Rapport prêt ouvre le rapport.
 
 8. **Remise.** Cochez éventuellement « Envoyer les fichiers une fois écrits » avec un dossier partagé, une adresse de téléversement ou votre propre serveur de messagerie (paramètres de Partage). Rien n'est envoyé si vous ne choisissez pas de méthode.
 

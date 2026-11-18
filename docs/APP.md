@@ -486,8 +486,8 @@ and exits (launch test `app_reset_settings`).
 **Plugins' own UI** (PLG-06; model `PluginUi`, `app/model/plugin_ui.h`;
 drawing `app/gui/plugin_view.cpp`): the windows and menu entries that
 enabled plugin.h plugins declare. Menu entries go to File, View, Radio,
-Tools, Help (`plg.<plugin id>.<item id>`; the View and Tools menus appear only
-with entries; `menu_state` greys or checks them); choosing one opens its
+Tools, Help (`plg.<plugin id>.<item id>`; the View menu appears only
+with entries, the Tools menu is always there with Spectrum first; `menu_state` greys or checks them); choosing one opens its
 window or calls `menu_selected`. Windows `plg.<plugin id>.<window id>`:
 `YANTRA_UI_PANEL` is a window docked at the right edge, `YANTRA_UI_WINDOW`
 a floating window, `YANTRA_UI_DIALOG` a modal; closing calls

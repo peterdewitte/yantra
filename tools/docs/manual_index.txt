@@ -10,7 +10,9 @@
 [Terms]
 Acceptance profile: acceptance profile; acceptance profiles
 Antenna: antenna; antennas
+Audio note: audio note; audio notes
 Binning: binning; binned
+Camera: camera; cameras
 C1: C1
 Calibration: calibration; calibrate
 Calibration table: calibration table
@@ -35,8 +37,11 @@ Manual points: manual points
 MAK example plans: MAK
 MCC and MNC: MCC; MNC
 MER: MER
+Notes on the plan: notes on the plan; long press
+OpenStreetMap: OpenStreetMap; Nominatim
 Mouse survey: mouse survey
 Neighbour list: neighbour list; neighbour lists; neighbours
+Photo of the building: photo of the building; building photo
 PEI: PEI
 Recording: recording; recordings
 Remote API: remote API
@@ -45,6 +50,7 @@ Ring buffer: ring buffer
 Scale: scale
 Serving cell: serving cell
 Simulator: simulator
+Spectrum: spectrum; waterfall
 Sounds: sound; sounds
 Theme: theme; themes
 Touch: touch
@@ -52,10 +58,12 @@ Trimming: trim; trimming; trimmed
 udev rules: udev
 Voice note: voice note; voice notes
 Walk test: walk test; walk tests
+Weak area: weak area; weak areas
 Zadig and WinUSB: Zadig; WinUSB
 
 [Windows and menus]
 About: About
+About building tab: About building
 Advanced dropdown: Advanced dropdown
 Calibration wizard: calibration wizard
 Cell database window: cell database
@@ -68,17 +76,21 @@ Help menu: Help >
 Layers: layers
 Map tab: Map tab
 Network menu: Network >
+Note window: Note window
 Plan import window: plan import window
+Plan and properties: Plan and properties
 Project window: project window
 Plugin manager: plugin manager
 Radio menu: Radio menu; Radio >
 Remote probes: remote probes
 Report dialog: Report
+Report ready window: Report ready
 Reselection simulator: reselection simulator
 Scanner: scanner
 Settings: settings
 Start screen: start screen
 Status bar: status bar
+Tools menu: Tools >
 Survey windows: survey windows; Window menu; Window >
 Tour: guided tour; tour
 Verification window: verification

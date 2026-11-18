@@ -152,7 +152,9 @@ Details: [docs/SURVEY.md](docs/SURVEY.md).
   migrations ([docs/formats/PROJECT.md](docs/formats/PROJECT.md)); schema
   8 (after Yantra 0.2.0, spec 0.4) drops the walls, wall classes, antennas and ray-tracing
   maps of older files on open, after a `<file>.schema<N>.bak` copy, and
-  reports once what it dropped (IND-46).
+  reports once what it dropped (IND-46); schema 9 adds the About
+  building information (IND-47) and schema 10 the notes on the plan
+  (IND-48), the current one.
 - `celldb/`: cell database, CSV import, verification, cross-check and
   reselection simulation (DB-01..07,
   [docs/CELL_DATABASE.md](docs/CELL_DATABASE.md)).
@@ -220,6 +222,14 @@ its own controller (`app/model/app_control.h`) over the same command set.
   MJPEG via stb_image or YUYV, Media Foundation on Windows,
   `YANTRA_FAKE_CAMERA` for tests; `PhotoSource` is the one photo interface,
   reused by IND-48) and `about_building` (the tab's model).
+- IND-48, notes on the plan: `app/model` `plan_notes` (the long press,
+  `LongPress`, the Note window's model, pins, audio through `AudioIo` as
+  16 kHz WAV files in the project), `app/gui` `note_view.cpp` and the
+  plan canvas's pins; the notes are stored by `core/project` and drawn
+  into the report's floor pictures and list by `core/report`.
+- UI-22, the Report ready window: `report_export` hands the written files
+  to `AppState`, `report_view.cpp` draws the window; Open and Show in
+  folder go through the injectable document opener (no viewer in tests).
 - `app/src/main.cpp`: GLFW window, OpenGL 3 backend, main loop.
 
 ### Tools
