@@ -298,3 +298,25 @@ TEST_CASE("IND-47 photos: Take photo... with the fake camera, Remove photo; with
     REQUIRE(s.ui.wait_window_closed("dlg.camera"));
     CHECK(a->stored().photo.empty());
 }
+
+TEST_CASE("IND-47 destroying the Gui frees the camera preview and the photo textures") {
+    const fs::path dir = scratch("photo_free");
+    const fs::path file = dir / "new.yantra";
+    pj::Project::create(file, pj::ProjectInfo{"New", "", "", ""})->close();
+    const int before = UserTexture::live_count();
+    {
+        Shell s(paths(dir));
+        s.state.set_camera_backend(make_fake_camera_backend());
+        REQUIRE(s.state.open_project(file).ok);
+        REQUIRE(s.ui.frames(3));
+        REQUIRE_MESSAGE(s.ui.click("about.photo_take"), s.ui.dump());
+        REQUIRE(s.ui.wait_window("dlg.camera"));
+        REQUIRE(frames_until(s, [&] { return s.gui.camera_overlay().preview; }));
+        REQUIRE_MESSAGE(s.ui.click("camera.take"), s.ui.dump());
+        REQUIRE(s.ui.wait_window_closed("dlg.camera"));
+        REQUIRE(frames_until(s, [&] { return s.gui.building_overlay().photo; }));
+        CHECK(UserTexture::live_count() > before);
+    }
+    // The Gui's destructor resets every texture before release_all().
+    CHECK(UserTexture::live_count() == before);
+}

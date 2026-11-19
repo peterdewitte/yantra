@@ -65,8 +65,16 @@ Gui::Gui(AppState& state)
 Gui::~Gui() {
     canvas_.reset();
     import_view_.close();
+    // Every UserTexture member is reset here, before release_all(): a
+    // member destroyed after this body would retire its texture to a list
+    // nobody frees any more (LeakSanitizer).
     yantra_logo_.reset();
     curtat_logo_.reset();
+    photo_tex_.reset();
+    tile_textures_.clear();
+    camera_tex_.reset();
+    note_tex_.reset();
+    spectrum_tex_.reset();
     UserTexture::release_all();
 }
 
