@@ -137,14 +137,27 @@ plugins keep their IQ), so `measure::SelfInterferenceMonitor`
 
 | Check | Rule (defaults) |
 | --- | --- |
-| Noise | median over the cycle's fresh, synced, calibrated samples of level - `snr_db` (radio API QUALITY field), dBm |
-| Rise | noise minus the reference: the noise taken with the antenna away from the PC (`set_reference`, from `cycle_noise_dbm`), else the thermal floor -174 dBm/Hz + 10 log10(25 kHz) + 15 dB noise figure (about -115 dBm). A rise >= 6 dB is a finding |
-| Unsynced | 3 or more fresh NO_SYNC samples (a level but no identity) are a finding |
+| Noise | the least level - `snr_db` (radio API QUALITY field) over the cycle's fresh, synced, calibrated samples, dBm |
+| Rise | noise minus the reference: the noise taken with the antenna away from the PC (`set_reference`, from `cycle_noise_dbm`), else the thermal floor -174 dBm/Hz + 10 log10(25 kHz) + 15 dB noise figure (about -115 dBm). A rise >= 6 dB is a finding when a sample has an SNR below 30 dB (`snr_limit_db`) |
+| Unsynced | 3 or more fresh NO_SYNC samples (a level but no identity) are a finding; not counted: those less than 6 dB above the reference, and those within 100 kHz of a synced carrier 30 dB or more stronger (its skirts) |
 | Warning | on after 3 cycles in a row with a finding, off after 10 in a row without one |
 
 Samples without an SNR, uncalibrated (dBFS), stale or held samples do
-not count. The warning carries an English text with the advice for the
-UI (phase 9: status bar and level panel): keep the antenna away from the
+not count. Each sample's level - `snr_db` is the noise next to its
+carrier plus the receiver's own distortion: an SNR estimate stops rising
+at the receiver's limit (about 36 dB for the TETRA receiver of
+yantra-radios), so for a strong carrier, such as an indoor DAS at
+-35 dBm, it lies 60 dB above the noise. The least of them is the closest
+to the noise (noise from the PC raises it next to every carrier), and a
+rise needs a sample below the SNR limit: strong carriers alone only bound
+the noise. A strong carrier also shows weak unsynced carriers beside it
+(its skirts, 6.25 to 62.5 kHz away and 50 dB down), and the receiver
+reports some carriers at the noise itself; neither counts.
+(Before, the median of level - `snr_db` and every NO_SYNC sample raised
+a false warning on the demo's Fraunces walk: an indoor DAS carrier next
+to a weak macro cell.)
+
+The warning carries an English text with the advice for the UI (phase 9: status bar and level panel): keep the antenna away from the
 laptop, its USB ports and cables; a USB extension cable helps. The radios'
 scenarios as recorded do not raise it; the same records with 20 dB more
 noise next to every carrier do (tests/measure_host/test_measure_self_interference.cpp).

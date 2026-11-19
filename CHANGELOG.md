@@ -166,6 +166,12 @@ is cross-built and packaged).
   no longer makes the replay of that recording differ ("replay mismatch:
   cycle N: time"); the mismatch message now shows the recorded and
   replayed times (OA-13, REC-07).
+- The self-interference warning no longer comes on by mistake in the
+  demo or next to a strong indoor DAS carrier: the noise is the least of
+  level - SNR over the carriers (a strong carrier's SNR is the receiver's
+  own limit, not its noise), a noise rise needs a carrier below that
+  limit, and unsynced carriers at the noise or in the skirts of a much
+  stronger carrier do not count (NFR-07, DEMO-01).
 
 ### Documentation
 

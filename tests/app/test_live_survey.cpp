@@ -6,7 +6,8 @@
 // radio host, the simulator chosen by default, the mouse survey on the
 // Fraunces demo (points where the simulator calculated them, at most one
 // per spacing, "move slower", click to interpolate), a point-and-click
-// walk and manual points. Real time (the simulator streams at its record
+// walk and manual points; no self-interference warning on the demo
+// (NFR-07, DEMO-01). Real time (the simulator streams at its record
 // rate); the waits are on observable conditions with a deadline. Skips
 // when the simulator is not built. No hardware.
 #include <doctest/doctest.h>
@@ -549,4 +550,41 @@ TEST_CASE("REC-09: the ring buffer keeps the newest files while the radio runs a
     CHECK_FALSE(live.ring_files().empty());
     live.recording_form().ring = false;
     CHECK(live.apply_ring().ok);
+}
+
+TEST_CASE("NFR-07, DEMO-01: the demo's simulator on the Fraunces plan shows no self-interference warning") {
+    Rig r("interference");
+    if (!r.ok) return;
+    const bm::Floor f = r.data();
+    LiveSurvey live(r.project, r.paths);
+    REQUIRE(live.find_radios().ok);
+    live.show_floor(r.floor);
+    const Result started = live.start_radio();
+    INFO(started.message);
+    REQUIRE(started.ok);
+    const auto& monitor = live.monitor();
+    const auto clock0 = std::chrono::steady_clock::now();
+    auto step = [&] {
+        const double t = std::chrono::duration<double>(std::chrono::steady_clock::now() - clock0).count();
+        const double u = std::fmod(0.05 * t, 0.8);
+        live.cursor(at(f, 0.15 + (u < 0.4 ? u : 0.8 - u) * 1.75, 0.5), t);
+    };
+    const std::uint64_t c0 = live.cycles();
+    // The warning never comes on; the noise is the macro cell's, not the DAS carrier's level - SNR.
+    std::size_t active = 0;
+    std::uint64_t seen = c0;
+    std::optional<double> worst;
+    REQUIRE(wait_for([&] {
+        if (live.cycles() != seen) {
+            seen = live.cycles();
+            const auto w = monitor->interference();
+            active += w.active ? 1 : 0;
+            if (w.last.rise_db && (!worst || *w.last.rise_db > *worst)) worst = w.last.rise_db;
+        }
+        return live.cycles() >= c0 + 20;
+    }, kDeadline * 2, step));
+    INFO("largest noise rise over the thermal floor: ", worst.value_or(0.0), " dB");
+    CHECK(active == 0);
+    CHECK_FALSE(monitor->interference().active);
+    REQUIRE(live.stop_radio().ok);
 }
