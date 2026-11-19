@@ -9,7 +9,7 @@
 // (tests/app/ui/ui_lint.h). The other window sizes, UI scales, themes and
 // the pseudo-language, and every text drawn, are the GUI text-overflow
 // test's (TST-52, tests/app/overflow), which replaced step 9.11's TST-50
-// layout check.
+// layout check. No label or hover text shows a requirement ID.
 #include <doctest/doctest.h>
 
 #include <string>
@@ -44,6 +44,16 @@ void run_lint(const char* tag, bool touch) {
 }
 
 }  // namespace
+
+TEST_CASE("DOC-20 UI lint: requirement IDs in UI texts are found, other codes are not") {
+    using yantra::test::requirement_id;
+    CHECK(requirement_id("The floor area (IND-43), kept apart") == "IND-43");
+    CHECK(requirement_id("Record (REC-01..03), markers") == "REC-01");
+    CHECK(requirement_id("Uncalibrated: levels are dBFS (HW-01b).") == "HW-01");
+    CHECK(requirement_id("EXP-07: copy the files") == "EXP-07");
+    CHECK(requirement_id("SHA-256, GPL-3.0-or-later, AGPL-3.0, UTF-8, ISO-8859-1").empty());
+    CHECK(requirement_id("XUI-12, UI-, UI-1234, the UI").empty());
+}
 
 TEST_CASE("DOC-20 UI lint: every window in every language, desktop layout") { run_lint("desktop", false); }
 

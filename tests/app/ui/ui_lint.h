@@ -11,7 +11,10 @@
 //   - in the touch layout, controls lower than 48 px (UI-13),
 //   - texts tr() found no translation for in the language (UI-12, DOC-07 f),
 //   - a demo explanation (DEMO-15) whose background is not green or whose
-//     text colours have less than 4.5:1 contrast on it.
+//     text colours have less than 4.5:1 contrast on it,
+//   - a requirement ID ("IND-43", "REC-01..03") in a label or hover text,
+//     the plugins' included: customers see these texts (tools/ci/lint_ui.py
+//     checks the sources, translations and the sample report).
 // A control is every item the probe saw with a label (buttons, fields,
 // switches, menu items, tabs, rows); its hover text is found by the
 // rectangle the Gui's tooltip helpers note (gui_widgets.h help_record).
@@ -37,6 +40,29 @@ namespace yantra::test {
 
 /// Items that are not controls with a hover text of their own: the plan
 /// canvas (its tools say what a click does), the status bar's area.
+/// The requirement ID prefixes of the specs (as tools/ci/lint_ui.py).
+inline constexpr std::string_view kRequirementPrefixes[] = {"API", "BRD", "DB",  "DEC", "DEMO", "DOC", "EXP", "FUN",
+                                                            "GEO", "HW",  "IND", "NFR", "OA",   "PLG", "PP",  "RAD",
+                                                            "REC", "RF",  "SCR", "TRM", "TST",  "UI"};
+
+/// The first requirement ID in `text` ("IND-43"), or "" if there is none.
+inline std::string requirement_id(std::string_view text) {
+    const auto upper = [](char c) { return c >= 'A' && c <= 'Z'; };
+    const auto digit = [](char c) { return c >= '0' && c <= '9'; };
+    const auto word = [&](char c) { return upper(c) || digit(c) || c == '_' || (c >= 'a' && c <= 'z'); };
+    for (std::size_t i = 0; i < text.size(); ++i) {
+        if (!upper(text[i]) || (i > 0 && word(text[i - 1]))) continue;
+        for (const std::string_view p : kRequirementPrefixes) {
+            const std::size_t d = i + p.size();
+            if (text.substr(i, p.size()) != p || d + 1 >= text.size() || text[d] != '-' || !digit(text[d + 1])) continue;
+            std::size_t e = d + 1;
+            while (e < text.size() && digit(text[e])) ++e;
+            if (e - d - 1 <= 3) return std::string(text.substr(i, e - i));
+        }
+    }
+    return {};
+}
+
 inline constexpr std::string_view kNoTooltip[] = {"plan.canvas", "status_bar", "help.text"};
 
 struct UiLint {
@@ -79,6 +105,7 @@ struct UiLint {
             add(where, std::string("no ") + app::language_key(app::language()) + " translation: \"" + m + "\"");
         analyse(where, rec);
         check_demo(where, demo);
+        check_requirement_ids(where, rec);
         if (after_frame) after_frame(where, rec);
     }
 
@@ -98,6 +125,17 @@ struct UiLint {
                     o << "demo explanation text contrast " << r << ":1 below 4.5:1: " << b.what;
                     add(where, o.str());
                 }
+        }
+    }
+
+    void check_requirement_ids(const std::string& where, const app::gui_detail::HelpRecord& rec) {
+        for (const auto& e : rec.entries)
+            if (const std::string id = requirement_id(e.text); !id.empty())
+                add(where, "requirement ID " + id + " in a hover text: " + e.text);
+        for (const app::ProbeItem& it : ui.items()) {
+            const std::string_view label = std::string_view(it.label).substr(0, it.label.find("##"));
+            if (const std::string id = requirement_id(label); !id.empty())
+                add(where, "requirement ID " + id + " in a label: " + std::string(label));
         }
     }
 

@@ -17,7 +17,12 @@
 #     are embedded through CMake's file(CONFIGURE @ONLY));
 #   - every "manual N.M" a text refers to is a section of the manual
 #     (app/model/src/manual.cpp and a "## N.M" heading in docs/manual), and
-#     its translation refers to the same sections.
+#     its translation refers to the same sections;
+#   - no text, translation, plugin text (plugins/*: descriptors, schemas,
+#     translation tables), demo project description (data/demo) or
+#     committed sample report (docs/samples) shows a requirement ID such as
+#     "IND-43" or "REC-01..03": customers see these texts, and the IDs
+#     belong in code comments, test names and commit messages only.
 # Usage: lint_ui.py [source-dir]          check (exit 1 on a finding)
 #        lint_ui.py --extract [source-dir] print the texts as a JSON list
 import json
@@ -32,6 +37,11 @@ LITERAL = re.compile(r'"((?:[^"\\\n]|\\.)*)"')
 PRINTF = re.compile(r"%(?:%|[-+ #0]*(?:\*|\d+)?(?:\.(?:\*|\d+))?(?:hh|h|ll|l|z|j|t|L)?[diouxXeEfFgGaAcspn])")
 MANUAL_REF = re.compile(r"\bmanual (\d+(?:\.\d+)?)")
 MARKS = re.compile(r"TODO|FIXME|XXX|TRANSLATE|\?\?\?|<<|>>|\[(?:nl|fr|de|en)\]", re.IGNORECASE)
+# The requirement ID prefixes of the specs (Yantra and radios).
+REQUIREMENT_ID = re.compile(r"\b(?:API|BRD|DB|DEC|DEMO|DOC|EXP|FUN|GEO|HW|IND|NFR|OA|PLG|PP|RAD|REC|RF|SCR|TRM|TST|UI)-[0-9]{1,3}\b"
+                            r"|\b(?:API|BRD|DB|DEC|DEMO|DOC|EXP|FUN|GEO|HW|IND|NFR|OA|PLG|PP|RAD|REC|RF|SCR|TRM|TST|UI)-[0-9]{1,3}[a-z.]")
+PLUGIN_DIRS = ("plugins",)
+DEMO_TEXT_KEYS = ("name", "site", "operator_name", "notes", "label", "title", "shows", "address", "surveyor")
 ESCAPES = {"n": "\n", "t": "\t", '"': '"', "\\": "\\", "'": "'", "?": "?", "0": "\0"}
 
 
@@ -106,6 +116,69 @@ def texts(root):
     return found
 
 
+def plugin_texts(root):
+    # Every string literal of the bundled plugins' sources (their windows,
+    # tooltips, field help and translation tables), test data aside.
+    found = []
+    for d in PLUGIN_DIRS:
+        for base, dirs, names in os.walk(os.path.join(root, d)):
+            dirs[:] = sorted(x for x in dirs if x not in ("testdata", "tests"))
+            for name in sorted(names):
+                if not name.endswith((".c", ".cpp", ".h", ".inc")):
+                    continue
+                path = os.path.join(base, name)
+                with open(path, encoding="utf-8") as f:
+                    src = strip_comments(f.read())
+                for m in LITERAL.finditer(src):
+                    found.append((os.path.relpath(path, root), unescape(m.group(1))))
+    return found
+
+
+def demo_texts(root):
+    # The texts of the bundled demo projects and scenarios a user sees
+    # (project notes, names, titles), not the files' own descriptions.
+    found = []
+    folder = os.path.join(root, "data/demo")
+    for base, dirs, names in os.walk(folder):
+        dirs.sort()
+        for name in sorted(names):
+            if not name.endswith(".json"):
+                continue
+            path = os.path.join(base, name)
+            with open(path, encoding="utf-8") as f:
+                try:
+                    data = json.load(f)
+                except ValueError:
+                    continue
+
+            def walk(v):
+                if isinstance(v, dict):
+                    for k, x in v.items():
+                        if k in DEMO_TEXT_KEYS and isinstance(x, str):
+                            found.append((os.path.relpath(path, root), x))
+                        else:
+                            walk(x)
+                elif isinstance(v, list):
+                    for x in v:
+                        walk(x)
+            walk(data)
+    return found
+
+
+def sample_report_texts(root):
+    found = []
+    folder = os.path.join(root, "docs/samples")
+    for name in sorted(os.listdir(folder)) if os.path.isdir(folder) else []:
+        if name.endswith(".html"):
+            with open(os.path.join(folder, name), encoding="utf-8") as f:
+                found.append(("docs/samples/" + name, re.sub(r"<[^>]*>", " ", f.read())))
+    return found
+
+
+def requirement_ids(text):
+    return sorted(set(m.group(0).rstrip(".") for m in REQUIREMENT_ID.finditer(text)))
+
+
 def manual_sections(root):
     with open(os.path.join(root, "app/model/src/manual.cpp"), encoding="utf-8") as f:
         code = set(re.findall(r'\{"(\d+(?:\.\d+)?)",', f.read()))
@@ -130,6 +203,11 @@ def check(root):
                 problems.append("%s: refers to manual %s, which does not exist: %r" % (where, ref, text))
         if "@" in text:
             problems.append("%s: '@' in a text: %r" % (where, text))
+        if requirement_ids(text):
+            problems.append("%s: requirement ID %s in a UI text: %r" % (where, ", ".join(requirement_ids(text)), text))
+    for where, text in plugin_texts(root) + demo_texts(root) + sample_report_texts(root):
+        for rid in requirement_ids(text):
+            problems.append("%s: requirement ID %s in a text users see" % (where, rid))
     for lang in LANGUAGES:
         path = os.path.join(root, "data/i18n/%s.json" % lang)
         with open(path, encoding="utf-8") as f:
@@ -157,6 +235,8 @@ def check(root):
                 problems.append("%s: placeholder mark in %r" % (lang, value))
             if "@" in value:
                 problems.append("%s: '@' in %r" % (lang, value))
+            if requirement_ids(value):
+                problems.append("%s: requirement ID %s in %r" % (lang, ", ".join(requirement_ids(value)), value))
             if any(ord(c) > 0xFF for c in value):
                 problems.append("%s: not Latin-1 (the UI font): %r" % (lang, value))
             if any(r not in value for r in MANUAL_REF.findall(text)):
