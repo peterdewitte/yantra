@@ -35,8 +35,13 @@ if [ -z "$display" ]; then
 fi
 DISPLAY=":$display"
 export DISPLAY
-# The private display only: no Wayland compositor of the session.
+# The private display only: no Wayland compositor of the session. Unset
+# WAYLAND_DISPLAY is not enough: in a Wayland session GLFW still tries
+# Wayland first and libwayland falls back to the session's "wayland-0"
+# (XDG_RUNTIME_DIR); XDG_SESSION_TYPE=x11 makes it take this DISPLAY.
 unset WAYLAND_DISPLAY
+XDG_SESSION_TYPE=x11
+export XDG_SESSION_TYPE
 "$@"
 rc=$?
 kill "$xvfb" 2>/dev/null
