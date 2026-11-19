@@ -312,6 +312,7 @@ TEST_CASE("IND-47 destroying the Gui frees the camera preview and the photo text
         REQUIRE_MESSAGE(s.ui.click("about.photo_take"), s.ui.dump());
         REQUIRE(s.ui.wait_window("dlg.camera"));
         REQUIRE(frames_until(s, [&] { return s.gui.camera_overlay().preview; }));
+        REQUIRE(s.ui.frames(3));  // the dialog fits its new height
         REQUIRE_MESSAGE(s.ui.click("camera.take"), s.ui.dump());
         REQUIRE(s.ui.wait_window_closed("dlg.camera"));
         REQUIRE(frames_until(s, [&] { return s.gui.building_overlay().photo; }));
