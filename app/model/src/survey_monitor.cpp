@@ -410,7 +410,7 @@ void SurveyMonitor::add_history(History& h, const ym::MeasurementCycle& c, const
     h.device_lost = lost;
     const bool loss = (c.flags & sf::kDataLoss) != 0;
     if (loss) ++h.stats.data_loss_cycles;
-    if (loss && !h.data_loss) add(EventKind::DataLoss, tr("The radio dropped records (RAD-24)."), true);
+    if (loss && !h.data_loss) add(EventKind::DataLoss, tr("The radio dropped records."), true);
     h.data_loss = loss;
     // Statistics (UI-11).
     const double period = static_cast<double>(c.period_ns) / 1e9;

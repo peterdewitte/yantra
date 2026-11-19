@@ -69,7 +69,7 @@ void ok_cancel(AppState& state, const char* ok, const char* ok_tip, Result (AppS
 
 void share_choice(AppState& state, bool& share) {
     ImGui::Checkbox(tr("Send the files when written###out.share"), &share);
-    text_tooltip(tr("EXP-07: copy the files to the shared folder, upload them or e-mail them with the sharing "
+    text_tooltip(tr("Copy the files to the shared folder, upload them or e-mail them with the sharing "
                     "settings. Nothing is sent unless you tick this."));
     ImGui::SameLine();
     if (small_button(tr("Sharing settings...###out.sharing"))) (void)state.open_sharing();
@@ -100,16 +100,16 @@ void Gui::draw_export_dialog() {
     const ExportForm::Kind before = f.kind;
     int kind = static_cast<int>(f.kind);
     ImGui::RadioButton(tr("CSV table###ex.csv"), &kind, 0);
-    text_tooltip(tr("EXP-01: one row per point with the columns you choose, for a spreadsheet."));
+    text_tooltip(tr("One row per point with the columns you choose, for a spreadsheet."));
     ImGui::SameLine();
     ImGui::RadioButton(tr("DXF drawing###ex.dxf"), &kind, 1);
-    text_tooltip(tr("EXP-03: the floor's measured points in their colours on layers, in metres, for CAD."));
+    text_tooltip(tr("The floor's measured points in their colours on layers, in metres, for CAD."));
     ImGui::SameLine();
     ImGui::RadioButton(tr("Floor picture###ex.image"), &kind, 2);
-    text_tooltip(tr("EXP-08: the floor plan with the coloured points and the legend as PNG or JPG."));
+    text_tooltip(tr("The floor plan with the coloured points and the legend as PNG or JPG."));
     ImGui::SameLine();
     ImGui::RadioButton(tr("Batch###ex.batch"), &kind, 3);
-    text_tooltip(tr("EXP-04: every recording in a folder tree, merged into one file or one file each."));
+    text_tooltip(tr("Every recording in a folder tree, merged into one file or one file each."));
     f.kind = static_cast<ExportForm::Kind>(kind);
     if (f.kind != before && f.kind != ExportForm::Kind::Batch) {
         // The file follows the kind's extension.
@@ -177,7 +177,7 @@ void Gui::draw_export_dialog() {
         for (const std::string& s : formats) items.push_back(s.c_str());
         ImGui::SetNextItemWidth(ImGui::GetFontSize() * 18.0F);
         ImGui::Combo(tr("Format###ex.batch_format"), &f.batch_format, items.data(), static_cast<int>(items.size()));
-        text_tooltip(tr("CSV, or a format of an exporter plugin (PLG-02)."));
+        text_tooltip(tr("CSV, or a format of an exporter plugin."));
     }
     ImGui::SeparatorText(tr("File"));
     path_line(f.kind == ExportForm::Kind::Batch ? (f.batch_separate ? tr("Output folder:") : tr("Output file:")) : tr("File:"),
@@ -234,7 +234,7 @@ void Gui::draw_report_dialog() {
     text_tooltip(tr("Off: every profile stored in the project (or the default one). On: the ticked ones."));
     ImGui::SameLine();
     if (small_button(tr("Edit profiles...###rp.edit_profiles"))) (void)state_.open_profiles();
-    text_tooltip(tr("Add, change or remove the acceptance profiles of the project (EXP-06)."));
+    text_tooltip(tr("Add, change or remove the acceptance profiles of the project."));
     const auto names = out->profile_names();
     f.profiles.resize(names.size(), true);
     ImGui::BeginDisabled(!f.choose_profiles);
@@ -399,7 +399,7 @@ void Gui::draw_profiles_dialog() {
 void Gui::draw_sharing_dialog() {
     SharingSettings& s = state_.sharing_form();
     ImGui::PushTextWrapPos(0.0F);
-    ImGui::TextUnformatted(tr("Where exports and reports are sent when you ask for it (EXP-07). Only the files, the "
+    ImGui::TextUnformatted(tr("Where exports and reports are sent when you ask for it. Only the files, the "
                               "addresses and the login you type here are sent."));
     ImGui::PopTextWrapPos();
     int m = static_cast<int>(s.method);

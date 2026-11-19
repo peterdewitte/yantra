@@ -130,7 +130,7 @@ void Gui::draw_post_section() {
     text_tooltip(tr("Mark the points where the serving cell changed."));
 
     // PP-03: failed cells.
-    if (section_header(tr("Failed cells###post.failed"), tr("Simulate cells that are off (PP-03)."))) {
+    if (section_header(tr("Failed cells###post.failed"), tr("Simulate cells that are off."))) {
         ImGui::TextWrapped(tr("Switch cells off: the best server is chosen again from the levels measured."));
         const std::vector<survey::CellRef> cells = pp->cells_seen();
         if (cells.empty()) ImGui::TextDisabled(tr("No cells in the points of this floor."));

@@ -240,7 +240,7 @@ void Gui::draw_walk_section(const FloorContent* c) {
     if (f.kind == WalkKind::Manual) {
         ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
         (void)input_double("Seconds per point###walk.seconds", f.manual_seconds, 1.0, "%.0f",
-                           tr("How long each manual point is measured; the cycles are averaged (GEO-05)."));
+                           tr("How long each manual point is measured; the cycles are averaged."));
     }
     if (f.kind == WalkKind::MouseSurvey) {
         ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);

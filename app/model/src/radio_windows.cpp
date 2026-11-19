@@ -757,7 +757,7 @@ struct RadioWindows::Impl {
             const auto k = key();
             if (!t || !k || t->find(*k) == nullptr)
                 return tr("Calibrate the radio first: the reference noise is in dBm and this radio measures dBFS "
-                       "without a calibration (HW-01b).");
+                       "without a calibration.");
         }
         if (!live.radio_running()) return tr("Start the radio first (Walk tab > Start radio), with the antenna away from the PC.");
         if (collecting != Collect::None) return tr("A measurement is running.");
@@ -1261,7 +1261,7 @@ CalibrationView RadioWindows::calibration_view() const {
         v.key_status = std::string(e->expired(now) ? tr("Calibrated, EXPIRED ") : tr("Calibrated on ")) + date_text(e->created_unix) +
                        (e->expired(now) ? "" : tr(", valid until ") + date_text(e->expires_unix()));
     } else {
-        v.key_status = tr("Uncalibrated: levels are dBFS (HW-01b).");
+        v.key_status = tr("Uncalibrated: levels are dBFS.");
     }
     if (table && key)
         for (const calibration::Entry* e : table->of_device(key->driver, key->serial)) {

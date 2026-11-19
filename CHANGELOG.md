@@ -172,6 +172,9 @@ is cross-built and packaged).
   own limit, not its noise), a noise rise needs a carrier below that
   limit, and unsynced carriers at the noise or in the skirts of a much
   stronger carrier do not count (NFR-07, DEMO-01).
+- Reports, the UI, its translations, the plugins' texts and the demo
+  projects' notes no longer show requirement IDs such as "(IND-43)"; the
+  UI lint fails on one (DOC-07, DOC-20).
 
 ### Documentation
 

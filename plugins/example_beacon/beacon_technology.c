@@ -451,7 +451,7 @@ static const yantra_plugin_descriptor descriptor = {
     "1.0.0",
     "The Yantra contributors",
     "GPL-3.0-or-later", /* a GPL-3.0-compatible SPDX expression (PLG-10) */
-    "Example technology plugin for the made-up beacon of yantra-radios (PLG-15).",
+    "Example technology plugin for the made-up beacon of yantra-radios.",
     NULL, /* source_url: none for an example */
     translations,
     beacon_init,

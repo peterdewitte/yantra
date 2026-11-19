@@ -279,7 +279,7 @@ void PlanImportView::draw_scale(PlanImportWindow& w) {
 
     if (gui_detail::section_header(tr("Scale###pi.scale"),
                                    tr("The selected floor's scale: two points with their distance, the scale bar or the "
-                                      "drawing scale (IND-08)."))) {
+                                      "drawing scale."))) {
         floor_line();
         help(tr("Drag between two points of known distance, or along the plan's scale bar, and type the real distance in "
                 "metres; or type the drawing scale (1:100) when the page has a paper size. Floors of one sheet can share "
@@ -330,7 +330,7 @@ void PlanImportView::draw_scale(PlanImportWindow& w) {
     }
 
     if (gui_detail::section_header(tr("Alignment###pi.align"),
-                                   tr("The selected floor's reference point, so the floors line up (IND-09)."))) {
+                                   tr("The selected floor's reference point, so the floors line up."))) {
         floor_line();
         help(tr("Click the same spot on every floor, e.g. a staircase corner: the floors line up on it in the "
                 "multi-floor view."));
@@ -433,7 +433,7 @@ void PlanImportView::draw_panel(AppState& state, PlanImportWindow& w) {
     // -- floors in this plan, above the preview (UI-20) --------------------------------
     ImGui::SeparatorText(tr("Floors in this plan"));
     help(tr("Trims already added are outlined and labelled on the sheet. Click one (Pan/select) or its name to select "
-         "it; Edit loads its trim to adjust it (IND-07)."));
+         "it; Edit loads its trim to adjust it."));
     const std::vector<PlacedView> placed = w.placed();
     if (placed.empty()) ImGui::TextDisabled(tr("None yet."));
     for (const PlacedView& p : placed) {

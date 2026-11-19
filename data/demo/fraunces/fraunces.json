@@ -7,7 +7,7 @@
     "name": "Fraunces Tavern (demo)",
     "site": "Fraunces Tavern Museum Complex, 54 Pearl Street, New York (historic plans; fictitious network)",
     "operator_name": "Demo network (fictitious, MCC 901 MNC 1)",
-    "notes": "Demo project of Yantra (DEMO-05, DEMO-06). Every measurement is simulated (yantra-radios scenario of the example plan); the network and its DAS are fictitious. Floor plans: Historic American Buildings Survey, Library of Congress (public domain)."
+    "notes": "Demo project of Yantra. Every measurement is simulated (yantra-radios scenario of the example plan); the network and its DAS are fictitious. Floor plans: Historic American Buildings Survey, Library of Congress (public domain)."
   },
   "building": {"name": "Fraunces Tavern"},
   "about": {

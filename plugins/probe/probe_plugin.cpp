@@ -672,7 +672,7 @@ const yantra_feature_api feature = {
 
 const yantra_ui_window_def window = {
     sizeof(yantra_ui_window_def), YANTRA_UI_WINDOW, 0, 0, "remote_probes", "Remote probes",
-    "This Yantra's remote API and the state of other probes (API-02).", "12.3", 640, 420,
+    "This Yantra's remote API and the state of other probes.", "12.3", 640, 420,
 };
 const yantra_ui_window_def* const windows[] = {&window};
 const yantra_ui_menu_item menu = {
@@ -699,7 +699,7 @@ const yantra_plugin_descriptor descriptor = {
     YANTRA_PROBE_PLUGIN_VERSION,
     "The Yantra contributors",
     "GPL-3.0-or-later",
-    "REST/WebSocket remote API, fixed-probe summaries and the remote-probes view (PLG-24).",
+    "REST/WebSocket remote API, fixed-probe summaries and the remote-probes view.",
     YANTRA_SOURCE_URL,
     translations,
     probe_init,

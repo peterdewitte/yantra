@@ -186,7 +186,7 @@ TEST_CASE("radio host: a wrong radio API major is refused (RAD-11)") {
     INFO(e.message);
     CHECK(e.status == yr::RadioPluginStatus::Refused);
     CHECK(e.api_version.major == 2);
-    CHECK(e.message.find("RAD-11") != std::string::npos);
+    CHECK(e.message.find("radio API 2.") != std::string::npos);
     CHECK(host.entry("test.fake") == std::nullopt);
     CHECK(host.list().size() == 1);
     CHECK(s.log.has("refused"));

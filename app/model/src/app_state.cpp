@@ -1043,7 +1043,7 @@ Result AppState::add_floor(const std::string& name, int level, double height_m) 
 
 Result AppState::close_project() {
     if (!project_) return fail(tr("No project is open."));
-    if (live_ && live_->exit_guard()) return fail(tr("A recording is running: stop it first (REC-11)."));
+    if (live_ && live_->exit_guard()) return fail(tr("A recording is running: stop it first."));
     const std::string path = project_->path().string();
     if (dialog_ == Dialog::AddFloor || dialog_ == Dialog::Browse || dialog_ == Dialog::FloorProperties ||
         dialog_ == Dialog::RemoveFloor || dialog_ == Dialog::PlanImport)

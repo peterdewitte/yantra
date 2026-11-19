@@ -132,9 +132,9 @@ void Gui::draw_radio_menu() {
     if (ImGui::IsWindowAppearing()) rw->load_plugins();  // PLG-16: the plugins before a search
     const RadioListView v = rw->list_view();
     if (ImGui::MenuItem(tr("Radios...###radio.list"))) (void)rw->open(RadioWindow::List);
-    text_tooltip(tr("The radio plugins and their devices: choose, connect and disconnect a radio (PLG-16)."));
+    text_tooltip(tr("The radio plugins and their devices: choose, connect and disconnect a radio."));
     if (ImGui::MenuItem(tr("Find radios###radio.find"))) (void)rw->find_radios();
-    text_tooltip(tr("Ask every radio plugin which devices it sees now (RAD-30)."));
+    text_tooltip(tr("Ask every radio plugin which devices it sees now."));
     ImGui::Separator();
     std::optional<std::size_t> chosen;
     for (const RadioRow& r : v.radios)
@@ -147,11 +147,11 @@ void Gui::draw_radio_menu() {
         const char* label;
         const char* tip;
     } entries[] = {
-        {RadioWindow::Settings, tr("Settings...###radio.settings"), tr("The chosen radio's settings, built from its descriptors (RAD-40..44).")},
-        {RadioWindow::Debug, tr("Debug...###radio.debug"), tr("The radio's records, counters, events, sensors and log (RAD-14, RAD-24, RAD-25).")},
+        {RadioWindow::Settings, tr("Settings...###radio.settings"), tr("The chosen radio's settings, built from its descriptors.")},
+        {RadioWindow::Debug, tr("Debug...###radio.debug"), tr("The radio's records, counters, events, sensors and log.")},
         {RadioWindow::Calibration, tr("Calibration...###radio.calibration"),
-         tr("The level calibration table, the wizard, verify, frequency error and the reference noise (RF-02, NFR-07).")},
-        {RadioWindow::Info, tr("Device info and self-test...###radio.info"), tr("The plugin, the device and its self-test (RAD-30, RAD-46).")},
+         tr("The level calibration table, the wizard, verify, frequency error and the reference noise.")},
+        {RadioWindow::Info, tr("Device info and self-test...###radio.info"), tr("The plugin, the device and its self-test.")},
     };
     for (const auto& e : entries) {
         if (ImGui::MenuItem(e.label, nullptr, false, reason.empty())) (void)rw->open(e.w, chosen);
@@ -168,7 +168,7 @@ void Gui::draw_radio_menu() {
     for (const PluginRow& p : v.plugins) {
         const bool open = ImGui::BeginMenu((p.name + "###radio.p." + p.id).c_str(), p.usable);
         ActionView pa;
-        pa.tooltip = tr("The devices of this radio plugin and their windows (PLG-16).");
+        pa.tooltip = tr("The devices of this radio plugin and their windows.");
         pa.enabled = p.usable;
         pa.disabled_reason = p.reason;
         item_tooltip(pa);
@@ -190,13 +190,13 @@ void Gui::draw_radio_menu() {
                 const char* suffix;
                 const char* tip;
             } items[] = {{RadioWindow::Settings, tr("Settings..."), ".settings",
-                          tr("The chosen radio's settings, built from its descriptors (RAD-40..44).")},
+                          tr("The chosen radio's settings, built from its descriptors.")},
                          {RadioWindow::Debug, tr("Debug..."), ".debug",
-                          tr("The radio's records, counters, events, sensors and log (RAD-14, RAD-24, RAD-25).")},
+                          tr("The radio's records, counters, events, sensors and log.")},
                          {RadioWindow::Calibration, tr("Calibration..."), ".calibration",
-                          tr("The level calibration table, the wizard, verify, frequency error and the reference noise (RF-02, NFR-07).")},
+                          tr("The level calibration table, the wizard, verify, frequency error and the reference noise.")},
                          {RadioWindow::Info, tr("Device info and self-test..."), ".info",
-                          tr("The plugin, the device and its self-test (RAD-30, RAD-46).")}};
+                          tr("The plugin, the device and its self-test.")}};
             for (const auto& e : items) {
                 if (ImGui::MenuItem((std::string(e.label) + "###" + id + e.suffix).c_str())) (void)rw->open(e.w, r.index);
                 text_tooltip(e.tip);
@@ -277,7 +277,7 @@ void Gui::draw_radio_confirmation(RadioWindows& rw) {
 void Gui::draw_radio_list(RadioWindows& rw) {
     const RadioListView v = rw.list_view();
     if (ImGui::Button(tr("Find radios###radio.list.find"))) (void)rw.find_radios();
-    text_tooltip(tr("Ask every radio plugin which devices it sees now (RAD-30)."));
+    text_tooltip(tr("Ask every radio plugin which devices it sees now."));
     ImGui::SameLine();
     ImGui::TextUnformatted(v.state.c_str());
     wrapped(v.note);
@@ -345,7 +345,7 @@ void Gui::draw_setting_row(RadioWindows& rw, const SettingRow& r) {
     std::string help = d.help;
     if (!d.unit.empty()) help += (help.empty() ? "" : "\n") + std::string(tr("Unit: ")) + d.unit;
     if (d.has(YR_SETTING_RESTART)) help += (help.empty() ? "" : "\n") + std::string(tr("Changes restart the stream."));
-    if (d.has(YR_SETTING_CALIBRATION)) help += (help.empty() ? "" : "\n") + std::string(tr("Part of the calibration key (HW-01b)."));
+    if (d.has(YR_SETTING_CALIBRATION)) help += (help.empty() ? "" : "\n") + std::string(tr("Part of the calibration key."));
     if (!help.empty()) help_marker(help.c_str());
     value_column(em(260.0F));
     ImGui::BeginDisabled(!r.enabled);
@@ -456,7 +456,7 @@ void Gui::draw_setting_row(RadioWindows& rw, const SettingRow& r) {
     if (r.differs) {
         ImGui::Indent(em(260.0F));
         ImGui::TextColored(kWarnColour, tr("Device uses: %s"), r.actual_text.c_str());
-        text_tooltip(tr("The radio took another value than asked (RAD-41): it rounded or limited it."));
+        text_tooltip(tr("The radio took another value than asked: it rounded or limited it."));
         ImGui::Unindent(em(260.0F));
     }
     const auto ie = setting_input_error_.find(d.key);
@@ -605,7 +605,7 @@ void Gui::draw_radio_calibration(RadioWindows& rw) {
         text_tooltip(tr("The generator's levels at the radio's input, comma separated."));
         ImGui::SetNextItemWidth(std::min(em(120.0F), ImGui::GetContentRegionAvail().x));
         ImGui::InputInt(tr("Valid (days)###cal.days"), &f.valid_days);
-        text_tooltip(tr("How long the calibration stays valid (RF-02)."));
+        text_tooltip(tr("How long the calibration stays valid."));
         int readings = static_cast<int>(f.readings);
         ImGui::SetNextItemWidth(std::min(em(120.0F), ImGui::GetContentRegionAvail().x));
         if (ImGui::InputInt(tr("Readings per point###cal.readings"), &readings)) f.readings = static_cast<std::size_t>(std::max(1, readings));
@@ -665,7 +665,7 @@ void Gui::draw_radio_calibration(RadioWindows& rw) {
         if (v.ppm) ImGui::Text(tr("Frequency error: %+.3f ppm"), *v.ppm);
     }
 
-    if (section_header(tr("Reference noise (NFR-07)###cal.noise"), tr("The noise reference of the self-interference warning."),
+    if (section_header(tr("Reference noise###cal.noise"), tr("The noise reference of the self-interference warning."),
                        ImGuiTreeNodeFlags_DefaultOpen)) {
         wrapped(tr("Take the reference with the antenna away from the PC: the self-interference warning compares the "
                 "measured noise with it (else with the thermal floor)."));
@@ -709,7 +709,7 @@ void Gui::draw_radio_info(RadioWindows& rw) {
     if (!draw_header(v.header)) return;
     // The self-test first: the sections below change size as sensors come.
     ImGui::SeparatorText(tr("Self-test"));
-    if (reason_button(tr("Run self-test###info.self_test"), tr("Check the device (RAD-46)."), v.self_test_reason)) (void)rw.run_self_test();
+    if (reason_button(tr("Run self-test###info.self_test"), tr("Check the device."), v.self_test_reason)) (void)rw.run_self_test();
     if (v.self_test_ran && v.self_test.empty()) ImGui::TextDisabled(tr("The radio reported no test items."));
     if (v.self_test_ran && !v.self_test.empty() &&
         ImGui::BeginTable("###info.self_test_table", 3, ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp)) {

@@ -682,13 +682,12 @@ struct RadioHost::Impl : std::enable_shared_from_this<RadioHost::Impl> {
         case detail::ControlThread::Result::Done: break;
         case detail::ControlThread::Result::Timeout:
             fail(rt, std::string(name) + " did not return within " +
-                         std::to_string(lim.count() / 1000.0).substr(0, 4) + " s (RAD-15)");
+                         std::to_string(lim.count() / 1000.0).substr(0, 4) + " s");
             return YR_ERR_FAILED;
         case detail::ControlThread::Result::Refused: return YR_ERR_FAILED;
         }
         if (!valid_status(st)) {
-            fail(rt, std::string(name) + " returned the unknown result code " + std::to_string(st) +
-                         " (RAD-16)");
+            fail(rt, std::string(name) + " returned the unknown result code " + std::to_string(st));
             return YR_ERR_FAILED;
         }
         return st;
@@ -1522,7 +1521,7 @@ RadioPluginEntry RadioHost::load_file(const std::filesystem::path& path) {
     const yr_descriptor* d = entry();
     // RAD-11 first, from the frozen prefix only.
     const std::string refusal = radio::refusal_reason(yr_api_version_compiled(), d);
-    if (!refusal.empty()) return m.refuse(path, refusal + " (RAD-11)", d);
+    if (!refusal.empty()) return m.refuse(path, refusal, d);
     std::vector<std::string> problems = radio::validate_descriptor(d);
     if (d->init == nullptr || d->shutdown == nullptr || d->stream == nullptr || d->device == nullptr ||
         !YR_HAS_FIELD(d->stream, yr_stream_control, last_error) ||

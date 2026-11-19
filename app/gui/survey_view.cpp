@@ -168,7 +168,7 @@ void Gui::draw_recording_controls(LiveSurvey& live) {
     // UI-21: closed by default (the arrow opens it); open while recording.
     if (live.recording()) ImGui::SetNextItemOpen(true, ImGuiCond_Always);
     if (!section_header(tr("Recording###walk.recording"),
-                        tr("Record the measurements into the project (REC-01..03), markers, voice notes and the ring "
+                        tr("Record the measurements into the project, markers, voice notes and the ring "
                            "buffer.")))
         return;
     RecordingForm& f = live.recording_form();
@@ -187,7 +187,7 @@ void Gui::draw_recording_controls(LiveSurvey& live) {
         input_text_hint("###rec.marker_label", tr("Marker label (optional)"), marker_label_, 128);
         text_tooltip(tr("The marker's label (optional)."));
         const std::string why_mark = paused ? tr("The recording is paused.") : "";
-        if (tool_button(tr("Marker###rec.marker"), why_mark, tr("A numbered marker at this instant (REC-05)."))) {
+        if (tool_button(tr("Marker###rec.marker"), why_mark, tr("A numbered marker at this instant."))) {
             (void)state_.show(live.marker(marker_label_));
             marker_label_.clear();
         }
@@ -206,7 +206,7 @@ void Gui::draw_recording_controls(LiveSurvey& live) {
             if (ImGui::Button(b)) (void)state_.show(live.voice_stop(marker_label_));
             text_tooltip(tr("Store the voice note with the label above (optional)."));
         } else if (tool_button(tr("Voice note###rec.voice"), live.voice_reason(),
-                               tr("Speak a note into the recording at this instant (REC-06)."))) {
+                               tr("Speak a note into the recording at this instant."))) {
             (void)state_.show(live.voice_start());
         }
     } else {
@@ -236,7 +236,7 @@ void Gui::draw_recording_controls(LiveSurvey& live) {
         (void)state_.show(live.apply_ring());
     }
     text_tooltip(tr("Keep the last minutes while the radio runs, without a recording; save them when something "
-                 "happened (REC-09)."));
+                 "happened."));
     {
         // The minutes field after the switch when it fits there, else below it.
         const float label = ImGui::CalcTextSize(tr("min###rec.ring_minutes"), nullptr, true).x + ImGui::GetStyle().ItemInnerSpacing.x;
@@ -327,10 +327,10 @@ void Gui::draw_replay_controls() {
     input_text("###replay.cut_name", cut_name_, 128);
     text_tooltip(tr("The name of the cut recording."));
     const std::string why = cut_name_.empty() ? tr("Type a name first.") : "";
-    if (tool_button(tr("Cut: start to cursor###replay.cut_head"), why, tr("Save the part before the cursor as a new recording (REC-08).")))
+    if (tool_button(tr("Cut: start to cursor###replay.cut_head"), why, tr("Save the part before the cursor as a new recording.")))
         (void)state_.show(replay->cut(true, cut_name_));
     same_line_if(label_w(tr("Cut: cursor to end###replay.cut_tail")));
-    if (tool_button(tr("Cut: cursor to end###replay.cut_tail"), why, tr("Save the part after the cursor as a new recording (REC-08).")))
+    if (tool_button(tr("Cut: cursor to end###replay.cut_tail"), why, tr("Save the part after the cursor as a new recording.")))
         (void)state_.show(replay->cut(false, cut_name_));
     if (ImGui::Button(tr("Close replay###replay.close"))) (void)state_.close_replay();
     text_tooltip(tr("Close the recording and go back to the live view."));
@@ -755,7 +755,7 @@ void Gui::draw_stats_panel() {
     if (ImGui::InputDouble(tr("dBm coverage threshold###stats.threshold"), &th, 1.0, 5.0, "%.0f") &&
         th >= kMinThresholdDbm && th <= kMaxThresholdDbm)
         (void)state_.show(state_.set_coverage_threshold(th));
-    text_tooltip(tr("The serving level that counts as covered in the statistics (UI-11); kept in the settings."));
+    text_tooltip(tr("The serving level that counts as covered in the statistics; kept in the settings."));
     const SurveyStats s = state_.monitor()->stats();
     char line[160];
     std::snprintf(line, sizeof line, tr("%.1f %% of the measurements at or above %.0f dBm"), s.percent_above, s.threshold_dbm);

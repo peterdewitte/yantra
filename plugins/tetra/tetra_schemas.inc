@@ -128,7 +128,7 @@ constexpr yantra_field_def kDefTetraCell_encryption = {sizeof(yantra_field_def),
     nullptr, 0, 0};
 constexpr yantra_field_def kDefTetraCell_security_class = {sizeof(yantra_field_def), YANTRA_TYPE_UINT, YANTRA_CATEGORY_SYSTEM_INFO,
     YANTRA_FIELD_OPTIONAL | YANTRA_FIELD_VERIFY, "security_class", "Security class", "",
-    "Security class 1..3 from the service details and the extended services (DEC-10).",
+    "Security class 1..3 from the service details and the extended services.",
     nullptr, 0, 0};
 constexpr yantra_field_def kDefTetraCell_encrypted_blocks = {sizeof(yantra_field_def), YANTRA_TYPE_UINT, YANTRA_CATEGORY_SYSTEM_INFO,
     YANTRA_FIELD_OPTIONAL, "encrypted_blocks", "Encrypted blocks", "",
@@ -244,7 +244,7 @@ constexpr yantra_field_def kDefTetraCell_sim_y_m = {sizeof(yantra_field_def), YA
     nullptr, 0, 0};
 constexpr yantra_field_def kDefTetraCell_channel_assignments = {sizeof(yantra_field_def), YANTRA_TYPE_UINT, YANTRA_CATEGORY_SYSTEM_INFO,
     YANTRA_FIELD_OPTIONAL, "channel_assignments", "Channel assignments", "",
-    "Channel allocations the cell sent during the record interval (DEC-06; counts only).",
+    "Channel allocations the cell sent during the record interval (counts only).",
     nullptr, 0, 0};
 constexpr yantra_enum_item kDefTetraCell_carrier_state_items[] = {
     {0, "candidate", "Candidate"},

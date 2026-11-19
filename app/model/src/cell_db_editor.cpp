@@ -82,7 +82,7 @@ Result parse_neighbours(const std::string& text, std::vector<celldb::NeighbourRe
         out.push_back(std::move(ref));
     }
     if (out.size() > celldb::kMaxNeighbours)
-        return Result{false, tr("A cell has at most ") + std::to_string(celldb::kMaxNeighbours) + tr(" neighbours (DB-01); ") +
+        return Result{false, tr("A cell has at most ") + std::to_string(celldb::kMaxNeighbours) + tr(" neighbours; ") +
                                  std::to_string(out.size()) + tr(" are listed.")};
     return Result{};
 }

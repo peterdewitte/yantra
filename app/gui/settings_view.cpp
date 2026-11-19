@@ -39,7 +39,7 @@ void Gui::draw_settings_general(AppSettings& f) {
         }
         ImGui::EndCombo();
     }
-    text_tooltip(tr("The language of menus, windows, help texts and plugin windows (UI-12)."));
+    text_tooltip(tr("The language of menus, windows, help texts and plugin windows."));
     help_marker(tr("English, Dutch, French or German. Names of cells, floors and projects stay as you typed them. "
                    "See manual 15.1."));
 
@@ -54,7 +54,7 @@ void Gui::draw_settings_general(AppSettings& f) {
     ImGui::RadioButton(tr("High contrast###settings.theme.high_contrast"), &theme, static_cast<int>(Theme::HighContrast));
     text_tooltip(tr("White on black with yellow highlights, readable in sunlight on bright sites."));
     f.theme = static_cast<Theme>(theme);
-    help_marker(tr("The colour theme (UI-13); it changes when you press Apply. See manual 15.1."));
+    help_marker(tr("The colour theme; it changes when you press Apply. See manual 15.1."));
     ImGui::Checkbox(tr("Touch layout###settings.touch"), &f.touch);
     text_tooltip(tr("Large controls of at least 48 pixels with more space between them, for 7 to 12 inch tablets."));
     double percent = f.ui_scale * 100.0;
@@ -79,7 +79,7 @@ void Gui::draw_settings_general(AppSettings& f) {
     ImGui::SetNextItemWidth(combo_w({tr("Automatic"), "X11", "Wayland"}));
     if (ImGui::Combo(tr("Window system###settings.window_system"), &ws, (std::string(tr("Automatic")) + '\0' + "X11" + '\0' + "Wayland" + '\0').c_str()))
         f.window_system = systems[ws];
-    text_tooltip(tr("Which window system Yantra uses on Linux (NFR-10). Applies at the next start."));
+    text_tooltip(tr("Which window system Yantra uses on Linux. Applies at the next start."));
     help_marker(tr("Automatic picks Wayland when the desktop runs it, else X11. The command line option --window-system overrides it."));
 
     // NFR-06: the applied settings, the plugin and device settings and the
@@ -98,7 +98,7 @@ void Gui::draw_settings_survey(AppSettings& f) {
     ImGui::SeparatorText(tr("Coverage"));
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
     ImGui::InputDouble(tr("Coverage threshold (dBm)###settings.threshold"), &f.survey.threshold_dbm, 1.0, 5.0, "%.0f");
-    text_tooltip(tr("The serving level that counts as covered in the statistics and the survey panel (UI-11), -150 to -20 dBm."));
+    text_tooltip(tr("The serving level that counts as covered in the statistics and the survey panel, -150 to -20 dBm."));
 
     ImGui::SeparatorText(tr("Live graphs"));
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
@@ -107,7 +107,7 @@ void Gui::draw_settings_survey(AppSettings& f) {
 
     ImGui::SeparatorText(tr("Ring buffer"));
     ImGui::Checkbox(tr("Ring buffer on when a project opens###settings.ring"), &f.survey.ring);
-    text_tooltip(tr("Keep the last minutes of measurements while no recording runs, to save them afterwards (REC-09)."));
+    text_tooltip(tr("Keep the last minutes of measurements while no recording runs, to save them afterwards."));
     ImGui::SetNextItemWidth(ImGui::GetFontSize() * 8.0F);
     ImGui::InputDouble(tr("Ring buffer length (min)###settings.ring_minutes"), &f.survey.ring_minutes, 1.0, 5.0, "%.0f");
     text_tooltip(tr("How many minutes the ring buffer keeps (2 to 60). A running ring buffer keeps its length."));
@@ -119,7 +119,7 @@ void Gui::draw_settings_survey(AppSettings& f) {
 void Gui::draw_settings_sound(AppSettings& f) {
     SoundSettings& s = f.sound;
     ImGui::Checkbox(tr("Sounds on###settings.sound"), &s.enabled);
-    text_tooltip(tr("Play the sounds below during a live survey (UI-09, UI-10). The popups of level alerts show "
+    text_tooltip(tr("Play the sounds below during a live survey. The popups of level alerts show "
                     "also without sound."));
     help_marker(tr("Yantra plays tones: there is no speech. The level tone is higher for a stronger level "
                    "(300 Hz at -120 dBm to 1500 Hz at -40 dBm). See manual 5.5."));
@@ -218,7 +218,7 @@ void Gui::draw_settings_sound(AppSettings& f) {
 void Gui::draw_plugin_manager() {
     const PluginManagerView v = state_.plugin_manager();
     ImGui::PushTextWrapPos(0.0F);
-    ImGui::TextUnformatted(tr("Switch plugins on or off. A switched-off plugin stays installed and keeps its settings (PLG-09)."));
+    ImGui::TextUnformatted(tr("Switch plugins on or off. A switched-off plugin stays installed and keeps its settings."));
     ImGui::PopTextWrapPos();
     if (v.plugins.empty()) ImGui::TextDisabled(tr("No plugins are installed."));
     const ImGuiTableFlags flags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_SizingStretchProp |
@@ -333,7 +333,7 @@ void Gui::draw_reset_settings() {
     ImGui::TextUnformatted(tr("All settings go back to their defaults and the UI restarts as on the first start."));
     ImGui::PopTextWrapPos();
     ImGui::Checkbox(tr("Also reset the calibration tables###reset.calibration"), &f.also_calibration);
-    text_tooltip(tr("The level calibration of the radios (RF-02). Without it, the calibration stays."));
+    text_tooltip(tr("The level calibration of the radios. Without it, the calibration stays."));
     const ResetSummary s = state_.reset_summary();
     if (ImGui::BeginTable("###reset.lists", 2, ImGuiTableFlags_BordersInnerV)) {
         ImGui::TableSetupColumn(tr("Reset"));

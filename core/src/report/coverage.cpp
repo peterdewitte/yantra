@@ -791,7 +791,7 @@ CoverageReport coverage_report(const project::Project& project, const CoverageOp
                         Tone::Note);
         acceptance_table(d, c, rep.acceptance);
         d.paragraph(c.tr("* the profile's own basis, which decides whether it passes. The floor area is the "
-                         "interpolated map's share of the floor (IND-43), kept apart from the measured points."),
+                         "interpolated map's share of the floor, kept apart from the measured points."),
                     Tone::Note);
         for (const survey::AcceptanceProfile& p : rep.profiles) {
             bool pass = false;

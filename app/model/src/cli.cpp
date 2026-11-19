@@ -137,7 +137,7 @@ std::string usage_text() {
            "                          settings), after a time-stamped backup, and exit; projects,\n"
            "                          recordings, cell databases and calibration are kept\n"
            "  --reset-calibration     with --reset-settings: also reset the calibration table\n"
-           "  --demo                  demo mode (DEMO-01): open the demo project with the simulated\n"
+           "  --demo                  demo mode: open the demo project with the simulated\n"
            "                          radio \"Demo (simulated network)\"; no radio needed\n"
            "  --tour                  start the guided tour (Help > Tour)\n"
            "  --theme THEME           dark, light or high-contrast for this run (screenshots)\n"
