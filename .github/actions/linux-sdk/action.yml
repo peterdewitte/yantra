@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 The Yantra contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# The Linux runner's build tools and the cross SDK in radios/tools/sdk
+# The Linux runner's build tools and the cross SDK in tools/sdk
 # (OA-02, RAD-139): clang and lld of one pinned LLVM release
 # with the Linux and Windows sysroots, made from its lock
 # files (and, for Windows, Yantra's MSYS2 lock) and cached by them; a
@@ -38,7 +38,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: sdk
-        key: yantra-sdk-${{ hashFiles('radios/tools/sdk/*.lock', 'radios/tools/sdk/yantra_sdk.py') }}-${{ inputs.windows == 'true' && hashFiles('tools/windows/msys2.lock') || 'linux' }}-${{ runner.os }}-${{ runner.arch }}
+        key: yantra-sdk-${{ hashFiles('tools/sdk/*.lock', 'tools/sdk/yantra_sdk.py') }}-${{ inputs.windows == 'true' && hashFiles('tools/windows/msys2.lock') || 'linux' }}-${{ runner.os }}-${{ runner.arch }}
     - name: Cross SDK (made from the lock files, else checked)
       shell: bash
       env:
@@ -47,5 +47,5 @@ runs:
         echo "YANTRA_SDK_DIR=$GITHUB_WORKSPACE/sdk" >> "$GITHUB_ENV"
         lock=()
         if [ "$WINDOWS" = true ]; then lock=(--msys2-lock tools/windows/msys2.lock); fi
-        python3 radios/tools/sdk/yantra_sdk.py check --sdk-dir "$GITHUB_WORKSPACE/sdk" "${lock[@]}" ||
-          python3 radios/tools/sdk/yantra_sdk.py make --sdk-dir "$GITHUB_WORKSPACE/sdk" "${lock[@]}"
+        python3 tools/sdk/yantra_sdk.py check --sdk-dir "$GITHUB_WORKSPACE/sdk" "${lock[@]}" ||
+          python3 tools/sdk/yantra_sdk.py make --sdk-dir "$GITHUB_WORKSPACE/sdk" "${lock[@]}"

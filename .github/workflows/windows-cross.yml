@@ -20,7 +20,7 @@ permissions:
   contents: read
 
 env:
-  SDK_KEY: yantra-sdk-${{ hashFiles('radios/tools/sdk/*.lock', 'radios/tools/sdk/yantra_sdk.py') }}
+  SDK_KEY: yantra-sdk-${{ hashFiles('tools/sdk/*.lock', 'tools/sdk/yantra_sdk.py') }}
 
 jobs:
   # Windows x64 (OA-02, TST-02, NFR-09): cross-compiled on Linux with
@@ -40,16 +40,6 @@ jobs:
         with:
           packages: pandoc weasyprint nsis
           windows: "true"
-      - name: Radio parts' bundled-library inputs (PLG-29)
-        id: radios
-        run: echo "commit=$(git rev-parse HEAD:radios/tools/deps)" >> "$GITHUB_OUTPUT"
-      - name: Cache the radio plugin dependency builds (PLG-29)
-        uses: actions/cache@v4
-        with:
-          path: |
-            build/radios-cache
-            build-win/radios-cache
-          key: radios-deps-windows-${{ steps.radios.outputs.commit }}-${{ env.SDK_KEY }}-${{ runner.os }}-${{ runner.arch }}
       - name: Linux tree (build-time data of the Windows tree)
         run: |
           cmake --preset ci
@@ -80,8 +70,6 @@ jobs:
             !build-win/**/*.obj
             !build-win/**/*.a
             !build-win/**/CMakeFiles/
-            !build-win/radios/build/
-            !build-win/radios-cache/
             !build-win/_deps/*.tgz
           if-no-files-found: error
 

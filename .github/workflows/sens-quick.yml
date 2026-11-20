@@ -27,31 +27,22 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
-      - name: Install build tools
+      - name: Build tools and the cross SDK (RAD-139)
+        uses: ./.github/actions/linux-sdk
+      - name: Configure and build the radio parts (RAD-141)
         run: |
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends cmake ninja-build g++ python3 binutils
-      - name: Cache the dependency builds (RAD-136)
-        uses: actions/cache@v4
-        with:
-          path: build/deps
-          key: deps-${{ hashFiles('tools/deps/**', 'third_party/**') }}-${{ runner.os }}-${{ runner.arch }}
-      - name: Static dependency builds (RAD-136)
-        run: tools/deps/build_deps.sh build/deps
-      - name: Configure and build
-        run: |
-          cmake --preset default -DYANTRA_DEPS_PREFIX="$PWD/build/deps"
-          cmake --build --preset default -j "$(nproc)"
+          cmake --preset radio-parts
+          cmake --build --preset radio-parts -j "$(nproc)"
       - name: Sensitivity sweep (label sens)
         env:
           SCENARIOS: ${{ inputs.scenarios }}
           YANTRA_TESTS_OPT_IN: 1
         run: |
-          ctest --test-dir build -L sens --no-tests=error --timeout 3600 \
+          ctest --test-dir build-radios -L sens --no-tests=error --timeout 3600 \
             --output-on-failure ${SCENARIOS:+-R "$SCENARIOS"}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: sens-quick
-          path: build/sens/
+          path: build-radios/sens/
           if-no-files-found: warn

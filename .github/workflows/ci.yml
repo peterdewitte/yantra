@@ -1,9 +1,10 @@
 # SPDX-FileCopyrightText: 2026 The Yantra contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# CI on every push and pull request (TST-02, OA-02): lint (shell, YAML and
-# Python syntax, the workflow files parsed with PyYAML, reuse lint), the
-# Linux x86-64 build with clang from the cross SDK in radios/tools/sdk
+# CI on every push and pull request (TST-02, OA-02, RAD-134): lint (shell,
+# YAML and Python syntax, FFI widths, cargo-deny, the workflow files parsed
+# with PyYAML, reuse lint, the vendored sources against their release
+# archives), the Linux x86-64 build with clang from the cross SDK in tools/sdk
 # (RAD-139; cached by its lock files) and a second job with the
 # system's gcc, both with warnings as errors, then the fast tests (ctest
 # -LE slow, timeout 600 s) with the timing-sensitive tests retried once.
@@ -14,10 +15,13 @@
 # SDK steps are the composite action .github/actions/linux-sdk. The native
 # MSYS2 UCRT64 check is windows.yml; the packages workflow packages.yml. Written and YAML-linted, never
 # run (no remote).
-# The radio parts are in radios/ (PLG-29); their osmo-tetra submodule is
-# checked out with the repository. The ctest run includes the radio parts'
-# own suite (YANTRA_RADIOS_TESTS, RAD-141).
-# Adapted from yantra-radios fb194f5: .github/workflows/ci.yml.
+# One build (PLG-29): the radio parts (radio-api/, plugins/, radio-common/,
+# gen/; osmo-tetra submodule checked out with the repository) are built
+# and tested with the application. The radio plugins' completeness checks
+# (RAD-133) run in the Linux job and again in a bare container
+# (completeness-clean); the radio-parts job builds the radio parts alone
+# (RAD-141). Locally: tools/ci/run_linux.sh (radio parts alone).
+# Merged from yantra-radios fb194f5 and a35ad3d: .github/workflows/ci.yml.
 
 name: ci
 
@@ -34,7 +38,7 @@ permissions:
   contents: read
 
 env:
-  SDK_KEY: yantra-sdk-${{ hashFiles('radios/tools/sdk/*.lock', 'radios/tools/sdk/yantra_sdk.py') }}
+  SDK_KEY: yantra-sdk-${{ hashFiles('tools/sdk/*.lock', 'tools/sdk/yantra_sdk.py') }}
 
 jobs:
   lint:
@@ -46,7 +50,14 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends python3-yaml pipx
           pipx install reuse
-      - name: Shell, Python and YAML syntax
+      - name: Cache cargo-deny
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-deny
+          key: cargo-deny-0.20.2-${{ runner.os }}-${{ runner.arch }}
+      - name: Install cargo-deny
+        run: command -v cargo-deny || cargo install --locked cargo-deny@0.20.2
+      - name: Shell, Python and YAML syntax, FFI widths, cargo-deny
         run: YANTRA_LINT_REQUIRE_TOOLS=1 sh tools/ci/lint.sh
       - name: Workflow YAML parses (PyYAML)
         run: |
@@ -55,6 +66,8 @@ jobs:
               yaml.safe_load(open(f))' .github/workflows/*.yml .github/actions/*/action.yml
       - name: REUSE compliance
         run: reuse lint
+      - name: Vendored sources match their release archives (RAD-136)
+        run: python3 tools/deps/verify_sources.py build/deps-cache
 
   linux-x86-64:
     runs-on: ubuntu-24.04
@@ -64,14 +77,6 @@ jobs:
           submodules: recursive
       - name: Build tools and the cross SDK (OA-02, RAD-139)
         uses: ./.github/actions/linux-sdk
-      - name: Radio parts' bundled-library inputs (PLG-29)
-        id: radios
-        run: echo "commit=$(git rev-parse HEAD:radios/tools/deps)" >> "$GITHUB_OUTPUT"
-      - name: Cache the radio plugin dependency builds (PLG-29)
-        uses: actions/cache@v4
-        with:
-          path: build/radios-cache
-          key: radios-deps-${{ steps.radios.outputs.commit }}-${{ env.SDK_KEY }}-${{ runner.os }}-${{ runner.arch }}
       - name: Configure (warnings are errors)
         run: cmake --preset ci
       - name: Build
@@ -105,6 +110,74 @@ jobs:
           if-no-files-found: ignore
       - name: Timing-sensitive tests (retried once)
         run: ctest --test-dir build -L timing -LE slow --timeout 600 --output-on-failure --repeat until-pass:2
+      - name: Completeness checks of the radio plugins (RAD-133)
+        run: python3 tools/ci/check_completeness.py build/lib/yantra/plugins/radios
+      - name: Conformance kit on every radio plugin (RAD-91)
+        run: |
+          for p in build/lib/yantra/plugins/radios/*.so; do
+            build/bin/yantra-radio-host conformance --plugin "$p" \
+              --report "build/conformance/$(basename "$p" .so).json"
+          done
+      # The radio plugins and the test host (with the kit) for the clean run.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86-64-radio-plugins
+          path: |
+            build/lib/yantra/plugins/radios/
+            build/tests/radio-plugins/
+            build/bin/yantra-radio-host
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86-64-conformance
+          path: build/conformance/
+          if-no-files-found: ignore
+
+  # RAD-133: the radio plugins in a clean environment, without SoapySDR or
+  # vendor packages: a bare container that only gets the built plugins,
+  # the fake-module test builds (RAD-92), the test host and Python. It
+  # re-runs the NEEDED and export checks and the conformance kit on every
+  # plugin where no build dependency is installed. Locally the same script
+  # runs in a bubblewrap sandbox (ctest clean_env_conformance).
+  completeness-clean:
+    needs: linux-x86-64
+    runs-on: ubuntu-24.04
+    container: ubuntu:24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-x86-64-radio-plugins
+          path: kit
+      - name: Install the check tools only
+        run: apt-get update && apt-get install -y --no-install-recommends python3 binutils
+      - name: Completeness checks in a clean container
+        run: python3 tools/ci/check_completeness.py kit/lib/yantra/plugins/radios
+      - name: Conformance kit in a clean container (RAD-91, RAD-133)
+        run: |
+          chmod +x kit/bin/yantra-radio-host
+          python3 tools/ci/clean_env.py --sandbox none --host kit/bin/yantra-radio-host \
+            --plugins kit/lib/yantra/plugins/radios --plugins kit/tests/radio-plugins \
+            --fixture tests/radio/fixtures/soapy/fake_two_cells.json --report-dir conformance
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: linux-x86-64-conformance-clean
+          path: conformance/
+          if-no-files-found: ignore
+
+  # RAD-141: the radio parts alone (radio API, radio plugins, generator,
+  # tools and their tests), without the application or its libraries.
+  radio-parts:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Build tools and the cross SDK (RAD-139)
+        uses: ./.github/actions/linux-sdk
+      - name: Linux steps of the radio parts (warnings are errors)
+        run: tools/ci/run_linux.sh build-radios
 
   linux-x86-64-gcc:
     # OA-02: gcc as the second Linux tree.
@@ -120,14 +193,6 @@ jobs:
             cmake ninja-build g++ python3 python3-yaml binutils pipx libsqlite3-dev libzstd-dev libhpdf-dev pkg-config \
             libglfw3-dev libgl-dev libcurl4-openssl-dev cargo rustc doxygen curl
           pipx install reuse
-      - name: Radio parts' bundled-library inputs (PLG-29)
-        id: radios
-        run: echo "commit=$(git rev-parse HEAD:radios/tools/deps)" >> "$GITHUB_OUTPUT"
-      - name: Cache the radio plugin dependency builds (PLG-29)
-        uses: actions/cache@v4
-        with:
-          path: build-gcc/radios-cache
-          key: radios-deps-${{ steps.radios.outputs.commit }}-gcc-${{ runner.os }}-${{ runner.arch }}
       - name: Configure (warnings are errors)
         run: cmake --preset ci-gcc
       - name: Build

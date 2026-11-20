@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Packages workflow (TST-64, NFR-09, OA-02): everything built with clang
-# from the cross SDK in radios/tools/sdk (RAD-139; made from the
+# from the cross SDK in tools/sdk (RAD-139; made from the
 # lock files and cached, .github/actions/linux-sdk) for Linux x86-64 and
 # Windows x64 (cross-compiled on Linux, windows-cross.yml, the same jobs as
 # ci.yml), the fast tests (Linux on the runner, Windows natively on a
@@ -25,7 +25,13 @@ on:
       - "packaging/**"
       - "tools/windows/**"
       - "CMakePresets.json"
-      - "radios/**"
+      - "radio-api/**"
+      - "radio-common/**"
+      - "plugins/**"
+      - "gen/**"
+      - "tools/deps/**"
+      - "tools/sdk/**"
+      - "third_party/**"
       - ".github/actions/linux-sdk/**"
       - ".github/workflows/packages.yml"
       - ".github/workflows/windows-cross.yml"
@@ -39,7 +45,7 @@ permissions:
   contents: read
 
 env:
-  SDK_KEY: yantra-sdk-${{ hashFiles('radios/tools/sdk/*.lock', 'radios/tools/sdk/yantra_sdk.py') }}
+  SDK_KEY: yantra-sdk-${{ hashFiles('tools/sdk/*.lock', 'tools/sdk/yantra_sdk.py') }}
 
 jobs:
   linux-x86-64:
@@ -60,14 +66,6 @@ jobs:
         uses: ./.github/actions/linux-sdk
         with:
           packages: pandoc weasyprint dpkg-dev
-      - name: Radio parts' bundled-library inputs (PLG-29)
-        id: radios
-        run: echo "commit=$(git rev-parse HEAD:radios/tools/deps)" >> "$GITHUB_OUTPUT"
-      - name: Cache the radio plugin dependency builds (PLG-29)
-        uses: actions/cache@v4
-        with:
-          path: build/radios-cache
-          key: radios-deps-${{ steps.radios.outputs.commit }}-${{ env.SDK_KEY }}-${{ runner.os }}-${{ runner.arch }}
       - name: Configure (warnings are errors)
         run: cmake --preset ci
       - name: Build
@@ -119,7 +117,7 @@ jobs:
           rm -f SHA256SUMS
           sha256sum -- * > SHA256SUMS
       - name: Release notes from CHANGELOG.md
-        run: python3 radios/tools/ci/release_notes.py CHANGELOG.md "$GITHUB_REF_NAME" > notes.md
+        run: python3 tools/ci/release_notes.py CHANGELOG.md "$GITHUB_REF_NAME" > notes.md
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
