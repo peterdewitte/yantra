@@ -574,7 +574,12 @@ TEST_CASE("hackrf: band scan wider than the span retunes and gives every channel
 
 TEST_CASE("hackrf: an averaged FFT of its own samples once a second (SPECTRUM, RAD-140, RAD-60)")
 {
-    Fake f; // paced: real time, as a spectrum is due once a second of host time
+    // Paced: real time, as a spectrum is due once a second of host time.
+    // The sanitizer trees decode slower than real time: a paced fake
+    // overflows there all the time and the decoder never synchronises, so
+    // they read the fake unpaced (the spectra still come once a second of
+    // host time, the records as fast as the samples are decoded).
+    Fake f(YANTRA_TEST_TIME_SCALE == 1 ? "" : R"(,"paced":false)");
     CHECK((f.host->descriptor().capabilities & YR_CAP_SPECTRUM) != 0);
     f.open();
     f.reference_gain();
