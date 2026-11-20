@@ -90,9 +90,11 @@ if(WIN32)
   # (YANTRA_SOURCE_DIR etc.), the shipped programs must not. The
   # application's programs share <build>/bin and import their DLLs
   # (OA-02): the list is the radio folders' programs, collected when every
-  # folder has been read (_yantra_radio_programs_test).
-  cmake_language(DEFER DIRECTORY ${PROJECT_SOURCE_DIR} CALL _yantra_radio_programs_test
-                 "${_check}" "${_platform}")
+  # folder has been read (_yantra_radio_programs_test). A deferred call
+  # expands its arguments when it runs, in the top folder's scope, where
+  # this folder's variables do not exist: EVAL puts their values in now.
+  cmake_language(EVAL CODE "cmake_language(DEFER DIRECTORY [[${PROJECT_SOURCE_DIR}]]
+                            CALL _yantra_radio_programs_test [[${_check}]] [[${_platform}]])")
   set(_shipped "")
   foreach(_p yantra-radio-host yantra-gen yantra-hackrf)
     if(TARGET ${_p})
