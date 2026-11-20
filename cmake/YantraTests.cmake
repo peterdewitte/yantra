@@ -197,3 +197,19 @@ function(yantra_skip_test name)
                    "skipped on ${CMAKE_SYSTEM_NAME}: ${ARG_REASON}")
   set_tests_properties(${name} PROPERTIES SKIP_RETURN_CODE 77 LABELS "skipped;${ARG_LABELS}")
 endfunction()
+
+# yantra_test_radio_plugins(<target>)
+#
+# A test binary of the application side that also loads the radio plugins
+# at run time (the simulator, the fake-SDR builds): it is built after them
+# when the radio parts are built. Without them (YANTRA_BUILD_RADIOS=OFF,
+# the plugins-off build, PLG-30) the binary is still built and run: its
+# cases that need a radio plugin skip themselves (MESSAGE "...: skipped"
+# when the plugin file is missing) or carry the doctest decorator
+# yantra::tests::needs_radio_plugins() (tests/radio_plugins.hpp), which
+# leaves them out of that build.
+function(yantra_test_radio_plugins target)
+  if(TARGET yantra_radio_plugins)
+    add_dependencies(${target} yantra_radio_plugins)
+  endif()
+endfunction()

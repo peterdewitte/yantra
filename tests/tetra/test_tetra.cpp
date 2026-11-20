@@ -28,6 +28,7 @@
 #include <yantra/radio.h>
 #include <yantra/radios/tetra_schemas.hpp>
 
+#include "radio_plugins.hpp"
 #include "tetra_raster.h"
 #include "tetra_rules.h"
 
@@ -484,7 +485,8 @@ TEST_CASE("tetra verification: broadcast codes and exact values (DB-04)") {
     CHECK_FALSE(s.fields[*s.field_index("level")].verify);
 }
 
-TEST_CASE("tetra schemas: every shipped radio plugin's schemas match the technology schemas (PLG-05, PLG-11)") {
+TEST_CASE("tetra schemas: every shipped radio plugin's schemas match the technology schemas (PLG-05, PLG-11)"
+          * yantra::tests::needs_radio_plugins()) {
     std::size_t checked = 0;
     for (const char* name : {"simulator" YANTRA_PLUGIN_SUFFIX, "hackrf" YANTRA_PLUGIN_SUFFIX, "soapysdr" YANTRA_PLUGIN_SUFFIX, "pei" YANTRA_PLUGIN_SUFFIX}) {
         CAPTURE(name);

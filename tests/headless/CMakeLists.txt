@@ -7,10 +7,11 @@
 file(GLOB _srcs CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/test_*.cpp)
 add_executable(test_headless ${_srcs})
 target_link_libraries(test_headless PRIVATE yantra_test_main yantra_warnings yantra::core yantra::json yantra::plugin_api)
-add_dependencies(test_headless yantra_radio_plugins yantra_tetra)
+add_dependencies(test_headless yantra_tetra)
 target_compile_definitions(test_headless PRIVATE
   RADIO_PLUGIN_DIR="${YANTRA_RADIO_PLUGIN_DIR}"
   TETRA_PLUGIN_PATH="$<TARGET_FILE:yantra_tetra>"
   HEADLESS_SCRATCH_DIR="${CMAKE_CURRENT_BINARY_DIR}/scratch")
 yantra_doctest_tests(test_headless GROUP test_headless LABELS fast TIMEOUT 600
   WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
+yantra_test_radio_plugins(test_headless)

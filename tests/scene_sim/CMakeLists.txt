@@ -14,7 +14,7 @@ file(GLOB _srcs CONFIGURE_DEPENDS ${_dir}/test_*.cpp)
 add_executable(test_scene_sim ${_srcs})
 target_link_libraries(test_scene_sim PRIVATE yantra_test_main yantra_warnings yantra::core)
 target_include_directories(test_scene_sim PRIVATE ${PROJECT_SOURCE_DIR}/tests/building)
-add_dependencies(test_scene_sim yantra_radio_plugins)
 target_compile_definitions(test_scene_sim PRIVATE RADIO_PLUGIN_DIR="${YANTRA_RADIO_PLUGIN_DIR}")
 yantra_doctest_tests(test_scene_sim GROUP test_scene_sim LABELS fast TIMEOUT 600
   WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
+yantra_test_radio_plugins(test_scene_sim)

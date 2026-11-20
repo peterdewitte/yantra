@@ -43,7 +43,7 @@ json ask(AppControl& c, const json& request) { return json::parse(c.control("yan
 /// its bound UDP sockets, IPv4 and IPv6 (Linux: /proc; Windows: the IP
 /// helper's tables with their owning process).
 #ifdef _WIN32
-std::size_t listeners() {
+[[maybe_unused]] std::size_t listeners() {
     const DWORD self = GetCurrentProcessId();
     std::size_t n = 0;
     const auto count = [&](auto get, auto table_class, ULONG family, auto per_row) {
@@ -87,7 +87,7 @@ std::size_t listeners() {
     return n;
 }
 #else
-std::size_t listeners() {
+[[maybe_unused]] std::size_t listeners() {
     std::set<std::string> mine;  // socket inodes of our file descriptors
     std::error_code ec;
     for (fs::directory_iterator it("/proc/self/fd", ec), end; !ec && it != end; it.increment(ec)) {
@@ -114,7 +114,7 @@ std::size_t listeners() {
 
 /// The build's technology and feature plugins in a folder of the test's
 /// own; without the probe plugin unless `with_probe`.
-fs::path plugin_copy(const fs::path& dir, bool with_probe) {
+[[maybe_unused]] fs::path plugin_copy(const fs::path& dir, bool with_probe) {
     const fs::path folder = dir / "plugins";
     fs::create_directories(folder);
     for (const auto& e : fs::directory_iterator(YANTRA_TEST_TECH_PLUGIN_DIR))

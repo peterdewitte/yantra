@@ -20,7 +20,7 @@ add_executable(test_measure_host ${_srcs})
 target_link_libraries(test_measure_host PRIVATE yantra_test_main yantra_warnings yantra::core yantra::json
                       yantra_plan_fixtures)
 target_include_directories(test_measure_host PRIVATE ${PROJECT_SOURCE_DIR}/tests/radio_host)
-add_dependencies(test_measure_host fake_radio_v1 yantra_radio_plugins yantra_example_beacon yantra_tetra)
+add_dependencies(test_measure_host fake_radio_v1 yantra_example_beacon yantra_tetra)
 target_compile_definitions(test_measure_host PRIVATE
   FAKE_RADIO_PATH="$<TARGET_FILE:fake_radio_v1>"
   RADIO_PLUGIN_DIR="${YANTRA_RADIO_PLUGIN_DIR}"
@@ -104,3 +104,4 @@ yantra_doctest_tests(test_measure_host GROUP test_measure_host_long LABELS slow 
 # The C test exporter plugin of tests/export, for the batch export (EXP-04).
 add_dependencies(test_measure_host test_rows_exporter)
 target_compile_definitions(test_measure_host PRIVATE ROWS_EXPORTER_PATH="$<TARGET_FILE:test_rows_exporter>")
+yantra_test_radio_plugins(test_measure_host)

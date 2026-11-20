@@ -28,7 +28,7 @@ list(LENGTH YANTRA_RADIO_PLUGINS _yr_shipped_count)
 file(GLOB _srcs CONFIGURE_DEPENDS ${_dir}/test_*.cpp)
 add_executable(test_radio_host ${_srcs})
 target_link_libraries(test_radio_host PRIVATE yantra_test_main yantra_warnings yantra::core)
-add_dependencies(test_radio_host fake_radio_v1 fake_radio_v2 yantra_radio_plugins)
+add_dependencies(test_radio_host fake_radio_v1 fake_radio_v2)
 target_compile_definitions(test_radio_host PRIVATE
   FAKE_RADIO_PATH="$<TARGET_FILE:fake_radio_v1>"
   FAKE_RADIO_V2_PATH="$<TARGET_FILE:fake_radio_v2>"
@@ -39,3 +39,4 @@ target_compile_definitions(test_radio_host PRIVATE
   FAKE_SDR_CONTROL_DIR="${CMAKE_CURRENT_BINARY_DIR}/fake_sdr_control")
 yantra_doctest_tests(test_radio_host GROUP test_radio_host LABELS fast TIMEOUT 600
   WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
+yantra_test_radio_plugins(test_radio_host)

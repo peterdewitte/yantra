@@ -56,6 +56,10 @@ Windows tree is cross-built and packaged).
   `boundary_lint` fails when `app/` or `core/` include or link a plugin
   or `radio-common/`, or the radio parts use `app/`, `core/` or the
   plugin API; `boundary_lint_selftest` proves it finds such violations.
+- The preset `plugins-off` now builds without the radio parts
+  (`YANTRA_BUILD_RADIOS=OFF`: no radio plugin, no `radio-common/`) and
+  without the probe plugin, tests included (PLG-30); the test cases that
+  need a radio plugin are skipped or left out there.
 - The radio plugins' texts (descriptions, setting and sensor help, the
   radio API's validation messages, the radio tools' output) no longer
   show requirement IDs; `ui_lint` now checks every plugin and the radio

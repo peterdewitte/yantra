@@ -82,25 +82,25 @@
     },
     {
       "name": "plugins-off",
-      "displayName": "PLG-01 check: without the probe and the TETRA terminal plugin",
+      "displayName": "PLG-01/PLG-30 check: no radio plugin, no radio-common and no probe plugin",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build-plugins-off",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "YANTRA_PLUGIN_PROBE": "OFF",
-        "YANTRA_RADIOS_PEI": "OFF"
+        "YANTRA_BUILD_RADIOS": "OFF",
+        "YANTRA_PLUGIN_PROBE": "OFF"
       },
       "inherits": "clang-sdk"
     },
     {
       "name": "ci-plugins-off",
-      "displayName": "CI PLG-01 check: without the probe and the TETRA terminal plugin, warnings are errors",
+      "displayName": "CI PLG-01/PLG-30 check: no radio plugin, no radio-common and no probe plugin, warnings are errors",
       "generator": "Ninja",
       "binaryDir": "${sourceDir}/build-plugins-off",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "YANTRA_BUILD_RADIOS": "OFF",
         "YANTRA_PLUGIN_PROBE": "OFF",
-        "YANTRA_RADIOS_PEI": "OFF",
         "YANTRA_WERROR": "ON"
       },
       "inherits": "clang-sdk"

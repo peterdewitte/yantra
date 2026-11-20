@@ -154,10 +154,11 @@ Notes:
   `YANTRA_TEST_TIME_SCALE` (set by the tree) and the real-time tests
   (label `timing`) are left out. They need a lot of memory: on a machine
   with 16 GB run them with `-j4`, one tree at a time (32 GB: `-j"$(nproc)"`).
-- The plugins-off tree (`YANTRA_PLUGIN_PROBE=OFF`, `YANTRA_RADIOS_PEI=OFF`)
-  is the PLG-01 check: the core, indoor and app suites pass without these
-  plugins, and the ctest `plugins_off_check` makes sure neither is in the
-  tree's plugin folders.
+- The plugins-off tree (`YANTRA_BUILD_RADIOS=OFF`, `YANTRA_PLUGIN_PROBE=OFF`)
+  is the PLG-01 and PLG-30 check: no radio plugin, no radio-common and no
+  probe plugin; the core, indoor and app suites build and pass without
+  them (the cases that need a radio plugin are skipped or left out), and
+  the ctest `plugins_off_check` makes sure none of them is in the tree.
 
 ## Tests
 

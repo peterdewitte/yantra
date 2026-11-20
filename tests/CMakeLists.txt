@@ -38,7 +38,15 @@ if(YANTRA_SIMD)
 else()
   set(_yantra_expect_simd 0)
 endif()
+# The radio plugins are built (tests/radio_plugins.hpp; PLG-30: without
+# them the cases that load one are left out).
+if(TARGET yantra_radio_plugins)
+  set(_yantra_radio_plugins 1)
+else()
+  set(_yantra_radio_plugins 0)
+endif()
 target_compile_definitions(yantra_test_main PUBLIC
+  YANTRA_TEST_RADIO_PLUGINS=${_yantra_radio_plugins}
   YANTRA_SOURCE_DIR="${PROJECT_SOURCE_DIR}"
   YANTRA_BINARY_DIR="${PROJECT_BINARY_DIR}"
   YANTRA_TEST_DATA_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures"

@@ -98,16 +98,16 @@ generator are described in
   on `tests/lint/boundary_fixture`, a tree with deliberate violations,
   and fails unless it finds exactly those.
 - Builds that prove it: the radio parts build and test alone
-  (`YANTRA_RADIO_PARTS_ONLY`), and the application builds without any
-  radio part (`YANTRA_BUILD_RADIOS=OFF`, without the tests).
+  (`YANTRA_RADIO_PARTS_ONLY`), and the application builds and passes its
+  tests without any radio part (preset `plugins-off`,
+  `YANTRA_BUILD_RADIOS=OFF`).
 
 ### Build options
 
 | Build | How | What |
 |---|---|---|
 | default | `cmake --preset default` | app, core, every plugin, the radio parts, tools and the whole test suite (clang from the cross SDK) |
-| plugins off | `cmake --preset plugins-off` | without the optional plugins (probe, pei): the core, indoor and app tests still pass (PLG-01) |
-| no radio parts | `-DYANTRA_BUILD_RADIOS=OFF -DYANTRA_BUILD_TESTS=OFF` | the application, core and Yantra's plugins without any radio plugin, `radio-common/` or `gen/` (the tests load the radio plugins) |
+| plugins off | `cmake --preset plugins-off` (`YANTRA_BUILD_RADIOS=OFF`, `YANTRA_PLUGIN_PROBE=OFF`) | no radio plugin, no `radio-common/`, no `gen/` and no probe plugin: the application, core and Yantra's TETRA technology plugin build and their tests pass (PLG-01, PLG-30); test cases that need a radio plugin (the simulator, the fake-SDR builds, the demo projects made with the radio tools) are skipped or left out, and the ctest `plugins_off_check` makes sure no left-out part is in the tree |
 | radio parts only | `cmake --preset radio-parts` (`YANTRA_RADIO_PARTS_ONLY`) | radio API, radio plugins, radio-common, gen, the radio tools and `tests/radio`, without the application; its own install layout and `release` target (RAD-141) |
 | Windows cross | `cmake --preset windows` | the same tree for Windows x64, cross-compiled with the SDK's clang; tests on Windows (BUILD.md "Windows") |
 

@@ -9,7 +9,7 @@
 add_executable(test_tetra test_tetra.cpp)
 target_link_libraries(test_tetra PRIVATE yantra_test_main yantra_warnings yantra::core yantra::tetra_rules)
 target_include_directories(test_tetra PRIVATE ${PROJECT_SOURCE_DIR}/radio-common/radios_common/include)
-add_dependencies(test_tetra yantra_tetra yantra_radio_plugins)
+add_dependencies(test_tetra yantra_tetra)
 target_compile_definitions(test_tetra PRIVATE
   TETRA_PLUGIN_PATH="$<TARGET_FILE:yantra_tetra>"
   TETRA_TESTDATA="${PROJECT_SOURCE_DIR}/plugins/tetra/testdata"
@@ -19,3 +19,4 @@ if("pei" IN_LIST YANTRA_RADIO_PLUGINS)
   target_compile_definitions(test_tetra PRIVATE TETRA_TEST_PEI=1)
 endif()
 yantra_doctest_tests(test_tetra GROUP test_tetra LABELS fast)
+yantra_test_radio_plugins(test_tetra)

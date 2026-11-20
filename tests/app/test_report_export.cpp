@@ -185,7 +185,7 @@ public:
     std::vector<ShareJob> jobs;
 };
 
-AppPaths paths_with_tetra(const fs::path& dir) {
+[[maybe_unused]] AppPaths paths_with_tetra(const fs::path& dir) {
     AppPaths p;
     p.settings_file = dir / "config" / "app.json";
     p.user_data = dir / "data";
@@ -202,7 +202,7 @@ AppPaths paths_with_tetra(const fs::path& dir) {
 }
 
 // Runs the open dialog's job to its end, as the frames do.
-void finish(AppState& st) {
+[[maybe_unused]] void finish(AppState& st) {
     REQUIRE(st.output() != nullptr);
     st.output()->wait();
     st.tick();
