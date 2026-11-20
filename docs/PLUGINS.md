@@ -8,7 +8,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 This guide shows how to write the three kinds of Yantra plugins:
 technology, feature and exporter plugins (PLG-02). The tutorial builds a
 complete technology plugin, the example beacon plugin in
-[`plugins/example_beacon`](../plugins/example_beacon), step by step
+[`plugins/beacon`](../plugins/beacon), step by step
 (PLG-15), and shows how to test a plugin with the plugin test kit
 (PLG-13).
 
@@ -21,7 +21,7 @@ complete technology plugin, the example beacon plugin in
   same interface: [plugins/TETRA.md](plugins/TETRA.md).
 - **Radio plugins** (a receiver that measures and delivers records) are a
   different interface, the radio API of yantra-radios. They are described
-  in [RADIO_PLUGINS.md](../radios/docs/RADIO_PLUGINS.md)
+  in [RADIO_PLUGINS.md](RADIO_PLUGINS.md)
   and tested with that repository's radio test kit.
 
 Every code block below is copied from the compiled sources: the ctest
@@ -91,7 +91,7 @@ The main build compiles the example into `build/lib/yantra/examples`:
 cmake -S . -B build -G Ninja
 ninja -C build yantra_example_beacon yantra-plugin-test
 build/bin/yantra-plugin-test check --plugin build/lib/yantra/examples/example_beacon.so \
-    --records plugins/example_beacon/testdata/beacon.records.jsonl
+    --records plugins/beacon/testdata/beacon.records.jsonl
 ```
 
 The kit prints one line per check and `PASS` at the end. To try the
@@ -107,13 +107,13 @@ The beacon technology is made up. Its records come from the example
 radio plugin of yantra-radios (plugin id `beacon`), which generates and
 measures its own beacon signal. That radio plugin is the example's
 simulated radio (PLG-11), and
-[`testdata/beacon.records.jsonl`](../plugins/example_beacon/testdata/beacon.records.jsonl)
+[`testdata/beacon.records.jsonl`](../plugins/beacon/testdata/beacon.records.jsonl)
 is a record file it recorded.
 
 ## Tutorial: a technology plugin
 
 The example is one C file,
-[`beacon_technology.c`](../plugins/example_beacon/beacon_technology.c),
+[`beacon_technology.c`](../plugins/beacon/beacon_technology.c),
 that includes only `yantra/plugin.h`. Its five parts follow.
 
 ### 1. Schemas
@@ -149,7 +149,7 @@ such as a neighbour's location area or network code may be linked, and a
 plugin that does so declares API 1.2
 ([PLUGIN_API_CHANGELOG.md](PLUGIN_API_CHANGELOG.md#12)).
 
-<!-- snippet: plugins/example_beacon/beacon_technology.c#schema -->
+<!-- snippet: plugins/beacon/beacon_technology.c#schema -->
 ```c
 static const yantra_enum_item roles[] = {
     {1, "serving", "Serving"}, {2, "neighbour", "Neighbour"}, {3, "other", "Other"}};
@@ -240,7 +240,7 @@ channel numbers and frequencies. A technology whose raster is not a plain
 grid gives the two conversion functions as a pair; the example does so to
 show the pattern. The kit checks that the functions and the bands agree.
 
-<!-- snippet: plugins/example_beacon/beacon_technology.c#bands -->
+<!-- snippet: plugins/beacon/beacon_technology.c#bands -->
 ```c
 #define BEACON_BASE_HZ 430000000u
 #define BEACON_RASTER_HZ 25000u
@@ -294,7 +294,7 @@ has type `YANTRA_TYPE_NONE`. A rule that cannot answer returns
 
 C1, the path-loss criterion Yantra shows and stores (RF-06):
 
-<!-- snippet: plugins/example_beacon/beacon_technology.c#c1 -->
+<!-- snippet: plugins/beacon/beacon_technology.c#c1 -->
 ```c
 /* Made-up beacon access rule: a terminal may use a beacon when
  *   C1 = (level - BEACON_ACCESS_MIN_DBM) - max(0, MS power - beacon TX power)
@@ -333,7 +333,7 @@ Reselection (DB-08): from the serving cell and the neighbours seen, the
 rule names the cell the terminal would move to and the serving cell's
 state, with a reason Yantra shows:
 
-<!-- snippet: plugins/example_beacon/beacon_technology.c#reselect -->
+<!-- snippet: plugins/beacon/beacon_technology.c#reselect -->
 ```c
 /* Serving-cell states of reselection (DB-08) and the made-up rule: the
  * terminal moves to the neighbour with the best C1 when it beats the
@@ -385,7 +385,7 @@ static yantra_status reselect(yantra_plugin_instance* instance,
 Parameter verification (DB-04) compares a received VERIFY field with the
 stored one; without the function Yantra compares exactly:
 
-<!-- snippet: plugins/example_beacon/beacon_technology.c#values_match -->
+<!-- snippet: plugins/beacon/beacon_technology.c#values_match -->
 ```c
 /* Parameter verification (DB-04): the announced TX power may differ by
  * 1 dB from the stored value (rounding in the beacon); everything else
@@ -420,7 +420,7 @@ static yantra_status values_match(yantra_plugin_instance* instance, uint32_t sch
 The technology table puts it together. Its `technology_id` must equal the
 `technology_id` of the radio plugins that measure this technology:
 
-<!-- snippet: plugins/example_beacon/beacon_technology.c#technology -->
+<!-- snippet: plugins/beacon/beacon_technology.c#technology -->
 ```c
 static const yantra_technology_api technology = {
     sizeof(yantra_technology_api),
@@ -455,7 +455,7 @@ own style, so they follow the theme, the touch layout and the language
 control needs the reason (DOC-07). `draw` runs on the UI thread, once per
 frame, and must be quick.
 
-<!-- snippet: plugins/example_beacon/beacon_technology.c#ui -->
+<!-- snippet: plugins/beacon/beacon_technology.c#ui -->
 ```c
 struct yantra_plugin_instance {
     const yantra_host_api* host;
@@ -536,7 +536,7 @@ windows close and its menu entries go.
 
 The English texts are the translation keys. The plugin ships Dutch,
 French and German for every text and for every schema and field label
-([`beacon_translations.inc`](../plugins/example_beacon/beacon_translations.inc),
+([`beacon_translations.inc`](../plugins/beacon/beacon_translations.inc),
 UI-12); the kit lists the texts that miss one.
 
 ### 5. Descriptor and entry point
@@ -546,7 +546,7 @@ licence must be a GPL-3.0-compatible SPDX expression (PLG-10); Yantra
 refuses other plugins. `init` runs once on the main thread and keeps the
 host table, which holds the services (log, settings, notifications):
 
-<!-- snippet: plugins/example_beacon/beacon_technology.c#descriptor -->
+<!-- snippet: plugins/beacon/beacon_technology.c#descriptor -->
 ```c
 /* One instance per load (Yantra loads a plugin once); static storage. */
 static struct yantra_plugin_instance the_instance;
@@ -600,7 +600,7 @@ The entry point only checks the API major version and returns the
 descriptor. Yantra checks the rest (PLG-03, PLG-04) and refuses a plugin
 with a clear message in the plugin manager when something is wrong:
 
-<!-- snippet: plugins/example_beacon/beacon_technology.c#entry -->
+<!-- snippet: plugins/beacon/beacon_technology.c#entry -->
 ```c
 /* The only exported symbol (PLG-03). It only checks the version and hands
  * over the descriptor; Yantra checks the rest and then calls init. */
@@ -617,7 +617,7 @@ YANTRA_PLUGIN_EXPORT const yantra_plugin_descriptor* yantra_plugin_entry(
 ```
 
 Build it as a module with only the entry point visible, as in
-[`plugins/example_beacon/CMakeLists.txt`](../plugins/example_beacon/CMakeLists.txt)
+[`plugins/beacon/CMakeLists.txt`](../plugins/beacon/CMakeLists.txt)
 or the out-of-tree template below.
 
 ## Feature plugins
@@ -746,8 +746,8 @@ without it levels stay in dBFS and records are flagged uncalibrated.
 
 ```sh
 build/bin/yantra-plugin-test check --plugin build/lib/yantra/examples/example_beacon.so \
-    --records plugins/example_beacon/testdata/beacon.records.jsonl \
-    --golden plugins/example_beacon/testdata/beacon.golden.json \
+    --records plugins/beacon/testdata/beacon.records.jsonl \
+    --golden plugins/beacon/testdata/beacon.golden.json \
     --strict-translations --json report.json
 build/bin/yantra-plugin-test info --plugin build/lib/yantra/examples/example_beacon.so
 ```

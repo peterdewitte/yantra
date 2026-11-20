@@ -18,7 +18,7 @@
 #   - every "manual N.M" a text refers to is a section of the manual
 #     (app/model/src/manual.cpp and a "## N.M" heading in docs/manual), and
 #     its translation refers to the same sections;
-#   - no text, translation, plugin text (plugins/*: descriptors, schemas,
+#   - no text, translation, plugin text (Yantra's plugins: descriptors, schemas,
 #     translation tables), demo project description (data/demo) or
 #     committed sample report (docs/samples) shows a requirement ID such as
 #     "IND-43" or "REC-01..03": customers see these texts, and the IDs
@@ -40,7 +40,9 @@ MARKS = re.compile(r"TODO|FIXME|XXX|TRANSLATE|\?\?\?|<<|>>|\[(?:nl|fr|de|en)\]",
 # The requirement ID prefixes of the specs (Yantra and radios).
 REQUIREMENT_ID = re.compile(r"\b(?:API|BRD|DB|DEC|DEMO|DOC|EXP|FUN|GEO|HW|IND|NFR|OA|PLG|PP|RAD|REC|RF|SCR|TRM|TST|UI)-[0-9]{1,3}\b"
                             r"|\b(?:API|BRD|DB|DEC|DEMO|DOC|EXP|FUN|GEO|HW|IND|NFR|OA|PLG|PP|RAD|REC|RF|SCR|TRM|TST|UI)-[0-9]{1,3}[a-z.]")
-PLUGIN_DIRS = ("plugins",)
+# Yantra's own plugins (the radio plugins' texts follow the radio parts'
+# rules, RAD-40; PLG-29 put both in plugins/).
+PLUGIN_DIRS = ("plugins/tetra", "plugins/probe", "plugins/beacon")
 DEMO_TEXT_KEYS = ("name", "site", "operator_name", "notes", "label", "title", "shows", "address", "surveyor")
 ESCAPES = {"n": "\n", "t": "\t", '"': '"', "\\": "\\", "'": "'", "?": "?", "0": "\0"}
 

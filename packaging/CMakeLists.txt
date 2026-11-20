@@ -29,7 +29,7 @@ endif()
 # package_windows_setup (a silent install, the installed programs, a
 # silent uninstall), packaging/windows/smoke_test.py.
 if(WIN32 AND CMAKE_CROSSCOMPILING AND YANTRA_BUILD_APP AND YANTRA_SANITIZER STREQUAL ""
-   AND NOT YANTRA_RADIOS_KIND STREQUAL "none" AND YANTRA_PLUGIN_PROBE AND YANTRA_RADIOS_PEI)
+   AND YANTRA_BUILD_RADIOS AND YANTRA_PLUGIN_PROBE AND YANTRA_RADIOS_PEI)
   find_program(YANTRA_MAKENSIS makensis)
   set(_win_package ${PROJECT_BINARY_DIR}/package/yantra-${PROJECT_VERSION}-windows-x86_64)
   add_custom_target(package-windows
@@ -39,7 +39,7 @@ if(WIN32 AND CMAKE_CROSSCOMPILING AND YANTRA_BUILD_APP AND YANTRA_SANITIZER STRE
             --strip ${CMAKE_STRIP} --cmake ${CMAKE_COMMAND} --makensis ${YANTRA_MAKENSIS} --ico ${YANTRA_ICO}
             --pdfium-version "${YANTRA_PDFIUM_VERSION}"
             --msys2-lock ${PROJECT_SOURCE_DIR}/tools/windows/msys2.lock
-            --msys2-lock ${YANTRA_RADIOS_DIR}/tools/sdk/msys2.lock
+            --msys2-lock ${PROJECT_SOURCE_DIR}/tools/sdk/msys2.lock
     COMMENT "Windows zip and setup .exe in ${PROJECT_BINARY_DIR}/package (NFR-09)"
     VERBATIM)
   # The PDF manual (DOC-02a) goes in through the install rule (docs/).
@@ -72,7 +72,7 @@ if(WIN32 AND CMAKE_CROSSCOMPILING AND YANTRA_BUILD_APP AND YANTRA_SANITIZER STRE
 endif()
 
 if(NOT CMAKE_SYSTEM_NAME STREQUAL "Linux" OR NOT YANTRA_BUILD_APP OR NOT YANTRA_SANITIZER STREQUAL ""
-   OR YANTRA_RADIOS_KIND STREQUAL "none" OR NOT YANTRA_PLUGIN_PROBE OR NOT YANTRA_RADIOS_PEI)
+   OR NOT YANTRA_BUILD_RADIOS OR NOT YANTRA_PLUGIN_PROBE OR NOT YANTRA_RADIOS_PEI)
   return()
 endif()
 add_custom_target(deb

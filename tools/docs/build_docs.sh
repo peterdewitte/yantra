@@ -97,20 +97,19 @@ build_page() {  # build_page SRC.md  -> OUT/<same path>.html
   pages=$((pages + 1))
 }
 
-for f in README.md BUILD.md ARCHITECTURE.md CONTRIBUTING.md CHANGELOG.md THIRD_PARTY.md; do
+for f in README.md BUILD.md ARCHITECTURE.md CONTRIBUTING.md CONTRIBUTORS.md CHANGELOG.md THIRD_PARTY.md; do
   if [ -f "$root/$f" ]; then build_page "$root/$f"; fi
 done
 while IFS= read -r f; do build_page "$f"; done < <(find "$root/docs" -name '*.md' | sort)
 # Pages outside docs/ that the docs link to: the demo plan's source and
-# licence, and the Markdown pages of the radio parts in radios/ (radio
-# plugins, record files, scene format; without its third_party/ and
-# build trees; PLG-29).
+# licence, and the Markdown pages next to the code (the README of each
+# plugin, of the radio API and of the radio parts' common code, tools,
+# data; PLG-29), without third_party/ and Rust build output.
 if [ -f "$root/data/demo/fraunces/README.md" ]; then build_page "$root/data/demo/fraunces/README.md"; fi
-radios=$root/radios
-if [ -d "$radios" ]; then
-  while IFS= read -r f; do build_page "$f"; done < <(find "$radios" \( -path "$radios/third_party" -o \
-      -path "$radios/build*" -o -path "$radios/sdk" -o -path "$radios/sdk-cache" -o -path "$radios/.git" -o -name target \) -prune -o -name '*.md' -print | sort)
-fi
+for d in radio-api plugins radio-common gen tools udev tests/radio; do
+  [ -d "$root/$d" ] || continue
+  while IFS= read -r f; do build_page "$f"; done < <(find "$root/$d" -name target -prune -o -name '*.md' -print | sort)
+done
 
 # The manual on one page: its README (Yantra logo, title, introduction,
 # chapter list; BRD-06 title page) before the table of contents, then the

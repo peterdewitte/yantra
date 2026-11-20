@@ -1,11 +1,19 @@
 # SPDX-FileCopyrightText: 2026 The Yantra contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Repository lint under ctest (TST-02 lint job, NFR-01): shell, Python and
-# YAML syntax (tools/ci/lint.sh) and REUSE compliance.
+# Repository lint under ctest (TST-02 lint job, RAD-134, NFR-01): shell,
+# Python and YAML syntax, the Rust crate's cargo-deny check and the FFI
+# width/layout check of RAD-90 (tools/ci/lint.sh), and REUSE compliance,
+# for the whole repository (the radio-parts-only build runs the same two
+# from tests/radio/lint). The lint shares the cargo build folder of
+# rust_cargo_test (cargo locks it, so both may run at the same time).
 # Copied from yantra-radios fb194f5: tests/lint/CMakeLists.txt, adapted.
 add_test(NAME repo_lint COMMAND ${YANTRA_BUILD_HOST_TEST} sh ${PROJECT_SOURCE_DIR}/tools/ci/lint.sh ${PROJECT_SOURCE_DIR})
-set_tests_properties(repo_lint PROPERTIES LABELS "fast;lint" TIMEOUT 300)
+set(_lint_env "YANTRA_LINT_CARGO_TARGET_DIR=${PROJECT_BINARY_DIR}/cargo" "CC=${CMAKE_C_COMPILER}" ${YANTRA_CARGO_ENV})
+if(YANTRA_CARGO_EXECUTABLE)
+  list(APPEND _lint_env "YANTRA_LINT_CARGO=${YANTRA_CARGO_EXECUTABLE}")
+endif()
+set_tests_properties(repo_lint PROPERTIES LABELS "fast;lint" TIMEOUT 300 ENVIRONMENT "${_lint_env}")
 
 find_program(YANTRA_REUSE_EXECUTABLE reuse)
 if(YANTRA_REUSE_EXECUTABLE)

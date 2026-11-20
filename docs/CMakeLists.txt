@@ -128,17 +128,20 @@ if(YANTRA_BUILD_TESTS)
                    ${PROJECT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR}/manual-faults)
   set_tests_properties(docs_manual_faults PROPERTIES LABELS "docs" SKIP_RETURN_CODE 77 TIMEOUT 300)
 endif()
-install(FILES ${YANTRA_MANUAL_PDF} DESTINATION share/doc/yantra OPTIONAL)
 
-# Installed documentation: the method and legal notes next to the manual
-# and quick starts (share/yantra, the manual links ../METHOD.md and
-# ../LEGAL.md), the changelog, and the built site with the manual PDF
-# (DOC-02) in share/doc/yantra/html when `ninja docs` ran.
-install(FILES ${PROJECT_SOURCE_DIR}/docs/METHOD.md ${PROJECT_SOURCE_DIR}/docs/LEGAL.md
-        DESTINATION share/yantra)
-install(FILES ${PROJECT_SOURCE_DIR}/CHANGELOG.md DESTINATION share/doc/yantra)
-install(DIRECTORY ${YANTRA_DOCS_SITE}/ DESTINATION share/doc/yantra/html OPTIONAL
-        PATTERN "build.log" EXCLUDE PATTERN "external-links.txt" EXCLUDE)
+# Installed documentation: the manual PDF, the method and legal notes next
+# to the manual and quick starts (share/yantra, the manual links
+# ../METHOD.md and ../LEGAL.md), the changelog, and the built site with the
+# manual PDF (DOC-02) in share/doc/yantra/html when `ninja docs` ran. Not
+# in the radio-parts-only build (RAD-141).
+if(NOT YANTRA_RADIO_PARTS_ONLY)
+  install(FILES ${YANTRA_MANUAL_PDF} DESTINATION share/doc/yantra OPTIONAL)
+  install(FILES ${PROJECT_SOURCE_DIR}/docs/METHOD.md ${PROJECT_SOURCE_DIR}/docs/LEGAL.md
+          DESTINATION share/yantra)
+  install(FILES ${PROJECT_SOURCE_DIR}/CHANGELOG.md DESTINATION share/doc/yantra)
+  install(DIRECTORY ${YANTRA_DOCS_SITE}/ DESTINATION share/doc/yantra/html OPTIONAL
+          PATTERN "build.log" EXCLUDE PATTERN "external-links.txt" EXCLUDE)
+endif()
 
 # SCR-06: `ninja captures` makes the animated capture of the indoor
 # workflow (docs/img/indoor_workflow.gif and .webm, under 10 s) from the
@@ -156,9 +159,75 @@ if(TARGET yantra)
   endif()
 endif()
 
+# The radio parts' documentation (RAD-97, RAD-135; PLG-29), when they are
+# built:
+#   doc_snippets_radio  the code quoted in docs/RADIO_PLUGINS.md is the
+#                       compiled code of the beacon example radio plugin
+#                       (plugins/example, RAD-64)
+#   plugin_docs         the radio plugin pages docs/plugins/{hackrf,pei,
+#                       simulator,soapysdr}.md (settings, presets,
+#                       sensors, self-test items) and the record schema
+#                       tables of docs/TETRA_RECORDS.md against what the
+#                       built plugins report; `ninja update-plugin-docs`
+#                       rewrites their generated blocks. Not in the
+#                       sanitizer trees (the self-test stream items time
+#                       out differently there).
+#   docs-radios-manual  the radio plugins manual as one PDF,
+#                       <build>/docs/radios-manual/yantra-radios-manual-<version>.pdf
+#                       (tools/docs/build_radio_manual.py: pandoc and
+#                       WeasyPrint); ctest radios_manual builds and checks
+#                       it into its own folder, radios_manual_faults checks
+#                       that the checker finds faults. Both report Skipped
+#                       without pandoc or WeasyPrint.
+# The radio API reference (docs-radio-api) is built in radio-api/.
+if(YANTRA_BUILD_RADIOS)
+  find_package(Python3 COMPONENTS Interpreter QUIET)
+  if(YANTRA_RADIOS_BUILD_TESTS)
+    add_test(NAME doc_snippets_radio
+             COMMAND ${YANTRA_BUILD_HOST_TEST} ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/ci/check_doc_snippets.py
+                     ${PROJECT_SOURCE_DIR} ${PROJECT_SOURCE_DIR}/docs/RADIO_PLUGINS.md)
+    set_tests_properties(doc_snippets_radio PROPERTIES LABELS "fast;lint;docs")
+  endif()
+  if(NOT WIN32 AND YANTRA_RADIOS_BUILD_TESTS AND YANTRA_SANITIZER STREQUAL ""
+     AND TARGET hackrf_fake AND TARGET soapysdr_fake AND TARGET pei AND TARGET yantra-pei-sim
+     AND TARGET simulator)
+    set(_plugin_docs ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/ci/plugin_docs.py
+                     ${PROJECT_SOURCE_DIR} ${PROJECT_BINARY_DIR})
+    add_test(NAME plugin_docs COMMAND ${_plugin_docs})
+    set_tests_properties(plugin_docs PROPERTIES LABELS "fast;docs" TIMEOUT 300)
+    add_custom_target(update-plugin-docs
+      COMMAND ${_plugin_docs} --update
+      DEPENDS yantra-radio-host yantra-pei-sim hackrf_fake soapysdr_fake pei simulator hackrf soapysdr
+      COMMENT "Rewriting the generated blocks of docs/plugins/*.md"
+      VERBATIM)
+  elseif(WIN32 AND YANTRA_RADIOS_BUILD_TESTS)
+    yantra_skip_test(plugin_docs REASON "the checker drives the Linux tree's .so plugins and programs; the pages are checked in the Linux trees, the plugins are the same code")
+  endif()
+  set(YANTRA_RADIOS_MANUAL ${CMAKE_CURRENT_BINARY_DIR}/radios-manual/yantra-radios-manual-${YANTRA_RADIOS_VERSION}.pdf
+      CACHE INTERNAL "The radio plugins' PDF manual (ninja docs-radios-manual)")
+  add_custom_target(docs-radios-manual
+    COMMAND ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/docs/build_radio_manual.py
+            --source ${PROJECT_SOURCE_DIR} --out ${CMAKE_CURRENT_BINARY_DIR}/radios-manual --version ${YANTRA_RADIOS_VERSION}
+    COMMENT "PDF manual of the radio plugins in ${YANTRA_RADIOS_MANUAL}"
+    VERBATIM)
+  if(YANTRA_RADIOS_BUILD_TESTS)
+    add_test(NAME radios_manual
+             COMMAND ${YANTRA_BUILD_HOST_TEST} ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/docs/build_radio_manual.py
+                     --source ${PROJECT_SOURCE_DIR} --out ${CMAKE_CURRENT_BINARY_DIR}/radios-manual-check
+                     --version ${YANTRA_RADIOS_VERSION})
+    add_test(NAME radios_manual_faults
+             COMMAND ${YANTRA_BUILD_HOST_TEST} ${Python3_EXECUTABLE} -B
+                     ${PROJECT_SOURCE_DIR}/tests/radio/docs/check_manual_faults.py ${PROJECT_SOURCE_DIR}
+                     ${CMAKE_CURRENT_BINARY_DIR}/radios-manual-faults)
+    set_tests_properties(radios_manual radios_manual_faults PROPERTIES
+      LABELS "docs" SKIP_RETURN_CODE 77 TIMEOUT 600)
+  endif()
+endif()
+
 # Checks of the sources and the build machine's tools: build_host in a
 # cross-compiled tree (top-level CMakeLists.txt).
-foreach(_t plugin_api_doxygen doc_snippets doc_links doc_images docs_build docs_manual_faults)
+foreach(_t plugin_api_doxygen doc_snippets doc_links doc_images docs_build docs_manual_faults
+           doc_snippets_radio radios_manual radios_manual_faults)
   if(TEST ${_t})
     yantra_build_host_tests(${_t})
   endif()

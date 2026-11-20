@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Release packaging (RAD-98, RAD-134 release.yml, RAD-137):
+#   <out>/yantra-radios-<version>-<platform>.tar.gz (Linux, .so plugins)
+#   <out>/yantra-radios-<version>-<platform>.zip (platform windows-*: the
+#       Windows tree, preset "windows": .dll plugins and .exe programs)
+#       the install tree of <build> (cmake --install, prefix "."):
+#       lib/yantra-radios/plugins/ the self-contained plugins (RAD-132;
+#       not the example or the test builds), bin/ yantra-radio-host,
+#       yantra-gen and yantra-hackrf, share/yantra-radios/scenarios,
+#       lib/udev/rules.d and lib/modprobe.d (RAD-99), the docs (with the
+#       PDF manual of `ninja docs-manual` when it is there, RAD-97), and the
+#       licence bundle share/licenses/yantra-radios (licence_bundle.py:
+#       LICENSE, LICENSES/, THIRD_PARTY.md, every bundled library's texts,
+#       BUNDLE.md), so the licences ship next to the libraries
+#   <out>/yantra-radios-<version>-source.tar.gz (linux platforms only)
+#       the complete corresponding source (RAD-137): this repository at
+#       HEAD with every submodule at its pinned commit (without
+#       osmo-tetra's crypto/, never built), and upstream/ with the release
+#       archives of tools/deps/manifest.tsv that the vendored subsets come
+#       from, each checked against its SHA-256 (upstream/SHA256SUMS)
+# The archives come from the cache folder of tools/deps/verify_sources.py
+# ($YANTRA_DEPS_CACHE, default <source>/build/deps-cache; that script
+# downloads them). YANTRA_RELEASE_NO_UPSTREAM=1 leaves upstream/ out (for
+# tests without the cache); a release never sets it.
+# Usage: tools/ci/package_release.sh <build-dir> <out-dir> <version> <platform>
+set -euo pipefail
+build=${1:?usage: package_release.sh <build-dir> <out-dir> <version> <platform>}
+out=${2:?out-dir}
+version=${3:?version}
+platform=${4:?platform}
+root=$(cd "$(dirname "$0")/../.." && pwd)
+build=$(cd "$build" && pwd)
+mkdir -p "$out"
+out=$(cd "$out" && pwd)
+cache=${YANTRA_DEPS_CACHE:-$root/build/deps-cache}
+name=yantra-radios-${version}-${platform}
+stage=$(mktemp -d)
+trap 'rm -rf "$stage"' EXIT INT TERM
+
+if [ -n "$(git -C "$root" status --porcelain --untracked-files=no)" ]; then
+    echo "package_release: warning: uncommitted changes; the source archive is HEAD without them" >&2
+fi
+
+pkg=$stage/$name
+DESTDIR= cmake --install "$build" --prefix "$pkg" >/dev/null
+for f in "$pkg"/lib/yantra-radios/plugins/*; do
+    [ -f "$f" ] || { echo "package_release: no plugins installed" >&2; exit 1; }
+done
+[ -f "$pkg/share/licenses/yantra-radios/BUNDLE.md" ] \
+    || { echo "package_release: no licence bundle" >&2; exit 1; }
+[ -f "$build/deps/deps-manifest.tsv" ] && cp "$build/deps/deps-manifest.tsv" "$pkg/share/licenses/yantra-radios/"
+# The PDF manual (RAD-97) when `ninja docs-manual` made it; a release
+# (make_release.sh) requires it.
+manual=$build/docs/radios-manual/yantra-radios-manual-${version#v}.pdf
+if [ -f "$manual" ]; then
+    mkdir -p "$pkg/share/doc/yantra-radios"
+    cp "$manual" "$pkg/share/doc/yantra-radios/"
+fi
+# No file of the package names a folder of this machine (no personal data;
+# tools/deps/deps.cmake, check_completeness.py build_paths).
+# The cross SDK too (a link sdk/ or $YANTRA_SDK_DIR, often outside the
+# tree; tests/radio/completeness shipped_paths checks the same in every tree).
+forbid=(-e "$root" -e "$build")
+case ${HOME:-} in /*/*) forbid+=(-e "${HOME%/}") ;; esac
+for sdk in "${YANTRA_SDK_DIR:-}" "$root/sdk"; do
+    [ -n "$sdk" ] && [ -e "$sdk" ] || continue
+    sdk=$(cd "$sdk" && pwd -P)
+    case $sdk in /*/*) forbid+=(-e "$sdk") ;; esac
+done
+# An asan-ubsan tree is packaged only by its test: AddressSanitizer
+# keeps each source file's full path.
+if ! grep -q '^YANTRA_SANITIZER:.*=asan-ubsan$' "$build/CMakeCache.txt" \
+    && paths=$(grep -rlaF "${forbid[@]}" "$pkg"); then
+    echo "package_release: these files name a folder of this machine:" >&2
+    echo "$paths" >&2
+    exit 1
+fi
+case $platform in
+    windows*)
+        rm -f "$out/$name.zip"
+        (cd "$stage" && python3 -m zipfile -c "$out/$name.zip" "$name")
+        echo "package_release: $out/$name.zip"
+        ;;
+    *)
+        tar -C "$stage" -czf "$out/$name.tar.gz" "$name"
+        echo "package_release: $out/$name.tar.gz"
+        ;;
+esac
+
+case $platform in
+    linux*)
+        src=yantra-radios-${version}-source
+        srcstage=$stage/src
+        mkdir -p "$srcstage"
+        git -C "$root" archive --prefix="$src/" HEAD | tar -C "$srcstage" -xf -
+        git -C "$root" submodule foreach --quiet --recursive \
+            'git archive --prefix="'"$src"'/$displaypath/" HEAD | tar -C "'"$srcstage"'" -xf -'
+        # osmo-tetra's crypto/ is never built or used (scope 16.5), so it
+        # is not part of the corresponding source either.
+        rm -rf "${srcstage:?}/$src/third_party/osmo-tetra/src/crypto"
+        if [ "${YANTRA_RELEASE_NO_UPSTREAM:-0}" != 1 ]; then
+            up=$srcstage/$src/upstream
+            mkdir -p "$up"
+            : > "$up/SHA256SUMS"
+            grep -v '^#' "$root/tools/deps/manifest.tsv" | while IFS=$'\t' read -r n _v _l _f url sha; do
+                [ -n "$n" ] && [ "$url" != "-" ] || continue
+                file=${url##*/}
+                if [ ! -f "$cache/$file" ]; then
+                    echo "package_release: $file not in $cache (run tools/deps/verify_sources.py)" >&2
+                    exit 1
+                fi
+                echo "$sha  $file" >> "$up/SHA256SUMS"
+                cp "$cache/$file" "$up/$file"
+            done
+            (cd "$up" && sha256sum --quiet -c SHA256SUMS) \
+                || { echo "package_release: an upstream archive does not match its SHA-256" >&2; exit 1; }
+        fi
+        tar -C "$srcstage" -czf "$out/$src.tar.gz" "$src"
+        echo "package_release: $out/$src.tar.gz"
+        ;;
+esac

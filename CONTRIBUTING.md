@@ -8,8 +8,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 Thank you for helping. This page lists the rules every change follows.
 Requirement IDs in brackets (e.g. TST-61) refer to Yantra's requirements
 specification; code, commits and documentation cite these IDs instead of
-quoting the specification. Radio-plugin work happens in `radios/`
-(the radio parts, PLG-29), whose rules are in radios/CONTRIBUTING.md.
+quoting the specification; the radio parts (radio API, radio plugins,
+generator) also have RAD-xx IDs. Contributors are listed in
+[CONTRIBUTORS.md](CONTRIBUTORS.md).
 
 ## Commits
 
@@ -44,12 +45,15 @@ simulator radio plugin or recorded measurement files) (TST-60).
 
 [BUILD.md](BUILD.md) has the dependencies, every build tree and the
 options; [ARCHITECTURE.md](ARCHITECTURE.md) the layers and threads. The
-radio parts in `radios/` need their osmo-tetra submodule
-(`git submodule update --init --recursive`). The application
-compiles only the radio API header (`yantra::radio_api`) and builds the
-radio plugins as a separate build (`cmake/YantraRadiosBuild.cmake`),
-whose own test suite runs with Yantra's ctest (PLG-29, RAD-141). Builds and tests may use all
-cores:
+radio parts need their osmo-tetra submodule
+(`git submodule update --init --recursive`). One CMake project builds
+everything (PLG-29): the application, the radio API (`radio-api/`), the
+radio plugins and Yantra's plugins (`plugins/`), their common code
+(`radio-common/`), the generator (`gen/`) and the tools; one ctest runs
+all tests, labelled by area (`app`, `core`, `radio-api`,
+`plugin:<name>`, `radio-common`, `gen`, `docs`, `lint`, `packaging`).
+`-DYANTRA_RADIO_PARTS_ONLY=ON` (preset `radio-parts`) builds the radio
+parts alone (RAD-141). Builds and tests may use all cores:
 
     cmake --preset default            # or: cmake -S . -B build -G Ninja
     ninja -C build
@@ -71,12 +75,16 @@ tree (PLG-01).
   labels in `cmake/YantraTests.cmake`). A folder with its own
   `CMakeLists.txt` is added as a subdirectory instead; test plugins and
   other fixtures go in a subfolder so the glob does not pick them up.
+- The radio parts' tests live in `tests/radio/<module>/` (the same glob,
+  `yantra_radio_add_test_dir` in `tests/radio/CMakeLists.txt`, with
+  `tests/radio/test_main.cpp`), their data in `tests/radio/fixtures/`.
 - Test data lives in `tests/fixtures/` or next to the test; golden files
   are compared with `tests/golden.hpp`. Tests write only into their
   scratch folder in the build tree and never use the real home folder
   (set `YANTRA_USER_PLUGIN_DIR`, `XDG_*` as the existing tests do).
 - A new parser of untrusted input gets a fuzz target in `tests/fuzz`
-  (TST-12, BUILD.md).
+  (TST-12, BUILD.md), or in `tests/radio/fuzz` for the radio parts
+  (RAD-96).
 - A new window or dialog gets a UI lint visit
   (`tests/app/ui/test_ui_lint.cpp`), NL/FR/DE texts
   (`tools/ci/lint_ui.py`) and, when the manual shows it, a screenshot
@@ -100,6 +108,35 @@ tree (PLG-01).
   shorten with "..." and the whole text on hover (`gui_detail::text_ellipsis`).
   Known exceptions go in `tests/app/overflow/exceptions.txt` with a reason;
   a release needs it empty (`YANTRA_RELEASE_CHECK=1`).
+- Radio parts, label `timing`: real-time and pacing checks (`test_simulator_timing/*`,
+  `conformance_simulator` with the kit's one-record-per-second rule,
+  `perf_engine`, `bench_limits`). The sanitizer trees run 4-13x slower
+  than real time, so their test presets and the ci-full sanitizer jobs
+  leave the label out; the default and scalar trees run it. The hang
+  guards (ctest TIMEOUT of the per-case tests, the simulator tests' stream
+  limits) are multiplied by `YANTRA_TEST_TIME_SCALE` (CMake cache, 5 in
+  the ASan/UBSan tree, 10 in the TSan tree, 1 otherwise); the checks stay the same:
+
+      ctest --preset asan-ubsan -j"$(nproc)"   # = ctest --test-dir build-asan -LE timing
+      ctest --preset tsan -j"$(nproc)"
+
+  A stream that runs as fast as the CPU allows (the fake SoapySDR module
+  with `"paced": false`) gets no wall-clock limit: the time its records
+  take grows with the machine's load (a full parallel ASan run made such
+  a case over 4x slower than alone). Limit it in seconds of signal, with
+  a stall guard for a hang (`tests/radio/stream_guard.hpp`).
+
+  The time-limited ones (`perf_engine`, `bench_limits`, the
+  `*_timing/*` cases) are RUN_SERIAL, so ctest runs no other test next to
+  them. Load from outside ctest still counts: another tree building or
+  testing at the same time makes them fail. On a CPU with hyper-threads
+  or efficiency cores a busy sibling slows a thread down even when the
+  other program is niced (`perf_engine`: load 0.25 alone, 0.44-0.48 with
+  seven busy loops on a 12-thread i7-1365U, in CPU time as well as wall
+  clock; the simulator at playback speed 2 then falls behind real time).
+  Run the default and scalar trees' timing tests on an otherwise idle
+  machine, and rerun a timing failure that came under outside load
+  alone before calling it a regression.
 - Long doctest binaries get one ctest per test case
   (`yantra_doctest_tests()` in `cmake/YantraTests.cmake`, named
   `<group>/<case>`), so `ctest -j` runs their cases in parallel.
@@ -148,6 +185,48 @@ is written but not run (DEFERRED (Windows)).
 - Commit a document together with the files it links to, so every
   commit passes the doc checks.
 
+## Adding a radio plugin
+
+1. Copy the example: `plugins/example` (C++, the tutorial
+   [docs/RADIO_PLUGINS.md](docs/RADIO_PLUGINS.md)) or `plugins/pei` (plain
+   C). A TETRA SDR plugin is the SoapySDR layer plus an `Options` block, as
+   `plugins/hackrf/hackrf_plugin.cpp` (driver filter, device profile with
+   presets, gain stages, rates).
+2. `plugins/<name>/CMakeLists.txt`: `yantra_add_radio_plugin(<name>
+   SOURCES ... [LIBS ...])`, which builds `lib/yantra/plugins/radios/<name>.so`
+   with the export map and adds the ctests `completeness_<name>` and
+   `conformance_<name>`; add the folder and the plugin's list entry in
+   `plugins/CMakeLists.txt` and `cmake/YantraRadioParts.cmake`, the
+   plugin to the list of `completeness_plugins` (`tests/radio/completeness/CMakeLists.txt`)
+   and the installed file
+   to `tests/install/check_install.py` and
+   `tests/radio/install/check_install.py`. Give the folder a short
+   README.md.
+3. Tests in `tests/radio/<name>/` against a fake device (`yantra_doctest_tests`
+   for per-case ctests); real-time checks in `TEST_SUITE("timing")`.
+4. A page `docs/plugins/<name>.md` with the generated block (add the
+   plugin to `tools/ci/plugin_docs.py`, then `ninja update-plugin-docs`),
+   its schemas in docs/TETRA_RECORDS.md (or its own schema page), a row
+   in [docs/DEVICES.md](docs/DEVICES.md), and a CHANGELOG entry.
+
+## Adding a SoapySDR module or a bundled library
+
+1. Only libraries whose licence is GPL-3.0 compatible, from RAD-04's
+   list (ask before adding another). Pin the release archive: add a row
+   to `tools/deps/manifest.tsv` (name, version, SPDX, folder, URL,
+   SHA-256), vendor the files the build needs unchanged under
+   `third_party/<folder>/` with the licence file, and run
+   `tools/deps/verify_sources.py`.
+2. Build it statically with hidden symbols in `tools/deps/sdr.cmake` (or
+   `deps.cmake`); a SoapySDR module joins `yantra::soapy_modules` and the
+   module table of `cmake/YantraSoapy.cmake`.
+3. Add its row to THIRD_PARTY.md (version, licence, source URL, what is
+   built in, local replacements) and a REUSE.toml annotation; the ctest
+   `licence_bundle` checks that manifest, folder, licence text and
+   THIRD_PARTY.md agree, and the licence bundle picks it up.
+4. A device needs udev rules (`udev/60-yantra-sdr.rules`) and a
+   docs/DEVICES.md row; the fake module (`tests/radio/fake_soapy`) can imitate its profile.
+
 ## Licensing
 
 <!-- REUSE-IgnoreStart -->
@@ -178,13 +257,18 @@ is written but not run (DEFERRED (Windows)).
   voice or decryption are not accepted.
 - Yantra is an indoor tool: no drive tests, GPS, geographic coordinates
   or maps, not even as a plugin.
-- Radio plugins (`radios/`) process their own IQ samples and give
-  Yantra measurement records only. The application has no DSP, decoder,
+- Radio plugins (`plugins/hackrf`, `soapy`, `pei`, `simulator`) process
+  their own IQ samples and give Yantra measurement records only; no IQ,
+  bursts or PDUs cross the radio API (RAD-20..26). The application has no DSP, decoder,
   SoapySDR or IQ code; it depends on the radio API, never the reverse
   (PLG-30).
 - Code is written for Yantra from public standards. Do not copy code from
-  other receivers, including OnAir (OA-04), or use material from closed
-  products.
+  other receivers, including OnAir (OA-04; its `dect2cli` may only be run
+  as an external test oracle), or use material from closed products.
+  Proprietary survey software, its files, databases and dongles must not
+  be used, read or interfaced with.
+- Do not commit recordings of real networks unless you are allowed to
+  publish them and they contain broadcast information only.
 - The core stays technology-neutral: TETRA- and radio-specific code lives
   in plugins (PLG-01).
 - No personal data (names, e-mail or home addresses, local paths) in code,
@@ -199,7 +283,10 @@ is written but not run (DEFERRED (Windows)).
 - Headers start with a comment saying what the file is for and which
   requirement IDs it implements; `#pragma once` (C headers: include
   guards).
-- The plugin API (`include/yantra/plugin.h`) is plain C.
+- The plugin API (`include/yantra/plugin.h`) is plain C. So is the radio
+  API (`radio-api/include/yantra/radio.h`): versioned structs that start
+  with `struct_size`, `uint32_t` constants instead of enums, no
+  exceptions or panics across the boundary (RAD-10).
 - Keep the code portable to Windows (MSYS2 UCRT64): platform code behind
   small interfaces.
 - Python tools use the standard library; shell scripts use `set -eu`

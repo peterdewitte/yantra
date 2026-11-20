@@ -60,7 +60,7 @@ TEST_CASE("example beacon: loads through the PluginLoader and matches its radio 
 
     // The schemas in the golden record file of the simulated radio.
     const auto file = ym::read_record_file(fs::path(YANTRA_SOURCE_DIR) /
-                                           "plugins/example_beacon/testdata/beacon.records.jsonl");
+                                           "plugins/beacon/testdata/beacon.records.jsonl");
     INFO(all(file.errors));
     REQUIRE(file.ok());
     CHECK(file.value->technology_id == tech.technology_id);

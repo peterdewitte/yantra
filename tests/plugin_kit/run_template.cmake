@@ -12,10 +12,10 @@ set(_plugin ${WORK_DIR}/example_beacon)
 file(REMOVE_RECURSE ${WORK_DIR})
 file(MAKE_DIRECTORY ${_plugin}/src ${_plugin}/tests)
 file(COPY ${SOURCE_DIR}/tools/yantra-plugin-test/template/CMakeLists.txt DESTINATION ${_plugin})
-file(GLOB _sources ${SOURCE_DIR}/plugins/example_beacon/*.c
-                   ${SOURCE_DIR}/plugins/example_beacon/*.inc)
+file(GLOB _sources ${SOURCE_DIR}/plugins/beacon/*.c
+                   ${SOURCE_DIR}/plugins/beacon/*.inc)
 file(COPY ${_sources} DESTINATION ${_plugin}/src)
-file(GLOB _tests ${SOURCE_DIR}/plugins/example_beacon/testdata/*)
+file(GLOB _tests ${SOURCE_DIR}/plugins/beacon/testdata/*)
 file(COPY ${_tests} DESTINATION ${_plugin}/tests)
 
 function(step)

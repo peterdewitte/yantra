@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2026 The Yantra contributors
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * Compiles the radio API header in radios/
+ * Compiles the radio API header in radio-api/
  * (yantra/radio.h, PLG-26) as C11, with Yantra's warning flags.
  */
 #include <yantra/radio.h>

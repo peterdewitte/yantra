@@ -9,6 +9,10 @@
 # call yantra_add_test_dir() itself. fixtures/ holds test data. The long
 # binaries (YANTRA_PER_CASE_TESTS) get one ctest per doctest test case
 # (cmake/YantraTests.cmake), so ctest -j runs their cases in parallel.
+# The radio parts' tests are in tests/radio (their own harness, added by
+# the top-level CMakeLists.txt). Every test gets the label of its area
+# (_yantra_test_area below): app, core, docs, lint, packaging or
+# plugin:<name> (PLG-29).
 # Copied from yantra-radios fb194f5: tests/CMakeLists.txt, adapted (core
 # library, SIMD expectation, app smoke test).
 
@@ -19,9 +23,6 @@ set(YANTRA_PER_CASE_TESTS calibration measure recording)
 # Plugin file names in the tests: "<name>" YANTRA_PLUGIN_SUFFIX (.so on
 # Linux, .dll on Windows).
 add_compile_definitions(YANTRA_PLUGIN_SUFFIX="${CMAKE_SHARED_MODULE_SUFFIX}")
-
-add_library(yantra_doctest INTERFACE)
-target_include_directories(yantra_doctest SYSTEM INTERFACE ${PROJECT_SOURCE_DIR}/third_party/doctest)
 
 add_library(yantra_test_main STATIC test_main.cpp)
 target_link_libraries(yantra_test_main PUBLIC yantra_doctest yantra_warnings)
@@ -44,6 +45,22 @@ target_compile_definitions(yantra_test_main PUBLIC
   YANTRA_TEST_TIME_SCALE=${YANTRA_TEST_TIME_SCALE}
   YANTRA_TEST_EXPECT_SIMD=${_yantra_expect_simd})
 
+# The area label of a test folder (default core).
+set(_yantra_test_areas
+  about=app app=app headless=app
+  api=plugin:probe tetra=plugin:tetra
+  doc_examples=docs lint=lint install=packaging plugins_off=packaging
+  radio_kit=radio-api radio_api=radio-api)
+function(_yantra_test_area module var)
+  set(_area core)
+  foreach(_m IN LISTS _yantra_test_areas)
+    if(_m MATCHES "^${module}=(.*)$")
+      set(_area ${CMAKE_MATCH_1})
+    endif()
+  endforeach()
+  set(${var} ${_area} PARENT_SCOPE)
+endfunction()
+
 # yantra_add_test_dir(<module> [LIBS ...])
 function(yantra_add_test_dir module)
   cmake_parse_arguments(ARG "" "" "LIBS" ${ARGN})
@@ -59,6 +76,8 @@ function(yantra_add_test_dir module)
   if(EXISTS ${_dir}/LABELS)
     file(STRINGS ${_dir}/LABELS _labels)
   endif()
+  _yantra_test_area(${module} _area)
+  list(APPEND _labels ${_area})
   if(module IN_LIST YANTRA_PER_CASE_TESTS)
     yantra_doctest_tests(${_target} GROUP ${_target} LABELS ${_labels} TIMEOUT 600
       WORKING_DIRECTORY ${PROJECT_BINARY_DIR})
@@ -71,9 +90,11 @@ endfunction()
 
 file(GLOB _children RELATIVE ${CMAKE_CURRENT_SOURCE_DIR} CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/*)
 foreach(_child ${_children})
-  if(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${_child} AND NOT _child STREQUAL "fixtures")
+  if(IS_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/${_child} AND NOT _child STREQUAL "fixtures"
+     AND NOT _child STREQUAL "radio")
     if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${_child}/CMakeLists.txt)
-      add_subdirectory(${_child})
+      _yantra_test_area(${_child} _area)
+      yantra_add_area_subdirectory(${_child} ${_area})
     else()
       yantra_add_test_dir(${_child} LIBS yantra::core yantra::plugin_api)
     endif()
@@ -84,6 +105,6 @@ endforeach()
 if(TARGET yantra)
   add_test(NAME app_version COMMAND yantra --version)
   set_tests_properties(app_version PROPERTIES
-    LABELS fast
+    LABELS "fast;app"
     PASS_REGULAR_EXPRESSION "^yantra ${PROJECT_VERSION}\n$")
 endif()

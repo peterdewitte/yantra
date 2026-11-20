@@ -32,19 +32,18 @@ install(FILES ${YANTRA_DEMO_SCENES} ${YANTRA_DEMO_SCENE_DIR}/README.md
 # time when the radio tools are there (yantra-gen, the scenarios); the
 # demo tests (tests/demo) read it and make it again for the determinism
 # check. Installed to share/yantra/demo/fraunces.
-if(YANTRA_RADIOS_KIND STREQUAL "build" OR
-   (YANTRA_RADIOS_KIND STREQUAL "prebuilt" AND EXISTS ${YANTRA_RADIOS_STAGE}/bin/yantra-gen${CMAKE_EXECUTABLE_SUFFIX}))
+if(YANTRA_BUILD_RADIOS)
   set(_data ${PROJECT_SOURCE_DIR}/data/demo/fraunces)
   set(YANTRA_DEMO_FRAUNCES_DIR ${PROJECT_BINARY_DIR}/demo/fraunces CACHE INTERNAL "")
-  set(YANTRA_DEMO_GEN ${YANTRA_RADIOS_STAGE}/bin/yantra-gen${CMAKE_EXECUTABLE_SUFFIX} CACHE INTERNAL "")
-  set(YANTRA_DEMO_SCENARIO_DIR ${YANTRA_RADIOS_STAGE}/share/yantra-radios/scenarios CACHE INTERNAL "")
+  set(YANTRA_DEMO_GEN ${PROJECT_BINARY_DIR}/bin/yantra-gen${CMAKE_EXECUTABLE_SUFFIX} CACHE INTERNAL "")
+  set(YANTRA_DEMO_SCENARIO_DIR ${PROJECT_SOURCE_DIR}/data/scenarios CACHE INTERNAL "")
   # The programs that make the projects: this tree's, or in a
   # cross-compiled tree the Linux tree's (YANTRA_HOST_BUILD_DIR).
   set(_demo_cmd yantra-demo)
   set(_demo_tetra $<TARGET_FILE:yantra_tetra>)
   set(_demo_gen ${YANTRA_DEMO_GEN})
   set(_demo_scenarios ${YANTRA_DEMO_SCENARIO_DIR})
-  set(_demo_deps yantra-demo yantra_tetra)
+  set(_demo_deps yantra-demo yantra_tetra yantra-gen)
   if(CMAKE_CROSSCOMPILING)
     set(_demo_cmd ${YANTRA_HOST_DEMO})
     set(_demo_tetra ${YANTRA_HOST_TETRA_PLUGIN})
@@ -55,14 +54,8 @@ if(YANTRA_RADIOS_KIND STREQUAL "build" OR
   set(_out ${YANTRA_DEMO_FRAUNCES_DIR})
   set(_outputs ${_out}/fraunces.yantra ${_out}/recordings/first-floor_walk_0000.yrec
                ${_out}/recordings/second-floor_walk_0000.yrec)
-  file(GLOB _scenarios CONFIGURE_DEPENDS ${YANTRA_RADIOS_DIR}/data/scenarios/*.json)
-  # yantra-gen's records depend on the radio parts: made again when they
-  # change (or the prebuilt generator changes).
-  if(YANTRA_RADIOS_KIND STREQUAL "build")
-    list(APPEND _scenarios ${YANTRA_RADIOS_COMMIT_STAMP})
-  else()
-    list(APPEND _scenarios ${YANTRA_DEMO_GEN})
-  endif()
+  # Made again when the scenarios or yantra-gen change (_demo_deps).
+  file(GLOB _scenarios CONFIGURE_DEPENDS ${PROJECT_SOURCE_DIR}/data/scenarios/*.json)
   add_custom_command(OUTPUT ${_outputs}
     COMMAND ${_demo_cmd} --description ${_data}/fraunces.json --out ${_out}
             --gen ${_demo_gen} --scenario-dir ${_demo_scenarios}

@@ -2,12 +2,16 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Copied from yantra-v2 68ea20a: .gitignore, adapted (radio parts,
-# record files).
+# record files; merged with yantra-radios' .gitignore, PLG-29).
 
 # Build trees (default, scalar, sanitizer, fuzz, packaging ...), only at
 # the root so source folders whose names start with "build" stay visible.
 /build/
 /build-*/
+# The cross SDK and its download cache (tools/sdk/yantra_sdk.py, RAD-139):
+# folders, or links to folders outside the tree (BUILD.md).
+/sdk
+/sdk-cache
 /out/
 /_deps/
 CMakeUserPresets.json
@@ -19,8 +23,8 @@ compile_commands.json
 **/target/
 
 # IQ recordings and captures never belong in Yantra (RAD-26, HW-01: IQ
-# stays inside the radio plugins of radios/; their few test fixtures are
-# committed through explicit paths, radios/.gitignore).
+# stays inside the radio plugins; their few test fixtures under
+# tests/radio/fixtures are committed through explicit paths).
 *.cf32
 *.cs8
 *.cu8
@@ -29,6 +33,17 @@ compile_commands.json
 *.sigmf
 *.sigmf-data
 *.sigmf-meta
+*.wav
+!/tests/radio/fixtures/**
+
+# Record files and test output.
+*.yrec
+*.yrec.zst
+
+# cargo-fuzz output of the Rust protocol crate.
+/radio-common/receiver/rust/fuzz/corpus/
+/radio-common/receiver/rust/fuzz/artifacts/
+/radio-common/receiver/rust/fuzz/Cargo.lock
 
 # Downloaded MAK floor plans (DEMO-12, CC BY-NC-ND 4.0) are never
 # committed. The app keeps them in the user's cache folder; these patterns

@@ -5,11 +5,11 @@
 # Rewrites tools/windows/msys2.lock (OA-02) from today's MSYS2 UCRT64
 # repository: the 'asked' packages and every package they need, except
 # the 'skip' ones, each pinned by version and SHA-256. It uses the cross
-# SDK script of the radio parts, radios/tools/sdk (RAD-139) and leaves that
-# radios' own lock file alone. Then remake the SDK:
-#   python3 radios/tools/sdk/yantra_sdk.py make --msys2-lock tools/windows/msys2.lock
+# SDK script, tools/sdk (RAD-139) and leaves the SDK's own lock file
+# alone. Then remake the SDK:
+#   python3 tools/sdk/yantra_sdk.py make --msys2-lock tools/windows/msys2.lock
 # Options: --lock FILE (default: msys2.lock next to this script),
-#          --cache DIR (default $YANTRA_SDK_CACHE, else radios/sdk-cache).
+#          --cache DIR (default $YANTRA_SDK_CACHE, else sdk-cache).
 import argparse
 import os
 import pathlib
@@ -18,9 +18,9 @@ import tempfile
 
 HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parents[1]
-SDK_TOOLS = REPO / "radios" / "tools" / "sdk"
+SDK_TOOLS = REPO / "tools" / "sdk"
 sys.path.insert(0, str(SDK_TOOLS))
-import yantra_sdk  # noqa: E402  (the radios' SDK script)
+import yantra_sdk  # noqa: E402  (the cross SDK script)
 
 
 def main():

@@ -1,3 +1,0 @@
-[submodule "third_party/osmo-tetra"]
-	path = third_party/osmo-tetra
-	url = https://gitea.osmocom.org/tetra/osmo-tetra.git

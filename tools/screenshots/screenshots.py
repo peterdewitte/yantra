@@ -14,7 +14,7 @@ main survey view also in Dutch, French and German as
 survey_<lang>_<theme>.png. The data is the demo project (the public-domain
 Fraunces Tavern sheets, a fictitious network) and the simulated radios
 (SCR-02): the simulator plugin, and the HackRF plugin's test build on the
-fake SoapySDR device of yantra-radios' test kit. No MAK sheet (DEMO-12),
+fake SoapySDR device of the radio parts' test kit (tests/radio). No MAK sheet (DEMO-12),
 no network access, no user files: the app runs with a private HOME and
 XDG folders under /tmp/yantra-screenshots (a fixed path, as the project
 window shows it), removed afterwards.
@@ -86,8 +86,7 @@ def environment(build, scene):
         radios = os.path.join(WORK, "plugins", "radios")
         os.makedirs(radios, exist_ok=True)
         shutil.copy(os.path.join(build, "tests", "radio-plugins", "hackrf_fake.so"), radios)
-        source = cache_value(build, "YANTRA_RADIOS_DIR") or os.path.join(ROOT, "radios")
-        scenario = os.path.join(source, "tests", "fixtures", "soapy", "fake_two_cells.json")
+        scenario = os.path.join(ROOT, "tests", "radio", "fixtures", "soapy", "fake_two_cells.json")
         control = os.path.join(WORK, "fake_sdr")
         os.makedirs(control, exist_ok=True)
         env["YANTRA_PLUGIN_PATH"] = os.path.join(WORK, "plugins")

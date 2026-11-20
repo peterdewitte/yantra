@@ -58,7 +58,7 @@ std::string slurp(const fs::path& p) {
 }
 
 // The Markdown files of the repository: the top folder and docs/ (not
-// third_party/, build trees or radios/, which have their own docs).
+// third_party/ or build trees).
 std::vector<fs::path> markdown_files() {
     std::vector<fs::path> out;
     for (const auto& e : fs::directory_iterator(kSource))

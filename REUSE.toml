@@ -4,9 +4,8 @@
 # REUSE annotations (NFR-01, DOC-14) for files that cannot carry an SPDX
 # header themselves. Every file that can hold a comment carries its own
 # header instead. Keep this file and THIRD_PARTY.md in step.
-# The radio parts in radios/ (PLG-29) carry their own REUSE.toml there
-# (REUSE 3.3 reads nested REUSE.toml files); the licence texts they use
-# are also in LICENSES/.
+# One file for the whole tree, the radio parts included (PLG-29; merged
+# with yantra-radios' REUSE.toml, RAD-05).
 version = 1
 
 [[annotations]]
@@ -211,5 +210,108 @@ SPDX-License-Identifier = "GPL-3.0-or-later"
 # The UI language files (UI-12; JSON has no comment syntax).
 [[annotations]]
 path = ["data/i18n/*.json"]
+SPDX-FileCopyrightText = "2026 The Yantra contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# Radio parts' test fixtures in formats without comment syntax (JSON,
+# JSON lines), the scenario files and their scenes (RAD-74), the golden
+# files of the generator tests, and Cargo's generated lock files of the
+# Rust protocol crate.
+[[annotations]]
+path = ["tests/radio/fixtures/**/*.json", "tests/radio/fixtures/**/*.jsonl", "data/scenarios/**/*.json",
+        "tests/radio/gen_sim/golden/**/*.txt", "tests/radio/yantra_gen/golden/**/*.txt",
+        "radio-common/receiver/rust/Cargo.lock", "radio-common/receiver/rust/fuzz/Cargo.lock",
+        "tests/radio/sdk/win_smoke/rust/Cargo.lock"]
+SPDX-FileCopyrightText = "2026 The Yantra contributors"
+SPDX-License-Identifier = "GPL-3.0-or-later"
+
+# pocketfft (C++ header-only, branch cpp at 4d865cb, BSD-3-Clause),
+# vendored unchanged (RAD-04, RAD-100).
+[[annotations]]
+path = ["third_party/pocketfft/pocketfft_hdronly.h", "third_party/pocketfft/LICENSE.md"]
+precedence = "override"
+SPDX-FileCopyrightText = ["2010-2024 Max-Planck-Society", "The pocketfft authors (see the header of pocketfft_hdronly.h)"]
+SPDX-License-Identifier = "BSD-3-Clause"
+
+# talloc 2.4.3 (LGPL-3.0-or-later), vendored subset, unchanged (RAD-136).
+[[annotations]]
+path = ["third_party/talloc/talloc.c", "third_party/talloc/talloc.h", "third_party/talloc/LICENSE", "third_party/talloc/lib/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "The talloc authors (see the file headers of the talloc 2.4.3 release)"
+SPDX-License-Identifier = "LGPL-3.0-or-later"
+
+# libosmocore 1.11.0 (GPL-2.0-or-later), vendored subset, unchanged
+# (RAD-136).
+[[annotations]]
+path = ["third_party/libosmocore/COPYING", "third_party/libosmocore/src/**", "third_party/libosmocore/include/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "The libosmocore authors (see the file headers and debian/copyright of the libosmocore 1.11.0 release)"
+SPDX-License-Identifier = "GPL-2.0-or-later"
+
+# libusb 1.0.30 (LGPL-2.1-or-later), vendored subset, unchanged (RAD-136).
+[[annotations]]
+path = ["third_party/libusb/COPYING", "third_party/libusb/AUTHORS", "third_party/libusb/libusb/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "The libusb authors (see AUTHORS and the file headers of the libusb 1.0.30 release)"
+SPDX-License-Identifier = "LGPL-2.1-or-later"
+
+# SoapySDR 0.8.1 (BSL-1.0), vendored subset, unchanged (RAD-50, RAD-136).
+[[annotations]]
+path = ["third_party/soapysdr/LICENSE_1_0.txt", "third_party/soapysdr/include/**", "third_party/soapysdr/lib/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "2014-2021 Josh Blum and the SoapySDR contributors (see the file headers)"
+SPDX-License-Identifier = "BSL-1.0"
+
+# libhackrf 2026.01.3 and libairspy 1.0.10 (BSD-3-Clause), vendored
+# subsets, unchanged (RAD-136).
+[[annotations]]
+path = ["third_party/hackrf/host/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "2012-2022 Great Scott Gadgets and the libhackrf authors (see the file headers)"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+[[annotations]]
+path = ["third_party/airspy/libairspy/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "2012-2016 The libairspy authors (see the file headers)"
+SPDX-License-Identifier = "BSD-3-Clause"
+
+# librtlsdr 2.0.3 (GPL-2.0-or-later), vendored subset, unchanged (RAD-136).
+[[annotations]]
+path = ["third_party/rtl-sdr/COPYING", "third_party/rtl-sdr/AUTHORS", "third_party/rtl-sdr/src/**", "third_party/rtl-sdr/include/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "The rtl-sdr authors (see AUTHORS and the file headers of the rtl-sdr 2.0.3 release)"
+SPDX-License-Identifier = "GPL-2.0-or-later"
+
+# SoapyHackRF 0.3.6, SoapyRTLSDR 0.3.4, SoapyAirspy 0.2.1 (MIT), vendored
+# subsets, unchanged (RAD-50, RAD-136).
+[[annotations]]
+path = ["third_party/soapyhackrf/*.cpp", "third_party/soapyhackrf/*.hpp", "third_party/soapyhackrf/LICENSE"]
+precedence = "override"
+SPDX-FileCopyrightText = "2015-2017 Wei Jiang, Josh Blum and the SoapyHackRF contributors (see the file headers)"
+SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["third_party/soapyrtlsdr/*.cpp", "third_party/soapyrtlsdr/*.hpp", "third_party/soapyrtlsdr/LICENSE.txt",
+        "third_party/soapyairspy/*.cpp", "third_party/soapyairspy/*.hpp", "third_party/soapyairspy/LICENSE.txt"]
+precedence = "override"
+SPDX-FileCopyrightText = "2015 Charles J. Cliffe and the SoapyRTLSDR/SoapyAirspy contributors (see the file headers)"
+SPDX-License-Identifier = "MIT"
+
+# SoapyRemote 0.5.3 (BSL-1.0), vendored subset, unchanged (RAD-50, RAD-136).
+[[annotations]]
+path = ["third_party/soapyremote/LICENSE_1_0.txt", "third_party/soapyremote/client/**",
+        "third_party/soapyremote/common/**", "third_party/soapyremote/server/**"]
+precedence = "override"
+SPDX-FileCopyrightText = "2015-2020 Josh Blum, 2016 Bastille Networks (see the file headers)"
+SPDX-License-Identifier = "BSL-1.0"
+
+# The cross SDK (RAD-139): scripts, toolchain files and lock files carry
+# their own headers; the lock files are written by tools/sdk/yantra_sdk.py.
+# The SDK it makes (sdk/, git-ignored) holds third-party binaries under
+# their own licences (THIRD_PARTY.md, "Cross SDK").
+[[annotations]]
+path = ["tools/sdk/*.lock"]
+precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 The Yantra contributors"
 SPDX-License-Identifier = "GPL-3.0-or-later"

@@ -3,17 +3,16 @@
 #
 # Building model (floors, scale, trims, cells) and its JSON form
 # (IND-04..10), the context snapshots (PLG-27). The fixed demo scenes and
-# the test scene are read by yantra-radios' own scene parser (its test
-# host configures its emulated context from them; an invalid scene exits
-# 1), without compiling any yantra-radios source into Yantra.
+# the test scene are read by the radio parts' own scene parser (the radio
+# test host configures its emulated context from them; an invalid scene
+# exits 1), without compiling any radio-common source into Yantra.
 yantra_add_test_dir(building LIBS yantra::core yantra::json)
 target_compile_definitions(test_building PRIVATE YANTRA_TEST_SCRATCH_DIR="${CMAKE_CURRENT_BINARY_DIR}/scratch")
 
-set(_host ${YANTRA_RADIOS_STAGE}/bin/yantra-radio-host${CMAKE_EXECUTABLE_SUFFIX})
-if(YANTRA_RADIOS_KIND STREQUAL "none" OR
-   (YANTRA_RADIOS_KIND STREQUAL "prebuilt" AND NOT EXISTS ${_host}))
+if(NOT YANTRA_BUILD_RADIOS)
   return()
 endif()
+set(_host yantra-radio-host)
 # The test scene of tests/fixture_scene.hpp.
 add_test(NAME scene_radios_check_office_wall
          COMMAND ${_host} stream --plugin ${YANTRA_RADIO_PLUGIN_DIR}/simulator${YANTRA_RADIO_PLUGIN_SUFFIX}

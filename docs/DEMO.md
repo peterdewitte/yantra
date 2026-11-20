@@ -67,7 +67,7 @@ are built):
    (their SHA-256 checked), the floors trimmed from them, with scale,
    reference point and the cell database.
 2. Per floor, the radios' scenario that the floor's example id selects
-   (`example_ids` of `data/scenarios/*.json` in yantra-radios, here
+   (`example_ids` of `data/scenarios/*.json`, here
    `fraunces.json`) gets the floor's fixed demo scene
    (`data/demo/scenes/<example id>.json`, `--scene-dir`; see "Fixed demo
    scenes") and the walk as its receiver path (`linear`, the
@@ -92,8 +92,8 @@ path relative to itself (`recordings/...`). By hand:
 
 ```sh
 yantra-demo --description data/demo/fraunces/fraunces.json --out DIR \
-  --gen build/radios/install/bin/yantra-gen \
-  --scenario-dir build/radios/install/share/yantra-radios/scenarios \
+  --gen build/bin/yantra-gen \
+  --scenario-dir data/scenarios \
   --scene-dir data/demo/scenes --tetra-plugin build/lib/yantra/plugins/tetra.so
 ```
 
@@ -203,7 +203,7 @@ The simulator's scene of every bundled example floor (the two Fraunces
 floors and the floors of the three MAK buildings) is a file in the demo
 data: `data/demo/scenes/<example id>.json`, in the yantra-radios scene
 format (RAD-36, `"format": "yantra-radio-scene"`, `"version"` 1,
-`"minor_version"` 1; `radios/docs/SCENE_FORMAT.md`), licensed
+`"minor_version"` 1; [docs/SCENE_FORMAT.md](SCENE_FORMAT.md)), licensed
 GPL-3.0-or-later (`data/demo/scenes/README.md`).
 A scene holds the floor's walls, DAS antennas and cells and the storeys
 above and below, in metres in the floor's plan frame (the trim and scale

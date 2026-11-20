@@ -164,12 +164,13 @@ Yantra {version}
   (clone: {source_url}.git), commit {commit}
 
 The radio plugins, decoder and generator (yantra-radios) are part of
-this source, in its radios/ folder, with every bundled library's source
+this source (radio-api/, plugins/, radio-common/, gen/), with every
+bundled library's source
 at its pinned version and the build scripts (PLG-29, RAD-137).
 
 MSYS2 UCRT64 packages whose DLLs are next to the programs in bin\\ (the
 build pins them by SHA-256 in tools/windows/msys2.lock of Yantra and
-radios/tools/sdk/msys2.lock); their sources and build recipes:
+tools/sdk/msys2.lock); their sources and build recipes:
 https://github.com/msys2/MINGW-packages and
 https://repo.msys2.org/mingw/sources/
 {rows}

@@ -8,14 +8,14 @@ SPDX-License-Identifier: GPL-3.0-or-later
 This page describes how the code is put together (DOC-10): the layers,
 the threads and queues, the data flow from a radio record to a stored
 point, recording or report, the folder layout and the dependency on
-the radio parts in `radios/`. The topic documents in `docs/` hold the details; this page
+the radio parts (`radio-api/`, `plugins/`, `radio-common/`, `gen/`). The topic documents in `docs/` hold the details; this page
 links them instead of repeating them. Requirement IDs refer to Yantra's
 requirements specification.
 
 ## Overview
 
 ```
-                 radio parts in radios/ (formerly yantra-radios, PLG-29)
+                 radio parts (formerly yantra-radios, PLG-29)
                  radio plugins *.so: SDR processing, TETRA decoder, simulator
                                         |
                        radio.h C ABI: measurement records only (RAD-20..26)
@@ -33,7 +33,7 @@ requirements specification.
         ^                    ^                         ^                    ^
    app (yantra)        tools/yantra-probe       plugins/*.so (plugin.h)   tests/
    model / gui /       headless runner          tetra, probe,             doctest suites
-   audio / net                                  example_beacon            under ctest
+   audio / net                                  beacon                    under ctest
 ```
 
 Every arrow points from the user of a layer to the layer it uses. The
@@ -44,17 +44,16 @@ API from a feature plugin.
 ## The radio boundary and the radio parts
 
 - **One repository (PLG-29, RAD-141).** The radio plugins, their receiver
-  DSP, the TETRA decoder and the test-signal generator live in `radios/`
-  (yantra-radios, merged with its history; its releases are tagged
+  DSP, the TETRA decoder and the test-signal generator are folders of
+  this repository (`plugins/`, `radio-common/`, `gen/`; yantra-radios,
+  merged with its history; its releases are tagged
   `radios-v0.1.0` .. `radios-v0.4.0`; radio API 1.2). The application
   depends on the radio API, never the reverse (PLG-30).
 - **What is compiled in.** Only the radio API header (`radio.h`, CMake
-  target `yantra::radio_api`) is compiled into Yantra. `radios/` is
-  built as a separate CMake build (`cmake/YantraRadiosBuild.cmake`,
-  BUILD.md "Radio plugins") whose shipped plugins (hackrf, simulator,
-  soapysdr, pei) land in the radio plugin folder and are loaded at run
-  time. A prebuilt yantra-radios release can be used instead
-  (`YANTRA_RADIOS_PREBUILT`).
+  target `yantra::radio_api`, `radio-api/`) is compiled into Yantra. The
+  radio parts are built by the same CMake project (BUILD.md "Radio
+  plugins"); their shipped plugins (hackrf, simulator, soapysdr, pei)
+  land in the radio plugin folder and are loaded at run time.
 - **What crosses it (RAD-20..26).** Measurement records only: levels,
   cell identity, optional quality, C1, broadcast parameters and
   neighbours, plus device events, settings and sensors. No IQ samples,
@@ -64,8 +63,8 @@ API from a feature plugin.
   PLG-27, DEMO-05, `context/`), which the simulator uses to compute
   levels.
 - The radio plugins themselves, their decoder and generator are
-  described in [radios/ARCHITECTURE.md](radios/ARCHITECTURE.md) and
-  [radios/docs/RADIO_PLUGINS.md](radios/docs/RADIO_PLUGINS.md).
+  described in [docs/RADIO_ARCHITECTURE.md](docs/RADIO_ARCHITECTURE.md) and
+  [docs/RADIO_PLUGINS.md](docs/RADIO_PLUGINS.md).
 
 ## Layers
 
@@ -82,7 +81,7 @@ and settings (`state_store.cpp`) and runs their timers. Kinds:
 - **technology plugins** give record schemas, field help, C1 and
   reselection rules and cell-database columns: `plugins/tetra`
   ([docs/plugins/TETRA.md](docs/plugins/TETRA.md)) and the example
-  `plugins/example_beacon` (PLG-15);
+  `plugins/beacon` (PLG-15);
 - **feature plugins** (API 1.1, PLG-02) receive every accepted record
   (`measure/feature_feed.h`, FeatureFeed) and may call the application's
   commands through the `control` service: `plugins/probe` is the remote
@@ -304,14 +303,17 @@ memory without limit:
 | `core/` | `yantra_core`: `include/yantra/core/<module>/` headers, `src/<module>/` sources (modules above) |
 | `include/yantra/` | public plugin API: `plugin.h` (C ABI) and `plugin.hpp` (C++ helpers) |
 | `app/` | desktop application: `model/`, `gui/`, `audio/`, `net/`, `src/main.cpp` |
-| `plugins/` | Yantra's plugin.h plugins: `tetra`, `probe`, `example_beacon` |
-| `tools/` | yantra-probe, yantra-demo, yantra-plugin-test, screenshots, CI scripts |
-| `tests/` | one folder per module, doctest binaries `test_<module>` under ctest; fixtures, fuzz targets, benchmarks, install check |
-| `radios/` | the radio parts (PLG-29, RAD-141): radio API, radio plugins, receiver and TETRA decoder, generator, test host and kit, cross SDK, bundled libraries; its own CMake project, built by `cmake/YantraRadiosBuild.cmake` |
-| `third_party/` | vendored libraries (Dear ImGui, stb, nlohmann/json, CivetWeb, miniaudio, doctest); THIRD_PARTY.md |
+| `radio-api/` | the radio API (RAD-10): `include/yantra/radio.h`, `radio.hpp` and the conformance-kit headers, its Doxygen reference |
+| `plugins/` | every plugin in its own folder: Yantra's plugin.h plugins `tetra`, `probe`, `beacon`; the radio plugins `hackrf`, `soapy`, `pei`, `simulator` and the radio API example `example` |
+| `radio-common/` | the radio plugins' common code: `radios_common`, `receiver` (DSP, TETRA decoder, Rust protocol crate), `tetra_common`, `soapy_common` |
+| `gen/` | the TETRA test-signal generator library (yantra-gen) |
+| `tools/` | yantra-probe, yantra-demo, yantra-plugin-test, the radio tools (yantra-radio-host with the conformance kit, yantra-gen, yantra-hackrf, yantra-pei-sim, yantra-sens), the bundled libraries' build (`deps/`), the cross SDK (`sdk/`), screenshots, CI scripts |
+| `tests/` | one folder per module, doctest binaries `test_<module>` under ctest; fixtures, fuzz targets, benchmarks, install check; the radio parts' tests in `tests/radio/` |
+| `third_party/` | vendored libraries (Dear ImGui, stb, nlohmann/json, CivetWeb, miniaudio, doctest; osmo-tetra and the radio plugins' libraries); THIRD_PARTY.md |
+| `udev/` | udev rules and the RTL-SDR blacklist of the radio plugins |
 | `data/` | logo, branding, fonts, translations, demo descriptions, desktop entry |
 | `docs/` | topic documents, file formats (`docs/formats/`), manual, quick starts, images, sample report |
-| `cmake/` | build modules: warnings, sanitizers, tests, PDFium, the radio parts' build |
+| `cmake/` | build modules: warnings, sanitizers, tests, PDFium, the radio parts (`YantraRadioParts.cmake`, plugins, osmo-tetra, Rust, SoapySDR) |
 
 ## Build targets
 

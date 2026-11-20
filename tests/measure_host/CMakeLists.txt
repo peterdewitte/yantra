@@ -33,12 +33,11 @@ target_compile_definitions(test_measure_host PRIVATE
 
 # TST-10 record files of the radios' scenarios, written into the build
 # tree by the radios' yantra-gen and yantra-radio-host when the radio
-# plugins are built (or a prebuilt package has the tools); the cases skip
-# without them. Regenerated when a scenario, the script or the radio parts
-# changes.
+# plugins are built; the cases skip without them. Regenerated when a
+# scenario, the script or the radio tools change.
 set(_e2e_records ${CMAKE_CURRENT_BINARY_DIR}/records)
-set(_e2e_gen ${YANTRA_RADIOS_STAGE}/bin/yantra-gen${CMAKE_EXECUTABLE_SUFFIX})
-set(_e2e_host ${YANTRA_RADIOS_STAGE}/bin/yantra-radio-host${CMAKE_EXECUTABLE_SUFFIX})
+set(_e2e_gen ${PROJECT_BINARY_DIR}/bin/yantra-gen${CMAKE_EXECUTABLE_SUFFIX})
+set(_e2e_host ${PROJECT_BINARY_DIR}/bin/yantra-radio-host${CMAKE_EXECUTABLE_SUFFIX})
 # A cross-compiled tree makes the files with the Linux tree's tools
 # (YANTRA_HOST_BUILD_DIR, top-level CMakeLists.txt).
 set(_e2e_make_gen ${_e2e_gen})
@@ -47,7 +46,7 @@ if(CMAKE_CROSSCOMPILING)
   set(_e2e_make_gen ${YANTRA_HOST_RADIOS_BIN}/yantra-gen)
   set(_e2e_make_host ${YANTRA_HOST_RADIOS_BIN}/yantra-radio-host)
 endif()
-if(YANTRA_RADIOS_KIND STREQUAL "build" OR (YANTRA_RADIOS_KIND STREQUAL "prebuilt" AND EXISTS ${_e2e_gen}))
+if(YANTRA_BUILD_RADIOS)
   set(_e2e_scenarios fraunces:3 failed_site:10 floor_change:12 indoor_good_das:10 indoor_weak_das:10 network_border:10)
   set(_e2e_outputs ${_e2e_records}/fraunces_dbfs.records.jsonl)
   foreach(_s IN LISTS _e2e_scenarios)
@@ -55,12 +54,12 @@ if(YANTRA_RADIOS_KIND STREQUAL "build" OR (YANTRA_RADIOS_KIND STREQUAL "prebuilt
     list(APPEND _e2e_outputs ${_e2e_records}/${_id}.records.jsonl ${_e2e_records}/${_id}.cells.csv
          ${_e2e_records}/${_id}.truth.csv)
   endforeach()
-  file(GLOB _e2e_scenario_files ${YANTRA_RADIOS_DIR}/data/scenarios/*.json)
-  # Made again when the radio parts change (or the prebuilt generator changes).
-  if(YANTRA_RADIOS_KIND STREQUAL "build")
-    list(APPEND _e2e_scenario_files ${YANTRA_RADIOS_COMMIT_STAMP})
+  file(GLOB _e2e_scenario_files ${PROJECT_SOURCE_DIR}/data/scenarios/*.json)
+  # Made again when a scenario or the radio tools change.
+  if(CMAKE_CROSSCOMPILING)
+    list(APPEND _e2e_scenario_files ${_e2e_make_gen} ${_e2e_make_host})
   else()
-    list(APPEND _e2e_scenario_files ${_e2e_gen})
+    list(APPEND _e2e_scenario_files yantra-gen yantra-radio-host)
   endif()
   add_custom_command(OUTPUT ${_e2e_outputs}
     COMMAND ${CMAKE_COMMAND} -DGEN=${_e2e_make_gen} -DHOST=${_e2e_make_host} -DOUT=${_e2e_records}
@@ -76,8 +75,8 @@ else()
   target_compile_definitions(test_measure_host PRIVATE E2E_RECORDS_DIR="")
 endif()
 target_compile_definitions(test_measure_host PRIVATE
-  RADIOS_BIN_DIR="${YANTRA_RADIOS_STAGE}/bin"
-  RADIOS_SCENARIO_DIR="${YANTRA_RADIOS_DIR}/data/scenarios")
+  RADIOS_BIN_DIR="${PROJECT_BINARY_DIR}/bin"
+  RADIOS_SCENARIO_DIR="${PROJECT_SOURCE_DIR}/data/scenarios")
 # The demo project (tools/yantra-demo, DEMO-05/06; test_measure_demo.cpp)
 # and the MAK example projects (DEMO-12/13; test_measure_demo_mak.cpp).
 if(TARGET demo_fraunces)

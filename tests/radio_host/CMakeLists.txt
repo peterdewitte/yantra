@@ -2,11 +2,11 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Radio host tests (PLG-25, PLG-27, PLG-26, NFR-04): a fake radio plugin
-# (fake_radio.cpp, radio API in radios/; again with API major 2 for
+# (fake_radio.cpp, radio API in radio-api/; again with API major 2 for
 # the version refusal) driven by the tests, and the simulator, beacon and
-# soapysdr_fake (fake SoapySDR module, unplug/replug) plugins built from
-# yantra-radios (YantraRadiosBuild.cmake; those cases skip when
-# YANTRA_BUILD_RADIOS is OFF or a prebuilt package has no test plugins).
+# soapysdr_fake (fake SoapySDR module, unplug/replug) radio plugins
+# (plugins/, cmake/YantraRadioParts.cmake; those cases skip when
+# YANTRA_BUILD_RADIOS is OFF).
 # One ctest per test case.
 foreach(_v IN ITEMS 1 2)
   set(_t fake_radio_v${_v})
@@ -24,7 +24,7 @@ endforeach()
 
 set(_dir ${CMAKE_CURRENT_SOURCE_DIR})
 # The shipped radio plugins: 4, or 3 without pei (YANTRA_RADIOS_PEI=OFF).
-list(LENGTH _yr_shipped _yr_shipped_count)
+list(LENGTH YANTRA_RADIO_PLUGINS _yr_shipped_count)
 file(GLOB _srcs CONFIGURE_DEPENDS ${_dir}/test_*.cpp)
 add_executable(test_radio_host ${_srcs})
 target_link_libraries(test_radio_host PRIVATE yantra_test_main yantra_warnings yantra::core)

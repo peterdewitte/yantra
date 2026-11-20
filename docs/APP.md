@@ -422,7 +422,7 @@ groups, translations, the state file), `test_app_live`
 `hackrf_fake` with a WARNING setting; `test_radio_ui.cpp`: every window
 by clicking for the simulator, SoapySDR, HackRF and PEI plugins), and
 `test_app_live_pei` (the PEI cases under `yantra-pei-sim`). The fakes
-are test builds of yantra-radios (`YANTRA_RADIOS_FAKE_SDR`).
+are test builds of the radio parts (with the tests, `YANTRA_BUILD_TESTS`).
 
 ## About, settings, reset and plugin UI (step 9.7)
 

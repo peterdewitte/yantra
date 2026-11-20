@@ -1,23 +1,21 @@
 # SPDX-FileCopyrightText: 2026 The Yantra contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# The radio test kit of yantra-radios (RAD-91, `yantra-radio-host
+# The radio test kit (RAD-91, `yantra-radio-host
 # conformance`) on every radio plugin Yantra ships, and on the beacon
 # example radio plugin (PLG-13: radio plugins are checked with the radio
 # kit, not with yantra-plugin-test). JSON reports in
 # <build>/tests/radio_kit/<plugin>.json. Without radio plugins
-# (YANTRA_BUILD_RADIOS=OFF) or without the host program (a prebuilt package
-# without it) there is nothing to check.
-set(_host ${YANTRA_RADIOS_STAGE}/bin/yantra-radio-host${CMAKE_EXECUTABLE_SUFFIX})
-if(YANTRA_RADIOS_KIND STREQUAL "none" OR
-   (YANTRA_RADIOS_KIND STREQUAL "prebuilt" AND NOT EXISTS ${_host}))
+# (YANTRA_BUILD_RADIOS=OFF) there is nothing to check.
+if(NOT YANTRA_BUILD_RADIOS)
   return()
 endif()
+set(_host yantra-radio-host)
 set(_plugins)
-foreach(_p IN LISTS _yr_shipped)
+foreach(_p IN LISTS YANTRA_RADIO_PLUGINS)
   list(APPEND _plugins ${_p} ${YANTRA_RADIO_PLUGIN_DIR}/${_p}${YANTRA_RADIO_PLUGIN_SUFFIX})
 endforeach()
-if(YANTRA_RADIOS_KIND STREQUAL "build")
+if(TRUE)
   list(APPEND _plugins beacon ${YANTRA_RADIO_TEST_PLUGIN_DIR}/beacon${YANTRA_RADIO_PLUGIN_SUFFIX})
 endif()
 while(_plugins)

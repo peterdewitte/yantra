@@ -1,11 +1,21 @@
 # SPDX-FileCopyrightText: 2026 The Yantra contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Yantra top-level build (OA-01, OA-02). Layout: core/ (library without UI),
-# app/ (desktop application), tools/ (command-line tools), plugins/,
-# tests/ (ctest, TST-01) and the public plugin header include/yantra/.
-# Radio plugins and their header come from the radio parts in radios/
-# (PLG-29, RAD-141), built as a build of their own.
+# Yantra top-level build (OA-01, OA-02, PLG-29): one CMake project, one
+# ctest suite, for the application and the radio parts (RAD-141):
+#   radio-api/     the radio API header yantra/radio.h (RAD-02, RAD-10)
+#   plugins/       one folder per plugin: the radio plugins (hackrf, soapy,
+#                  pei, simulator, example) and Yantra's technology and
+#                  feature plugins (tetra, probe, beacon)
+#   radio-common/  code shared by the radio plugins only (receiver, TETRA
+#                  decoder, SoapySDR and TETRA glue, Rust protocol crate)
+#   gen/           TETRA test-signal generator (RAD-70)
+#   core/, app/    Yantra's measurement core and the desktop application
+#   include/       the plugin API header yantra/plugin.h (PLG-03)
+#   tools/, docs/, tests/ (tests/radio: the radio parts' tests), data/,
+#   udev/, packaging/, third_party/
+# YANTRA_RADIO_PARTS_ONLY builds the radio parts alone (RAD-141);
+# YANTRA_BUILD_RADIOS=OFF leaves them out (no radio plugins).
 # Copied from yantra-v2 68ea20a (9540c71): CMakeLists.txt, adapted.
 
 cmake_minimum_required(VERSION 3.20)
@@ -30,6 +40,17 @@ option(YANTRA_WERROR "Treat compiler warnings as errors (CI, TST-02)" OFF)
 # passes (preset plugins-off, ctest plugins_off_check).
 option(YANTRA_PLUGIN_PROBE "Build the probe feature plugin (remote API, PLG-24); OFF: no network listener" ON)
 option(YANTRA_RADIOS_PEI "Ship the TETRA terminal radio plugin pei (RAD-80, TRM-01)" ON)
+# The radio parts (PLG-29, RAD-141): radio-common/, gen/, the radio
+# plugins and tools and their tests (tests/radio, in this tree's ctest).
+option(YANTRA_BUILD_RADIOS "Build the radio parts: radio-common, the radio plugins, gen and the radio tools" ON)
+option(YANTRA_RADIO_PARTS_ONLY "Build only the radio parts, without the application (RAD-141)" OFF)
+option(YANTRA_RADIOS_TESTS "Build and register the radio parts' tests (tests/radio, RAD-141)" ON)
+if(YANTRA_RADIO_PARTS_ONLY)
+  if(NOT YANTRA_BUILD_RADIOS)
+    message(FATAL_ERROR "YANTRA_RADIO_PARTS_ONLY needs YANTRA_BUILD_RADIOS=ON")
+  endif()
+  set(YANTRA_BUILD_APP OFF)
+endif()
 # NFR-01/NFR-09: the AGPL source link of About, the remote API status
 # reply and the probe plugin, and the packages' source field.
 set(YANTRA_SOURCE_URL "https://github.com/peterdewitte/yantra" CACHE STRING
@@ -100,6 +121,29 @@ if(WIN32 AND CMAKE_CROSSCOMPILING)
   set(CURL_NO_CURL_CMAKE ON)
 endif()
 
+# Windows tree (cross-compiled, OA-02, RAD-131): its ctest runs natively on
+# Windows (the test VM, BUILD.md). YANTRA_WINDOWS_TEST_RUNNER=wsl instead
+# runs every .exe from Linux through WSL interop (tools/sdk/wsl_run.sh
+# --in-place; WSL2 only).
+set(YANTRA_WINDOWS_TEST_RUNNER "" CACHE STRING
+  "Cross-compiled Windows tree: '' (ctest runs on Windows) or 'wsl' (ctest on WSL2 runs the .exe through interop)")
+set_property(CACHE YANTRA_WINDOWS_TEST_RUNNER PROPERTY STRINGS "" wsl)
+if(NOT YANTRA_WINDOWS_TEST_RUNNER STREQUAL "" AND NOT YANTRA_WINDOWS_TEST_RUNNER STREQUAL "wsl")
+  message(FATAL_ERROR "YANTRA_WINDOWS_TEST_RUNNER must be '' or 'wsl'")
+endif()
+if(CMAKE_CROSSCOMPILING AND WIN32 AND YANTRA_WINDOWS_TEST_RUNNER STREQUAL "wsl"
+   AND NOT CMAKE_CROSSCOMPILING_EMULATOR)
+  execute_process(COMMAND ${PROJECT_SOURCE_DIR}/tools/sdk/wsl_run.sh --check
+                  RESULT_VARIABLE _yantra_wsl OUTPUT_QUIET ERROR_QUIET)
+  if(_yantra_wsl EQUAL 0)
+    set(CMAKE_CROSSCOMPILING_EMULATOR ${PROJECT_SOURCE_DIR}/tools/sdk/wsl_run.sh --in-place)
+  else()
+    message(WARNING "YANTRA_WINDOWS_TEST_RUNNER=wsl: no WSL interop here; "
+                    "the tree's ctest is for a Windows machine (the test VM, BUILD.md)")
+  endif()
+  unset(_yantra_wsl)
+endif()
+
 # Build-machine checks of a cross-compiled tree (the Windows tree, whose
 # ctest runs on Windows): tests that check the sources or run the build
 # machine's tools (Doxygen, reuse, pandoc, the lints, the SDK's compilers)
@@ -122,8 +166,12 @@ endfunction()
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 include(YantraWarnings)
 include(YantraSanitizers)
-include(YantraPdfium)
-include(YantraWindowsResources)
+include(YantraTestAreas)
+include(YantraFuzz)
+if(NOT YANTRA_RADIO_PARTS_ONLY)
+  include(YantraPdfium)
+  include(YantraWindowsResources)
+endif()
 
 # Public plugin API headers: plugin.h (C ABI, PLG-03) and plugin.hpp (C++
 # helpers).
@@ -132,21 +180,29 @@ add_library(yantra::plugin_api ALIAS yantra_plugin_api)
 target_include_directories(yantra_plugin_api INTERFACE
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
 
-# Radio API header from radios/ (PLG-29).
-# nlohmann/json 3.12.0, vendored header-only (spec 16.2).
+# nlohmann/json 3.12.0, vendored header-only (spec 16.2, RAD-04).
 add_library(yantra_json INTERFACE)
 add_library(yantra::json ALIAS yantra_json)
 target_include_directories(yantra_json SYSTEM INTERFACE
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/third_party/nlohmann_json/include>)
 
-include(YantraRadios)
-# The radio plugins Yantra ships, built from radios/ (or a prebuilt
-# yantra-radios package) into <build>/lib/yantra/plugins/radios (PLG-26).
-include(YantraRadiosBuild)
-
 if(YANTRA_BUILD_TESTS)
   enable_testing()
+  include(YantraTests)
+  # doctest 2.4.12, vendored header-only (spec 16.2, RAD-04): every test
+  # binary of tests/ and tests/radio.
+  add_library(yantra_doctest INTERFACE)
+  target_include_directories(yantra_doctest SYSTEM INTERFACE ${PROJECT_SOURCE_DIR}/third_party/doctest)
 endif()
+# The radio parts' test suite (tests/radio) and their test plugins (the
+# example beacon and the fake-SDR builds, which the application's tests
+# load too).
+if(YANTRA_BUILD_TESTS AND YANTRA_BUILD_RADIOS AND YANTRA_RADIOS_TESTS)
+  set(YANTRA_RADIOS_BUILD_TESTS ON)
+else()
+  set(YANTRA_RADIOS_BUILD_TESTS OFF)
+endif()
+set(YANTRA_RADIO_TEST_PLUGINS ${YANTRA_BUILD_TESTS})
 
 # Build-time data of a cross-compiled tree (the Windows tree, OA-02): the
 # demo projects (DEMO-05, DEMO-12) and the TST-10 record files are made by
@@ -155,7 +211,7 @@ endif()
 # tree of the same sources, YANTRA_HOST_BUILD_DIR (default: the default
 # tree, <source>/build), built first; the data files are the same on both
 # platforms. The tests themselves run the tree's own programs.
-if(CMAKE_CROSSCOMPILING)
+if(CMAKE_CROSSCOMPILING AND NOT YANTRA_RADIO_PARTS_ONLY)
   set(YANTRA_HOST_BUILD_DIR ${PROJECT_SOURCE_DIR}/build CACHE PATH
       "Linux build tree whose programs make the build-time data of this cross-compiled tree")
   if(NOT EXISTS ${YANTRA_HOST_BUILD_DIR}/CMakeCache.txt)
@@ -165,55 +221,69 @@ if(CMAKE_CROSSCOMPILING)
   endif()
   set(YANTRA_HOST_DEMO ${YANTRA_HOST_BUILD_DIR}/bin/yantra-demo)
   set(YANTRA_HOST_TETRA_PLUGIN ${YANTRA_HOST_BUILD_DIR}/lib/yantra/plugins/tetra.so)
-  set(YANTRA_HOST_RADIOS_BIN ${YANTRA_HOST_BUILD_DIR}/radios/install/bin)
-  set(YANTRA_HOST_SCENARIO_DIR ${YANTRA_HOST_BUILD_DIR}/radios/install/share/yantra-radios/scenarios)
+  set(YANTRA_HOST_RADIOS_BIN ${YANTRA_HOST_BUILD_DIR}/bin)
+  set(YANTRA_HOST_SCENARIO_DIR ${PROJECT_SOURCE_DIR}/data/scenarios)
+endif()
+
+# Radio plugin folders of the build tree (PLG-09, PLG-25): the shipped
+# radio plugins where the application finds them, the test plugins (the
+# example beacon, the fake-SDR builds) apart; .so on Linux, .dll on
+# Windows (RAD-131).
+set(YANTRA_RADIO_PLUGIN_DIR ${PROJECT_BINARY_DIR}/lib/yantra/plugins/radios)
+set(YANTRA_RADIO_TEST_PLUGIN_DIR ${PROJECT_BINARY_DIR}/tests/radio-plugins)
+if(WIN32)
+  set(YANTRA_RADIO_PLUGIN_SUFFIX .dll)
+else()
+  set(YANTRA_RADIO_PLUGIN_SUFFIX .so)
 endif()
 
 find_package(Threads REQUIRED)
-add_subdirectory(core)
-if(YANTRA_BUILD_APP)
-  add_subdirectory(app)
+# The radio API (radio-api/), used by both sides.
+yantra_add_area_subdirectory(radio-api radio-api)
+# The radio parts (RAD-141): shared setup, then radio-common/ and gen/;
+# their plugins and tools follow in plugins/ and tools/.
+if(YANTRA_BUILD_RADIOS)
+  include(YantraRadioParts)
+  yantra_add_area_subdirectory(radio-common radio-common)
+  yantra_add_area_subdirectory(gen gen)
+  add_subdirectory(udev)
 endif()
-add_subdirectory(tools)
-add_subdirectory(plugins)
-add_subdirectory(docs)
-add_subdirectory(packaging)
-
-if(YANTRA_BUILD_TESTS)
-  add_subdirectory(tests)
-endif()
-
-# Installed layout (PLG-09, PLG-26): <prefix>/bin/yantra, the radio plugins
-# in <prefix>/lib/yantra/plugins/radios (the application's radio plugin
-# folder, found relative to the executable) with yantra-radios' licence
-# bundle, udev rules and RTL-SDR blacklist. Packaging: phase 12.
-if(NOT YANTRA_RADIOS_KIND STREQUAL "none")
-  install(DIRECTORY ${YANTRA_RADIO_PLUGIN_DIR}/ DESTINATION lib/yantra/plugins/radios
-          FILES_MATCHING PATTERN "*${YANTRA_RADIO_PLUGIN_SUFFIX}")
-  install(DIRECTORY ${YANTRA_RADIOS_STAGE}/share/licenses/yantra-radios
-          DESTINATION share/licenses OPTIONAL)
-  install(DIRECTORY ${YANTRA_RADIOS_STAGE}/lib/udev ${YANTRA_RADIOS_STAGE}/lib/modprobe.d
-          DESTINATION lib OPTIONAL)
-  # The TETRA test-signal generator yantra-gen (RAD-71) with yantra-radios'
-  # scenario files in share/yantra-radios/scenarios, where it finds them
-  # relative to itself (<bin>/../share/yantra-radios/scenarios; since
-  # yantra-radios v0.3.1 no folder of the build machine is compiled in).
-  install(PROGRAMS ${YANTRA_RADIOS_STAGE}/bin/yantra-gen${CMAKE_EXECUTABLE_SUFFIX} DESTINATION bin OPTIONAL)
-  install(DIRECTORY ${YANTRA_RADIOS_STAGE}/share/yantra-radios/scenarios DESTINATION share/yantra-radios OPTIONAL)
-  # Windows (NFR-09): also the other radio tools next to yantra.exe
-  # (self-contained .exe): the device check yantra-hackrf and the plugin
-  # host yantra-radio-host.
-  if(WIN32)
-    install(PROGRAMS ${YANTRA_RADIOS_STAGE}/bin/yantra-hackrf.exe ${YANTRA_RADIOS_STAGE}/bin/yantra-radio-host.exe
-            DESTINATION bin)
+# Yantra (not in the radio-parts-only build).
+if(NOT YANTRA_RADIO_PARTS_ONLY)
+  add_subdirectory(core)
+  if(YANTRA_BUILD_APP)
+    add_subdirectory(app)
   endif()
 endif()
+add_subdirectory(plugins)
+add_subdirectory(tools)
+yantra_add_area_subdirectory(docs docs)
+if(NOT YANTRA_RADIO_PARTS_ONLY)
+  yantra_add_area_subdirectory(packaging packaging)
+endif()
+
+if(YANTRA_BUILD_TESTS)
+  if(NOT YANTRA_RADIO_PARTS_ONLY)
+    add_subdirectory(tests)
+  endif()
+  if(YANTRA_RADIOS_BUILD_TESTS)
+    add_subdirectory(tests/radio)
+  endif()
+endif()
+
+# Installed layout (PLG-09, PLG-29): <prefix>/bin/yantra, Yantra's plugins
+# in <prefix>/lib/yantra/plugins and the radio plugins in
+# <prefix>/lib/yantra/plugins/radios (the application's radio plugin
+# folder, found relative to the executable), with the radio parts'
+# licence bundle, udev rules, RTL-SDR blacklist, yantra-gen and its
+# scenarios (cmake/YantraRadioParts.cmake and the folders' own rules).
+# Packaging: packaging/.
 
 # PDFium (IND-02): the prebuilt library next to Yantra's own libraries
 # with its licence texts (THIRD_PARTY.md). The installed programs find it
 # through their run path $ORIGIN/../lib/yantra (CMAKE_INSTALL_RPATH); on
 # Windows a DLL is found next to the program (bin).
-if(YANTRA_PDFIUM_FOUND)
+if(YANTRA_PDFIUM_FOUND AND NOT YANTRA_RADIO_PARTS_ONLY)
   if(WIN32)
     install(FILES $<TARGET_FILE:yantra_pdfium_lib> DESTINATION bin)
   else()
@@ -228,7 +298,7 @@ endif()
 # The build tree also gets Mesa's opengl32.dll (llvmpipe, 16.2 test tool):
 # the tests render off-screen in the test VM, whose display adapter has no
 # OpenGL 3 (BUILD.md "Windows"). Never packaged.
-if(WIN32 AND CMAKE_CROSSCOMPILING)
+if(WIN32 AND CMAKE_CROSSCOMPILING AND NOT YANTRA_RADIO_PARTS_ONLY)
   find_package(Python3 REQUIRED COMPONENTS Interpreter)
   set(_dll_search --search ${CMAKE_SYSROOT}/bin)
   if(YANTRA_PDFIUM_FOUND)
@@ -274,5 +344,6 @@ message(STATUS "Yantra ${PROJECT_VERSION}: SIMD=${YANTRA_SIMD} "
                "APP=${YANTRA_BUILD_APP} TESTS=${YANTRA_BUILD_TESTS} "
                "SANITIZER='${YANTRA_SANITIZER}' "
                "RADIO_API=${YANTRA_RADIO_API_VERSION_MAJOR}.${YANTRA_RADIO_API_VERSION_MINOR} "
-               "RADIOS=${YANTRA_RADIOS_KIND} PDFIUM=${YANTRA_PDFIUM_FOUND} "
+               "RADIOS=${YANTRA_BUILD_RADIOS} RADIO_PARTS_ONLY=${YANTRA_RADIO_PARTS_ONLY} "
+               "RADIO_TESTS=${YANTRA_RADIOS_BUILD_TESTS} PDFIUM=${YANTRA_PDFIUM_FOUND} "
                "PROBE=${YANTRA_PLUGIN_PROBE} PEI=${YANTRA_RADIOS_PEI}")

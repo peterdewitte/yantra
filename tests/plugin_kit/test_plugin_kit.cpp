@@ -20,7 +20,7 @@ using nlohmann::json;
 namespace {
 
 const fs::path kSource = YANTRA_SOURCE_DIR;
-const fs::path kBeaconRecords = kSource / "plugins/example_beacon/testdata/beacon.records.jsonl";
+const fs::path kBeaconRecords = kSource / "plugins/beacon/testdata/beacon.records.jsonl";
 
 std::string messages(const kit::Report& r) {
     std::string s;

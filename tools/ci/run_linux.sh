@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Runs the Linux steps of the radio parts' CI on a developer machine
+# (RAD-134, RAD-141: the radio-parts-only build): the static dependency
+# build, configure with warnings as errors, build, fast
+# tests (timing tests retried once), the completeness check and the lint.
+# The compiler: YANTRA_CI_COMPILER=clang (default: the cross SDK's clang,
+# RAD-03/RAD-139; the SDK is made or checked first) or gcc (the system's).
+# Usage: tools/ci/run_linux.sh [build-dir] [extra cmake args...]
+# Copied from yantra-v1 c24e8f5: tools/ci/run_linux.sh, adapted for RAD-134.
+set -euo pipefail
+cd "$(dirname "$0")/../.."
+build=${1:-build-ci}
+shift || true
+# All cores (owner, 2026-11-03: the build machine is the build's).
+jobs=$(nproc)
+case ${YANTRA_CI_COMPILER:-clang} in
+    clang)
+        python3 tools/sdk/yantra_sdk.py check >/dev/null || python3 tools/sdk/yantra_sdk.py make
+        export CMAKE_TOOLCHAIN_FILE=$PWD/tools/sdk/toolchain-x86_64-linux-gnu-clang.cmake
+        ;;
+    gcc)
+        unset CMAKE_TOOLCHAIN_FILE
+        export CC=gcc CXX=g++
+        ;;
+    *) echo "run_linux: YANTRA_CI_COMPILER is clang or gcc" >&2; exit 2 ;;
+esac
+tools/deps/build_deps.sh "$build/deps"
+cmake -S . -B "$build" -G Ninja -DYANTRA_WERROR=ON -DYANTRA_RADIO_PARTS_ONLY=ON -DYANTRA_DEPS_PREFIX="$(cd "$build/deps" && pwd)" "$@"
+cmake --build "$build" -j "$jobs"
+ctest --test-dir "$build" -LE "slow|timing" --timeout 600 --output-on-failure -j "$jobs"
+ctest --test-dir "$build" -L timing -LE slow --timeout 600 --repeat until-pass:2 --output-on-failure
+python3 tools/ci/check_completeness.py "$build/lib/yantra/plugins/radios"
+tools/ci/lint.sh
+reuse lint

@@ -9,9 +9,9 @@
     {
       "name": "clang-sdk",
       "hidden": true,
-      "displayName": "clang from the cross SDK in radios/tools/sdk (OA-02; RAD-139)",
+      "displayName": "clang from the cross SDK in tools/sdk (OA-02; RAD-139)",
       "cacheVariables": {
-        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/radios/tools/sdk/toolchain-x86_64-linux-gnu-clang.cmake",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/tools/sdk/toolchain-x86_64-linux-gnu-clang.cmake",
         "YANTRA_SDK_DIR": "$env{YANTRA_SDK_DIR}"
       }
     },
@@ -60,6 +60,25 @@
         "YANTRA_WERROR": "ON"
       },
       "inherits": "clang-sdk"
+    },
+    {
+      "name": "radio-parts",
+      "displayName": "Radio parts only: radio API, radio plugins, generator, tools and their tests, without the application (RAD-141)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-radios",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "YANTRA_RADIO_PARTS_ONLY": "ON"
+      },
+      "inherits": "clang-sdk"
+    },
+    {
+      "name": "ci-radio-parts",
+      "displayName": "CI radio parts only: warnings are errors (RAD-141, RAD-134)",
+      "inherits": "radio-parts",
+      "cacheVariables": {
+        "YANTRA_WERROR": "ON"
+      }
     },
     {
       "name": "plugins-off",
@@ -150,7 +169,7 @@
       "binaryDir": "${sourceDir}/build-win",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "RelWithDebInfo",
-        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/radios/tools/sdk/toolchain-x86_64-w64-mingw32-clang.cmake",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/tools/sdk/toolchain-x86_64-w64-mingw32-clang.cmake",
         "YANTRA_SDK_DIR": "$env{YANTRA_SDK_DIR}",
         "YANTRA_WIN_STATIC_RUNTIME": "OFF"
       }
@@ -180,6 +199,14 @@
     {
       "name": "ci-scalar",
       "configurePreset": "ci-scalar"
+    },
+    {
+      "name": "radio-parts",
+      "configurePreset": "radio-parts"
+    },
+    {
+      "name": "ci-radio-parts",
+      "configurePreset": "ci-radio-parts"
     },
     {
       "name": "plugins-off",
@@ -234,6 +261,13 @@
       }
     },
     {
+      "name": "radio-parts",
+      "configurePreset": "radio-parts",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
       "name": "plugins-off",
       "configurePreset": "plugins-off",
       "output": {
@@ -249,7 +283,7 @@
     },
     {
       "name": "windows",
-      "displayName": "Windows tree: run on Windows (test VM: wintest.sh test build-win, BUILD.md)",
+      "displayName": "Windows tree: run on Windows (BUILD.md)",
       "configurePreset": "windows",
       "output": {
         "outputOnFailure": true
