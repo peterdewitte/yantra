@@ -9,7 +9,7 @@
  * checked by ctest (doc_snippets), so the tutorial always shows this code.
  *
  * The beacon technology is NOT a real radio standard. Its records come
- * from the example radio plugin of yantra-radios (RAD-64, plugin id
+ * from the example radio plugin of the radio parts (RAD-64, plugin id
  * "beacon"), which makes its own beacon signal, measures it and delivers
  * records through the radio API. That radio plugin is also this
  * technology's simulated radio (PLG-11), and
@@ -451,7 +451,7 @@ static const yantra_plugin_descriptor descriptor = {
     "1.0.0",
     "The Yantra contributors",
     "GPL-3.0-or-later", /* a GPL-3.0-compatible SPDX expression (PLG-10) */
-    "Example technology plugin for the made-up beacon of yantra-radios.",
+    "Example technology plugin for the made-up beacon of the radio parts.",
     NULL, /* source_url: none for an example */
     translations,
     beacon_init,

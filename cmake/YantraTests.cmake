@@ -33,7 +33,7 @@
 # YANTRA_TEST_TIME_SCALE: the sanitizer trees (Debug, ASan/TSan) run 5-60x
 # slower; their hang guards scale with it: the TIMEOUT of the per-case
 # ctests and the tests' own stream limits (C++ YANTRA_TEST_TIME_SCALE).
-# 5 for ASan/UBSan, 10 for TSan (the factors yantra-radios measured).
+# 5 for ASan/UBSan, 10 for TSan (the factors the radio parts measured).
 # Only guards: no check or tolerance changes, the real-time checks are
 # label timing and left out of those trees.
 if(YANTRA_SANITIZER STREQUAL "")

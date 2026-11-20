@@ -275,7 +275,7 @@ struct ProjectView {
 
 /// A loaded plugin in About (UI-15) and the plugin manager (PLG-09).
 struct PluginRowView {
-    bool radio = false;     ///< a radio plugin (yantra-radios) or a plugin.h plugin
+    bool radio = false;     ///< a radio plugin (radio parts) or a plugin.h plugin
     std::string kind;       ///< "radio", "technology", "feature, exporter", ...
     std::string id, name, version, api, author, licence, description, status, message;
     bool enabled = false;   ///< the switch: on unless the user switched it off

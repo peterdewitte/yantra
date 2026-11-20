@@ -15,7 +15,6 @@ yantra_add_radio_plugin(hackrf
   SOURCES hackrf_plugin.cpp
   LIBS yantra::soapy_plugin yantra::soapy_modules NO_TESTS)
 target_compile_definitions(hackrf PRIVATE
-  YANTRA_RADIOS_SOURCE_URL="${YANTRA_RADIOS_SOURCE_URL}"
   YANTRA_SOAPY_MODULE_TABLE="${_table}")
 if(YANTRA_RADIOS_BUILD_TESTS)
   # Without a HackRF the kit skips the device checks.
@@ -31,8 +30,7 @@ if(YANTRA_RADIO_TEST_PLUGINS)
     LIBS yantra::soapy_plugin yantra_fake_soapy_hackrf_whole
     OUTPUT_DIR ${YANTRA_RADIO_TEST_PLUGIN_DIR} NO_TESTS)
   target_compile_definitions(hackrf_fake PRIVATE
-    YANTRA_RADIOS_SOURCE_URL="${YANTRA_RADIOS_SOURCE_URL}"
-    YANTRA_SOAPY_MODULE_TABLE="${_fake_table}"
+      YANTRA_SOAPY_MODULE_TABLE="${_fake_table}"
     YANTRA_HACKRF_PLUGIN_NAME="hackrf_fake")
 endif()
 

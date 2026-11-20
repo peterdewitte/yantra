@@ -199,7 +199,7 @@ a reader refuses a newer `version` (for example 2.0). The writer of
 out otherwise, so a 1.0 scene read and written again stays 1.0. The
 versions:
 
-| Version | yantra-radios | Change |
+| Version | Radio parts release | Change |
 |---|---|---|
 | 1.0 | 0.1.0 | First version (with the optional multi-wall members) |
 | 1.1 | 0.2.0 | `minor_version`, `floor.storeys`, `walls[].polyline`, `walls[].bands` |

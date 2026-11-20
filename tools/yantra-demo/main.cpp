@@ -28,7 +28,7 @@
 // DIR/<id>.yantra is the project, DIR/recordings/ its walk recordings.
 // Per floor, the scenario that the floor's example id selects in the
 // radios' scenario folder (RAD-18, RAD-74) gets the floor's fixed demo
-// scene from --scene-dir and its walk (demo::walk_scenario); yantra-gen of yantra-radios (RAD-71) writes its
+// scene from --scene-dir and its walk (demo::walk_scenario); yantra-gen of the radio parts (RAD-71) writes its
 // ground truth as a record file (its I/Q output is discarded: Yantra
 // reads records only, RAD-26); the walk is replayed into the project and
 // recorded (demo::record_walk); then each floor is interpolated

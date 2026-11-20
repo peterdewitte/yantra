@@ -8,7 +8,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 Technologies, radios and extra features are plugins, so Yantra itself knows no radio and no network technology. The plugins shipped with Yantra:
 
 - Technology: TETRA (`tetra`): the names, units, help texts and translations of the TETRA fields, the channel raster, C1, the reselection rule, the verification rules and the calculator (chapters 4 and 8).
-- Radios, from the yantra-radios project: the simulator, HackRF, the SoapySDR receiver and the TETRA terminal (chapters 2 and 9).
+- Radios, from the radio parts: the simulator, HackRF, the SoapySDR receiver and the TETRA terminal (chapters 2 and 9).
 - Feature: the probe plugin (`probe`): the headless probe's remote API and the Remote probes window (chapter 12).
 
 An example plugin ("beacon") and the plugin test kit are for plugin writers; how to write a plugin is in `docs/PLUGINS.md`.

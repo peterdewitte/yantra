@@ -8,7 +8,7 @@
 // debug window's records and counters, a practice calibration with its
 // simulated signal generator that finds the simulator's true offset,
 // verify, ppm, the NFR-07 reference noise, the self-test), the beacon
-// example radio, and the SoapySDR and HackRF plugins with yantra-radios'
+// example radio, and the SoapySDR and HackRF plugins with the radio parts'
 // fake SoapySDR module (a WARNING setting); the PEI plugin against the
 // simulated terminal (a ctest of its own, yantra-pei-sim). The simulator
 // streams in real time; the waits are on observable conditions with a

@@ -25,7 +25,7 @@
  *   (DB-08), parameter verification (DB-04) and the neighbour cross-check
  *   (DB-05). It does no signal processing.
  * - \b Radio plugin: not a kind of this header. Radio plugins come from
- *   the separate project yantra-radios and use its own radio API
+ *   the radio parts of this repository and use its own radio API
  *   (yantra/radio.h, prefix `yr_`, own version, RAD-10..49). A radio
  *   plugin processes its own IQ samples and delivers measurement records
  *   of one technology (yr_descriptor::technology_id). Yantra hosts it
@@ -170,7 +170,7 @@
 #define YANTRA_PLUGIN_ENTRY_SYMBOL "yantra_plugin_entry"
 
 /** \name Plugin API version (PLG-04)
- * Separate from the radio API version of yantra-radios. Within a major
+ * Separate from the radio API version of the radio parts. Within a major
  * version only compatible additions are made (functions or fields
  * appended to versioned structs, new constants); the plugin API changelog
  * lists every change as compatible or breaking (DOC-18). Yantra loads a

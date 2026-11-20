@@ -6,7 +6,7 @@
 // stay portable. Linux: dlopen (core/src/platform/dynlib.cpp); the
 // Windows branch (LoadLibraryW) is written there but DEFERRED (Windows).
 // Copied from yantra-v2 68ea20a: core/include/yantra/core/platform/
-// dynlib.h, adapted (RTLD_NODELETE as yantra-radios' test host).
+// dynlib.h, adapted (RTLD_NODELETE as the radio parts' test host).
 #pragma once
 
 #include <filesystem>

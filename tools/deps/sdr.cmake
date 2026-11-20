@@ -120,7 +120,7 @@ else()
     # headers (they include <SoapySDR/Config.h> with angle brackets).
     file(READ ${_soapy}/include/SoapySDR/Config.h _text)
     string(REPLACE "#define SOAPY_SDR_DLL //always building a DLL"
-           "// yantra-radios: a static library on Windows (tools/deps/sdr.cmake)" _text "${_text}")
+           "// Yantra: a static library on Windows (tools/deps/sdr.cmake)" _text "${_text}")
     set(YANTRA_SOAPY_WIN_CONFIG ${CMAKE_BINARY_DIR}/yantra_deps/soapysdr/include/SoapySDR/Config.h)
     file(WRITE ${YANTRA_SOAPY_WIN_CONFIG}.new "${_text}")
     configure_file(${YANTRA_SOAPY_WIN_CONFIG}.new ${YANTRA_SOAPY_WIN_CONFIG} COPYONLY)

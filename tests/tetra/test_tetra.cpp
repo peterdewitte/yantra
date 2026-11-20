@@ -3,7 +3,7 @@
 //
 // The TETRA technology plugin (plugins/tetra): channel raster against the
 // standard's values (EN 300 392-2 21.4.4.1, TS 100 392-15), C1 (RF-06)
-// against hand-calculated values, yantra-radios' tetra_c1_db and the C1
+// against hand-calculated values, the radio parts' tetra_c1_db and the C1
 // of radio records, reselection (DB-08) and verification (DB-04) cases,
 // and its schemas against every shipped radio plugin (PLG-05, PLG-11).
 
@@ -306,7 +306,7 @@ TEST_CASE("tetra raster: records of every band of the radios map, get a channel 
     CHECK(channel_of_frequency.size() == 10);  // 2 carriers x 5 bands, all different
 }
 
-TEST_CASE("tetra C1: hand-calculated values and yantra-radios' formula give the same number (RF-06)") {
+TEST_CASE("tetra C1: hand-calculated values and the radio parts' formula give the same number (RF-06)") {
     // C1 = level - RXLEV_ACCESS_MIN - max(0, MS_TXPWR_MAX_CELL - MS power)
     CHECK(yt::c1_db(-65.0, {-115.0, 35.0}, 30.0) == 45.0);   // 50 - 5
     CHECK(yt::c1_db(-65.0, {-115.0, 35.0}, 35.0) == 50.0);   // mobile: no penalty

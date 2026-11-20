@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 The Yantra contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-//! Protocol crate of yantra-radios (RAD-101, RAD-03): the upper-layer parsing of TETRA
+//! Protocol crate of the radio parts (RAD-101, RAD-03): the upper-layer parsing of TETRA
 //! broadcast PDUs that osmo-tetra lacks or only partly has (DEC-02,
 //! DEC-03): MAC-SYSINFO + D-MLE-SYSINFO with every field, the MAC-RESOURCE
 //! -> LLC -> MLE path of the control channels, D-NWRK-BROADCAST with the

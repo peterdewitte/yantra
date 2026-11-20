@@ -3,7 +3,7 @@
 #
 # The TETRA technology plugin (PLG-11, RF-06, DB-04, DB-08): its raster and
 # rule library against the standard's values, C1 against hand-calculated
-# values, yantra-radios' formula and the C1 of radio records, and its
+# values, the radio parts' formula and the C1 of radio records, and its
 # schemas against every shipped radio plugin (check_radio_schema).
 
 add_executable(test_tetra test_tetra.cpp)

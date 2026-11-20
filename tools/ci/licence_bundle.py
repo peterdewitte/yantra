@@ -34,7 +34,7 @@ import sys
 # (THIRD_PARTY.md, "Libraries"), never in a radio plugin (PLG-29).
 SKIP = {"doctest", "civetweb", "imgui", "miniaudio", "stb"}
 TEXT_GLOBS = ("COPYING*", "LICEN[CS]E*", "NOTICE*")
-SOURCE_URL = "https://github.com/peterdewitte/yantra-radio-plugins"
+SOURCE_URL = "https://github.com/peterdewitte/yantra"
 RUST_STD = {"name": "Rust standard library", "version": "toolchain of the build", "licence": "MIT OR Apache-2.0",
             "folder": "", "archive": "-", "sha256": "-"}
 
@@ -121,8 +121,9 @@ def bundle(root, dest):
     shutil.copy2(root / "LICENSE", dest / "LICENSE")
     shutil.copy2(root / "THIRD_PARTY.md", dest / "THIRD_PARTY.md")
     shutil.copytree(root / "LICENSES", dest / "LICENSES")
-    index = ["# Licence bundle of yantra-radios", "",
-             "yantra-radios is GPL-3.0-or-later (`LICENSE`); its TETRA plugins contain osmo-tetra "
+    index = ["# Licence bundle of the Yantra radio plugins", "",
+             "The radio plugins and tools of Yantra are GPL-3.0-or-later (`LICENSE`); the TETRA "
+             "plugins contain osmo-tetra "
              "(AGPL-3.0-or-later). These libraries are built into the plugins (RAD-132); their "
              "licence texts are in the folders below. The complete corresponding source of every "
              f"release is published at {SOURCE_URL} (release asset "

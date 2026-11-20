@@ -7,7 +7,7 @@
 // next to its IQ file; Yantra's tests feed such files into its record sink
 // (Yantra TST-10). The simulator plugin (RAD-61) can use the same schemas.
 //
-// The schemas are the shared TETRA schemas of yantra-radios
+// The schemas are the shared TETRA schemas of the radio parts
 // (yantra/radios/tetra_schemas.hpp; level in dBm, simulated), so ground
 // truth and the measurement engine's records compare field by field:
 // - "tetra_cell" (MEASUREMENT): the 8 core fields (level in dBm: the local

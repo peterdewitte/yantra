@@ -5,7 +5,7 @@
 # header themselves. Every file that can hold a comment carries its own
 # header instead. Keep this file and THIRD_PARTY.md in step.
 # One file for the whole tree, the radio parts included (PLG-29; merged
-# with yantra-radios' REUSE.toml, RAD-05).
+# with the radio parts' REUSE.toml, RAD-05).
 version = 1
 
 [[annotations]]
@@ -159,7 +159,7 @@ SPDX-FileCopyrightText = "Steve Reid (public domain SHA-1)"
 SPDX-License-Identifier = "LicenseRef-Public-Domain"
 
 # Record files (RAD-65, JSON Lines without a comment syntax), recorded
-# from the radio plugins of yantra-radios or written for the tests, and
+# from the radio plugins of the radio parts or written for the tests, and
 # golden outputs of the plugin test kit (PLG-13).
 [[annotations]]
 path = ["plugins/**/testdata/*.jsonl", "plugins/**/testdata/*.golden.json", "tests/**/*.jsonl", "tests/**/*.golden.json"]

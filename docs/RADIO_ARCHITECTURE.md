@@ -2,9 +2,10 @@
 SPDX-FileCopyrightText: 2026 The Yantra contributors
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
-# Architecture
+# Radio parts architecture
 
-yantra-radios is the radio side of Yantra: radio plugins that each own a
+The radio parts are the radio side of Yantra (PLG-29; the whole
+repository: [ARCHITECTURE.md](../ARCHITECTURE.md)): radio plugins that each own a
 device, process its samples and give the host **measurement records
 only** (RAD-20..26). This page shows the layers, the data flow from the
 antenna to a record, and the threads. Details are in the pages linked
@@ -21,13 +22,13 @@ from each part.
  radio plugin .so (one per radio type, self-contained, RAD-132)
    plugins/simulator  plugins/soapy  plugins/hackrf  plugins/pei  plugins/example
         |                  |              |              |             (beacon)
-        |   plugins/soapy_common: SoapySDR layer (devices, settings,
+        |   radio-common/soapy_common: SoapySDR layer (devices, settings,
         |   hot-plug watcher, stream thread, profiles)
         |                  |              |
         |   SoapySDR 0.8.1 + built-in modules (HackRF, RTL-SDR, Airspy,
         |   Remote) + vendor libraries + libusb, statically
         |                  |
-   plugins/tetra_common: TETRA plugin glue (schemas, plans, C1, GSMTAP)
+   radio-common/tetra_common: TETRA plugin glue (schemas, plans, C1, GSMTAP)
         |
    receiver/  yantra::tetra_engine   measurement engine (search, records)
               yantra::tetra_decoder  lower MAC + upper layers
@@ -41,9 +42,10 @@ from each part.
 
 The PEI terminal plugin (plain C) uses only `radio.h`: the terminal
 measures, the plugin reads it over AT commands. The dependency goes one
-way: Yantra depends on yantra-radios, never the reverse; nothing in this
-repository needs Yantra (its callbacks are emulated by the test host,
-RAD-91).
+way: the application uses the radio API only, and nothing in the radio
+parts uses the application (PLG-30, checked by the ctest
+`boundary_lint`); the radio parts build and test without it (its
+callbacks are emulated by the test host, RAD-91).
 
 | Part | Folder | Docs |
 |---|---|---|

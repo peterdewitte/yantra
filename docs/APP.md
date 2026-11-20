@@ -935,7 +935,7 @@ api_definition 7.10): a plugin with `YR_CAP_SPECTRUM` delivers about one
   (`spectrum.start_radio`), waiting.
 - Spectra are not recorded: recordings and record files hold records
   only (record files name the capability and the plan flag `spectrum`,
-  yantra-radios RECORD_FILES.md); a replay shows no spectrum.
+  the radio parts RECORD_FILES.md); a replay shows no spectrum.
 
 ## Screenshots and layout check (step 9.11)
 

@@ -8,8 +8,8 @@
 #   1. -DYANTRA_SDK_DIR=<folder>
 #   2. the environment variable YANTRA_SDK_DIR
 #   3. <this repository>/sdk (tools/sdk/yantra_sdk.py make)
-# Yantra uses the same files through its yantra-radios submodule and
-# points YANTRA_SDK_DIR at one shared SDK.
+# The application and the radio parts build with the same SDK
+# (YANTRA_SDK_DIR, one shared SDK for every tree).
 # Sets YANTRA_SDK_DIR, YANTRA_SDK_LLVM (the bin folder of clang and the
 # llvm-* tools), YANTRA_RUSTC and YANTRA_CARGO_EXECUTABLE (the SDK's rustc
 # and cargo, used by cmake/RustProto.cmake for every target and test).

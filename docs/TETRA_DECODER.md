@@ -7,7 +7,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 `yantra::tetra_decoder` (`radio-common/receiver`, static, position independent,
 hidden symbols) decodes one TETRA downlink carrier from channel IQ to typed
-C++ structs. It is internal to yantra-radios: plugins turn its output into
+C++ structs. It is internal to the radio parts: plugins turn its output into
 measurement records; no PDU, slot or IQ sample crosses the radio API
 (RAD-20..26). It is built only with the osmo-tetra submodule
 (`third_party/osmo-tetra`, pinned to 59fb603, never its `crypto/`).

@@ -22,9 +22,6 @@ yantra_add_radio_plugin(pei
        $<$<BOOL:${WIN32}>:advapi32>
   NO_TESTS)
 target_include_directories(pei PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_compile_definitions(pei PRIVATE
-  YANTRA_RADIOS_SOURCE_URL="${YANTRA_RADIOS_SOURCE_URL}")
-
 # The AT parser on its own, for the unit tests and the fuzz target (RAD-96).
 add_library(yantra_pei_at STATIC pei_at.c)
 target_include_directories(yantra_pei_at PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

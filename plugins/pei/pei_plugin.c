@@ -28,8 +28,8 @@
 #include <string.h>
 #include <time.h>
 
-#ifndef YANTRA_RADIOS_SOURCE_URL
-#define YANTRA_RADIOS_SOURCE_URL "https://example.invalid/yantra-radios"
+#ifndef YANTRA_SOURCE_URL
+#define YANTRA_SOURCE_URL "https://example.invalid/yantra"
 #endif
 
 #define PEI_KEY_PREFIX "pei:"
@@ -1327,7 +1327,7 @@ YR_EXPORT const yr_descriptor* yantra_radio_entry(void)
         "GPL-3.0-or-later",
         "A TETRA terminal read over its PEI (AT commands, EN 300 392-5): serving and neighbour cells, C1 and "
         "radio info",
-        YANTRA_RADIOS_SOURCE_URL,
+        YANTRA_SOURCE_URL,
         "tetra",
         1,
         0,

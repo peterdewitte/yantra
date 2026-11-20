@@ -6,9 +6,9 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 The simulator scene of every bundled example floor (DEMO-05, DEMO-12,
 DEMO-13, PLG-27): one file per floor, named by the floor's example id
-(`<example id>.json`), in the scene format of yantra-radios (RAD-36:
+(`<example id>.json`), in the scene format of the radio parts (RAD-36:
 `"format": "yantra-radio-scene"`, `"version"` and `"minor_version"`;
-yantra-radios docs/SCENE_FORMAT.md). Each holds the floor's walls with
+the radio parts docs/SCENE_FORMAT.md). Each holds the floor's walls with
 their attenuations, the DAS antennas and their cells, the storeys with
 antennas above or below and the slab losses, in metres in the floor's
 plan frame (the trim and scale of the example description).

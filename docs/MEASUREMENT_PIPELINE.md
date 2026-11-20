@@ -146,7 +146,7 @@ Samples without an SNR, uncalibrated (dBFS), stale or held samples do
 not count. Each sample's level - `snr_db` is the noise next to its
 carrier plus the receiver's own distortion: an SNR estimate stops rising
 at the receiver's limit (about 36 dB for the TETRA receiver of
-yantra-radios), so for a strong carrier, such as an indoor DAS at
+the radio parts), so for a strong carrier, such as an indoor DAS at
 -35 dBm, it lies 60 dB above the noise. The least of them is the closest
 to the noise (noise from the PC raises it next to every carrier), and a
 rise needs a sample below the SNR limit: strong carriers alone only bound
@@ -194,7 +194,7 @@ level corrector is called on the delivery threads, several at once.
   `PipelineConfig::ms_power_dbm` is the RF-06 MS class power setting
   (30 dBm portable, 35 dBm mobile). [plugins/TETRA.md](plugins/TETRA.md).
 - Record files (6.4): `measure::replay(file, pipeline, options)` feeds a
-  yantra-radios record file in as the radio host would: every record with
+  radio record file in as the radio host would: every record with
   its header schema as `radio_schema` and a calibration key
   (`ReplayOptions::calibration_key`, else the header device's driver and
   serial: `device_calibration_key`; record files hold no CALIBRATION

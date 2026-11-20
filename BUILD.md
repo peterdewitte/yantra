@@ -82,8 +82,8 @@ DEFERRED).
 
 ### Radio plugins (PLG-29)
 
-The application has no radio code. The radio parts (formerly
-yantra-radios, merged with their history, their releases tagged
+The application has no radio code. The radio parts (the former
+yantra-radios project, merged with its history, its releases tagged
 `radios-v*`) are folders of the same CMake project:
 
 | Folder | What |
@@ -113,7 +113,6 @@ sanitizer trees instrument them too.
 | `YANTRA_RADIOS_TESTS` | `ON` | The radio parts' tests (with `YANTRA_BUILD_TESTS`). |
 | `YANTRA_RADIOS_PEI` | `ON` | `OFF`: the TETRA terminal plugin pei is not built (RAD-80). |
 | `YANTRA_DEPS_PREFIX` | empty | Take the bundled libraries from a prefix made by `tools/deps/build_deps.sh` instead of building them in the tree. |
-| `YANTRA_RADIOS_SOURCE_URL` | the public repository | Source URL in the radio plugin descriptors (RAD-12, RAD-137). |
 
 ### Other options
 

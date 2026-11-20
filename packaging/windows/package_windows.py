@@ -11,7 +11,7 @@ Made on Linux from the cross-compiled Windows tree (preset windows), by
   OUT/SHA256SUMS
 
 Builds no code. Steps: `cmake --install` of the tree into a staging
-folder (the programs, Yantra's plugins, yantra-radios' self-contained
+folder (the programs, Yantra's plugins, the radio parts' self-contained
 radio plugins and tools with their licence bundle (PLG-26, RAD-137),
 PDFium and the MSYS2 UCRT64 DLLs the programs import (copy_dlls.py),
 data, fonts with their OFL texts, logo, Fraunces demo, in-app manual,
@@ -117,10 +117,10 @@ Start
                              with the simulated radio, no radio needed)
   bin\\yantra-probe.exe       measuring without a window, remote API
   bin\\yantra-plugin-test.exe the plugin test kit
-  bin\\yantra-hackrf.exe     the HackRF device check of yantra-radios
-  bin\\yantra-radio-host.exe the radio plugin host of yantra-radios (info,
+  bin\\yantra-hackrf.exe     the HackRF device check of the radio parts
+  bin\\yantra-radio-host.exe the radio plugin host of the radio parts (info,
                              devices, conformance)
-  bin\\yantra-gen.exe        the TETRA test-signal generator of yantra-radios
+  bin\\yantra-gen.exe        the TETRA test-signal generator of the radio parts
                              (scenarios in share\\yantra-radios\\scenarios)
 
 The portable zip runs from any folder; nothing is installed. The setup
@@ -163,7 +163,7 @@ Yantra {version}
   {source_url}
   (clone: {source_url}.git), commit {commit}
 
-The radio plugins, decoder and generator (yantra-radios) are part of
+The radio plugins, decoder and generator (radio parts) are part of
 this source (radio-api/, plugins/, radio-common/, gen/), with every
 bundled library's source
 at its pinned version and the build scripts (PLG-29, RAD-137).

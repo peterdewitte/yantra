@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The TETRA record schemas (RAD-12, RAD-21..23), shared by everything in
-// yantra-radios that produces TETRA records, so records of different
+// the radio parts that produces TETRA records, so records of different
 // producers compare field by field:
 //   - the measurement engine (receiver/, used by the TETRA plugins and the
 //     test host's decode-iq, RAD-63);

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The record schemas of the TETRA technology plugin (PLG-05), field by field
-// those of the yantra-radios TETRA radio plugins (tetra_cell, tetra_neighbour,
+// those of the radio parts' TETRA radio plugins (tetra_cell, tetra_neighbour,
 // tetra_scan of common/src/tetra_schemas.cpp; tetra_terminal_cell of the pei
 // plugin; yantra-radios 205ca7a, docs/TETRA_RECORDS.md) with their labels and
 // help texts, plus what Yantra adds: the data category of each field

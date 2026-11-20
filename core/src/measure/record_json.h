@@ -18,7 +18,7 @@
 
 namespace yantra::measure {
 
-// A radio schema as a record file header holds it (yantra-radios
+// A radio schema as a record file header holds it (the radio parts
 // docs/RECORD_FILES.md): id, label, kind, version, groups, fields.
 nlohmann::json schema_json(const RecordFileSchema& schema);
 std::optional<RecordFileSchema> parse_schema_json(const nlohmann::json& j, const std::string& where,

@@ -595,7 +595,7 @@ extern "C" YR_EXPORT const yr_descriptor* yantra_radio_entry(void)
         "The Yantra contributors",
         "GPL-3.0-or-later AND AGPL-3.0-or-later", // the receiver uses osmo-tetra (RAD-05)
         "Simulated TETRA network: generated signal, decoded by the real receiver",
-        YANTRA_RADIOS_SOURCE_URL,
+        YANTRA_SOURCE_URL,
         "tetra",
         schema_table().count(),
         sizeof kTranslations / sizeof kTranslations[0],

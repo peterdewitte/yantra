@@ -224,7 +224,7 @@ truth row:
 
 and at the end an `end_of_stream` event and the end line.
 
-The schemas are the shared TETRA schemas of yantra-radios
+The schemas are the shared TETRA schemas of the radio parts
 ([TETRA_RECORDS.md](TETRA_RECORDS.md); level in dBm, simulated), the same
 ones the measurement engine and the TETRA plugins use, so truth and
 decoded records compare field by field. yantra-gen fills:

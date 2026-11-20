@@ -24,7 +24,7 @@ plugins for it.
   field the entry lacked left the cell unknown). So a technology may link
   OPTIONAL neighbour fields such as a neighbour's location area or
   network code, which a radio sends only when they differ from the
-  broadcaster's (yantra-radios RAD-22). Values taken from the
+  broadcaster's (radio parts RAD-22). Values taken from the
   broadcasting cell are presumed (inherited): they rank a match in the
   cell database but never refuse one. An entry without any linked value
   of its own names no cell. No layout change.

@@ -102,13 +102,13 @@ file(CONFIGURE OUTPUT ${PROJECT_BINARY_DIR}/yantra-source-dir.txt CONTENT "${PRO
 # build paths start with "build". Set before every target; the last
 # matching map wins, and the build tree may lie inside the source tree.
 # The test install_build_paths checks the installed files (tests/install).
-# As yantra-radios tools/deps/deps.cmake.
+# As tools/deps/deps.cmake.
 add_compile_options(-ffile-prefix-map=${PROJECT_SOURCE_DIR}=.
                     -ffile-prefix-map=${PROJECT_BINARY_DIR}=build)
 # The cross SDK (YANTRA_SDK_DIR, outside the tree) holds the compiler's,
 # libstdc++'s and the MSYS2 packages' headers: "sdk/...". Its folder name
 # may start with the source folder's (~/yantra-sdk next to ~/yantra), so
-# it comes after that map. As yantra-radios tools/deps/deps.cmake 6fac3ee.
+# it comes after that map. As tools/deps/deps.cmake 6fac3ee.
 if(YANTRA_SDK_DIR)
   get_filename_component(_yantra_sdk_real ${YANTRA_SDK_DIR} REALPATH)
   foreach(_d IN LISTS YANTRA_SDK_DIR _yantra_sdk_real)

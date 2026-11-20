@@ -9,7 +9,7 @@
 // 1. create_project: the building in a new project file (the sheets
 //    copied in unchanged and checked against their SHA-256, the floors
 //    trimmed from them with their example ids, RAD-18).
-// 2. walk_scenario: per floor a yantra-radios scenario (RAD-74) for
+// 2. walk_scenario: per floor a radio scenario (RAD-74) for
 //    yantra-gen (RAD-71): the network of the scenario the floor's example
 //    id selects, the floor's fixed demo scene (data/demo/scenes, RAD-36,
 //    read_demo_scene) and the walk as the receiver path. yantra-gen writes its ground truth as a
@@ -245,7 +245,7 @@ survey::Metric demo_metric(const project::Project& project, const DemoDescriptio
 survey::InterpolationRequest interpolation_request(const project::Project& project, const DemoDescription& d,
                                                    const DemoFloor& f);
 
-/// One selectable demo scenario of yantra-radios (DEMO-09): its id in
+/// One selectable demo scenario of the radio parts (DEMO-09): its id in
 /// the radios' scenario folder (the simulator's `scenario` setting item),
 /// a title and what it shows.
 struct DemoScenario {

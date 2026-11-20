@@ -7,7 +7,7 @@
 //   - load, API version, descriptor and licence (PLG-03, PLG-04, PLG-10);
 //   - its schemas and band plan, and that its technology schemas describe
 //     the records of its radios (check_radio_schema, PLG-05);
-//   - feeds it recorded measurement files (yantra-radios record files,
+//   - feeds it recorded measurement files (radio record files,
 //     RAD-65) or the live records of a (simulated) radio plugin (PLG-11)
 //     through the generic radio -> technology mapping, on a measurement
 //     thread, and calls its technology rules (channel mapping, C1,
@@ -21,7 +21,7 @@
 //   - its output against a golden file (deterministic inputs only).
 // Every check is reported as pass, fail or skip in a machine-readable
 // JSON report. Radio plugins are checked with the radio test kit of
-// yantra-radios (RAD-91), not with this kit.
+// the radio parts (RAD-91), not with this kit.
 // Copied from yantra-v2 68ea20a: tools/yantra-plugin-test/kit.h (exit
 // codes, golden comparison), rewritten for plugin API 1.0 and records.
 #pragma once

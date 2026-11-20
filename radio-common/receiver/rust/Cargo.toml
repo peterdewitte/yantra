@@ -15,7 +15,7 @@
 
 [package]
 name = "yantra-proto"
-description = "TETRA protocol layer of yantra-radios (broadcast PDU parsing)"
+description = "TETRA protocol layer of the radio parts (broadcast PDU parsing)"
 version = "0.1.0"
 edition = "2021"
 license = "GPL-3.0-or-later"

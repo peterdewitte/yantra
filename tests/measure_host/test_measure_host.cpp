@@ -223,7 +223,7 @@ TEST_CASE("measurement host: beacon radio records map onto the example technolog
 
 
 // TST-30 end to end with a real radio plugin: the SoapySDR plugin of
-// yantra-radios with its fake SoapySDR module (RAD-92). Its LNA gain is a
+// the radio parts with its fake SoapySDR module (RAD-92). Its LNA gain is a
 // CALIBRATION setting: changing it while streaming changes the calibration
 // key, and the records measured from then on get the other table entry.
 TEST_CASE("measurement host: an LNA gain change selects the other calibration entry (RF-02, HW-01b, TST-30)") {

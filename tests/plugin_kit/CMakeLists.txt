@@ -5,7 +5,7 @@
 # and on the C test plugin, its negative cases, and the CMake template.
 #   conformance_example_beacon       golden record file -> golden output
 #   conformance_example_beacon_live  live records of the simulated radio
-#                                    (the yantra-radios beacon plugin, PLG-11)
+#                                    (the radio parts' beacon plugin, PLG-11)
 #   conformance_ctest                C test plugin, hand-written record file
 #   plugin_kit_refuses_*             broken plugins and inputs: exit 1 and
 #                                    the reason in the output

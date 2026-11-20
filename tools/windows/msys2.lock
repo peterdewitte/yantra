@@ -6,13 +6,13 @@
 # (GLFW, SQLite, zstd, libcurl with Windows' own TLS, libharu) and their
 # dependencies, from https://repo.msys2.org/mingw/ucrt64, pinned by
 # SHA-256. The cross SDK unpacks them into its sysroot next to the
-# packages of yantra-radios' tools/sdk/msys2.lock:
-# python3 third_party/yantra-radios/tools/sdk/yantra_sdk.py make --msys2-lock tools/windows/msys2.lock
+# packages of tools/sdk/msys2.lock (the radio parts'):
+# python3 tools/sdk/yantra_sdk.py make --msys2-lock tools/windows/msys2.lock
 # The app ships only the DLLs its programs import (tools/windows/
 # copy_dlls.py, NFR-09). 'mesa' is a test tool, never shipped (16.2:
 # Mesa llvmpipe for CI rendering): its opengl32.dll renders the app
 # off-screen in the Windows test VM (build tree only).
-# 'skip': the GCC runtime and mingw-w64 packages that yantra-radios'
+# 'skip': the GCC runtime and mingw-w64 packages that the radio parts'
 # lock already pins (one version of each in the sysroot), and tcl (only
 # the sqlite3 shell uses it; the library does not import it).
 # Update: python3 tools/windows/update_msys2_lock.py

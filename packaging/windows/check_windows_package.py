@@ -15,7 +15,7 @@ unpacked folder. Checks:
 - No test-only file: no DLL named like a Windows system DLL (Mesa's
   opengl32.dll, a 16.2 test tool: the app uses the system's OpenGL), no
   test program or test/example plugin, no DLL that nothing imports.
-- Contents: the programs, the plugins of Yantra and of yantra-radios
+- Contents: the programs, the plugins of Yantra and the radio plugins
   (PLG-26, each radio plugin exporting yantra_radio_entry), data (fonts
   with their OFL texts, logo, demo project), the licence texts (LICENSE,
   THIRD_PARTY.md, the radios' bundle RAD-137, PDFium's, one folder per

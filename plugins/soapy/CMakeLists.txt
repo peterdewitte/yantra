@@ -14,7 +14,6 @@ yantra_add_radio_plugin(soapysdr
   SOURCES soapysdr_plugin.cpp
   LIBS yantra::soapy_plugin yantra::soapy_modules NO_TESTS)
 target_compile_definitions(soapysdr PRIVATE
-  YANTRA_RADIOS_SOURCE_URL="${YANTRA_RADIOS_SOURCE_URL}"
   YANTRA_SOAPY_MODULE_TABLE="${_table}")
 if(YANTRA_RADIOS_BUILD_TESTS)
   # Without a device the conformance kit skips the device checks; the
@@ -30,8 +29,7 @@ if(YANTRA_RADIO_TEST_PLUGINS)
     LIBS yantra::soapy_plugin yantra_fake_soapy_whole
     OUTPUT_DIR ${YANTRA_RADIO_TEST_PLUGIN_DIR} NO_TESTS)
   target_compile_definitions(soapysdr_fake PRIVATE
-    YANTRA_RADIOS_SOURCE_URL="${YANTRA_RADIOS_SOURCE_URL}"
-    YANTRA_SOAPY_MODULE_TABLE="${_fake_table}"
+      YANTRA_SOAPY_MODULE_TABLE="${_fake_table}"
     YANTRA_SOAPY_PLUGIN_NAME="soapysdr_fake"
     YANTRA_SOAPY_ONLY="yantrafake")
 endif()

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # End to end (RAD-36, PLG-27): the simulator plugin built from
-# yantra-radios, loaded by the RadioHost with the SCENE capability, gets
+# the radio parts, loaded by the RadioHost with the SCENE capability, gets
 # a checked-in scene (tests/fixtures/building/office_wall.scene.json) and
 # the positions of the building model through the context
 # (BuildingContext -> ContextPublisher -> get_scene / get_cursor), and its

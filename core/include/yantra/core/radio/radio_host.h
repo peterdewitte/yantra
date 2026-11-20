@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Radio host (PLG-25, OA-10, RAD-10..36 host side): loads the radio
-// plugins of yantra-radios (yantra/radio.h) from the radio plugin folders
+// plugins of the radio parts (yantra/radio.h) from the radio plugin folders
 // (PLG-09: <plugins folder>/radios), refuses an incompatible radio API
 // version (RAD-11), passes the radio host table (RAD-14) and runs the
 // common stream control the same way for every plugin (RAD-30..35):

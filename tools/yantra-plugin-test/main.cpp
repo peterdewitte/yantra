@@ -24,7 +24,7 @@ const char* const kUsage = R"(usage:
                            [--strict-translations] [--tolerance REL]
       Loads the plugin through Yantra's plugin loader and checks its
       descriptor, licence, schemas, band plan, UI and translations. Record
-      files (yantra-radios record files) or the live records of a radio
+      files (radio record files) or the live records of a radio
       plugin (for example the simulated one of the technology) are mapped to
       the plugin's technology schemas and fed to its rules, feature and
       exporters on a measurement thread; the threading rules are checked

@@ -2,12 +2,14 @@
 SPDX-FileCopyrightText: 2026 The Yantra contributors
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
-# yantra-radios
+# The radio parts
 
 The radio plugins of **Yantra**, an open-source indoor TETRA coverage
 survey tool, together with everything they need: the radio API, the
 receiver (DSP, carrier search, TETRA decoder, level and quality meters),
-a TETRA test-signal generator, a radio test host and the tests.
+a TETRA test-signal generator, a radio test host and the tests. They are
+folders of the Yantra repository (PLG-29, RAD-141); the architecture of
+the whole repository is in [ARCHITECTURE.md](../ARCHITECTURE.md).
 
 A radio plugin talks to its own device (an SDR through SoapySDR or a
 direct driver, a terminal over a serial port, or a simulator), processes
@@ -16,10 +18,11 @@ cell identity, optional quality, C1, broadcast parameters and neighbours,
 and (radio API 1.2) a spectrum of power per frequency bin once a second.
 No IQ samples, bursts or PDUs cross the radio API.
 
-Yantra uses this repository as a git submodule pinned to a commit. The
-dependency goes one way: Yantra depends on yantra-radios, never the
-reverse. yantra-radios builds, tests and runs its plugins without Yantra,
-through its own test host.
+The dependency goes one way: the application uses the radio API only,
+and the radio parts never use the application's code (PLG-30; the ctest
+`boundary_lint` checks includes and links). The radio parts build, test
+and run their plugins without the application, through their own test
+host: `cmake --preset radio-parts` (option `YANTRA_RADIO_PARTS_ONLY`).
 
 ## Scope
 
@@ -59,18 +62,10 @@ and how: [DEVICES.md](DEVICES.md) (none on real hardware yet).
 
 ## Status
 
-Release 0.4.0 (2026-11-17, tag v0.4.0; [CHANGELOG.md](../CHANGELOG.md)): radio
-API 1.2 with spectra (SPECTRUM capability): the simulator synthesises one
-from its scene, the HackRF and SoapySDR plugins compute one from their own
-samples once a second. Release 0.3.2 (2026-11-17, tag v0.3.2): the
-simulator treats a floor without a scene (`get_scene` NOT_FOUND) as "no
-scene, use the defaults", logged once at INFO. Release 0.3.1 (2026-11-12,
-tag v0.3.1): a fix release of 0.3.0 (`yantra-gen` finds its scenarios relative to itself; no
-shipped file names a folder of the build machine). Release 0.3.0
-(2026-11-10, tag v0.3.0): radio API 1.1
-(levels in dBm without SELF_CALIBRATED), the simulator's "Levels" setting
-(dBm by default), Windows x64, the cross SDK with clang, the terminal
-plugin's Windows serial ports and the PDF manual.
+The radio parts carry Yantra's product version (file `VERSION`); the
+radio API has its own ABI version, 1.2 (spectra, the SPECTRUM
+capability). Their releases before the merge are tagged `radios-v0.1.0`
+.. `radios-v0.4.0`; [CHANGELOG.md](../CHANGELOG.md) has their history.
 Platforms: Linux x86-64 (clang, and gcc as a second tree) and Windows x64
 (`.dll` plugins, `.exe` tools, cross-compiled with the cross SDK and
 tested on Windows, BUILD.md) are built and tested; Linux arm64 is in the
@@ -90,16 +85,16 @@ demo project, with the simulator and a test build of the HackRF plugin:
 
 ## Quick start
 
-    git submodule update --init
-    cmake -S . -B build -G Ninja && ninja -C build
-    build/bin/yantra-radio-host info --plugin build/bin/plugins/simulator.so
-    build/bin/yantra-radio-host stream --plugin build/bin/plugins/simulator.so \
+    git submodule update --init          # osmo-tetra
+    cmake --preset radio-parts && ninja -C build-radios
+    build-radios/bin/yantra-radio-host info --plugin build-radios/lib/yantra/plugins/radios/simulator.so
+    build-radios/bin/yantra-radio-host stream --plugin build-radios/lib/yantra/plugins/radios/simulator.so \
         --duration 10 --out demo.jsonl
 
 The second command lists the simulator's record schemas; the third
 streams ten seconds of records of the simulated network into a record
 file (docs/RECORD_FILES.md). With a HackRF One plugged in:
-`build/bin/yantra-hackrf list` and `yantra-hackrf measure --plan serving`.
+`build-radios/bin/yantra-hackrf list` and `yantra-hackrf measure --plan serving`.
 
 ## Build (Linux)
 
@@ -107,7 +102,7 @@ Needs CMake >= 3.20, Ninja, Python 3 and cargo; the default compiler is
 clang of the cross SDK (one command, nothing installed in the system), the
 system gcc builds a second tree (BUILD.md).
 
-    git submodule update --init
+    git submodule update --init          # osmo-tetra
     tools/sdk/yantra_sdk.py make
     cmake --preset default
     ninja -C build
@@ -217,12 +212,12 @@ those parts keep their AGPL terms. Third-party components are listed in
 
 ## Made by curtat.be
 
-Yantra and yantra-radios are made by [curtat.be](https://curtat.be) as a
+Yantra and its radio parts are made by [curtat.be](https://curtat.be) as a
 reference on building new programs with Claude, Anthropic's AI assistant.
 Homepage: https://curtat.be.
 
 ## Source
 
-Source code: https://github.com/peterdewitte/yantra-radio-plugins
-(clone URL `git@github.com:peterdewitte/yantra-radio-plugins.git`). Every
-release publishes the complete corresponding source there (RAD-137).
+Source code: https://github.com/peterdewitte/yantra, the one repository
+of Yantra and its radio parts (PLG-29). Every release publishes the
+complete corresponding source there (RAD-137).

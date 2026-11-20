@@ -233,7 +233,7 @@ extern "C" YR_EXPORT const yr_descriptor* yantra_radio_entry(void)
         "The Yantra contributors",
         "GPL-3.0-or-later",
         "Example radio plugin for the made-up beacon technology",
-        YANTRA_RADIOS_SOURCE_URL,
+        YANTRA_SOURCE_URL,
         "beacon",
         2,
         sizeof kTranslations / sizeof kTranslations[0],

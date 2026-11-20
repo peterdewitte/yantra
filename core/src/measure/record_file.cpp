@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Record file reader (RAD-65 version 1, TST-10). Written for Yantra from
-// the format reference (yantra-radios docs/RECORD_FILES.md); the name
+// the format reference (the radio parts docs/RECORD_FILES.md); the name
 // tables follow yantra-radios fb194f5 common/src/record_file.cpp.
 
 #include "yantra/core/measure/record_file.h"

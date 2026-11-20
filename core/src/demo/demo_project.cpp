@@ -415,7 +415,7 @@ std::string walk_scenario(const std::string& base_scenario, const building::Buil
         throw DemoError(std::string("the base scenario is not JSON: ") + e.what());
     }
     if (!s.is_object() || s.value("format", "") != "yantra-radios-scenario")
-        throw DemoError("the base scenario is not a yantra-radios scenario");
+        throw DemoError("the base scenario is not a radio scenario");
     json scene_json;
     try {
         scene_json = json::parse(scene);

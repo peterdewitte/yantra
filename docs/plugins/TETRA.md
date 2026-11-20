@@ -6,11 +6,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
 # TETRA technology plugin
 
 `plugins/tetra` builds `tetra.so`, the technology plugin (PLG-02) for the
-TETRA radio plugins of yantra-radios (technology id `tetra`). It is
+TETRA radio plugins of the radio parts (technology id `tetra`). It is
 installed into the application's plugin folder `lib/yantra/plugins`
 (PLG-09) and is the only place in Yantra with TETRA knowledge: the core
 uses it through the plugin API (PLG-01, [PLUGIN_API.md](../PLUGIN_API.md)).
-The meaning and source of every radio field is in yantra-radios'
+The meaning and source of every radio field is in the radio parts'
 `docs/TETRA_RECORDS.md`; the standard is ETSI EN 300 392-2.
 
 | File | What |
@@ -50,21 +50,21 @@ the cell database (DB-04).
   `neighbour_frequency_hz` names the cell's `frequency_hz`, and
   `neighbour_la`, `neighbour_mcc` and `neighbour_mnc` its `la`, `mcc` and
   `mnc` when the entry carries them (D-NWRK-BROADCAST sends them when it
-  chooses to, e.g. for a neighbour of another network, yantra-radios
+  chooses to, e.g. for a neighbour of another network, the radio parts
   RAD-22); a field the entry lacks is the broadcasting cell's and is kept
   as inherited (it ranks a match but never refuses one).
 - Every schema is checked against every shipped radio plugin by
   `test_tetra` (`check_radio_schema`); a radio schema change in
-  yantra-radios fails it until this table follows.
+  the radio parts' tests fail it until this table follows.
 
 ## Channel raster (PLG-02)
 
 `downlink = band x 100 MHz + carrier x 25 kHz + offset`, offsets 0,
 +6.25, -6.25 and +12.5 kHz (EN 300 392-2 21.4.4.1); the uplink is the
 downlink minus the duplex spacing (plus with reverse operation) of the
-TS 100 392-15 table, the same table yantra-radios decodes with.
+TS 100 392-15 table, the same table the radio receiver decodes with.
 
-The bands cover the whole tuning range of the TETRA radios (yantra-radios
+The bands cover the whole tuning range of the TETRA radios (the radio parts
 RAD-110: 350-470 MHz and 790-920 MHz for 800 MHz TETRA), cut where the
 band code changes, so every record a radio can deliver maps onto a band.
 The TS 100 392-15 allocations (380-400 MHz public safety, 410-430,
@@ -92,7 +92,7 @@ text for the user ("3600 (band 3)", "3603 (band 3, -6.25 kHz)").
 
 `C1 = level - RXLEV_ACCESS_MIN - max(0, MS_TXPWR_MAX_CELL - MS power)`
 (EN 300 392-2 clause 23), in dBm and dB, with the operations of
-yantra-radios' `tetra_c1_db`, so a radio's C1 and Yantra's are the same
+the radio parts' `tetra_c1_db`, so a radio's C1 and Yantra's are the same
 number for the same inputs (tested). The MS power is the class power
 setting, `PipelineConfig::ms_power_dbm`: 30 dBm portable (default),
 35 dBm mobile. `compute_c1` answers UNSUPPORTED for a record without

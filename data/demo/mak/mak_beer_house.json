@@ -7,7 +7,7 @@
     "name": "Beer house, Vienna (example)",
     "site": "Wenzgasse 12, Vienna 13 (historic plan; fictitious network)",
     "operator_name": "Demo network (fictitious, MCC 901 MNC 1)",
-    "notes": "Example building of the guided tour. Every measurement is simulated (yantra-radios scenario mak_beer_house); the network and its DAS are fictitious. The floor plan is not part of Yantra: it is downloaded unaltered from the MAK collection on first use, after you agree, and kept in your cache. Plan: MAK - Museum of Applied Arts, Vienna, Josef Frank and Oskar Wlach, inv. KI 23126-36, CC BY-NC-ND 4.0. The scales are approximate. The simulator's scenes of these plans are hand-traced (main walls only)."
+    "notes": "Example building of the guided tour. Every measurement is simulated (radio scenario mak_beer_house); the network and its DAS are fictitious. The floor plan is not part of Yantra: it is downloaded unaltered from the MAK collection on first use, after you agree, and kept in your cache. Plan: MAK - Museum of Applied Arts, Vienna, Josef Frank and Oskar Wlach, inv. KI 23126-36, CC BY-NC-ND 4.0. The scales are approximate. The simulator's scenes of these plans are hand-traced (main walls only)."
   },
   "building": {
     "name": "Beer house, Vienna"

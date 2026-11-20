@@ -12,7 +12,7 @@
 // Scope (RAD-17): addresses are never copied out of osmo-tetra's
 // structures, only whether a PDU is addressed; nothing is decrypted,
 // encrypted PDUs are only flagged and counted (DEC-10). These structs stay
-// inside yantra-radios: the plugins turn them into record fields, no PDU
+// inside the radio parts: the plugins turn them into record fields, no PDU
 // crosses the radio API (RAD-26).
 #pragma once
 

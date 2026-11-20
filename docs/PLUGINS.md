@@ -20,7 +20,7 @@ complete technology plugin, the example beacon plugin in
 - The TETRA technology plugin Yantra ships, a full-size example of the
   same interface: [plugins/TETRA.md](plugins/TETRA.md).
 - **Radio plugins** (a receiver that measures and delivers records) are a
-  different interface, the radio API of yantra-radios. They are described
+  different interface, the radio API of the radio parts. They are described
   in [RADIO_PLUGINS.md](RADIO_PLUGINS.md)
   and tested with that repository's radio test kit.
 
@@ -104,7 +104,7 @@ YANTRA_PLUGIN_PATH=$PWD/build/lib/yantra/examples build/bin/yantra
 or copy `example_beacon.so` into `~/.local/share/yantra/plugins`.
 
 The beacon technology is made up. Its records come from the example
-radio plugin of yantra-radios (plugin id `beacon`), which generates and
+radio plugin of the radio parts (plugin id `beacon`), which generates and
 measures its own beacon signal. That radio plugin is the example's
 simulated radio (PLG-11), and
 [`testdata/beacon.records.jsonl`](../plugins/beacon/testdata/beacon.records.jsonl)
@@ -583,7 +583,7 @@ static const yantra_plugin_descriptor descriptor = {
     "1.0.0",
     "The Yantra contributors",
     "GPL-3.0-or-later", /* a GPL-3.0-compatible SPDX expression (PLG-10) */
-    "Example technology plugin for the made-up beacon of yantra-radios.",
+    "Example technology plugin for the made-up beacon of the radio parts.",
     NULL, /* source_url: none for an example */
     translations,
     beacon_init,
@@ -734,7 +734,7 @@ through Yantra's own plugin loader and checks it the way Yantra uses it:
 | `golden` | the output equals a golden file |
 
 Inputs are record files of the technology's radio (`--records`, the
-format of yantra-radios' `RECORD_FILES.md`) or the live records of a radio
+format of the radio parts' `RECORD_FILES.md`) or the live records of a radio
 plugin, such as the simulated one (`--radio beacon.so --count 20`).
 `--golden FILE` compares the output (records with keys, channels and C1,
 reselections, neighbours, UI frames, exports) with a golden file, within

@@ -6,7 +6,7 @@
 # in ${CMAKE_BINARY_DIR}/demo/fraunces from data/demo/fraunces/fraunces.json,
 # demo_mak the three MAK example projects in ${CMAKE_BINARY_DIR}/demo/mak/<id>
 # from data/demo/mak/<id>.json, with the yantra-gen and scenarios of the
-# yantra-radios stage. The MAK plans (DEMO-12) are never used by the
+# radio parts. The MAK plans (DEMO-12) are never used by the
 # build: those projects reference them by SHA-256 (--reference-sheets).
 
 include(GNUInstallDirs)

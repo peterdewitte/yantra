@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2026 The Yantra contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# The cross SDK of yantra-radios (RAD-139): one folder, made from pinned
+# The cross SDK of the radio parts (RAD-139): one folder, made from pinned
 # downloads only, with
 #   llvm/      one LLVM release (clang, lld, the llvm-* tools, compiler-rt
 #              with the sanitizers and libFuzzer) that runs on Linux x86-64
@@ -614,7 +614,7 @@ def cmd_update(args):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="The cross SDK of yantra-radios (RAD-139)")
+    ap = argparse.ArgumentParser(description="The cross SDK of the radio parts (RAD-139)")
     ap.add_argument("command", choices=["make", "check", "update", "path"])
     ap.add_argument("--sdk-dir", type=pathlib.Path,
                     default=pathlib.Path(os.environ.get("YANTRA_SDK_DIR") or REPO / "sdk"))

@@ -9,7 +9,7 @@ running the test when it is a person's (at least two levels deep, so not
 "/" or "/tmp"). Binaries are built with -ffile-prefix-map (top-level
 CMakeLists.txt), so debug information and __FILE__ hold relative paths.
 Prints each finding with the file and how often it occurs; exit 1 on any.
-As yantra-radios tools/ci/check_completeness.py (build_paths).
+As the radio parts tools/ci/check_completeness.py (build_paths).
 """
 import argparse
 import os

@@ -50,9 +50,11 @@ function(yantra_add_radio_plugin name)
   endif()
   add_library(${name} MODULE ${ARG_SOURCES})
   target_link_libraries(${name} PRIVATE yantra::radio_api yantra_warnings ${ARG_LIBS})
-  # The descriptor's version is the product version (PLG-29); the example
-  # plugin of the tutorial keeps its own, as a third-party plugin would.
-  target_compile_definitions(${name} PRIVATE YANTRA_VERSION="${YANTRA_VERSION}")
+  # The descriptor's version is the product version and its source URL
+  # the repository's (PLG-29, RAD-12); the example plugin of the tutorial
+  # keeps its own version, as a third-party plugin would.
+  target_compile_definitions(${name} PRIVATE YANTRA_VERSION="${YANTRA_VERSION}"
+                                             YANTRA_SOURCE_URL="${YANTRA_SOURCE_URL}")
   set_target_properties(${name} PROPERTIES
     PREFIX ""
     C_VISIBILITY_PRESET hidden

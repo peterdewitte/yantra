@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 The Yantra contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The simulator plugin (yantra-radios RAD-61) with its positions from
+// The simulator plugin (radio parts RAD-61) with its positions from
 // Yantra's floors (PLG-27, IND-08): the RadioHost answers get_floor_plan,
 // get_scene and get_cursor from a BuildingContext whose scene is a
 // checked-in test scene (tests/fixture_scene.hpp; Yantra makes no scenes
@@ -104,7 +104,7 @@ std::optional<Sample> sample(const ym::RadioRecord& r) {
     return Sample{*level, *x, *y, *floor};
 }
 
-// The simulator's "level_unit" item dbfs (yantra-radios RAD-61).
+// The simulator's "level_unit" item dbfs (radio parts RAD-61).
 constexpr std::int64_t kLevelUnitDbfs = 1;
 
 struct Sim {

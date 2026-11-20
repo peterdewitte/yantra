@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 The Yantra contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Fuzz target record_file (TST-12, TST-23): a record file of yantra-radios
+// Fuzz target record_file (TST-12, TST-23): a record file of the radio parts
 // (RAD-65) through the record sink: read it, then feed every record and
 // event into the measurement pipeline as the radio host would, with the
 // pipeline clock following the record times and a cycle tick per line.

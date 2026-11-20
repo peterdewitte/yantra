@@ -49,7 +49,7 @@ CHAPTERS = [
     ("docs/TETRA_RECORDS.md", "records"),
     ("docs/RADIO_PLUGINS.md", "guide"),
 ]
-TITLE = "yantra-radios manual"
+TITLE = "Yantra radio plugins manual"
 AUTHOR = "The Yantra contributors"
 PAGE_SLACK_PT = 0.75  # layout rounding
 
@@ -418,7 +418,7 @@ def main():
     front = os.path.join(out, ".title.html")
     with open(front, "w", encoding="utf-8") as f:
         f.write(f'<div class="title-page" data-version="{version}">\n'
-                '<p class="name">yantra-radios</p>\n'
+                '<p class="name">Yantra radio plugins</p>\n'
                 '<p class="what">Radio plugins for Yantra: manual</p>\n'
                 f"<p>Version {version}</p>\n"
                 f"<p>Built {date}</p>\n"

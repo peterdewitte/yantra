@@ -12,12 +12,12 @@ Yantra is made by curtat.be (https://curtat.be) as a reference on building new p
 ### What you need
 
 - A PC with Linux (a .deb package or built from source) or Windows 10 or 11 x64 (a portable zip or a setup); see the README, "Install".
-- A radio that one of the radio plugins supports (chapter 2): a HackRF One, an RTL-SDR, an Airspy or another SoapySDR radio, or a TETRA terminal with a PEI cable. None of these radios has been measured with Yantra on real hardware yet: the radio plugins are tested against simulated devices, and their hardware status is kept in DEVICES.md of the yantra-radios project. Always check a new radio against a known signal (chapter 3) before you trust its levels.
+- A radio that one of the radio plugins supports (chapter 2): a HackRF One, an RTL-SDR, an Airspy or another SoapySDR radio, or a TETRA terminal with a PEI cable. None of these radios has been measured with Yantra on real hardware yet: the radio plugins are tested against simulated devices, and their hardware status is kept in DEVICES.md of the radio parts. Always check a new radio against a known signal (chapter 3) before you trust its levels.
 - No radio at all for learning and demonstrations: the simulator "Demo (simulated network)" is always there.
 
 ### Radio drivers and permissions (Linux)
 
-USB radios need read and write access for your user. The yantra-radios project ships the rules: `udev/60-yantra-sdr.rules` (HackRF, RTL-SDR, Airspy) belongs in `/etc/udev/rules.d/` (an installed package puts it in `/lib/udev/rules.d/`); reload the rules and plug the radio in again. An RTL-SDR also needs the DVB-T television driver kept away from it: `udev/yantra-rtl-sdr-blacklist.conf` goes into `/etc/modprobe.d/`. A TETRA terminal on a serial port needs your user in the `dialout` group (log in again afterwards). When access is missing, the radio list (2.1) shows the device with the reason and the remedy. On Windows a USB radio needs the WinUSB driver, installed once per device with Zadig (https://zadig.akeo.ie); a TETRA terminal uses its COM port.
+USB radios need read and write access for your user. Yantra ships the rules: `udev/60-yantra-sdr.rules` (HackRF, RTL-SDR, Airspy) belongs in `/etc/udev/rules.d/` (an installed package puts it in `/lib/udev/rules.d/`); reload the rules and plug the radio in again. An RTL-SDR also needs the DVB-T television driver kept away from it: `udev/yantra-rtl-sdr-blacklist.conf` goes into `/etc/modprobe.d/`. A TETRA terminal on a serial port needs your user in the `dialout` group (log in again afterwards). When access is missing, the radio list (2.1) shows the device with the reason and the remedy. On Windows a USB radio needs the WinUSB driver, installed once per device with Zadig (https://zadig.akeo.ie); a TETRA terminal uses its COM port.
 
 ## 1.1 The start screen
 

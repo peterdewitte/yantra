@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 The Yantra contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Reader of yantra-radios record files (RAD-65, format
+// Reader of the radio parts record files (RAD-65, format
 // "yantra-radio-records" version 1, documented in
 // docs/RECORD_FILES.md): what a radio plugin delivered, recorded by
 // yantra-radio-host or written by yantra-gen. Yantra's tests, the plugin
@@ -113,7 +113,7 @@ struct ReplayOptions {
     std::shared_ptr<const calibration::Key> calibration_key;
     // Without calibration_key: the key of the header's device (driver and
     // serial, no settings: record files do not store the CALIBRATION
-    // settings, docs/RECORD_FILES.md of yantra-radios), see
+    // settings, docs/RECORD_FILES.md of the radio parts), see
     // device_calibration_key. false: no key, the levels stay uncalibrated.
     bool key_from_device = true;
     // Called before each line with its monotonic time (a record's

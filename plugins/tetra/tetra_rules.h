@@ -8,7 +8,7 @@
 // technology schemas; the meaning of the parameters is EN 300 392-2
 // (docs/plugins/TETRA.md).
 //
-// C1 (EN 300 392-2 clause 23; the formula of yantra-radios'
+// C1 (EN 300 392-2 clause 23; the formula of the radio parts'
 // tetra_c1_db, common/include/yantra/radios/tetra_schemas.hpp at 205ca7a,
 // with the same operations in the same order, so Yantra's estimate and a
 // radio's C1 are the same number for the same inputs):

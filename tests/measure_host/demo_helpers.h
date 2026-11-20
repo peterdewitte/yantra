@@ -82,7 +82,7 @@ inline yantra::survey::RunControl demo_run() {
 /// Whether the build's demo projects were made by this platform's
 /// programs. Not on Windows: the Windows tree takes them from the Linux
 /// tree (YANTRA_HOST_BUILD_DIR), and the C runtimes' math functions differ
-/// there in the last bit (yantra-radios keeps per-platform generator
+/// there in the last bit (the radio parts keep per-platform generator
 /// goldens for the same reason), so "made again gives the same project"
 /// compares two runs on Windows instead.
 #ifdef _WIN32

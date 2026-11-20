@@ -3,7 +3,7 @@
 //
 // The radio host's device control as data (RAD-40..48, PLG-16 windows):
 // settings, sensors, actions, presets, self-test, translations and the
-// plugin log, with the beacon example radio of yantra-radios (RAD-64; a
+// plugin log, with the beacon example radio of the radio parts (RAD-64; a
 // simulated device, no hardware). Skips when it is not built.
 #include <doctest/doctest.h>
 

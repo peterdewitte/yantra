@@ -12,7 +12,7 @@
 //   dBm. Each sample's level - snr_db is the noise and interference next
 //   to its carrier plus the receiver's own distortion: a receiver's SNR
 //   estimate stops rising at its own limit (about 36 dB for the TETRA
-//   receiver of yantra-radios), so for a strong carrier (an indoor DAS at
+//   receiver of the radio parts), so for a strong carrier (an indoor DAS at
 //   -35 dBm) it is far above the noise. Each sample is an upper bound of
 //   the noise, and the least is the closest; noise from the PC raises it
 //   next to every carrier.

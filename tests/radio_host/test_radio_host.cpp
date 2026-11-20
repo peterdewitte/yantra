@@ -3,7 +3,7 @@
 //
 // Radio host (PLG-25, PLG-27, PLG-26, NFR-04, RAD-11, RAD-14, RAD-24,
 // RAD-30..35 host side): a fake radio plugin driven by the test, and the
-// simulator and beacon plugins of yantra-radios, loaded and streamed
+// simulator and beacon plugins of the radio parts, loaded and streamed
 // through the RadioHost into a RecordQueue. Every wait is on an
 // observable condition with a generous limit.
 
@@ -673,7 +673,7 @@ TEST_CASE("radio host: the beacon example plugin streams through the host") {
 }
 
 // NFR-04 end to end with a real radio plugin: the generic SoapySDR plugin
-// of yantra-radios built with its fake SoapySDR module (soapysdr_fake,
+// of the radio parts built with its fake SoapySDR module (soapysdr_fake,
 // RAD-92), streaming a generated two-cell scenario. The fake module
 // unplugs the device while <control>/<serial>.unplugged exists; the
 // plugin's hot-plug watcher reports DEVICE_LOST and, once the file is

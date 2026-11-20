@@ -41,9 +41,6 @@
 #   YANTRA_RADIOS_PEI_SCENARIO    test fixtures for the application's tests
 #   target yantra_radio_plugins   every radio plugin (shipped and test builds)
 
-set(YANTRA_RADIOS_SOURCE_URL "https://github.com/peterdewitte/yantra-radio-plugins"
-  CACHE STRING "Public source repository of the radio parts (RAD-12 descriptor, RAD-137)")
-
 if(NOT EXISTS ${PROJECT_SOURCE_DIR}/third_party/osmo-tetra/src)
   message(FATAL_ERROR "osmo-tetra is missing in third_party/osmo-tetra: run "
                       "'git submodule update --init' (RAD-101)")

@@ -4,7 +4,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 -->
 # TETRA record schemas
 
-The record schemas of every TETRA producer in yantra-radios (RAD-12,
+The record schemas of every TETRA producer in the radio parts (RAD-12,
 RAD-21..23): the measurement engine (receiver/, used by the TETRA plugins
 and `yantra-radio-host decode-iq`, RAD-63), yantra-gen's ground truth
 (RAD-71, [YANTRA_GEN.md](YANTRA_GEN.md)) and the simulator plugin.

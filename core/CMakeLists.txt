@@ -3,7 +3,7 @@
 #
 # yantra_core: the survey library without UI (OA-01, API-03).
 # Technology- and radio-specific code never goes here; it lives in plugins
-# (PLG-01), and all IQ processing in the radio plugins of yantra-radios
+# (PLG-01), and all IQ processing in the radio plugins of the radio parts
 # (RAD-26, HW-01). Copied from yantra-v2 68ea20a (9540c71):
 # core/CMakeLists.txt.
 

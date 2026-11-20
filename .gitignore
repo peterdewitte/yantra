@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Copied from yantra-v2 68ea20a: .gitignore, adapted (radio parts,
-# record files; merged with yantra-radios' .gitignore, PLG-29).
+# record files; merged with the radio parts' .gitignore, PLG-29).
 
 # Build trees (default, scalar, sanitizer, fuzz, packaging ...), only at
 # the root so source folders whose names start with "build" stay visible.

@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 The Yantra contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# USB access without root to the SDR receivers of the yantra-radios
+# USB access without root to the SDR receivers of the radio parts
 # plugins (RAD-99): the logged-in user (uaccess) and the plugdev group
 # (headless use). The install puts it in <prefix>/lib/udev/rules.d; a
 # package for /usr installs it there, where udev reads it. After a source

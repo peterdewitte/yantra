@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 The Yantra contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Record files of yantra-radios (RAD-65, TST-10) read by the core and fed
+// Record files of the radio parts (RAD-65, TST-10) read by the core and fed
 // into the measurement input, and the mapping of radio records onto a
 // technology schema (PLG-05, OA-13): by field name, dBFS levels to dBm
 // with the calibration offset, UNCALIBRATED without one.
@@ -91,7 +91,7 @@ yp::Schema tech_schema() {
 
 }  // namespace
 
-TEST_CASE("record file: the yantra-radios example file is read") {
+TEST_CASE("record file: the radio parts example file is read") {
     const auto p = ym::read_record_file(kExample);
     INFO(all(p.errors));
     REQUIRE(p.ok());

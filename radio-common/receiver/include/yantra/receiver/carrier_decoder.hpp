@@ -23,7 +23,7 @@
 //
 // One CarrierDecoder per carrier; instances share no state, so carriers
 // decode in parallel threads (one decoder per thread at a time). Its
-// output stays inside yantra-radios: the plugins turn it into records
+// output stays inside the radio parts: the plugins turn it into records
 // (RAD-20..26).
 #pragma once
 

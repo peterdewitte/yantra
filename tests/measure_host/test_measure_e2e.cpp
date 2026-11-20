@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // TST-10 end to end: measurements without a radio, from the radios'
-// scenarios (yantra-radios data/scenarios) to Yantra's cycles, against the
+// scenarios (the radio parts data/scenarios) to Yantra's cycles, against the
 // generator's ground truth.
 //   - record files written in the build tree by the radios' tools
 //     (gen_records.cmake): yantra-gen ground truth (dBm, its STEM.cells.csv

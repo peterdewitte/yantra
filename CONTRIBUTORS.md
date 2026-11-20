@@ -4,8 +4,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 -->
 # Contributors
 
-Yantra, with its radio parts (formerly yantra-radios, merged into this
-repository, PLG-29), is written by "The Yantra contributors" (the
+Yantra, with its radio parts (merged into this repository with their
+history, PLG-29), is written by "The Yantra contributors" (the
 copyright holder named in every SPDX header). The radio parts were
 started on 2026-11-03 by
 [curtat.be](https://curtat.be) as a reference on building new programs

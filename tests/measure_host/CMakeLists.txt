@@ -3,7 +3,7 @@
 #
 # Measurement pipeline behind the radio host (OA-13, TST-23, TST-31,
 # PLG-05): the fake radio plugin of tests/radio_host pushing late, burst,
-# out-of-order and duplicate records; the simulator of yantra-radios end to
+# out-of-order and duplicate records; the simulator of the radio parts end to
 # end at 1 Hz; the beacon example radio with the example beacon technology
 # plugin (technology schema mapping); the calibration table and antenna
 # correction with the fake SDR plugin and the simulator's practice

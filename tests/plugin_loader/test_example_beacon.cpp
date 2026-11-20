@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The example technology plugin (PLG-15): built by the main build, loaded
-// through the PluginLoader, and its schemas match those of the yantra-radios
+// through the PluginLoader, and its schemas match those of the radio parts
 // beacon radio plugin (check_radio_schema, PLG-05), both in the golden record
 // file (PLG-11) and in the radio plugin's own descriptor.
 

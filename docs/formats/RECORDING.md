@@ -102,7 +102,7 @@ wrongly) and counts them.
 | `technology` | its technology id |
 | `capabilities` | its capability bits (`YR_CAP_*` of yantra/radio.h) |
 | `schema_index` | the schema's index in the plugin |
-| `schema` | the radio schema, in the shape of the yantra-radios record files: `id`, `label`, `kind`, `version`, `groups`, and `fields` with per field `name`, `label`, `unit`, `help`, `type`, `group`, `flags` and, for enums, `items` (`value`, `name`, `label`) |
+| `schema` | the radio schema, in the shape of the radio parts' record files: `id`, `label`, `kind`, `version`, `groups`, and `fields` with per field `name`, `label`, `unit`, `help`, `type`, `group`, `flags` and, for enums, `items` (`value`, `name`, `label`) |
 
 ### `cal`
 

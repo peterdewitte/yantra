@@ -5,7 +5,7 @@
 # generator -> channel -> receiver chain -> CarrierDecoder per scenario
 # and SNR. Needs the osmo-tetra submodule (the decoder).
 # Copied from yantra 68ea20a: plugins/tetra/sens and tools/yantra-sens,
-# adapted for RAD-126 (receiver and generator of yantra-radios; the
+# adapted for RAD-126 (receiver and generator of the radio parts; the
 # TU50/HT200 channels are the generator's).
 if(NOT YANTRA_OSMO_TETRA_FOUND)
   message(STATUS "yantra-sens: left out (needs the osmo-tetra submodule)")

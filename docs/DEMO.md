@@ -201,7 +201,7 @@ them and is skipped with that reason otherwise.
 
 The simulator's scene of every bundled example floor (the two Fraunces
 floors and the floors of the three MAK buildings) is a file in the demo
-data: `data/demo/scenes/<example id>.json`, in the yantra-radios scene
+data: `data/demo/scenes/<example id>.json`, in the radio scene
 format (RAD-36, `"format": "yantra-radio-scene"`, `"version"` 1,
 `"minor_version"` 1; [docs/SCENE_FORMAT.md](SCENE_FORMAT.md)), licensed
 GPL-3.0-or-later (`data/demo/scenes/README.md`).

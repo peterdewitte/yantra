@@ -2,7 +2,7 @@
  * SPDX-FileCopyrightText: 2026 The Yantra contributors
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
- * C ABI of the protocol crate of yantra-radios (receiver/rust, RAD-101,
+ * C ABI of the protocol crate of the radio parts (receiver/rust, RAD-101,
  * RAD-03): upper-layer parsing of TETRA downlink broadcast PDUs (DEC-02,
  * DEC-03, DEC-06) and a field-by-field decode view (DEC-04). Written by
  * hand (no cbindgen) and kept in sync with receiver/rust/src/ffi.rs:

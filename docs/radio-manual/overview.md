@@ -4,7 +4,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 -->
 # About the radio plugins
 
-yantra-radios holds the radio plugins of **Yantra**, an open-source
+This manual covers the radio plugins of **Yantra**, an open-source
 indoor TETRA coverage survey tool. A radio plugin talks to its own device
 (an SDR, a TETRA terminal on a serial port, or a simulator), processes its
 own IQ samples and gives Yantra **measurement records only**: level, cell

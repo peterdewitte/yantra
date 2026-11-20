@@ -5,7 +5,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # 2 Radios
 
-Radios are plugins (chapter 14) from the separate yantra-radios project. Each radio plugin processes its radio's signal itself and gives Yantra measurement records only: levels, cell identity, quality, C1, broadcast parameters and neighbour lists. Yantra lists the devices every radio plugin finds and builds the windows of each radio from what the plugin declares, so every radio has the same four windows: settings, debug, calibration and device info.
+Radios are plugins (chapter 14) from the radio parts. Each radio plugin processes its radio's signal itself and gives Yantra measurement records only: levels, cell identity, quality, C1, broadcast parameters and neighbour lists. Yantra lists the devices every radio plugin finds and builds the windows of each radio from what the plugin declares, so every radio has the same four windows: settings, debug, calibration and device info.
 
 The Radio menu (once a project is open) opens the radio list, finds radios again and opens the windows of the chosen radio; below that, every radio plugin has a submenu with its devices and their windows. A plugin that cannot be used is greyed out, and its tooltip says why: the radios were not searched yet (Find radios), no device was found, every device is in use by another program or not accessible (for example missing permissions), or the plugin is switched off or could not be loaded. Opening a radio window for a device chooses and connects it.
 
@@ -20,7 +20,7 @@ The SDR plugins deliver levels in dBFS, which Yantra turns into dBm with your ca
 
 ### Hardware status
 
-The radio plugins are tested against simulated SDR devices and a simulated terminal; none of the radios above has been measured with Yantra on real hardware yet. DEVICES.md in the yantra-radios project lists what has been checked per device. Until a radio has a row there, check it yourself: calibrate it against a known signal (3.1), compare it with a reference radio and keep the antenna away from the PC (3.1, "Reference noise").
+The radio plugins are tested against simulated SDR devices and a simulated terminal; none of the radios above has been measured with Yantra on real hardware yet. DEVICES.md in the radio parts lists what has been checked per device. Until a radio has a row there, check it yourself: calibrate it against a known signal (3.1), compare it with a reference radio and keep the antenna away from the PC (3.1, "Reference noise").
 
 ## 2.1 The radio list
 

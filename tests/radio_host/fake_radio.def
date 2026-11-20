@@ -2,7 +2,7 @@
 ; SPDX-License-Identifier: GPL-3.0-or-later
 ;
 ; Exports of the radio host tests' fake radio plugin on Windows: the entry
-; point (as cmake/radio_plugin.def of yantra-radios) and the test control
+; point (as cmake/radio_plugin.def of the radio parts) and the test control
 ; functions of fake_control.h. YR_EXPORT is empty on Windows and the
 ; hidden visibility makes clang exclude every other symbol from the
 ; MinGW auto-export, so without this file the DLL exports nothing.

@@ -12,8 +12,6 @@
 yantra_add_radio_plugin(beacon
   SOURCES beacon_plugin.cpp beacon_demod.c beacon_gen.c beacon_proto.c
   OUTPUT_DIR ${YANTRA_RADIO_TEST_PLUGIN_DIR})
-target_compile_definitions(beacon PRIVATE
-  YANTRA_RADIOS_SOURCE_URL="${YANTRA_RADIOS_SOURCE_URL}")
 if(NOT WIN32)
   target_link_libraries(beacon PRIVATE m)
 endif()

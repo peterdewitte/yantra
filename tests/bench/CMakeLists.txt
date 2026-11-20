@@ -9,7 +9,7 @@
 # (an otherwise idle machine; left out of the sanitizer runs, -LE
 # timing). bench_common.h holds the calibration and the limit check.
 # Copied from yantra-v2 68ea20a: tests/raytrace_bench, adapted (CPU
-# calibration and limits as yantra-radios tests/bench/bench_limits.cpp).
+# calibration and limits as the radio parts tests/bench/bench_limits.cpp).
 foreach(_bench bench_interpolation bench_pipeline)
   add_executable(${_bench} ${_bench}.cpp)
   target_link_libraries(${_bench} PRIVATE yantra::core yantra::plugin_api yantra_warnings)

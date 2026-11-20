@@ -5,7 +5,7 @@
 // limits file and the check of one timing against its limit. See
 // CMakeLists.txt.
 // Copied from the former tests/bench/bench_raytrace.cpp (this repository), which took
-// the calibration from yantra-radios tests/bench/bench_limits.cpp.
+// the calibration from the radio parts tests/bench/bench_limits.cpp.
 #pragma once
 
 #include <algorithm>

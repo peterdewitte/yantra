@@ -6,7 +6,7 @@ Comment: Machine-readable form of the repository's REUSE.toml, its file
  headers (REUSE 3.3) and THIRD_PARTY.md (installed as
  /usr/share/yantra/THIRD_PARTY.md). The licence texts are in
  /usr/share/doc/yantra/LICENSES/. The radio plugins in
- /usr/lib/yantra/plugins/radios come from yantra-radios with their own
+ /usr/lib/yantra/plugins/radios come from the radio parts with their own
  licence bundle in /usr/share/licenses/yantra-radios (BUNDLE.md: osmo-tetra
  AGPL-3.0-or-later, SoapySDR BSL-1.0, libusb LGPL-2.1-or-later, ...);
  /usr/lib/yantra/libpdfium.so is PDFium (BSD-3-Clause) with the licences of

@@ -14,7 +14,7 @@
 //   uplink   = downlink - duplex spacing (+ with reverse operation)
 //
 // The duplex spacing table and the downlink formula are the ones the
-// yantra-radios receiver decodes with (receiver/src/decoder/broadcast.cpp
+// the radio parts receiver decodes with (receiver/src/decoder/broadcast.cpp
 // at yantra-radios 205ca7a, itself checked against osmo-tetra), so a
 // channel Yantra computes is the channel the radio reports.
 #pragma once
@@ -70,7 +70,7 @@ struct BandDef {
 };
 
 // The TETRA downlink bands of the plugin: the whole tuning range of the
-// TETRA radios (yantra-radios RAD-110: 350-470 MHz and 790-920 MHz for
+// TETRA radios (radio parts RAD-110: 350-470 MHz and 790-920 MHz for
 // 800 MHz TETRA), cut where the band code changes (every 100 MHz), so a
 // band's carriers are consecutive. The TS 100 392-15 allocations (e.g.
 // 380-400 MHz public safety, 410-430, 450-470, 806-870 and 870-921 MHz)

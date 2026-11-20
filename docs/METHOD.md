@@ -5,11 +5,11 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Measurement method
 
-What Yantra measures, how, and how far each figure can be trusted (DOC-04), so a coverage or acceptance report can be explained to a network operator. It describes Yantra as built today, with the TETRA radio plugins of yantra-radios. The developer documents named in each section hold the exact rules and their tests.
+What Yantra measures, how, and how far each figure can be trusted (DOC-04), so a coverage or acceptance report can be explained to a network operator. It describes Yantra as built today, with the TETRA radio plugins of the radio parts. The developer documents named in each section hold the exact rules and their tests.
 
 ## 1 Chain of measurement
 
-1. A **radio plugin** (yantra-radios) receives the TETRA downlink, measures every carrier it hears and decodes the broadcast information of the carriers it can synchronise to. It sends Yantra **measurement records** only: no samples, no messages. Records arrive at the rate set in the radio's settings (by default one per carrier per second).
+1. A **radio plugin** (radio parts) receives the TETRA downlink, measures every carrier it hears and decodes the broadcast information of the carriers it can synchronise to. It sends Yantra **measurement records** only: no samples, no messages. Records arrive at the rate set in the radio's settings (by default one per carrier per second).
 2. Yantra's **measurement pipeline** turns the levels into dBm with the calibration, checks each record (refuses impossible levels, ignores out-of-order and duplicate records, flags late ones) and closes one **measurement cycle** per period: every second (five per second in the simulator's mouse survey). A cycle has one sample per carrier: its newest record, the age of that record and the flags ([MEASUREMENT_PIPELINE.md](MEASUREMENT_PIPELINE.md)).
 3. A **walk test** places the cycles on the floor plan; each cycle is at most one **measured point** ([SURVEY.md](SURVEY.md)).
 4. **Statistics, maps and reports** read the stored points from one shared list, so the project window, the exports and the report always count the same points.
@@ -18,7 +18,7 @@ What Yantra measures, how, and how far each figure can be trusted (DOC-04), so a
 
 ### Level (RSSI)
 
-The level is the power of the whole TETRA carrier over the record's interval. The radio plugin moves the channel to the carrier's frequency, filters it with a root-raised-cosine filter matched to the TETRA pulse (roll-off 0.35) and divides the mean power by the share of a TETRA carrier the filter passes, so a carrier a few kHz off its channel is still measured in full, while a carrier 25 kHz away is suppressed by about 70 dB. On generated test signals the level is linear within +/-0.5 dB from -5 to -100 dBFS. Details: yantra-radios `docs/MEASUREMENT.md`.
+The level is the power of the whole TETRA carrier over the record's interval. The radio plugin moves the channel to the carrier's frequency, filters it with a root-raised-cosine filter matched to the TETRA pulse (roll-off 0.35) and divides the mean power by the share of a TETRA carrier the filter passes, so a carrier a few kHz off its channel is still measured in full, while a carrier 25 kHz away is suppressed by about 70 dB. On generated test signals the level is linear within +/-0.5 dB from -5 to -100 dBFS. Details: the radio parts `docs/MEASUREMENT.md`.
 
 An SDR measures in **dBFS** (relative to its own full scale). Yantra converts to **dBm at the antenna connector** with the calibration (section 3):
 
@@ -60,7 +60,7 @@ Sources of uncertainty, per radio type:
 - **TETRA terminal**: the terminal reports its own levels in dBm; Yantra applies no calibration to them. Their accuracy is the terminal maker's, typically coarser than a calibrated SDR; compare once with a calibrated SDR before mixing their results.
 - **Simulator**: its levels come from a simulated network, in dBm by default (no calibration needed). Set to dBFS, it is calibrated like an SDR; such a practice calibration (marked "simulated (practice)") applies only to the simulator, never to a real radio. Yantra never makes a calibration by itself.
 
-**Hardware status.** None of the radios has been measured with Yantra on real hardware yet. The figures above come from tests on generated signals and simulated devices; the measured hardware results will be listed in DEVICES.md of the yantra-radios project. Until a radio is listed there, verify it against a known signal before a survey (calibration window, Verify).
+**Hardware status.** None of the radios has been measured with Yantra on real hardware yet. The figures above come from tests on generated signals and simulated devices; the measured hardware results will be listed in DEVICES.md of the radio parts. Until a radio is listed there, verify it against a known signal before a survey (calibration window, Verify).
 
 **Self-interference.** A laptop and its USB cables radiate noise that raises the noise floor near the antenna. Yantra warns when the noise under the decoded carriers is 6 dB or more above the reference (the thermal floor of a 25 kHz channel with a 15 dB noise figure, about -115 dBm, or a reference you measured with the antenna away from the PC), or when three or more carriers are heard without sync, for three cycles in a row. Keep the antenna away from the PC; the warning is part of the survey panels and the status bar ([MEASUREMENT_PIPELINE.md](MEASUREMENT_PIPELINE.md), "Self-interference").
 
