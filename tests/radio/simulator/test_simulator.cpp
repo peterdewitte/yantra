@@ -723,11 +723,20 @@ TEST_CASE("simulator: a floor without a scene uses the defaults, logged once at 
     ctx.no_scene = true;
     Sim sim(ctx);
     const std::string kNoScene = "the floor shown has no scene; the scenario's own levels are used";
+    // The sanitizer trees simulate slower than real time, so the plugin
+    // rightly warns once that the simulation runs slower (RAD-61, RAD-24):
+    // not counted there; any other warning still is. The default trees
+    // count every warning.
+    const std::string kSlower = "the simulation runs slower than real time";
     auto count = [&](uint32_t level, const std::string& text) {
         int n = 0;
-        for (const LogLine& l : sim.host->logs())
+        for (const LogLine& l : sim.host->logs()) {
+            if (YANTRA_TEST_TIME_SCALE > 1 && text.empty() && level == YR_LOG_WARNING &&
+                l.message.rfind(kSlower, 0) == 0)
+                continue;
             if (l.level == level && (text.empty() || l.message == text))
                 ++n;
+        }
         return n;
     };
     int n = 0, phase = 0;
@@ -1125,14 +1134,18 @@ TEST_CASE("simulator: the same seed gives the same output (RAD-94)")
 namespace {
 
 // Streams a SERVING plan with YR_PLAN_SPECTRUM (band 0..0: the default)
-// until `count` spectra came (RAD-140); T1 records' levels (dBm) too.
+// until `count` spectra came (RAD-140); T1 records' levels (dBm) too, and
+// with `with_t1` at least one of them. Spectra are due once a second of
+// host time, records once a second of simulated time: in the sanitizer
+// trees, slower than real time, the spectra come first.
 struct SpectrumRun {
     std::vector<Spectrum> spectra;
     std::vector<double> t1_dbm;
     StreamResult result;
 };
 
-SpectrumRun spectra_of(Sim& sim, std::size_t count, uint64_t first_hz = 0, uint64_t last_hz = 0)
+SpectrumRun spectra_of(Sim& sim, std::size_t count, uint64_t first_hz = 0, uint64_t last_hz = 0,
+                       bool with_t1 = false)
 {
     yr_plan plan{};
     plan.struct_size = sizeof plan;
@@ -1154,7 +1167,7 @@ SpectrumRun spectra_of(Sim& sim, std::size_t count, uint64_t first_hz = 0, uint6
         {}, SinkOptions{},
         [&](const Spectrum& s) {
             run.spectra.push_back(s);
-            if (run.spectra.size() >= count)
+            if (run.spectra.size() >= count && (!with_t1 || !run.t1_dbm.empty()))
                 stop = true;
         });
     return run;
@@ -1187,7 +1200,7 @@ TEST_CASE("simulator: a synthetic spectrum once a second from the scene's carrie
     sim.set_enum("scenario", "fraunces"); // T1 and M1 at their scenario levels
     sim.set_uint("seed", 7);
     CHECK((sim.host->descriptor().capabilities & YR_CAP_SPECTRUM) != 0);
-    const SpectrumRun run = spectra_of(sim, 3);
+    const SpectrumRun run = spectra_of(sim, 3, 0, 0, true);
     CHECK(run.result.invalid == 0);
     REQUIRE(run.spectra.size() >= 3);
     REQUIRE(!run.t1_dbm.empty());
@@ -1201,7 +1214,12 @@ TEST_CASE("simulator: a synthetic spectrum once a second from the scene's carrie
         CHECK(s.start_hz < static_cast<double>(kT1Hz) - 12.5e3);
         CHECK(s.stop_hz > static_cast<double>(kM1Hz) + 12.5e3);
         CHECK(s.power_db.size() <= YR_SPECTRUM_MAX_BINS);
-        if (i > 0) {
+        // Once a second: a real-time check, as the others left out of the
+        // sanitizer trees (cmake/YantraTests.cmake). There the simulation
+        // runs slower than real time, its time base moves at each record
+        // interval (RAD-61) and a late spectrum keeps the cadence, so the
+        // gaps vary around a second.
+        if (i > 0 && YANTRA_TEST_TIME_SCALE == 1) {
             const double gap = static_cast<double>(s.monotonic_ns - run.spectra[i - 1].monotonic_ns) / 1e9;
             CHECK(gap == doctest::Approx(1.0).epsilon(0.1)); // once a second
         }

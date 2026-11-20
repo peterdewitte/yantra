@@ -34,6 +34,16 @@ set_tests_properties(conformance_simulator_scene_v1_1 PROPERTIES LABELS "fast;ti
 add_test(NAME simulator_cli_no_scene
   COMMAND yantra-radio-host stream --plugin $<TARGET_FILE:simulator> --no-scene
           --example-id fraunces-1 --records 6 --quiet --log-level info)
+set(_no_scene_pass "plugin info: the floor shown has no scene; the scenario's own levels are used\n.*stream: records 6, events [0-9]+, invalid 0, dropped 0")
+set(_no_scene_fail "plugin warning|plugin error|no scene.*no scene")
+if(YANTRA_TEST_TIME_SCALE GREATER 1)
+  # The sanitizer trees simulate slower than real time and the plugin
+  # rightly warns once about it (RAD-61, RAD-24): only that warning may
+  # stand between the INFO line (the output's first) and the stream line;
+  # no warning after it either.
+  set(_no_scene_pass "^plugin info: the floor shown has no scene; the scenario's own levels are used\n(plugin warning: the simulation runs slower than real time[^\n]*\n)?stream: records 6, events [0-9]+, invalid 0, dropped 0")
+  set(_no_scene_fail "plugin error|no scene.*no scene|stream: records.*plugin warning")
+endif()
 set_tests_properties(simulator_cli_no_scene PROPERTIES LABELS fast TIMEOUT 120
-  PASS_REGULAR_EXPRESSION "plugin info: the floor shown has no scene; the scenario's own levels are used\n.*stream: records 6, events [0-9]+, invalid 0, dropped 0"
-  FAIL_REGULAR_EXPRESSION "plugin warning|plugin error|no scene.*no scene")
+  PASS_REGULAR_EXPRESSION "${_no_scene_pass}"
+  FAIL_REGULAR_EXPRESSION "${_no_scene_fail}")
