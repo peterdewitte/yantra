@@ -81,7 +81,7 @@ REQUIRED = [
 REQUIRED_DIRS = ["share/licenses/yantra-radios", "share/licenses/pdfium", "share/yantra/manual",
                  "share/yantra-radios/scenarios"]
 # The PDF manual (DOC-02a) of the package's own version.
-MANUAL_PDF = re.compile(r"^share/doc/yantra/yantra-manual-[0-9.]+\.pdf$")
+MANUAL_PDF = re.compile(r"^share/doc/yantra/yantra-manual-[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?\.pdf$")  # a pre-release has a suffix (PLG-29)
 PICTURE = re.compile(r"\.(png|jpe?g|pdf|tiff?|gif|webp|bmp)$", re.I)
 
 
