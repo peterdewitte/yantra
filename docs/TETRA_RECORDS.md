@@ -73,7 +73,7 @@ report (names, groups, types, units).
 | `frame` | frame | uint |  | TDMA frame number 1..18. | MAC-SYNC (21.4.4.2) (clause 9) |
 | `slot` | frame | uint |  | Timeslot number 1..4. | MAC-SYNC (21.4.4.2) (clause 9) |
 | `encryption` | broadcast | bool |  | Air encryption service of the BS service details (MAC-SYSINFO). | BS service details of D-MLE-SYSINFO (18.4.2.2) |
-| `security_class` | broadcast | uint |  | Security class 1..3 from the service details and the extended services (DEC-10). | BS service details (D-MLE-SYSINFO (18.4.2.2)) and extended services (MAC-SYSINFO (21.4.4.1)) |
+| `security_class` | broadcast | uint |  | Security class 1..3 from the service details and the extended services. | BS service details (D-MLE-SYSINFO (18.4.2.2)) and extended services (MAC-SYSINFO (21.4.4.1)) |
 | `encrypted_blocks` | broadcast | uint |  | Signalling blocks sent encrypted since the cell was found (counted, never decrypted). | counted: MAC PDUs with the encryption mode set (21.4.3) |
 | `ms_txpwr_max_cell` | broadcast | uint |  | Maximum MS transmit power code of MAC-SYSINFO (1..7). | MAC-SYSINFO (21.4.4.1) |
 | `ms_txpwr_max_cell_dbm` | broadcast | int | dBm | Maximum MS transmit power allowed in the cell (C1 input). | MAC-SYSINFO (21.4.4.1), code to dBm |
@@ -101,7 +101,7 @@ report (names, groups, types, units).
 | `sim_floor_id` | sim_position | string |  | Floor of the simulated receiver position. | simulator: receiver position (RAD-61) |
 | `sim_x_m` | sim_position | double | m | x of the simulated receiver position in the plan frame. | simulator: receiver position (RAD-61) |
 | `sim_y_m` | sim_position | double | m | y of the simulated receiver position in the plan frame. | simulator: receiver position (RAD-61) |
-| `channel_assignments` | other | uint |  | Channel allocations the cell sent during the record interval (DEC-06; counts only). | counted: channel allocation elements of MAC-RESOURCE (21.4.3.1) |
+| `channel_assignments` | other | uint |  | Channel allocations the cell sent during the record interval (counts only). | counted: channel allocation elements of MAC-RESOURCE (21.4.3.1) |
 | `carrier_state` | other | enum |  | Carrier search state: candidate (energy, not yet synchronised), locked, encrypted (locked, air encryption) or lost. | receiver: carrier search state |
 | `cell_id` | other | string |  | Cell id in the simulated scenario. | generator ground truth / simulator (RAD-71) |
 | `level_inst_dbm` | other | double | dBm | Simulated level including fast fading at the record time. | generator ground truth (RAD-72) |

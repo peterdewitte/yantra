@@ -106,7 +106,7 @@ std::vector<yr_setting_def> settings_of(const Settings& now)
     // Scenario
     yr_setting_def sc = make_setting(
         "scenario", YR_TYPE_ENUM, "Scenario", "", kGroupScenario,
-        "The simulated building and network (RAD-74). \"As the floor plan says\": the scenario "
+        "The simulated building and network. \"As the floor plan says\": the scenario "
         "of a bundled example plan, else the default scenario with the cells of your plan.",
         1);
     sc.items = scenario_items().data();
@@ -242,7 +242,7 @@ std::vector<yr_setting_def> settings_of(const Settings& now)
     yr_setting_def buf = number("device_buffer_s", YR_TYPE_DOUBLE, "Device buffer", "s",
                                 kGroupReceiver,
                                 "How far the simulated receiver may fall behind real time "
-                                "before it drops samples (OVERFLOW, RAD-24).",
+                                "before it drops samples (OVERFLOW).",
                                 3, 0.1, 10.0, 0.1, 1.0);
     buf.flags = YR_SETTING_ADVANCED;
     d.push_back(buf);
@@ -251,7 +251,7 @@ std::vector<yr_setting_def> settings_of(const Settings& now)
     yr_setting_def fault = make_setting("inject_fault", YR_TYPE_ACTION, "Simulate a noisy receiver",
                                         "", kGroupReceiver,
                                         "Raises the receiver noise by 20 dB until \"Clear the "
-                                        "fault\" (a simulated fault, RAD-61).",
+                                        "fault\" (a simulated fault).",
                                         10);
     d.push_back(fault);
     yr_setting_def clear = make_setting("clear_fault", YR_TYPE_ACTION, "Clear the fault", "",
@@ -391,8 +391,8 @@ std::vector<yr_setting_def> sensors_of()
                     "(with fading), dBm.",
                     5),
         make_sensor("estimated_levels", YR_TYPE_STRING, "Estimated levels", "", g,
-                    "The multi-wall estimate of every cell at the position (local mean, "
-                    "RAD-73), dBm.",
+                    "The multi-wall estimate of every cell at the position (local mean), "
+                    "dBm.",
                     6),
         make_sensor("true_noise_floor_dbm", YR_TYPE_DOUBLE, "True noise floor", "dBm", g,
                     "Ground truth: receiver noise in the 18 kHz channel bandwidth.", 7),

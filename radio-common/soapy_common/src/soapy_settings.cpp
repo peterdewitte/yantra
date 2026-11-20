@@ -337,7 +337,7 @@ void build_table(Device& d)
                                                               : c.clock_sources;
     yr_setting_def clk = enum_of(t, "clock_source", "Reference clock", kGroupRf,
                                  "Frequency reference of the device: internal oscillator or an "
-                                 "external 10 MHz reference (RAD-53).",
+                                 "external 10 MHz reference.",
                                  6, clocks, 0);
     clk.flags |= YR_SETTING_RESTART | YR_SETTING_ADVANCED;
     if (c.clock_sources.size() < 2)
@@ -478,11 +478,11 @@ void build_table(Device& d)
 
     // Sensors
     t.sensors.push_back(make_sensor("module", YR_TYPE_STRING, "SoapySDR module", "", kGroupModule,
-                                    "The module, its version and vendor library (RAD-52).", 1));
+                                    "The module, its version and vendor library.", 1));
     t.sensors.push_back(make_sensor("hardware", YR_TYPE_STRING, "Hardware", "", kGroupModule,
                                     "What the module reports about the device.", 2));
     t.sensors.push_back(make_sensor("overflow_count", YR_TYPE_UINT, "Overflows", "", kGroupReceiver,
-                                    "Device buffer overflows of the current stream (RAD-24).", 3));
+                                    "Device buffer overflows of the current stream.", 3));
     t.sensors.push_back(make_sensor("gain_state", YR_TYPE_STRING, "Gains", "", kGroupGain,
                                     "The gains and amplifier state in use.", 4));
     t.sensors.push_back(make_sensor("clipped_percent", YR_TYPE_DOUBLE, "Clipping", "%", kGroupReceiver,
@@ -505,8 +505,8 @@ void build_table(Device& d)
                                     "tuning beside the carriers).",
                                     9));
     t.sensors.push_back(make_sensor("build_info", YR_TYPE_STRING, "Build info", "", kGroupModule,
-                                    "The libraries built into the plugin with their versions "
-                                    "(RAD-136); their licences are in the licence bundle.",
+                                    "The libraries built into the plugin with their versions; "
+                                    "their licences are in the licence bundle.",
                                     99));
     int32_t io = 1;
     for (const InfoSensor& is : pr.info_sensors)

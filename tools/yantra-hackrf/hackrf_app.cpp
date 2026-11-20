@@ -611,7 +611,7 @@ int cmd_info(const Options& o, const Environment& env, json& j, std::ostream& te
         text << "  " << line << "\n";
     text << "sensors:\n";
     sensors_to(s, j["sensors"], text);
-    text << "build info (bundled libraries, RAD-136):\n";
+    text << "build info (bundled libraries):\n";
     json& b = j["build"] = json::array();
     for (const receiver::BundledLibrary& l : receiver::bundled_libraries()) {
         b.push_back({{"name", l.name}, {"version", l.version}, {"licence", l.licence}});

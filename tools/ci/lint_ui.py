@@ -18,11 +18,17 @@
 #   - every "manual N.M" a text refers to is a section of the manual
 #     (app/model/src/manual.cpp and a "## N.M" heading in docs/manual), and
 #     its translation refers to the same sections;
-#   - no text, translation, plugin text (Yantra's plugins: descriptors, schemas,
-#     translation tables), demo project description (data/demo) or
+#   - no text, translation, plugin text (every plugin in plugins/:
+#     descriptors, schemas, settings, sensors, help and error texts,
+#     translation tables), text of the radio parts (radio-common/, the
+#     radio API's validation messages, the --help and output of the radio
+#     tools and yantra-demo), demo project description (data/demo) or
 #     committed sample report (docs/samples) shows a requirement ID such as
 #     "IND-43" or "REC-01..03": customers see these texts, and the IDs
-#     belong in code comments, test names and commit messages only.
+#     belong in code comments, test names and commit messages only. The
+#     two test kits' findings (yantra-radio-host conformance,
+#     yantra-plugin-test) name the API rule they check, for plugin
+#     developers, and are not checked.
 # Usage: lint_ui.py [source-dir]          check (exit 1 on a finding)
 #        lint_ui.py --extract [source-dir] print the texts as a JSON list
 import json
@@ -40,9 +46,12 @@ MARKS = re.compile(r"TODO|FIXME|XXX|TRANSLATE|\?\?\?|<<|>>|\[(?:nl|fr|de|en)\]",
 # The requirement ID prefixes of the specs (Yantra and radios).
 REQUIREMENT_ID = re.compile(r"\b(?:API|BRD|DB|DEC|DEMO|DOC|EXP|FUN|GEO|HW|IND|NFR|OA|PLG|PP|RAD|REC|RF|SCR|TRM|TST|UI)-[0-9]{1,3}\b"
                             r"|\b(?:API|BRD|DB|DEC|DEMO|DOC|EXP|FUN|GEO|HW|IND|NFR|OA|PLG|PP|RAD|REC|RF|SCR|TRM|TST|UI)-[0-9]{1,3}[a-z.]")
-# Yantra's own plugins (the radio plugins' texts follow the radio parts'
-# rules, RAD-40; PLG-29 put both in plugins/).
-PLUGIN_DIRS = ("plugins/tetra", "plugins/probe", "plugins/beacon")
+# Every plugin (Yantra's and the radio plugins, PLG-29) and the radio
+# parts' code and tools whose texts users see (PLG-30, RAD-141).
+PLUGIN_DIRS = ("plugins", "radio-common", "radio-api", "gen", "tools/yantra-gen", "tools/yantra-hackrf",
+               "tools/yantra-pei-sim", "tools/yantra-sens", "tools/yantra-radio-host", "tools/yantra-demo")
+# Developer reports that cite the rule each check enforces (see above).
+PLUGIN_TEXT_EXEMPT = ("tools/yantra-radio-host/conformance.cpp",)
 DEMO_TEXT_KEYS = ("name", "site", "operator_name", "notes", "label", "title", "shows", "address", "surveyor")
 ESCAPES = {"n": "\n", "t": "\t", '"': '"', "\\": "\\", "'": "'", "?": "?", "0": "\0"}
 
@@ -119,20 +128,28 @@ def texts(root):
 
 
 def plugin_texts(root):
-    # Every string literal of the bundled plugins' sources (their windows,
-    # tooltips, field help and translation tables), test data aside.
+    # Every string literal of the plugins' and radio parts' sources (their
+    # windows, tooltips, field help, settings, sensors, messages and
+    # translation tables), test data and build output aside.
     found = []
     for d in PLUGIN_DIRS:
         for base, dirs, names in os.walk(os.path.join(root, d)):
-            dirs[:] = sorted(x for x in dirs if x not in ("testdata", "tests"))
+            dirs[:] = sorted(x for x in dirs if x not in ("testdata", "tests", "target", "fixtures"))
             for name in sorted(names):
-                if not name.endswith((".c", ".cpp", ".h", ".inc")):
+                if not name.endswith((".c", ".cpp", ".h", ".hpp", ".inc")):
                     continue
                 path = os.path.join(base, name)
+                rel = os.path.relpath(path, root).replace(os.sep, "/")
+                if rel in PLUGIN_TEXT_EXEMPT:
+                    continue
                 with open(path, encoding="utf-8") as f:
                     src = strip_comments(f.read())
                 for m in LITERAL.finditer(src):
-                    found.append((os.path.relpath(path, root), unescape(m.group(1))))
+                    try:
+                        text = unescape(m.group(1))
+                    except (UnicodeError, ValueError):
+                        text = m.group(1)  # bytes that are not UTF-8: check the source text
+                    found.append((rel, text))
     return found
 
 

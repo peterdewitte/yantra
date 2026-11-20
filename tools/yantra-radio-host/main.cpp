@@ -678,7 +678,7 @@ int cmd_stream(const Options& o)
     if (r.stop_status != YR_OK)
         std::cerr << "error: stop_stream: " << yr_status_name(r.stop_status) << "\n";
     if (r.late != 0)
-        std::cerr << "error: " << r.late << " pushes after stop_stream returned (RAD-33)\n";
+        std::cerr << "error: " << r.late << " pushes after stop_stream returned\n";
     ok = ok && r.invalid == 0 && r.late == 0 && r.stop_status == YR_OK &&
          r.stop_reason != "error" && r.stop_reason != "device_lost";
     return ok ? kExitPass : kExitFail;

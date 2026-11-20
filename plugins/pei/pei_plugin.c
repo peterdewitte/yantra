@@ -1167,22 +1167,22 @@ static void sensor_def(int i, yr_setting_def* s)
     case N_MANUFACTURER:
         s->group = "Radio info";
         s->label = "Manufacturer";
-        s->help = "AT+GMI (TRM-04), read when the connection starts.";
+        s->help = "AT+GMI, read when the connection starts.";
         break;
     case N_MODEL:
         s->group = "Radio info";
         s->label = "Model";
-        s->help = "AT+GMM (TRM-04).";
+        s->help = "AT+GMM.";
         break;
     case N_FIRMWARE:
         s->group = "Radio info";
         s->label = "Firmware";
-        s->help = "AT+GMR, the revision of the terminal's software (TRM-04).";
+        s->help = "AT+GMR, the revision of the terminal's software.";
         break;
     case N_TEI:
         s->group = "Radio info";
         s->label = "Serial / TEI";
-        s->help = "AT+GSN: the terminal equipment identity of a TETRA terminal (TRM-04).";
+        s->help = "AT+GSN: the terminal equipment identity of a TETRA terminal.";
         break;
     case N_REGISTRATION:
         s->type = YR_TYPE_ENUM;
@@ -1326,7 +1326,7 @@ YR_EXPORT const yr_descriptor* yantra_radio_entry(void)
         "The Yantra contributors",
         "GPL-3.0-or-later",
         "A TETRA terminal read over its PEI (AT commands, EN 300 392-5): serving and neighbour cells, C1 and "
-        "radio info (RAD-80)",
+        "radio info",
         YANTRA_RADIOS_SOURCE_URL,
         "tetra",
         1,

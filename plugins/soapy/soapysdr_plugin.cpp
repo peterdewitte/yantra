@@ -21,7 +21,7 @@ extern "C" YR_EXPORT const yr_descriptor* yantra_radio_entry(void)
         YANTRA_SOAPY_PLUGIN_NAME,
         "SDR receiver (SoapySDR)",
         YANTRA_VERSION,
-        "TETRA levels and cell information with an SDR through its SoapySDR module (RAD-62)",
+        "TETRA levels and cell information with an SDR through its SoapySDR module",
         YANTRA_RADIOS_SOURCE_URL,
         YANTRA_SOAPY_MODULE_TABLE,
         {{YANTRA_SOAPY_ONLY}, {"hackrf"}},

@@ -285,7 +285,7 @@ bool capture_iq(const CaptureOptions& o, CaptureResult& result, std::string& err
              {{"core:datatype", sigmf_datatype(o.format)},
               {"core:sample_rate", result.rate_hz},
               {"core:version", "1.0.0"},
-              {"core:recorder", "yantra-radio-host capture-iq (RAD-63)"},
+              {"core:recorder", "yantra-radio-host capture-iq"},
               {"core:hw", result.module + ", driver " + it->driver},
               {"core:description", "TETRA IQ capture for receiver development"},
               {"yantra:gain_db", total_gain}}},

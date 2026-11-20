@@ -289,7 +289,7 @@ inline std::vector<std::string> validate_schema(const yr_schema& s, uint32_t cap
     if ((s.groups & ~YR_GROUP_ALL_MASK) != 0)
         bad("unknown group bits");
     if ((s.groups & YR_GROUP_SIM_POSITION) != 0 && (capabilities & YR_CAP_SIMULATED) == 0)
-        bad("sim_position only for SIMULATED plugins (RAD-19)");
+        bad("sim_position only for SIMULATED plugins");
     if (s.field_count == 0 || s.fields == nullptr) {
         bad("no fields");
         return out;
@@ -312,7 +312,7 @@ inline std::vector<std::string> validate_schema(const yr_schema& s, uint32_t cap
                     fbad("duplicate name");
             names.emplace_back(f->name);
             if (is_out_of_scope_name(f->name))
-                fbad("name is outside the scope boundary (RAD-17)");
+                fbad("name is outside the scope boundary");
         }
         if (f->type < YR_TYPE_BOOL || f->type > YR_TYPE_ENUM)
             fbad("invalid type " + std::to_string(f->type));
@@ -325,7 +325,7 @@ inline std::vector<std::string> validate_schema(const yr_schema& s, uint32_t cap
         if (f->unit == nullptr)
             fbad("unit is NULL (use \"\")");
         if (!has_text(f->help))
-            fbad("help text is empty (Yantra DOC-07)");
+            fbad("help text is empty");
         if (f->type == YR_TYPE_ENUM) {
             if (f->enum_count == 0 || f->enum_items == nullptr)
                 fbad("ENUM without items");
@@ -365,7 +365,7 @@ inline std::vector<std::string> validate_schema(const yr_schema& s, uint32_t cap
             const char* unit = s.fields[YR_CORE_LEVEL]->unit;
             const char* want = (capabilities & YR_CAP_SELF_CALIBRATED) != 0 ? "dBm" : "dBFS";
             if (unit == nullptr || std::strcmp(unit, want) != 0)
-                bad(std::string("level unit must be ") + want + " (RAD-21)");
+                bad(std::string("level unit must be ") + want + "");
         }
         if (s.field_count > YR_CORE_ROLE && s.fields[YR_CORE_ROLE] != nullptr) {
             const yr_field_def* r = s.fields[YR_CORE_ROLE];
@@ -408,11 +408,11 @@ inline std::vector<std::string> validate_descriptor(const yr_descriptor* d)
     if (!has_text(d->author))
         bad("author is empty");
     if (!has_text(d->licence) || !licence_is_gpl3_compatible(d->licence))
-        bad("licence must be a GPL-3.0-compatible SPDX expression (RAD-05)");
+        bad("licence must be a GPL-3.0-compatible SPDX expression");
     if (!has_text(d->description))
         bad("description is empty");
     if (!has_text(d->source_url))
-        bad("source_url is empty (RAD-05)");
+        bad("source_url is empty");
     if (!has_text(d->technology_id) || !valid_name(d->technology_id))
         bad("technology_id must match [a-z][a-z0-9_]*");
     if (d->init == nullptr || d->shutdown == nullptr)
@@ -425,13 +425,13 @@ inline std::vector<std::string> validate_descriptor(const yr_descriptor* d)
             c->device_info == nullptr || c->state == nullptr || c->plan_ranges == nullptr ||
             c->set_plan == nullptr || c->start_stream == nullptr || c->stop_stream == nullptr ||
             c->stream_stats == nullptr || c->last_error == nullptr)
-            bad("every stream control function is required (RAD-30..34)");
+            bad("every stream control function is required");
     }
     if (d->device == nullptr || !YR_HAS_FIELD(d->device, yr_device_control, self_test))
         bad("device control table missing or too small");
     else if (d->device->list_settings == nullptr || d->device->get_setting == nullptr ||
              d->device->set_setting == nullptr)
-        bad("list_settings, get_setting and set_setting are required (RAD-40, RAD-41)");
+        bad("list_settings, get_setting and set_setting are required");
     else if ((d->device->list_presets == nullptr) != (d->device->apply_preset == nullptr) ||
              (d->device->list_sensors == nullptr) != (d->device->read_sensor == nullptr))
         bad("list_presets/apply_preset and list_sensors/read_sensor come in pairs");
@@ -462,9 +462,9 @@ inline std::vector<std::string> validate_descriptor(const yr_descriptor* d)
             }
         }
         if (!measurement)
-            bad("at least one MEASUREMENT schema is required (RAD-21)");
+            bad("at least one MEASUREMENT schema is required");
         if (scan != ((d->capabilities & YR_CAP_SCAN) != 0))
-            bad("a SCAN schema exists exactly when the SCAN capability is set (RAD-23)");
+            bad("a SCAN schema exists exactly when the SCAN capability is set");
     }
     if (d->translation_count > 0 && d->translations == nullptr)
         bad("translation_count without translations");
@@ -474,7 +474,7 @@ inline std::vector<std::string> validate_descriptor(const yr_descriptor* d)
                                                    std::strcmp(t.lang, "fr") == 0 ||
                                                    std::strcmp(t.lang, "de") == 0);
         if (!has_text(t.key) || !lang_ok || !has_text(t.text))
-            bad("translation " + std::to_string(i) + " needs a key, nl/fr/de and a text (RAD-48)");
+            bad("translation " + std::to_string(i) + " needs a key, nl/fr/de and a text");
     }
     return out;
 }
@@ -499,7 +499,7 @@ inline std::string check_value_type(const yr_value& v, uint32_t type, const yr_e
         if (v.u.str == nullptr)
             return "STRING is NULL";
         if (std::strlen(v.u.str) > YR_MAX_STRING_VALUE_BYTES)
-            return "STRING longer than YR_MAX_STRING_VALUE_BYTES (RAD-17)";
+            return "STRING longer than YR_MAX_STRING_VALUE_BYTES";
         break;
     case YR_TYPE_ENUM: {
         bool found = false;
@@ -545,25 +545,25 @@ inline std::vector<std::string> validate_record(const yr_descriptor& d, const yr
     if (r.reserved != 0)
         bad("reserved is not zero");
     if (r.time.monotonic_ns <= 0)
-        bad("time.monotonic_ns must be set (RAD-27)");
+        bad("time.monotonic_ns must be set");
     if (r.time.utc_source > YR_TIME_SOURCE_DEVICE)
         bad("unknown utc_source");
     else if (r.time.utc_source != YR_TIME_SOURCE_NONE && r.time.utc_ns <= 0)
-        bad("utc_ns must be set when utc_source is not NONE (RAD-27)");
+        bad("utc_ns must be set when utc_source is not NONE");
     // A 1.0 plugin knows only the 1.0 flags; LEVEL_DBM came with 1.1.
     const uint32_t known = d.api_version.minor >= 1 ? YR_RECORD_ALL_MASK : YR_RECORD_ALL_MASK_1_0;
     if ((r.flags & ~known) != 0)
         bad("unknown flag bits");
     if (d.api_version.minor >= 1 && (d.capabilities & YR_CAP_SELF_CALIBRATED) != 0 &&
         (r.flags & YR_RECORD_LEVEL_DBM) == 0)
-        bad("LEVEL_DBM missing: every record of a SELF_CALIBRATED plugin is in dBm (RAD-21, API 1.1)");
+        bad("LEVEL_DBM missing: every record of a SELF_CALIBRATED plugin is in dBm (API 1.1)");
     if ((r.present & ~s.groups) != 0)
-        bad("present has groups the schema does not declare (RAD-22)");
+        bad("present has groups the schema does not declare");
     const bool simulated = (d.capabilities & YR_CAP_SIMULATED) != 0;
     if (simulated != ((r.flags & YR_RECORD_SIMULATED) != 0))
-        bad("SIMULATED flag must match the plugin's SIMULATED capability (RAD-21)");
+        bad("SIMULATED flag must match the plugin's SIMULATED capability");
     if ((r.present & YR_GROUP_SIM_POSITION) != 0 && (r.flags & YR_RECORD_SIMULATED) == 0)
-        bad("sim_position only in SIMULATED records (RAD-19)");
+        bad("sim_position only in SIMULATED records");
 
     const uint32_t n = r.value_count < s.field_count ? r.value_count : s.field_count;
     auto value_at = [&](uint32_t i) -> const yr_value* { return i < n ? &r.values[i] : nullptr; };
@@ -576,7 +576,7 @@ inline std::vector<std::string> validate_record(const yr_descriptor& d, const yr
             continue;
         const std::string fname = has_text(f->name) ? std::string(f->name) : std::to_string(i);
         if (f->group != YR_GROUP_CORE && (r.present & f->group) == 0)
-            bad("field " + fname + " has a value but its group is not present (RAD-22)");
+            bad("field " + fname + " has a value but its group is not present");
         const std::string e = check_value_type(v, f->type, f->enum_items, f->enum_count);
         if (!e.empty())
             bad("field " + fname + ": " + e);
@@ -584,7 +584,7 @@ inline std::vector<std::string> validate_record(const yr_descriptor& d, const yr
     auto require = [&](uint32_t index, const char* name) {
         const yr_value* v = value_at(index);
         if (v == nullptr || v->type == YR_TYPE_NONE)
-            bad(std::string("core field ") + name + " is missing (RAD-21)");
+            bad(std::string("core field ") + name + " is missing");
     };
     if (s.kind == YR_SCHEMA_MEASUREMENT || s.kind == YR_SCHEMA_SCAN) {
         require(YR_CORE_FREQUENCY_HZ, YR_FIELD_FREQUENCY_HZ);
@@ -600,7 +600,7 @@ inline std::vector<std::string> validate_record(const yr_descriptor& d, const yr
         const yr_value* role = value_at(YR_CORE_ROLE);
         if (s.kind == YR_SCHEMA_SCAN && role != nullptr && role->type == YR_TYPE_ENUM &&
             role->u.i64 != YR_ROLE_OTHER)
-            bad("scan records have role OTHER (RAD-23)");
+            bad("scan records have role OTHER");
     } else if (s.kind == YR_SCHEMA_NEIGHBOUR) {
         require(YR_NEIGHBOUR_FREQUENCY_HZ, YR_FIELD_FREQUENCY_HZ);
         require(YR_NEIGHBOUR_ENTRY_INDEX, YR_FIELD_ENTRY_INDEX);
@@ -630,22 +630,22 @@ inline std::vector<std::string> validate_spectrum(const yr_descriptor& d, const 
         return out;
     }
     if ((d.capabilities & YR_CAP_SPECTRUM) == 0)
-        bad("the plugin has no SPECTRUM capability (RAD-140)");
+        bad("the plugin has no SPECTRUM capability");
     if (sp.reserved != 0)
         bad("reserved is not zero");
     if ((sp.flags & ~YR_SPECTRUM_FLAGS_MASK) != 0)
         bad("unknown flag bits (OVERLOAD, UNCALIBRATED, SIMULATED, LEVEL_DBM only)");
     const bool simulated = (d.capabilities & YR_CAP_SIMULATED) != 0;
     if (simulated != ((sp.flags & YR_RECORD_SIMULATED) != 0))
-        bad("SIMULATED flag must match the plugin's SIMULATED capability (RAD-21)");
+        bad("SIMULATED flag must match the plugin's SIMULATED capability");
     if ((d.capabilities & YR_CAP_SELF_CALIBRATED) != 0 && (sp.flags & YR_RECORD_LEVEL_DBM) == 0)
-        bad("LEVEL_DBM missing: a SELF_CALIBRATED plugin delivers dBm (RAD-21)");
+        bad("LEVEL_DBM missing: a SELF_CALIBRATED plugin delivers dBm");
     if (sp.time.monotonic_ns <= 0)
-        bad("time.monotonic_ns must be set (RAD-27)");
+        bad("time.monotonic_ns must be set");
     if (sp.time.utc_source > YR_TIME_SOURCE_DEVICE)
         bad("unknown utc_source");
     else if (sp.time.utc_source != YR_TIME_SOURCE_NONE && sp.time.utc_ns <= 0)
-        bad("utc_ns must be set when utc_source is not NONE (RAD-27)");
+        bad("utc_ns must be set when utc_source is not NONE");
     if (sp.bin_count == 0 || sp.bin_count > YR_SPECTRUM_MAX_BINS) {
         bad("bin_count " + std::to_string(sp.bin_count) + " is not 1.." +
             std::to_string(YR_SPECTRUM_MAX_BINS));
@@ -705,17 +705,17 @@ inline std::vector<std::string> validate_setting_def(const yr_setting_def& s, bo
     if ((s.flags & ~YR_SETTING_ALL_MASK) != 0)
         bad("unknown flag bits");
     if (sensor && (s.flags & YR_SETTING_READ_ONLY) == 0)
-        bad("sensors are READ_ONLY (RAD-45)");
+        bad("sensors are READ_ONLY");
     if (!has_text(s.label))
         bad("label is empty");
     if (!has_text(s.help))
-        bad("help text is empty (Yantra DOC-07)");
+        bad("help text is empty");
     if (s.unit == nullptr || s.group == nullptr)
         bad("unit and group must not be NULL (use \"\")");
     if ((s.flags & YR_SETTING_UNAVAILABLE) != 0 && !has_text(s.unavailable_reason))
-        bad("UNAVAILABLE needs unavailable_reason (RAD-40)");
+        bad("UNAVAILABLE needs unavailable_reason");
     if ((s.flags & YR_SETTING_WARNING) != 0 && !has_text(s.warning))
-        bad("WARNING needs the warning text (RAD-40)");
+        bad("WARNING needs the warning text");
     if (s.type == YR_TYPE_ENUM) {
         if (s.item_count == 0 || s.items == nullptr)
             bad("ENUM without items");

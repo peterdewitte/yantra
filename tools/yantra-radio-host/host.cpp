@@ -663,7 +663,7 @@ std::unique_ptr<Host> Host::load(const std::filesystem::path& path, const HostCo
     const yr_descriptor* d = entry();
     const std::string refusal = radio::refusal_reason(yr_api_version_compiled(), d);
     if (!refusal.empty()) {
-        error = "refused: " + refusal + " (RAD-11)";
+        error = "refused: " + refusal;
         return nullptr;
     }
     host->descriptor_ = d;

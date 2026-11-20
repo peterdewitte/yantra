@@ -114,7 +114,7 @@ SchemaDef tetra_cell_schema(const TetraSchemaOptions& o)
     add(field("encryption", YR_TYPE_BOOL, B, "", "Air-interface encryption",
               "Air encryption service of the BS service details (MAC-SYSINFO)."));
     add(field("security_class", YR_TYPE_UINT, B, "", "Security class",
-              "Security class 1..3 from the service details and the extended services (DEC-10)."));
+              "Security class 1..3 from the service details and the extended services."));
     add(field("encrypted_blocks", YR_TYPE_UINT, B, "", "Encrypted blocks",
               "Signalling blocks sent encrypted since the cell was found (counted, never decrypted)."));
     add(field("ms_txpwr_max_cell", YR_TYPE_UINT, B, "", "MS_TXPWR_MAX_CELL (code)",
@@ -166,7 +166,7 @@ SchemaDef tetra_cell_schema(const TetraSchemaOptions& o)
     }
     // Other values.
     add(field("channel_assignments", YR_TYPE_UINT, O, "", "Channel assignments",
-              "Channel allocations the cell sent during the record interval (DEC-06; counts only)."));
+              "Channel allocations the cell sent during the record interval (counts only)."));
     add(field("carrier_state", YR_TYPE_ENUM, O, "", "Carrier state",
               "Carrier search state: candidate (energy, not yet synchronised), locked, encrypted (locked, air "
               "encryption) or lost."));

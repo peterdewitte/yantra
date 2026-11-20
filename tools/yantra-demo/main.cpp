@@ -71,8 +71,8 @@ int usage(std::ostream& out, int code) {
            "       yantra-demo --sample-report DIR --project FILE --description FILE\n"
            "                   --tetra-plugin TETRA_SO --data DIR [--compare DIR]\n"
            "Makes the demo project of FILE (format yantra-demo-project) in DIR: DIR/<id>.yantra\n"
-           "and DIR/recordings/ (DEMO-05, DEMO-06; docs/DEMO.md); --sample-report writes and\n"
-           "compares the sample report of a built demo project (DEMO-06).\n";
+           "and DIR/recordings/ (docs/DEMO.md); --sample-report writes and\n"
+           "compares the sample report of a built demo project (docs/REPORT.md).\n";
     return code;
 }
 
@@ -160,7 +160,7 @@ int sample_report(std::map<std::string, std::string>& opt) {
     }
     if (!within)
         std::cout << "The sample report differs from " << ref.string()
-                  << ". An intended change: regenerate it (ninja sample_report) and commit it (DEMO-06).\n";
+                  << ". An intended change: regenerate it (ninja sample_report) and commit it.\n";
     return within ? 0 : 1;
 }
 
