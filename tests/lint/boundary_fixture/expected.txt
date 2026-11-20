@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# The findings the boundary lint must report on tree/ with targets.tsv
+# (PLG-30): includes and links, both ways; tree/app/src/main.cpp, the
+# allowed includes and <time.h> give none.
+include: core/src/store.cpp:8 (core) includes yantra/receiver/demod.hpp of radio-common
+include: plugins/hackrf/hackrf_plugin.cpp:8 (radio-plugin) includes yantra/core/store.h of core
+include: plugins/hackrf/hackrf_plugin.cpp:9 (radio-plugin) includes yantra/plugin.h of plugin-api
+include: plugins/tetra/tetra_technology.cpp:7 (yantra-plugin) includes ../../radio-common/receiver/include/yantra/receiver/demod.hpp of radio-common
+link: hackrf (radio-plugin) uses yantra_core of core (hackrf -> yantra_core)
+link: yantra (app) uses yantra_receiver of radio-common (yantra -> yantra_core -> test_helper -> yantra_receiver)
+link: yantra_core (core) uses yantra_receiver of radio-common (yantra_core -> test_helper -> yantra_receiver)

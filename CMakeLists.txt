@@ -168,6 +168,7 @@ include(YantraWarnings)
 include(YantraSanitizers)
 include(YantraTestAreas)
 include(YantraFuzz)
+include(YantraBoundary)
 if(NOT YANTRA_RADIO_PARTS_ONLY)
   include(YantraPdfium)
   include(YantraWindowsResources)
@@ -264,6 +265,13 @@ if(YANTRA_BUILD_TESTS)
   if(YANTRA_RADIOS_BUILD_TESTS)
     add_subdirectory(tests/radio)
   endif()
+endif()
+
+# The radio boundary (PLG-30): every target with its link dependencies
+# for the boundary lint (cmake/YantraBoundary.cmake).
+yantra_boundary_write()
+if(YANTRA_BUILD_TESTS)
+  yantra_boundary_tests()
 endif()
 
 # Installed layout (PLG-09, PLG-29): <prefix>/bin/yantra, Yantra's plugins

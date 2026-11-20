@@ -1,0 +1,13 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Fixture of the boundary lint self-test (PLG-30): the format of
+# <build>/boundary/targets.tsv (target, folder, direct link dependencies).
+yantra_warnings		
+yantra_radio_api	radio-api	
+yantra_plugin_api	plugin-api	
+yantra_receiver	radio-common/receiver	yantra_radio_api;yantra_warnings
+test_helper	tests/helper	yantra_receiver
+yantra_core	core	yantra_radio_api;yantra_plugin_api;test_helper;yantra_warnings
+yantra	app	yantra_core;yantra_warnings
+hackrf	plugins/hackrf	yantra_radio_api;yantra_receiver;yantra_core
+yantra_tetra	plugins/tetra	yantra_plugin_api;yantra_warnings
