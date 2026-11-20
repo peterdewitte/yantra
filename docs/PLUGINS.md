@@ -21,7 +21,7 @@ complete technology plugin, the example beacon plugin in
   same interface: [plugins/TETRA.md](plugins/TETRA.md).
 - **Radio plugins** (a receiver that measures and delivers records) are a
   different interface, the radio API of yantra-radios. They are described
-  in [RADIO_PLUGINS.md](../third_party/yantra-radios/docs/RADIO_PLUGINS.md)
+  in [RADIO_PLUGINS.md](../radios/docs/RADIO_PLUGINS.md)
   and tested with that repository's radio test kit.
 
 Every code block below is copied from the compiled sources: the ctest

@@ -8,7 +8,7 @@
 
 add_executable(test_tetra test_tetra.cpp)
 target_link_libraries(test_tetra PRIVATE yantra_test_main yantra_warnings yantra::core yantra::tetra_rules)
-target_include_directories(test_tetra PRIVATE ${PROJECT_SOURCE_DIR}/third_party/yantra-radios/common/include)
+target_include_directories(test_tetra PRIVATE ${YANTRA_RADIOS_DIR}/common/include)
 add_dependencies(test_tetra yantra_tetra yantra_radio_plugins)
 target_compile_definitions(test_tetra PRIVATE
   TETRA_PLUGIN_PATH="$<TARGET_FILE:yantra_tetra>"

@@ -102,14 +102,14 @@ for f in README.md BUILD.md ARCHITECTURE.md CONTRIBUTING.md CHANGELOG.md THIRD_P
 done
 while IFS= read -r f; do build_page "$f"; done < <(find "$root/docs" -name '*.md' | sort)
 # Pages outside docs/ that the docs link to: the demo plan's source and
-# licence, and the Markdown pages of the yantra-radios submodule (radio
+# licence, and the Markdown pages of the radio parts in radios/ (radio
 # plugins, record files, scene format; without its third_party/ and
-# build trees).
+# build trees; PLG-29).
 if [ -f "$root/data/demo/fraunces/README.md" ]; then build_page "$root/data/demo/fraunces/README.md"; fi
-radios=$root/third_party/yantra-radios
+radios=$root/radios
 if [ -d "$radios" ]; then
   while IFS= read -r f; do build_page "$f"; done < <(find "$radios" \( -path "$radios/third_party" -o \
-      -path "$radios/build*" -o -path "$radios/.git" -o -name target \) -prune -o -name '*.md' -print | sort)
+      -path "$radios/build*" -o -path "$radios/sdk" -o -path "$radios/sdk-cache" -o -path "$radios/.git" -o -name target \) -prune -o -name '*.md' -print | sort)
 fi
 
 # The manual on one page: its README (Yantra logo, title, introduction,

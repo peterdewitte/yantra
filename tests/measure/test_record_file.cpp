@@ -31,7 +31,7 @@ namespace {
 
 const fs::path kSource = YANTRA_SOURCE_DIR;
 const fs::path kExample =
-    kSource / "third_party/yantra-radios/tests/fixtures/record_files/example_v1.records.jsonl";
+    kSource / "radios/tests/fixtures/record_files/example_v1.records.jsonl";
 const fs::path kBeacon = kSource / "plugins/example_beacon/testdata/beacon.records.jsonl";
 
 std::string all(const std::vector<std::string>& errors) {

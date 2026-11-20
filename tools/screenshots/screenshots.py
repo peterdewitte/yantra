@@ -86,7 +86,7 @@ def environment(build, scene):
         radios = os.path.join(WORK, "plugins", "radios")
         os.makedirs(radios, exist_ok=True)
         shutil.copy(os.path.join(build, "tests", "radio-plugins", "hackrf_fake.so"), radios)
-        source = cache_value(build, "YANTRA_RADIOS_DIR") or os.path.join(ROOT, "third_party", "yantra-radios")
+        source = cache_value(build, "YANTRA_RADIOS_DIR") or os.path.join(ROOT, "radios")
         scenario = os.path.join(source, "tests", "fixtures", "soapy", "fake_two_cells.json")
         control = os.path.join(WORK, "fake_sdr")
         os.makedirs(control, exist_ok=True)

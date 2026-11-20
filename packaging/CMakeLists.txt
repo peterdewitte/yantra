@@ -31,17 +31,15 @@ endif()
 if(WIN32 AND CMAKE_CROSSCOMPILING AND YANTRA_BUILD_APP AND YANTRA_SANITIZER STREQUAL ""
    AND NOT YANTRA_RADIOS_KIND STREQUAL "none" AND YANTRA_PLUGIN_PROBE AND YANTRA_RADIOS_PEI)
   find_program(YANTRA_MAKENSIS makensis)
-  file(STRINGS ${PROJECT_SOURCE_DIR}/.gitmodules _radios_url REGEX "url = .*yantra-radio")
-  string(REGEX REPLACE ".*url = " "" _radios_url "${_radios_url}")
   set(_win_package ${PROJECT_BINARY_DIR}/package/yantra-${PROJECT_VERSION}-windows-x86_64)
   add_custom_target(package-windows
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/windows/package_windows.py
             --build ${PROJECT_BINARY_DIR} --out ${PROJECT_BINARY_DIR}/package --source ${PROJECT_SOURCE_DIR}
             --version ${PROJECT_VERSION} --source-url "${YANTRA_SOURCE_URL}" --sysroot ${CMAKE_SYSROOT}
             --strip ${CMAKE_STRIP} --cmake ${CMAKE_COMMAND} --makensis ${YANTRA_MAKENSIS} --ico ${YANTRA_ICO}
-            --pdfium-version "${YANTRA_PDFIUM_VERSION}" --radios-url "${_radios_url}"
+            --pdfium-version "${YANTRA_PDFIUM_VERSION}"
             --msys2-lock ${PROJECT_SOURCE_DIR}/tools/windows/msys2.lock
-            --msys2-lock ${PROJECT_SOURCE_DIR}/third_party/yantra-radios/tools/sdk/msys2.lock
+            --msys2-lock ${YANTRA_RADIOS_DIR}/tools/sdk/msys2.lock
     COMMENT "Windows zip and setup .exe in ${PROJECT_BINARY_DIR}/package (NFR-09)"
     VERBATIM)
   # The PDF manual (DOC-02a) goes in through the install rule (docs/).

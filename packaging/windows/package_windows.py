@@ -146,8 +146,7 @@ Homepage https://curtat.be; maintainer Curtat BV <info@curtat.be>.
 """
 
 
-def source_note(version, source_url, commit, radios_url, radios_commit, radios_tag,
-                msys2_rows, pdfium_version) -> str:
+def source_note(version, source_url, commit, msys2_rows, pdfium_version) -> str:
     rows = "\n".join(f"  {p} {v} ({lic})" for p, v, lic in msys2_rows)
     return f"""Corresponding source (GPL-3.0, AGPL-3.0, LGPL)
 ==============================================
@@ -164,15 +163,13 @@ Yantra {version}
   {source_url}
   (clone: {source_url}.git), commit {commit}
 
-yantra-radios (radio plugins, decoder, generator; the third_party/
-yantra-radios submodule of Yantra, with every bundled library's source
-at its pinned version and the build scripts, RAD-137)
-  {radios_url}
-  {radios_tag} (commit {radios_commit})
+The radio plugins, decoder and generator (yantra-radios) are part of
+this source, in its radios/ folder, with every bundled library's source
+at its pinned version and the build scripts (PLG-29, RAD-137).
 
 MSYS2 UCRT64 packages whose DLLs are next to the programs in bin\\ (the
 build pins them by SHA-256 in tools/windows/msys2.lock of Yantra and
-tools/sdk/msys2.lock of yantra-radios); their sources and build recipes:
+radios/tools/sdk/msys2.lock); their sources and build recipes:
 https://github.com/msys2/MINGW-packages and
 https://repo.msys2.org/mingw/sources/
 {rows}
@@ -232,7 +229,6 @@ def main() -> int:
     ap.add_argument("--makensis", default="makensis")
     ap.add_argument("--ico", type=pathlib.Path, required=True)
     ap.add_argument("--pdfium-version", default="")
-    ap.add_argument("--radios-url", default="")
     ap.add_argument("--msys2-lock", type=pathlib.Path, action="append", default=[])
     ap.add_argument("--keep-stage", action="store_true")
     a = ap.parse_args()
@@ -307,13 +303,9 @@ def main() -> int:
         shutil.copyfile(lic, docs / lic.name)
     shutil.copyfile(a.source / "LICENSE", stage / "LICENSE.txt")
     commit = git(a.source, "describe", "--always", "--dirty", "--abbrev=12") or "unknown"
-    radios = a.source / "third_party/yantra-radios"
-    radios_commit = git(radios, "rev-parse", "--short=12", "HEAD") or "unknown"
-    radios_tag = git(radios, "describe", "--tags", "--exact-match", "HEAD") or "the pinned commit"
-    radios_url = a.radios_url.removesuffix(".git") or "https://github.com/peterdewitte/yantra-radio-plugins"
     write(stage / "README.txt", readme(a.version, a.source_url))
-    write(stage / "SOURCE.txt", source_note(a.version, a.source_url, commit, radios_url, radios_commit,
-                                            radios_tag, rows, a.pdfium_version or "(see share/licenses/pdfium)"))
+    write(stage / "SOURCE.txt", source_note(a.version, a.source_url, commit, rows,
+                                            a.pdfium_version or "(see share/licenses/pdfium)"))
 
     bad = check_windows_package.check(
         {p.relative_to(stage).as_posix(): p.read_bytes() for p in stage.rglob("*") if p.is_file()}, a.source)

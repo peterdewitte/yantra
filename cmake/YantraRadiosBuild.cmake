@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: 2026 The Yantra contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# The radio plugins Yantra ships (PLG-26): built from the yantra-radios
-# submodule in a build of its own, or taken from a prebuilt yantra-radios
-# install tree or release package. They land in the build tree's radio
+# The radio plugins Yantra ships (PLG-29): built from the radio parts in
+# radios/ (RAD-141) in a build of their own, or taken from a prebuilt
+# yantra-radios install tree or release package. They land in the build tree's radio
 # plugin folder (PLG-09, PLG-25):
 #
 #   <build>/lib/yantra/plugins/radios/  hackrf.so, simulator.so,
@@ -16,7 +16,7 @@
 #                                       for the tests only
 #
 # Options:
-#   YANTRA_RADIOS_PREBUILT   "" (default: build from the submodule) or a
+#   YANTRA_RADIOS_PREBUILT   "" (default: build from radios/) or a
 #                            yantra-radios install tree, release package
 #                            (.tar.gz) or release folder holding one
 #                            (e.g. build/release/v0.1.0 of yantra-radios);
@@ -25,21 +25,28 @@
 #                            radio plugins (the radio plugin tests skip).
 #   YANTRA_RADIOS_PEI        (top level) OFF: pei.so is not shipped and its
 #                            tests are not registered (PLG-01 check).
-#   YANTRA_RADIOS_FAKE_SDR   ON: also build soapysdr_fake from the
-#                            submodule (tests only; not with a prebuilt
-#                            package, whose test then skips).
+#   YANTRA_RADIOS_FAKE_SDR   ON: also build soapysdr_fake from radios/
+#                            (tests only; not with a prebuilt package,
+#                            whose test then skips).
+#   YANTRA_RADIOS_TESTS      ON (default in a native tree with tests): the
+#                            radios build also builds the radio parts' own
+#                            test suite (RAD-141), and Yantra's ctest runs
+#                            it (its tests keep their names and labels,
+#                            working folder <build>/radios/build). OFF (and
+#                            in a cross-compiled tree): no radios tests.
 #   YANTRA_RADIOS_CACHE_DIR  where the bundled libraries of the radio
-#                            plugins are built once (tools/deps/
-#                            build_deps.sh of the submodule), in
-#                            deps-<submodule commit>-<compiler>; default
-#                            <build>/radios-cache. Survives reconfigures;
-#                            point several trees at one folder to share it.
+#                            plugins are built once (radios/tools/deps/
+#                            build_deps.sh), in deps-<key>-<compiler>, the
+#                            key a hash of radios/tools/deps/manifest.tsv;
+#                            default <build>/radios-cache. Survives
+#                            reconfigures; point several trees at one
+#                            folder to share it.
 #
-# The submodule build runs with the tree's compiler (its toolchain file,
+# The radios build runs with the tree's compiler (its toolchain file,
 # e.g. the SDK's clang, or its compilers), build type,
 # YANTRA_SIMD and YANTRA_SANITIZER (sanitizer trees build the bundled
-# libraries in-tree, instrumented, instead of from the cache), without its
-# tests. Yantra itself compiles no source of the submodule (RAD-26, HW-01).
+# libraries in-tree, instrumented, instead of from the cache). The
+# application compiles no source of radios/ (RAD-26, HW-01, PLG-30).
 #
 # Results for the rest of the build:
 #   YANTRA_RADIO_PLUGIN_DIR       the shipped radio plugin folder above
@@ -53,11 +60,21 @@ include(ExternalProject)
 
 option(YANTRA_BUILD_RADIOS "Build (or copy) the radio plugins Yantra ships (PLG-26)" ON)
 set(YANTRA_RADIOS_PREBUILT "" CACHE PATH
-    "Prebuilt yantra-radios install tree or release package (.tar.gz); empty = build the submodule")
+    "Prebuilt yantra-radios install tree or release package (.tar.gz); empty = build radios/")
 set(YANTRA_RADIOS_CACHE_DIR ${PROJECT_BINARY_DIR}/radios-cache CACHE PATH
-    "Cache of the radio plugins' bundled libraries (deps-<submodule commit>)")
+    "Cache of the radio plugins' bundled libraries (deps-<manifest hash>)")
 option(YANTRA_RADIOS_FAKE_SDR
-  "Build yantra-radios' test plugin soapysdr_fake (fake SoapySDR module) for the unplug/replug test (NFR-04)" ON)
+  "Build the radios' test plugin soapysdr_fake (fake SoapySDR module) for the unplug/replug test (NFR-04)" ON)
+if(YANTRA_BUILD_TESTS AND NOT CMAKE_CROSSCOMPILING)
+  set(_yr_tests_default ON)
+else()
+  set(_yr_tests_default OFF)
+endif()
+option(YANTRA_RADIOS_TESTS
+  "Build the radio parts' own test suite (radios/, RAD-141) and run it with Yantra's ctest" ${_yr_tests_default})
+if(NOT YANTRA_BUILD_TESTS)
+  set(YANTRA_RADIOS_TESTS OFF)
+endif()
 
 # Plugin files: .so on Linux, .dll on Windows (RAD-131); programs .exe.
 if(WIN32)
@@ -125,37 +142,31 @@ if(YANTRA_RADIOS_PREBUILT)
   return()
 endif()
 
-# --- build from the submodule -------------------------------------------------
+# --- build from radios/ -------------------------------------------------------
 set(YANTRA_RADIOS_KIND build)
 find_program(YANTRA_BASH bash REQUIRED)
 
-# Cache key: the submodule commit (or, in a source package without git,
-# a hash of the dependency manifest). build_deps.sh keeps its own stamp
-# too, so a stale key never gives stale libraries.
-execute_process(COMMAND git -C ${YANTRA_RADIOS_DIR} rev-parse --short=12 HEAD
-                OUTPUT_VARIABLE _yr_commit OUTPUT_STRIP_TRAILING_WHITESPACE
-                RESULT_VARIABLE _yr_git ERROR_QUIET)
-if(NOT _yr_git EQUAL 0 OR _yr_commit STREQUAL "")
-  file(SHA256 ${YANTRA_RADIOS_DIR}/tools/deps/manifest.tsv _yr_commit)
-  string(SUBSTRING ${_yr_commit} 0 12 _yr_commit)
-else()
-  # A moved pin (checkout of another submodule commit) reconfigures, so
-  # the cache key follows the commit.
-  execute_process(COMMAND git -C ${YANTRA_RADIOS_DIR} rev-parse --path-format=absolute --git-path HEAD
-                  OUTPUT_VARIABLE _yr_head OUTPUT_STRIP_TRAILING_WHITESPACE
-                  RESULT_VARIABLE _yr_head_git ERROR_QUIET)
-  if(_yr_head_git EQUAL 0 AND EXISTS "${_yr_head}")
-    set_property(DIRECTORY ${PROJECT_SOURCE_DIR} APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_yr_head})
-  endif()
-endif()
-# A file that changes only with the radios commit: build steps that use the
-# radio tools' output (the demo projects from yantra-gen) depend on it, so
-# a moved pin makes them again (the radios build itself is BUILD_ALWAYS).
+# Cache key of the bundled libraries: a hash of their manifest, so it
+# changes only with the libraries (build_deps.sh keeps its own stamp of
+# tools/deps and the vendored sources too, so a stale key never gives
+# stale libraries).
+file(SHA256 ${YANTRA_RADIOS_DIR}/tools/deps/manifest.tsv _yr_key)
+string(SUBSTRING ${_yr_key} 0 12 _yr_key)
+# A file that changes only with the radio parts (the git tree of radios/
+# at HEAD, written at build time and only when it changed): build steps
+# that use the radio tools' output (the demo projects and record files from
+# yantra-gen) depend on it, so a change in radios/ makes them again (the
+# radios build itself is BUILD_ALWAYS).
 set(YANTRA_RADIOS_COMMIT_STAMP ${PROJECT_BINARY_DIR}/radios/commit.txt)
-file(CONFIGURE OUTPUT ${YANTRA_RADIOS_COMMIT_STAMP} CONTENT "${_yr_commit}\n")
+add_custom_target(yantra_radios_stamp
+  COMMAND ${CMAKE_COMMAND} -DDIR=${YANTRA_RADIOS_DIR} -DOUT=${YANTRA_RADIOS_COMMIT_STAMP}
+          -DFALLBACK=${_yr_key} -P ${CMAKE_CURRENT_LIST_DIR}/radios_stamp.cmake
+  BYPRODUCTS ${YANTRA_RADIOS_COMMIT_STAMP}
+  COMMENT "Radio parts' tree stamp (PLG-29)"
+  VERBATIM)
 
 # The compiler (OA-02): the tree's toolchain file (clang from the cross
-# SDK of the submodule, RAD-139, with its SDK folder) or, without one, the
+# SDK in radios/tools/sdk, RAD-139, with its SDK folder) or, without one, the
 # tree's compilers (the gcc tree). The bundled libraries are built with
 # the same compiler (tools/deps/build_deps.sh reads CC/CXX or
 # CMAKE_TOOLCHAIN_FILE from the environment); their cache folder is per
@@ -181,13 +192,13 @@ endif()
 set(_yr_args
   -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
   ${_yr_compiler}
-  -DYANTRA_RADIOS_BUILD_TESTS=OFF
+  -DYANTRA_RADIOS_BUILD_TESTS=${YANTRA_RADIOS_TESTS}
   -DYANTRA_SIMD=${YANTRA_SIMD}
   -DYANTRA_SANITIZER=${YANTRA_SANITIZER}
   -DYANTRA_WERROR=${YANTRA_WERROR})
 set(_yr_depends)
 if(YANTRA_SANITIZER STREQUAL "")
-  set(YANTRA_RADIOS_DEPS_PREFIX ${YANTRA_RADIOS_CACHE_DIR}/deps-${_yr_commit}-${_yr_compiler_tag})
+  set(YANTRA_RADIOS_DEPS_PREFIX ${YANTRA_RADIOS_CACHE_DIR}/deps-${_yr_key}-${_yr_compiler_tag})
   ExternalProject_Add(yantra_radios_deps
     SOURCE_DIR ${YANTRA_RADIOS_DIR}
     BINARY_DIR ${PROJECT_BINARY_DIR}/radios/deps-step
@@ -226,7 +237,7 @@ ExternalProject_Add(yantra_radios
   UPDATE_COMMAND ""
   CMAKE_ARGS ${_yr_args} -DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>
   ${_yr_depends}
-  # The submodule's own ninja decides what is out of date.
+  # The radios build's own ninja decides what is out of date.
   BUILD_ALWAYS ON
   LOG_CONFIGURE ON
   LOG_BUILD ON
@@ -236,18 +247,32 @@ ExternalProject_Add_Step(yantra_radios copy_plugins
   ${_copies}
   DEPENDEES install
   ALWAYS ON
-  COMMENT "Radio plugins into ${YANTRA_RADIO_PLUGIN_DIR} (PLG-26)")
+  COMMENT "Radio plugins into ${YANTRA_RADIO_PLUGIN_DIR} (PLG-29)")
 
 # Test only: the generic SoapySDR plugin and the HackRF plugin built with
 # yantra-radios' fake SoapySDR module in place of the real modules
 # (soapysdr_fake, hackrf_fake, RAD-92), for the radio host's unplug/replug
 # test (NFR-04; the fake module unplugs a device when a control file
-# appears) and the radio windows' tests (step 9.6). A build of its own with the
-# submodule's tests switched on, of that one target only (its closure:
-# about half a minute); after the main radios build, with the same
-# bundled libraries. Never installed or shipped.
+# appears) and the radio windows' tests (step 9.6). With YANTRA_RADIOS_TESTS
+# they come from the radios build (which builds them with its tests);
+# otherwise from a build of their own with the radios' tests switched on,
+# of these targets only (their closure: about half a minute), after the
+# main radios build, with the same bundled libraries. Never installed or
+# shipped.
 set(_yr_fake_target)
-if(YANTRA_RADIOS_FAKE_SDR)
+if(YANTRA_RADIOS_FAKE_SDR AND YANTRA_RADIOS_TESTS)
+  ExternalProject_Add_Step(yantra_radios copy_fake_sdr
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${YANTRA_RADIOS_BINARY_DIR}/tests/plugins/soapysdr_fake${YANTRA_RADIO_PLUGIN_SUFFIX}
+            ${YANTRA_RADIO_TEST_PLUGIN_DIR}/soapysdr_fake${YANTRA_RADIO_PLUGIN_SUFFIX}
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            ${YANTRA_RADIOS_BINARY_DIR}/tests/plugins/hackrf_fake${YANTRA_RADIO_PLUGIN_SUFFIX}
+            ${YANTRA_RADIO_TEST_PLUGIN_DIR}/hackrf_fake${YANTRA_RADIO_PLUGIN_SUFFIX}
+    DEPENDEES install
+    ALWAYS ON
+    COMMENT "Fake-SDR test plugins into ${YANTRA_RADIO_TEST_PLUGIN_DIR}")
+  set(YANTRA_RADIOS_FAKE_SDR_SCENARIO ${YANTRA_RADIOS_DIR}/tests/fixtures/soapy/fake_two_cells.json)
+elseif(YANTRA_RADIOS_FAKE_SDR)
   set(_yr_fake_args ${_yr_args})
   list(TRANSFORM _yr_fake_args REPLACE "^-DYANTRA_RADIOS_BUILD_TESTS=OFF$" "-DYANTRA_RADIOS_BUILD_TESTS=ON")
   ExternalProject_Add(yantra_radios_fake_sdr
@@ -278,5 +303,15 @@ if(YANTRA_RADIOS_PEI)
   set(YANTRA_RADIOS_PEI_SIM ${YANTRA_RADIOS_BINARY_DIR}/bin/yantra-pei-sim${CMAKE_EXECUTABLE_SUFFIX})
   set(YANTRA_RADIOS_PEI_SCENARIO ${YANTRA_RADIOS_DIR}/tests/fixtures/pei/terminal_cells.json)
 endif()
-add_custom_target(yantra_radio_plugins ALL DEPENDS yantra_radios ${_yr_fake_target})
-message(STATUS "Radio plugins: built from ${YANTRA_RADIOS_DIR} (${_yr_commit})")
+add_custom_target(yantra_radio_plugins ALL DEPENDS yantra_radios ${_yr_fake_target} yantra_radios_stamp)
+
+# The radio parts' own tests (RAD-141) join this tree's ctest: the
+# generated CTestTestfile.cmake reads the radios build's test list.
+if(YANTRA_RADIOS_TESTS)
+  file(CONFIGURE OUTPUT ${PROJECT_BINARY_DIR}/radios/ctest_include.cmake
+       CONTENT "subdirs(\"${YANTRA_RADIOS_BINARY_DIR}\")\n")
+  set_property(DIRECTORY ${PROJECT_SOURCE_DIR} APPEND PROPERTY
+               TEST_INCLUDE_FILES ${PROJECT_BINARY_DIR}/radios/ctest_include.cmake)
+endif()
+message(STATUS "Radio plugins: built from ${YANTRA_RADIOS_DIR} (bundled libraries ${_yr_key}; "
+               "radios tests ${YANTRA_RADIOS_TESTS})")

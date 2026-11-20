@@ -8,11 +8,17 @@
 # YANTRA_DEPS_PREFIX on the cached prefix.)
 # The prefix is built with this tree's compiler: its toolchain file (the
 # cross SDK's clang, Linux or Windows) goes to the script as CMake reads
-# it, in the environment (CMake >= 3.21).
+# it, in the environment (CMake >= 3.21), with the tree's SDK folder when
+# it was given (YANTRA_SDK_DIR, e.g. the radios build inside Yantra's
+# build, PLG-29).
 set(_prefix ${CMAKE_BINARY_DIR}/deps-prefix-check)
 set(_env "")
 if(CMAKE_TOOLCHAIN_FILE)
-  set(_env ENVIRONMENT "CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
+  if(YANTRA_SDK_DIR)
+    set(_env ENVIRONMENT "CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}\;YANTRA_SDK_DIR=${YANTRA_SDK_DIR}")
+  else()
+    set(_env ENVIRONMENT "CMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}")
+  endif()
 endif()
 add_test(NAME deps_build COMMAND ${YANTRA_BUILD_HOST_TEST} ${PROJECT_SOURCE_DIR}/tools/deps/build_deps.sh ${_prefix})
 set_tests_properties(deps_build PROPERTIES ${_env} LABELS fast TIMEOUT 600 FIXTURES_SETUP deps_prefix
