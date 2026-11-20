@@ -1,0 +1,9 @@
+; SPDX-FileCopyrightText: 2026 The Yantra contributors
+; SPDX-License-Identifier: GPL-3.0-or-later
+;
+; Module-definition file of every radio plugin on Windows (RAD-133): only
+; the entry point is exported. Upstream libraries' own dllexport
+; directives are removed from their archives (tools/deps/sdr.cmake), so
+; nothing else is exported next to it.
+EXPORTS
+    yantra_radio_entry

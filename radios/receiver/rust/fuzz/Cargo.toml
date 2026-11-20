@@ -1,0 +1,45 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# cargo-fuzz targets of yantra-proto (RAD-96). Outside the crate's own
+# workspace and never built by CMake or ctest: cargo-fuzz needs the
+# libfuzzer-sys crate (fetched once from crates.io, pinned in Cargo.lock)
+# and nightly rustc features. tools/ci/fuzz.sh runs them with
+# RUSTC_BOOTSTRAP=1 on a stable rustc when no nightly toolchain is there.
+# The same entry points (yantra_proto::fuzz) run on stable Rust in
+# tests/fuzz_smoke.rs (ctest rust_cargo_test and fuzz_proto_rust), and
+# the C++ libFuzzer target tetra_pdu fuzzes them through the C ABI. See
+# docs/FUZZING.md.
+#   cargo fuzz run --fuzz-dir <abs>/receiver/rust/fuzz tetra_pdu
+# Copied from yantra 68ea20a: rust/proto/fuzz.
+
+[package]
+name = "yantra-proto-fuzz"
+version = "0.0.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+yantra-proto = { path = ".." }
+
+# Its own workspace, not part of the crate's.
+[workspace]
+
+[[bin]]
+name = "tetra_pdu"
+path = "fuzz_targets/tetra_pdu.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "tm_sdu"
+path = "fuzz_targets/tm_sdu.rs"
+test = false
+doc = false
+bench = false

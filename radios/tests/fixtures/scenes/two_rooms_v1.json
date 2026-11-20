@@ -1,0 +1,29 @@
+{
+  "format": "yantra-radio-scene",
+  "version": 1,
+  "floor": { "id": "f1", "name": "Ground floor", "scale_set": true,
+             "width_m": 20.0, "height_m": 10.0 },
+  "wall_classes": [
+    { "id": "concrete", "label": "Concrete", "attenuation_db": 12.0 },
+    { "id": "drywall", "label": "Drywall", "attenuation_db": 3.0 } ],
+  "walls": [
+    { "x1_m": 10.0, "y1_m": 0.0, "x2_m": 10.0, "y2_m": 10.0,
+      "class": "concrete", "attenuation_db": 12.0 },
+    { "x1_m": 0.0, "y1_m": 5.0, "x2_m": 10.0, "y2_m": 5.0,
+      "class": "drywall", "attenuation_db": 4.5 } ],
+  "cells": [
+    { "id": "c1", "label": "Cell 1", "mcc": 901, "mnc": 1, "la": 100,
+      "colour_code": 1, "carrier_hz": 392012500 },
+    { "id": "c2", "label": "Cell 2", "mcc": 901, "mnc": 1, "la": 101,
+      "colour_code": 2, "carrier_hz": 392037500 } ],
+  "antennas": [
+    { "id": "a1", "cell": "c1", "x_m": 2.0, "y_m": 2.0, "height_m": 2.8,
+      "eirp_dbm": 10.0, "pattern": { "type": "omni" } },
+    { "id": "a2", "cell": "c2", "x_m": 18.0, "y_m": 8.0, "height_m": 2.8,
+      "eirp_dbm": 13.0, "pattern": { "type": "sector", "azimuth_deg": 270.0,
+      "beamwidth_deg": 90.0, "front_to_back_db": 20.0 } },
+    { "id": "a3", "cell": "c1", "x_m": 5.0, "y_m": 8.0, "height_m": 2.5,
+      "eirp_dbm": 7.0, "pattern": { "type": "table", "azimuth_deg": 0.0,
+      "step_deg": 90.0, "gain_db": [0.0, -6.0, -15.0, -6.0] },
+      "future_member": "ignored" } ]
+}

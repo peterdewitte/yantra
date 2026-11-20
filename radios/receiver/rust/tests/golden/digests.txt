@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Golden digests of the protocol functions (RAD-120), written by
+# tests/golden_digest.rs with YANTRA_UPDATE_GOLDEN=1. Change only on
+# purpose, with the reason in the commit message.
+bits.read 17807afcba0a9311
+values 16941f02f6d8a338
+mac.parse_sync 3bca7561a2fc5566
+mac.parse_sysinfo fcc15a0b5889e4d0
+mac.parse_mac_resource bc6595d12601eb9c
+mac.parse_mac_frag_end fc4d44d854b69b04
+llc.parse_llc 082503cce4c4d7cd
+llc.fcs32 58d3bfe6451cee15
+mle.parse_mle cbc5d03e577a4cc1
+mle.parse_mm 12ac22eb7345b084
+mle.parse_neighbour ccec897f483c7d9e
+block.parse_block 8205a9ede042b8fb
+block.parse_tm_sdu 1fd5b88d6b7332d2
+block.describe da2c9ed8dc514430

@@ -1,0 +1,11 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# TETRA generator golden vector (RAD-70, RAD-93): SHA-256 of the quantised samples (round(x * 4096) as int16 LE, I then Q)
+# of a seeded span: 500 ksps; default cell + 2 neighbours at -100 kHz 0 dB; cell drawn from
+# seed 20261103 at +62.5 kHz -6 dB 0.4 ms late; both from TN 1 FN 17 MN 1 HN 7.
+# Written by tests/gen/test_golden.cpp; rewrite only on purpose
+# (test_gen --update, target update-golden-gen).
+sample_rate 500000
+samples 85000
+digest fa43856bf4c65873506c7370b95f8f253d0082621e3cbffcc9be60db037f3c21

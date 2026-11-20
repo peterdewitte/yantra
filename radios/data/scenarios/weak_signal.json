@@ -1,0 +1,74 @@
+{
+  "format": "yantra-radios-scenario",
+  "version": 1,
+  "id": "weak_signal",
+  "name": "Weak signal, high noise",
+  "description": "One weak cell near sensitivity with a noisy receiver and Rayleigh fading (DEMO-09): SNR around 5 dB, so decoding is marginal and quality drops.",
+  "seed": 1005,
+  "duration_s": 10.0,
+  "truth_interval_s": 0.1,
+  "sample_rate_hz": 500000,
+  "network": {
+    "mcc": 901,
+    "mnc": 1
+  },
+  "cells": [
+    {
+      "id": "W1",
+      "label": "Weak cell",
+      "cell_number": 1,
+      "la": 400,
+      "colour_code": 1,
+      "main_carrier": 3600,
+      "frequency_band": 3,
+      "level_dbm": -112.0,
+      "ppm": 0.2,
+      "neighbours": [
+        {
+          "cell": "W2"
+        }
+      ]
+    },
+    {
+      "id": "W2",
+      "label": "Weaker neighbour",
+      "cell_number": 2,
+      "la": 400,
+      "colour_code": 2,
+      "main_carrier": 3604,
+      "frequency_band": 3,
+      "level_dbm": -118.0,
+      "neighbours": [
+        {
+          "cell": "W1"
+        }
+      ]
+    }
+  ],
+  "channel": {
+    "fading": {
+      "model": "rayleigh",
+      "doppler_hz": 5.0
+    }
+  },
+  "receiver": {
+    "noise_figure_db": 14.0,
+    "ppm": 1.5,
+    "iq_imbalance": {
+      "gain_db": 0.5,
+      "phase_deg": 2.0
+    },
+    "dc_dbfs": -40.0
+  },
+  "events": [
+    {
+      "t": 5.0,
+      "type": "rx_gain",
+      "db": -6.0
+    }
+  ],
+  "planted": [
+    "noise figure 14 dB",
+    "AGC step -6 dB at 5 s"
+  ]
+}

@@ -1,0 +1,63 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Quick-tier expectations (one run of 4 s per point, base seed 1):
+# yantra-sens --tier quick --scenario S --baseline
+# tests/sens/baseline/quick.csv (ctests sens_quick_S, label sens).
+# Measured 2026-11-03 (comments); one run per point varies more, so the
+# margins are wider than the full tier's. docs/SENSITIVITY.md "Baseline".
+scenario,snr_db,metric,bound,limit
+# awgn: measured 8 dB SCH/F 96.0; 12 dB SYSINFO 100.0, SCH/F 100.0, BER 0.148
+awgn,8,schf,min,90
+awgn,12,bnch,min,99
+awgn,12,schf,min,99
+awgn,12,ber,max,0.4
+awgn,12,lock_ms,max,200
+# cfo2: measured 8 dB SCH/F 96.0; 12 dB SYSINFO 100.0, SCH/F 100.0, BER 0.125
+cfo2,8,schf,min,90
+cfo2,12,bnch,min,99
+cfo2,12,schf,min,99
+cfo2,12,ber,max,0.35
+cfo2,12,lock_ms,max,200
+# cfo20: measured 8 dB SCH/F 96.8; 12 dB SYSINFO 100.0, SCH/F 100.0, BER 0.149
+cfo20,8,schf,min,90
+cfo20,12,bnch,min,99
+cfo20,12,schf,min,99
+cfo20,12,ber,max,0.4
+cfo20,12,lock_ms,max,200
+# cfo50: measured 8 dB SCH/F 96.0; 12 dB SYSINFO 100.0, SCH/F 100.0, BER 0.116
+cfo50,8,schf,min,90
+cfo50,12,bnch,min,99
+cfo50,12,schf,min,99
+cfo50,12,ber,max,0.3
+cfo50,12,lock_ms,max,200
+# offcentre: measured 8 dB SCH/F 96.4; 12 dB SYSINFO 100.0, SCH/F 100.0, BER 0.141
+offcentre,8,schf,min,90
+offcentre,12,bnch,min,99
+offcentre,12,schf,min,99
+offcentre,12,ber,max,0.4
+offcentre,12,lock_ms,max,200
+# clock50: measured 8 dB SCH/F 96.0; 12 dB SYSINFO 100.0, SCH/F 100.0, BER 0.129
+clock50,8,schf,min,90
+clock50,12,bnch,min,99
+clock50,12,schf,min,99
+clock50,12,ber,max,0.35
+clock50,12,lock_ms,max,200
+# phasenoise: measured 8 dB SCH/F 96.0; 12 dB SYSINFO 100.0, SCH/F 100.0, BER 0.160
+phasenoise,8,schf,min,90
+phasenoise,12,bnch,min,99
+phasenoise,12,schf,min,99
+phasenoise,12,ber,max,0.4
+phasenoise,12,lock_ms,max,200
+# tu50: measured 20 dB SYSINFO 100.0 SCH/F 92.8 BER 1.17
+tu50,20,bnch,min,83
+tu50,20,schf,min,80
+tu50,20,ber,max,2.4
+# ht200: measured 20 dB SYSINFO 66.7 SCH/F 88.4 BER 2.69
+ht200,20,bnch,min,49
+ht200,20,schf,min,76
+ht200,20,ber,max,5.4
+# combined: measured 20 dB SYSINFO 83.3 SCH/F 91.2 BER 1.25
+combined,20,bnch,min,66
+combined,20,schf,min,79
+combined,20,ber,max,2.6

@@ -1,0 +1,12 @@
+/* SPDX-FileCopyrightText: 2026 The Yantra contributors
+ * SPDX-License-Identifier: GPL-3.0-or-later
+ *
+ * Linker version script of every radio plugin (RAD-133): only the entry
+ * point is exported; every bundled symbol stays local.
+ */
+YANTRA_RADIO_1 {
+  global:
+    yantra_radio_entry;
+  local:
+    *;
+};

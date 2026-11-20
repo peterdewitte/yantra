@@ -1,0 +1,13 @@
+samples 100000 ddf46eb6786fbeeb5010ec493686ae92281e9d09bbc2a6e5844559541e18c8c8
+t 0 sample 0 out 0
+  B1 fixed -64 -64 0 
+  B2 fixed -74 -74 0 
+t 0.050000000000000003 sample 25000 out 25000
+  B1 fixed -64 -64 0 
+  B2 fixed -74 -74 0 
+t 0.10000000000000001 sample 50000 out 50000
+  B1 fixed -64 -64 0 
+  B2 fixed -74 -74 0 
+t 0.15000000000000002 sample 75000 out 75000
+  B1 fixed -64 -64 0 
+  B2 fixed -74 -74 0 

@@ -1,0 +1,33 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# yantra-proto: the Rust protocol crate of the TETRA decoder (RAD-101,
+# RAD-03): upper-layer parsing of downlink broadcast PDUs that osmo-tetra
+# lacks or only partly has (MAC-RESOURCE/FRAG/END, LLC, D-MLE-SYNC,
+# D-MLE-SYSINFO, D-NWRK-BROADCAST, MM broadcast items; DEC-02..04, DEC-06),
+# with a C ABI (include/yantra/proto.h) for the C++ decoder. Built by
+# CMake (receiver/CMakeLists.txt) as a static library linked into the
+# decoder and so into the plugins (RAD-132). Offline, no external crates
+# (RAD-04 would allow serde/serde_json; none is needed). cargo-deny checks
+# licences and sources (deny.toml). Its own workspace (the empty
+# [workspace] table) so cargo never looks for a parent manifest.
+# Copied from yantra 68ea20a: rust/Cargo.toml, rust/proto/Cargo.toml.
+
+[package]
+name = "yantra-proto"
+description = "TETRA protocol layer of yantra-radios (broadcast PDU parsing)"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+publish = false
+rust-version = "1.75"
+
+[lib]
+crate-type = ["rlib", "staticlib"]
+
+[dependencies]
+
+[workspace]
+
+[profile.release]
+debug = true

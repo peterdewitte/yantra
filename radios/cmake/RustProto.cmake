@@ -1,0 +1,91 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# yantra::proto - the Rust protocol crate (receiver/rust, RAD-101, RAD-03)
+# as a static library with a C ABI (receiver/rust/include/yantra/proto.h).
+# cargo builds it (release profile, offline, --locked, absolute paths, all
+# cores) into <build>/cargo-lib; the rust_cargo_test ctest and the lint's
+# FFI check share <build>/cargo. The library goes statically into the TETRA
+# decoder and so into every plugin that links it (RAD-132); the Rust
+# standard library comes with it. Sets YANTRA_PROTO_FOUND.
+# Copied from yantra 68ea20a: plugins/tetra/proto/CMakeLists.txt, adapted
+# for RAD-101/RAD-132 (receiver/rust, one crate, Windows link libraries).
+
+set(YANTRA_PROTO_FOUND OFF)
+find_program(YANTRA_CARGO_EXECUTABLE cargo HINTS $ENV{HOME}/.cargo/bin)
+if(NOT YANTRA_CARGO_EXECUTABLE)
+  if(YANTRA_OSMO_TETRA_FOUND)
+    message(FATAL_ERROR "cargo (Rust) is needed for the TETRA decoder's protocol crate (RAD-03, RAD-101)")
+  endif()
+  message(STATUS "yantra::proto: left out (cargo not found)")
+  return()
+endif()
+find_package(Threads REQUIRED)
+# The cross SDK's toolchain files (tools/sdk, RAD-139) set YANTRA_RUSTC
+# and YANTRA_CARGO_EXECUTABLE: the SDK's cargo then builds with the SDK's
+# rustc for every target and test, so the library, the tests and the lint
+# share one compiler (and the folder <build>/cargo stays valid). Without
+# them cargo and rustc come from PATH.
+set(YANTRA_CARGO_ENV "")
+if(YANTRA_RUSTC)
+  set(YANTRA_CARGO_ENV "RUSTC=${YANTRA_RUSTC}")
+endif()
+
+set(YANTRA_PROTO_DIR ${PROJECT_SOURCE_DIR}/receiver/rust)
+set(YANTRA_CARGO_TARGET_DIR ${PROJECT_BINARY_DIR}/cargo)
+# The library has a target folder of its own: its RUSTFLAGS differ from the
+# tests', and sharing one folder would rebuild and replace it in turn.
+set(_proto_target_dir ${PROJECT_BINARY_DIR}/cargo-lib)
+# A cross build (the Windows toolchain file sets YANTRA_RUST_TARGET
+# x86_64-pc-windows-gnu, RAD-131) builds the library for that target;
+# cargo puts it under <target-dir>/<target>/release.
+set(_proto_target_args "")
+set(_proto_release_dir ${_proto_target_dir}/release)
+if(YANTRA_RUST_TARGET)
+  set(_proto_target_args --target ${YANTRA_RUST_TARGET})
+  set(_proto_release_dir ${_proto_target_dir}/${YANTRA_RUST_TARGET}/release)
+endif()
+set(_proto_lib ${_proto_release_dir}/${CMAKE_STATIC_LIBRARY_PREFIX}yantra_proto${CMAKE_STATIC_LIBRARY_SUFFIX})
+set(_proto_stamp ${PROJECT_BINARY_DIR}/yantra_proto.stamp)
+file(GLOB_RECURSE _proto_sources CONFIGURE_DEPENDS ${YANTRA_PROTO_DIR}/src/*.rs)
+
+include(ProcessorCount)
+ProcessorCount(_cores)
+if(_cores LESS 1)
+  set(_cores 1)
+endif()
+
+# Artefacts name no folder of the machine they were built on (as
+# tools/deps/deps.cmake does for C and C++).
+string(STRIP "--remap-path-prefix=${PROJECT_SOURCE_DIR}=. ${YANTRA_FUZZ_RUSTFLAGS}" _proto_rustflags)
+
+# The stamp keeps ninja from running cargo again when nothing changed.
+add_custom_command(
+  OUTPUT ${_proto_stamp}
+  BYPRODUCTS ${_proto_lib}
+  COMMAND ${CMAKE_COMMAND} -E env CARGO_BUILD_JOBS=${_cores} "RUSTFLAGS=${_proto_rustflags}" ${YANTRA_CARGO_ENV}
+          ${YANTRA_CARGO_EXECUTABLE} build --release --offline --locked --quiet
+          --manifest-path ${YANTRA_PROTO_DIR}/Cargo.toml --target-dir ${_proto_target_dir} --lib ${_proto_target_args}
+  COMMAND ${CMAKE_COMMAND} -E touch ${_proto_stamp}
+  DEPENDS ${_proto_sources} ${YANTRA_PROTO_DIR}/Cargo.toml ${YANTRA_PROTO_DIR}/Cargo.lock
+  WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+  COMMENT "cargo: building the yantra-proto static library"
+  VERBATIM)
+add_custom_target(yantra_proto_cargo DEPENDS ${_proto_stamp})
+
+set(_proto_link Threads::Threads ${CMAKE_DL_LIBS})
+if(WIN32)
+  # What the Rust standard library needs on x86_64-pc-windows-gnu (rustc
+  # --print native-static-libs).
+  list(APPEND _proto_link ws2_32 userenv bcrypt ntdll)
+else()
+  list(APPEND _proto_link m)
+endif()
+add_library(yantra_proto STATIC IMPORTED GLOBAL)
+set_target_properties(yantra_proto PROPERTIES
+  IMPORTED_LOCATION ${_proto_lib}
+  INTERFACE_INCLUDE_DIRECTORIES ${YANTRA_PROTO_DIR}/include
+  INTERFACE_LINK_LIBRARIES "${_proto_link}")
+add_dependencies(yantra_proto yantra_proto_cargo)
+add_library(yantra::proto ALIAS yantra_proto)
+set(YANTRA_PROTO_FOUND ON)

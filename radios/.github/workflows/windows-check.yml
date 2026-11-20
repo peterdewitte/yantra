@@ -1,0 +1,66 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Full Windows run on demand (RAD-134, RAD-131): a native build with
+# MSYS2 UCRT64's gcc (the second Windows compiler next to the cross SDK's
+# clang of ci.yml), every test including slow, the completeness checks of
+# the .dll plugins and .exe programs (RAD-133; check_completeness.py reads
+# the PE files itself). No toolchain file: ctest runs the .exe directly.
+# Checked with PyYAML and tools/ci/lint.sh; not run locally (no MSYS2 on
+# the Windows test VM; the cross-compiled tree's tests run there, BUILD.md).
+# Copied from yantra 68ea20a: .github/workflows/windows.yml, adapted.
+
+name: windows-check
+
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-full:
+    runs-on: windows-2022
+    defaults:
+      run:
+        shell: msys2 {0}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-gcc
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-rust
+            mingw-w64-ucrt-x86_64-binutils
+      - name: Cache the dependency builds (RAD-136)
+        uses: actions/cache@v4
+        with:
+          path: build/deps
+          key: deps-${{ hashFiles('tools/deps/**', 'third_party/**') }}-windows-ucrt64
+      - name: Static dependency builds (RAD-136)
+        run: tools/deps/build_deps.sh build/deps
+      # Not a preset: those set the cross SDK's toolchain files.
+      - name: Configure and build (warnings are errors)
+        run: |
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DYANTRA_WERROR=ON \
+            -DYANTRA_DEPS_PREFIX="$PWD/build/deps"
+          cmake --build build -j "$(nproc)"
+      - name: All tests including slow
+        run: ctest --test-dir build --timeout 1800 --output-on-failure -j "$(nproc)"
+      - name: Completeness checks (RAD-133)
+        run: |
+          python3 tools/ci/check_completeness.py --platform windows build/bin/plugins
+          python3 tools/ci/check_completeness.py --platform windows --programs --allow-build-paths build/bin
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64-plugins
+          path: build/bin/plugins/
+          if-no-files-found: ignore

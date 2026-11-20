@@ -8,8 +8,8 @@
 #   - YAML (CI workflows): parsed with Python's yaml module
 # The FFI width check of TST-02 joins once Yantra has a Rust<->C++ FFI
 # (none yet). reuse lint runs as its own ctest and CI step. third_party/
-# (vendored code and the yantra-radios submodule, which lints itself) is
-# skipped.
+# and radios/third_party/ (vendored code) are skipped; the radio parts in
+# radios/ (PLG-29) are linted with the rest.
 # Usage: tools/ci/lint.sh [source-dir]   (default: the repository root)
 # Environment: YANTRA_LINT_REQUIRE_TOOLS=1 makes a missing tool (Python
 # yaml) an error (CI).
@@ -29,7 +29,8 @@ missing() {
 }
 
 list() {
-    find . \( -path ./.git -o -path './build*' -o -path ./third_party \
+    find . \( -path ./.git -o -path './build*' -o -path ./third_party -o -path ./radios/third_party \
+              -o -path './radios/build*' -o -path ./radios/sdk -o -path ./radios/sdk-cache \
               -o -name target -o -path ./out \) -prune -o \
            -type f \( "$@" \) -print | sort
 }

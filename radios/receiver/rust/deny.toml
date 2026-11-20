@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# cargo-deny configuration (RAD-04, NFR-01): licence, ban and source check
+# of the protocol crate. It uses no external crates; RAD-04 would allow
+# only serde and serde_json (MIT OR Apache-2.0) and the crates they pull
+# in, from crates.io, vendored for an offline build and listed in
+# THIRD_PARTY.md.
+# Copied from yantra 68ea20a: rust/deny.toml, adapted for RAD-04.
+
+[graph]
+all-features = true
+
+[licenses]
+allow = ["GPL-3.0-or-later", "MIT", "Apache-2.0"]
+confidence-threshold = 0.9
+# MIT and Apache-2.0 are for serde/serde_json, should they be vendored.
+unused-allowed-license = "allow"
+
+[bans]
+multiple-versions = "deny"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"

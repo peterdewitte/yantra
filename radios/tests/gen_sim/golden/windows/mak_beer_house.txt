@@ -1,0 +1,13 @@
+samples 100000 b934a3c21a843351284c336d20cd293d30333fd321f8cb26c5a8209f075c72b1
+t 0 sample 0 out 0
+  T1 fixed -65 -65 0 
+  M1 fixed -98 -98 0 
+t 0.050000000000000003 sample 25000 out 25000
+  T1 fixed -65 -65 0 
+  M1 fixed -98 -98 0 
+t 0.10000000000000001 sample 50000 out 50000
+  T1 fixed -65 -65 0 
+  M1 fixed -98 -98 0 
+t 0.15000000000000002 sample 75000 out 75000
+  T1 fixed -65 -65 0 
+  M1 fixed -98 -98 0 

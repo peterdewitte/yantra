@@ -1,0 +1,23 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# USB access without root to the SDR receivers of the yantra-radios
+# plugins (RAD-99): the logged-in user (uaccess) and the plugdev group
+# (headless use). The install puts it in <prefix>/lib/udev/rules.d; a
+# package for /usr installs it there, where udev reads it. After a source
+# install into another prefix, copy it to /etc/udev/rules.d and reload
+# udev (udevadm control --reload; udevadm trigger) as root. The plugins
+# open the radios through their built-in SoapySDR modules only.
+#
+# Adapted from yantra-v1 packaging/udev/60-yantra-sdr.rules.
+
+# RTL-SDR (RTL2832U dongles: generic, RTL-SDR Blog V3/V4, NooElec)
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2832", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0bda", ATTRS{idProduct}=="2838", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# HackRF One, HackRF Jawbreaker, rad1o
+SUBSYSTEM=="usb", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="6089", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="604b", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="cc15", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+# Airspy R2 / Mini, Airspy HF+
+SUBSYSTEM=="usb", ATTRS{idVendor}=="1d50", ATTRS{idProduct}=="60a1", MODE="0660", GROUP="plugdev", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="03eb", ATTRS{idProduct}=="800c", MODE="0660", GROUP="plugdev", TAG+="uaccess"

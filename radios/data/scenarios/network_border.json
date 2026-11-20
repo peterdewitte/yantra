@@ -1,0 +1,62 @@
+{
+  "format": "yantra-radios-scenario",
+  "version": 1,
+  "id": "network_border",
+  "name": "Network border (neighbour of another network)",
+  "description": "Two fictitious networks meet: cell B1 of 901-1 announces B2, a cell of the neighbouring network 901-2, with that network's MCC and MNC in its neighbour list (RAD-22), and B2 announces B1 likewise.",
+  "seed": 1010,
+  "duration_s": 10.0,
+  "truth_interval_s": 0.1,
+  "sample_rate_hz": 500000,
+  "network": {
+    "mcc": 901,
+    "mnc": 1
+  },
+  "cells": [
+    {
+      "id": "B1",
+      "label": "Home network",
+      "cell_number": 1,
+      "la": 500,
+      "colour_code": 5,
+      "main_carrier": 3600,
+      "frequency_band": 3,
+      "level_dbm": -64.0,
+      "neighbours": [
+        {
+          "cell": "B2"
+        }
+      ]
+    },
+    {
+      "id": "B2",
+      "label": "Neighbouring network",
+      "mcc": 901,
+      "mnc": 2,
+      "cell_number": 2,
+      "la": 600,
+      "colour_code": 6,
+      "main_carrier": 3608,
+      "frequency_band": 3,
+      "level_dbm": -74.0,
+      "ppm": 0.05,
+      "time_offset_s": 2.7,
+      "neighbours": [
+        {
+          "cell": "B1"
+        }
+      ]
+    }
+  ],
+  "channel": {
+    "fading": {
+      "model": "none"
+    }
+  },
+  "receiver": {
+    "noise_figure_db": 7.0
+  },
+  "planted": [
+    "B2 belongs to network 901-2: B1 announces it with MCC 901, MNC 2"
+  ]
+}

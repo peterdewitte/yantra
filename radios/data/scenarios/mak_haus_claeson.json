@@ -1,0 +1,90 @@
+{
+  "format": "yantra-radios-scenario",
+  "version": 1,
+  "id": "mak_haus_claeson",
+  "name": "Haus Claeson, Falsterbo (example plan)",
+  "description": "Network of the bundled MAK Haus Claeson plan (Yantra DEMO-12): DAS cell T1 with six ceiling antennas, one macro cell.",
+  "example_ids": [
+    "mak-haus-claeson-*"
+  ],
+  "seed": 2003,
+  "duration_s": 0.0,
+  "truth_interval_s": 0.1,
+  "sample_rate_hz": 500000,
+  "network": {
+    "mcc": 901,
+    "mnc": 1
+  },
+  "cells": [
+    {
+      "id": "T1",
+      "label": "Indoor DAS",
+      "cell_number": 1,
+      "la": 100,
+      "colour_code": 1,
+      "main_carrier": 3600,
+      "frequency_band": 3,
+      "level_dbm": -65.0,
+      "neighbours": [
+        {
+          "cell": "M1"
+        }
+      ]
+    },
+    {
+      "id": "M1",
+      "label": "Macro site",
+      "cell_number": 2,
+      "la": 200,
+      "colour_code": 2,
+      "main_carrier": 3608,
+      "frequency_band": 3,
+      "level_dbm": -98.0,
+      "ppm": 0.05,
+      "time_offset_s": 7.1,
+      "neighbours": [
+        {
+          "cell": "T1"
+        }
+      ]
+    }
+  ],
+  "antennas": [
+    {
+      "id": "das-1",
+      "eirp_dbm": 12.0
+    },
+    {
+      "id": "das-2",
+      "eirp_dbm": 12.0
+    },
+    {
+      "id": "das-3",
+      "eirp_dbm": 12.0
+    },
+    {
+      "id": "das-4",
+      "eirp_dbm": 12.0
+    },
+    {
+      "id": "das-5",
+      "eirp_dbm": 12.0
+    },
+    {
+      "id": "das-6",
+      "eirp_dbm": 12.0
+    }
+  ],
+  "channel": {
+    "multiwall": {
+      "reflections": 0
+    },
+    "fading": {
+      "model": "none"
+    }
+  },
+  "receiver": {
+    "noise_figure_db": 7.0
+  },
+  "planted": []
+}

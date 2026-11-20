@@ -1,0 +1,320 @@
+{
+  "version": 2,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 20,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "clang-sdk",
+      "hidden": true,
+      "displayName": "clang from the cross SDK (RAD-03, RAD-139; tools/sdk/yantra_sdk.py make)",
+      "cacheVariables": {
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/tools/sdk/toolchain-x86_64-linux-gnu-clang.cmake"
+      }
+    },
+    {
+      "name": "default",
+      "displayName": "Default (SIMD, tests)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      },
+      "inherits": "clang-sdk"
+    },
+    {
+      "name": "scalar",
+      "displayName": "Scalar fallback without SIMD (RAD-90, TST-03)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-scalar",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "YANTRA_SIMD": "OFF"
+      },
+      "inherits": "clang-sdk"
+    },
+    {
+      "name": "ci",
+      "displayName": "CI build: warnings are errors (RAD-90)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "YANTRA_WERROR": "ON"
+      },
+      "inherits": "clang-sdk"
+    },
+    {
+      "name": "ci-scalar",
+      "displayName": "CI scalar build: no SIMD, warnings are errors (RAD-90)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-scalar",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "YANTRA_SIMD": "OFF",
+        "YANTRA_WERROR": "ON"
+      },
+      "inherits": "clang-sdk"
+    },
+    {
+      "name": "asan-ubsan",
+      "displayName": "AddressSanitizer + UBSan developer build (RAD-90, TST-05)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-asan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "YANTRA_SANITIZER": "asan-ubsan"
+      },
+      "inherits": "clang-sdk"
+    },
+    {
+      "name": "tsan",
+      "displayName": "ThreadSanitizer developer build (RAD-90, TST-05)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-tsan",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "YANTRA_SANITIZER": "tsan",
+        "YANTRA_TEST_TIME_SCALE": "10"
+      },
+      "inherits": "clang-sdk"
+    },
+    {
+      "name": "fuzz",
+      "displayName": "libFuzzer targets, clang + ASan/UBSan (RAD-96; tools/ci/fuzz.sh)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-fuzz",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "YANTRA_SANITIZER": "asan-ubsan",
+        "YANTRA_FUZZ": "ON"
+      },
+      "inherits": "clang-sdk"
+    },
+    {
+      "name": "gcc",
+      "displayName": "System gcc, second Linux tree (RAD-03)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-gcc",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++"
+      }
+    },
+    {
+      "name": "gcc-scalar",
+      "displayName": "System gcc, scalar fallback without SIMD (RAD-03, RAD-90)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-gcc-scalar",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "YANTRA_SIMD": "OFF"
+      }
+    },
+    {
+      "name": "ci-gcc",
+      "displayName": "CI gcc build: warnings are errors (RAD-03, RAD-90)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-gcc",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_C_COMPILER": "gcc",
+        "CMAKE_CXX_COMPILER": "g++",
+        "YANTRA_WERROR": "ON"
+      }
+    },
+    {
+      "name": "windows",
+      "displayName": "Windows x64, cross-compiled with the SDK's clang; ctest runs natively on Windows (test VM, BUILD.md; RAD-131, RAD-139)",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-win",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/tools/sdk/toolchain-x86_64-w64-mingw32-clang.cmake"
+      }
+    },
+    {
+      "name": "windows-scalar",
+      "displayName": "Windows x64 without SIMD (RAD-131, RAD-90)",
+      "inherits": "windows",
+      "binaryDir": "${sourceDir}/build-win-scalar",
+      "cacheVariables": {
+        "YANTRA_SIMD": "OFF"
+      }
+    },
+    {
+      "name": "ci-windows",
+      "displayName": "CI Windows cross build: warnings are errors (RAD-131, RAD-90)",
+      "inherits": "windows",
+      "cacheVariables": {
+        "YANTRA_WERROR": "ON"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "default",
+      "configurePreset": "default"
+    },
+    {
+      "name": "scalar",
+      "configurePreset": "scalar"
+    },
+    {
+      "name": "ci",
+      "configurePreset": "ci"
+    },
+    {
+      "name": "ci-scalar",
+      "configurePreset": "ci-scalar"
+    },
+    {
+      "name": "asan-ubsan",
+      "configurePreset": "asan-ubsan"
+    },
+    {
+      "name": "tsan",
+      "configurePreset": "tsan"
+    },
+    {
+      "name": "fuzz",
+      "configurePreset": "fuzz"
+    },
+    {
+      "name": "gcc",
+      "configurePreset": "gcc"
+    },
+    {
+      "name": "gcc-scalar",
+      "configurePreset": "gcc-scalar"
+    },
+    {
+      "name": "ci-gcc",
+      "configurePreset": "ci-gcc"
+    },
+    {
+      "name": "windows",
+      "configurePreset": "windows"
+    },
+    {
+      "name": "windows-scalar",
+      "configurePreset": "windows-scalar"
+    },
+    {
+      "name": "ci-windows",
+      "configurePreset": "ci-windows"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "default",
+      "configurePreset": "default",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "scalar",
+      "configurePreset": "scalar",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "gcc",
+      "configurePreset": "gcc",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "gcc-scalar",
+      "configurePreset": "gcc-scalar",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "windows",
+      "configurePreset": "windows",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "windows-scalar",
+      "configurePreset": "windows-scalar",
+      "output": {
+        "outputOnFailure": true
+      }
+    },
+    {
+      "name": "fast",
+      "displayName": "Fast tests only (every change, RAD-90)",
+      "configurePreset": "ci",
+      "output": {
+        "outputOnFailure": true
+      },
+      "filter": {
+        "exclude": {
+          "label": "slow"
+        }
+      },
+      "execution": {
+        "timeout": 600
+      }
+    },
+    {
+      "name": "fast-gcc",
+      "displayName": "Fast tests of the gcc tree (every change, RAD-90)",
+      "configurePreset": "ci-gcc",
+      "output": {
+        "outputOnFailure": true
+      },
+      "filter": {
+        "exclude": {
+          "label": "slow"
+        }
+      },
+      "execution": {
+        "timeout": 600
+      }
+    },
+    {
+      "name": "asan-ubsan",
+      "configurePreset": "asan-ubsan",
+      "output": {
+        "outputOnFailure": true
+      },
+      "filter": {
+        "exclude": {
+          "label": "timing"
+        }
+      },
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=1:abort_on_error=1",
+        "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1"
+      }
+    },
+    {
+      "name": "tsan",
+      "configurePreset": "tsan",
+      "output": {
+        "outputOnFailure": true
+      },
+      "filter": {
+        "exclude": {
+          "label": "timing"
+        }
+      },
+      "environment": {
+        "TSAN_OPTIONS": "halt_on_error=1:second_deadlock_stack=1"
+      }
+    }
+  ]
+}

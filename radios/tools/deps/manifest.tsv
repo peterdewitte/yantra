@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# Bundled libraries (RAD-132, RAD-136): one line per library compiled
+# into the plugins, tab-separated: name, version, licence (SPDX), pinned
+# folder, upstream release archive and its SHA-256 ("-" for a git
+# submodule or a vendored git commit, whose README or .gitmodules has the
+# pin). deps.cmake builds talloc and libosmocore; the others are compiled
+# from their folders by the project. tools/deps/verify_sources.sh checks
+# that every vendored file of an archive row is byte-identical to the file
+# in that archive. The name, version and licence columns are the
+# dependency manifest the artefacts embed.
+# name	version	licence	folder	archive	sha256
+talloc	2.4.3	LGPL-3.0-or-later	third_party/talloc	https://www.samba.org/ftp/talloc/talloc-2.4.3.tar.gz	dc46c40b9f46bb34dd97fe41f548b0e8b247b77a918576733c528e83abd854dd
+libosmocore	1.11.0	GPL-2.0-or-later	third_party/libosmocore	https://downloads.osmocom.org/releases/libosmocore/libosmocore-1.11.0.tar.bz2	8e8dbf5e7d6d705aa34461a4ab3a0bd57f6961582cef95a1aafef3c74604c6dc
+osmo-tetra	59fb603	AGPL-3.0-or-later	third_party/osmo-tetra	-	-
+pocketfft	4d865cb	BSD-3-Clause	third_party/pocketfft	-	-
+nlohmann-json	3.12.0	MIT	third_party/nlohmann_json	-	-
+libusb	1.0.30	LGPL-2.1-or-later	third_party/libusb	https://github.com/libusb/libusb/releases/download/v1.0.30/libusb-1.0.30.tar.bz2	fea36f34f9156400209595e300840767ab1a385ede1dc7ee893015aea9c6dbaf
+SoapySDR	0.8.1	BSL-1.0	third_party/soapysdr	https://github.com/pothosware/SoapySDR/archive/refs/tags/soapy-sdr-0.8.1.tar.gz	a508083875ed75d1090c24f88abef9895ad65f0f1b54e96d74094478f0c400e6
+libhackrf	2026.01.3	BSD-3-Clause	third_party/hackrf	https://github.com/greatscottgadgets/hackrf/releases/download/v2026.01.3/hackrf-2026.01.3.tar.xz	d2b76a1115d9b4df648c29efb2f3c8e80009b7cf9a8adf37abbfdba72101b086
+SoapyHackRF	0.3.6	MIT	third_party/soapyhackrf	https://github.com/pothosware/SoapyHackRF/archive/refs/tags/soapy-hackrf-0.3.6.tar.gz	7bdecb65074f0c30af707234fbb970687626d4b6e1768592325aa706ae46e572
+librtlsdr	2.0.3	GPL-2.0-or-later	third_party/rtl-sdr	https://github.com/osmocom/rtl-sdr/archive/refs/tags/v2.0.3.tar.gz	23dec530f40456a8396e7c897f313859877e18b4c6432c6d323645871e351f6f
+SoapyRTLSDR	0.3.4	MIT	third_party/soapyrtlsdr	https://github.com/pothosware/SoapyRTLSDR/archive/refs/tags/soapy-rtlsdr-0.3.4.tar.gz	1602035b849bca2e9c189712a08d22dc0c7c3a936f9063ac9851bf3229d4460e
+libairspy	1.0.10	BSD-3-Clause	third_party/airspy	https://github.com/airspy/airspyone_host/archive/refs/tags/v1.0.10.tar.gz	fcca23911c9a9da71cebeffeba708c59d1d6401eec6eb2dd73cae35b8ea3c613
+SoapyAirspy	0.2.1	MIT	third_party/soapyairspy	https://github.com/pothosware/SoapyAirspy/archive/refs/tags/soapy-airspy-0.2.1.tar.gz	6170c8462a026282c48b89cadf70d93b671999b3930267442a1754e2a67248f2
+SoapyRemote	0.5.3	BSL-1.0	third_party/soapyremote	https://github.com/pothosware/SoapyRemote/archive/refs/tags/soapy-remote-0.5.3.tar.gz	de5bdf209dc93bf7c341077e1e21353037fc387e7c6a9ee41eace3390669dcc1
