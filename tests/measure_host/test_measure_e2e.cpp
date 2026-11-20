@@ -4,7 +4,7 @@
 // TST-10 end to end: measurements without a radio, from the radios'
 // scenarios (yantra-radios data/scenarios) to Yantra's cycles, against the
 // generator's ground truth.
-//   - record files written in the build tree by the submodule's tools
+//   - record files written in the build tree by the radios' tools
 //     (gen_records.cmake): yantra-gen ground truth (dBm, its STEM.cells.csv
 //     and STEM.truth.csv) and decode-iq dBFS records, replayed into the
 //     pipeline with the TETRA technology plugin on a ManualClock;

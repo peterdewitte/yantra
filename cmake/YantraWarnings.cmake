@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # yantra::warnings - interface target with the warning flags for Yantra's
-# own code. Third-party code (third_party/, the yantra-radios submodule)
-# does not link it, so its warnings do not leak into our build. The build
+# own code. Third-party code (third_party/) and the radio parts (radios/,
+# built warning-free by their own build) do
+# not link it, so their warnings do not leak into our build. The build
 # must stay warning-free (OA-02); YANTRA_WERROR (ON in CI, TST-02) makes
 # every warning an error.
 # Copied from yantra-radios fb194f5: cmake/YantraWarnings.cmake (itself

@@ -203,7 +203,7 @@ The simulator's scene of every bundled example floor (the two Fraunces
 floors and the floors of the three MAK buildings) is a file in the demo
 data: `data/demo/scenes/<example id>.json`, in the yantra-radios scene
 format (RAD-36, `"format": "yantra-radio-scene"`, `"version"` 1,
-`"minor_version"` 1; the submodule's `docs/SCENE_FORMAT.md`), licensed
+`"minor_version"` 1; `radios/docs/SCENE_FORMAT.md`), licensed
 GPL-3.0-or-later (`data/demo/scenes/README.md`).
 A scene holds the floor's walls, DAS antennas and cells and the storeys
 above and below, in metres in the floor's plan frame (the trim and scale

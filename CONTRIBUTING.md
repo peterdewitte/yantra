@@ -8,8 +8,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 Thank you for helping. This page lists the rules every change follows.
 Requirement IDs in brackets (e.g. TST-61) refer to Yantra's requirements
 specification; code, commits and documentation cite these IDs instead of
-quoting the specification. Radio-plugin work happens in the yantra-radios
-project (`third_party/yantra-radios`), which has its own CONTRIBUTING.md.
+quoting the specification. Radio-plugin work happens in `radios/`
+(the radio parts, PLG-29), whose rules are in radios/CONTRIBUTING.md.
 
 ## Commits
 
@@ -44,15 +44,11 @@ simulator radio plugin or recorded measurement files) (TST-60).
 
 [BUILD.md](BUILD.md) has the dependencies, every build tree and the
 options; [ARCHITECTURE.md](ARCHITECTURE.md) the layers and threads. The
-yantra-radios submodule is needed for every build
-(`git submodule update --init --recursive`; its URL is the absolute
-clone URL `https://github.com/peterdewitte/yantra-radio-plugins.git`,
-PLG-26; for a local clone, `git config submodule.third_party/yantra-radios.url
-<path>` before the update). Yantra
-compiles only its radio API header (`yantra::radio_api`) and builds its
-radio plugins as a separate build (`cmake/YantraRadiosBuild.cmake`).
-Moving the pin is its own commit and needs Yantra's full test suite and
-the radio test kit to pass first (PLG-26). Builds and tests may use all
+radio parts in `radios/` need their osmo-tetra submodule
+(`git submodule update --init --recursive`). The application
+compiles only the radio API header (`yantra::radio_api`) and builds the
+radio plugins as a separate build (`cmake/YantraRadiosBuild.cmake`),
+whose own test suite runs with Yantra's ctest (PLG-29, RAD-141). Builds and tests may use all
 cores:
 
     cmake --preset default            # or: cmake -S . -B build -G Ninja
@@ -182,9 +178,10 @@ is written but not run (DEFERRED (Windows)).
   voice or decryption are not accepted.
 - Yantra is an indoor tool: no drive tests, GPS, geographic coordinates
   or maps, not even as a plugin.
-- Radio plugins (yantra-radios) process their own IQ samples and give
-  Yantra measurement records only. Yantra has no DSP, decoder, SoapySDR
-  or IQ code; it depends on yantra-radios, never the reverse (PLG-26).
+- Radio plugins (`radios/`) process their own IQ samples and give
+  Yantra measurement records only. The application has no DSP, decoder,
+  SoapySDR or IQ code; it depends on the radio API, never the reverse
+  (PLG-30).
 - Code is written for Yantra from public standards. Do not copy code from
   other receivers, including OnAir (OA-04), or use material from closed
   products.

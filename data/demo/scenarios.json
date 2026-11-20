@@ -1,7 +1,7 @@
 {
   "format": "yantra-demo-scenarios",
   "version": 1,
-  "description": "The selectable demo scenarios (DEMO-09): scenario ids of the yantra-radios scenario folder (data/scenarios of the submodule), the items of the simulator's Scenario setting. The screenshot script, the user manual and the tests use the same ids.",
+  "description": "The selectable demo scenarios (DEMO-09): scenario ids of the yantra-radios scenario folder (radios/data/scenarios), the items of the simulator's Scenario setting. The screenshot script, the user manual and the tests use the same ids.",
   "scenarios": [
     {"id": "indoor_good_das", "title": "Indoor, good DAS coverage", "shows": "A two-floor office with a DAS on each floor: strong indoor levels, the acceptance criteria pass."},
     {"id": "indoor_weak_das", "title": "Indoor, weak DAS coverage", "shows": "The same office with the DAS turned down: levels fall below the criteria away from the antennas."},

@@ -5,7 +5,7 @@
 # including slow and opt-in, the scalar build without SIMD and without the
 # app (same results), the ASan+UBSan and TSan builds (without the label
 # timing: the sanitizer trees run far slower than real time), all with
-# clang from the cross SDK of the yantra-radios submodule (OA-02,
+# clang from the cross SDK in radios/tools/sdk (OA-02,
 # RAD-139), the gcc tree, and Linux arm64 with gcc (the SDK is x86-64).
 # Adapted from yantra-radios fb194f5: .github/workflows/ci-full.yml.
 
@@ -21,7 +21,7 @@ permissions:
   contents: read
 
 env:
-  SDK_KEY: yantra-sdk-${{ hashFiles('third_party/yantra-radios/tools/sdk/*.lock', 'third_party/yantra-radios/tools/sdk/yantra_sdk.py') }}
+  SDK_KEY: yantra-sdk-${{ hashFiles('radios/tools/sdk/*.lock', 'radios/tools/sdk/yantra_sdk.py') }}
 
 jobs:
   full:
@@ -56,11 +56,11 @@ jobs:
         with:
           path: sdk
           key: ${{ env.SDK_KEY }}-${{ runner.os }}-${{ runner.arch }}
-      - name: Cross SDK (made from the submodule's lock files, else checked)
+      - name: Cross SDK (made from the lock files in radios/tools/sdk, else checked)
         if: matrix.sdk
         run: |
-          python3 third_party/yantra-radios/tools/sdk/yantra_sdk.py check --sdk-dir "$PWD/sdk" ||
-            python3 third_party/yantra-radios/tools/sdk/yantra_sdk.py make --sdk-dir "$PWD/sdk"
+          python3 radios/tools/sdk/yantra_sdk.py check --sdk-dir "$PWD/sdk" ||
+            python3 radios/tools/sdk/yantra_sdk.py make --sdk-dir "$PWD/sdk"
       - name: Configure
         env:
           YANTRA_SDK_DIR: ${{ matrix.sdk && format('{0}/sdk', github.workspace) || '' }}

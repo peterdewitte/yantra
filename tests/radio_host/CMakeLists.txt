@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Radio host tests (PLG-25, PLG-27, PLG-26, NFR-04): a fake radio plugin
-# (fake_radio.cpp, radio API of the submodule; again with API major 2 for
+# (fake_radio.cpp, radio API in radios/; again with API major 2 for
 # the version refusal) driven by the tests, and the simulator, beacon and
 # soapysdr_fake (fake SoapySDR module, unplug/replug) plugins built from
 # yantra-radios (YantraRadiosBuild.cmake; those cases skip when

@@ -204,7 +204,7 @@ level corrector is called on the delivery threads, several at once.
   `tick()` every period that ended (the cycles of the recording, TST-31).
 - End-to-end tests (TST-10, tests/measure_host/test_measure_e2e.cpp): the
   radios' scenarios through RadioHost + pipeline + TETRA plugin with the
-  simulator plugin, and as record files the submodule's yantra-gen and
+  simulator plugin, and as record files the radios' yantra-gen and
   `yantra-radio-host decode-iq` write into the build tree at build time
   (tests/measure_host/gen_records.cmake; nothing committed), against the
   generator's ground truth (STEM.cells.csv, STEM.truth.csv): levels,

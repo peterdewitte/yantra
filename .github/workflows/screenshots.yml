@@ -45,8 +45,8 @@ jobs:
             cmake ninja-build python3 gpg zstd pkg-config libsqlite3-dev libzstd-dev libhpdf-dev \
             libglfw3-dev libgl-dev libcurl4-openssl-dev xvfb mesa-utils libgl1-mesa-dri
           cargo install oxipng --locked
-      - name: Cross SDK (clang, OA-02; made from the submodule's lock files)
-        run: python3 third_party/yantra-radios/tools/sdk/yantra_sdk.py make --sdk-dir "$PWD/sdk"
+      - name: Cross SDK (clang, OA-02; made from the lock files in radios/tools/sdk)
+        run: python3 radios/tools/sdk/yantra_sdk.py make --sdk-dir "$PWD/sdk"
       - name: Configure and build the app
         env:
           YANTRA_SDK_DIR: ${{ github.workspace }}/sdk

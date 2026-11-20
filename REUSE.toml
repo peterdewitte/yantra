@@ -4,8 +4,9 @@
 # REUSE annotations (NFR-01, DOC-14) for files that cannot carry an SPDX
 # header themselves. Every file that can hold a comment carries its own
 # header instead. Keep this file and THIRD_PARTY.md in step.
-# The yantra-radios submodule (third_party/yantra-radios, PLG-26) carries
-# its own REUSE.toml; reuse lint does not look into submodules.
+# The radio parts in radios/ (PLG-29) carry their own REUSE.toml there
+# (REUSE 3.3 reads nested REUSE.toml files); the licence texts they use
+# are also in LICENSES/.
 version = 1
 
 [[annotations]]

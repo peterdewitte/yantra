@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // A fake radio plugin for the radio host tests (PLG-25, PLG-27): radio
-// API 1.2 (yantra/radio.h of the yantra-radios submodule) with the
+// API 1.2 (yantra/radio.h in radios/) with the
 // SIMULATED, SCENE, HOTPLUG and (API 1.2) SPECTRUM capabilities, one device "fake:0", one
 // MEASUREMENT schema with the core fields and the sim_position group. It
 // processes no signal: the test drives it through fake_control.h.

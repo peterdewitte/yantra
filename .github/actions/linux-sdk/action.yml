@@ -1,13 +1,13 @@
 # SPDX-FileCopyrightText: 2026 The Yantra contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# The Linux runner's build tools and the cross SDK of the yantra-radios
-# submodule (OA-02, RAD-139): clang and lld of one pinned LLVM release
-# with the Linux and Windows sysroots, made from the submodule's lock
+# The Linux runner's build tools and the cross SDK in radios/tools/sdk
+# (OA-02, RAD-139): clang and lld of one pinned LLVM release
+# with the Linux and Windows sysroots, made from its lock
 # files (and, for Windows, Yantra's MSYS2 lock) and cached by them; a
 # cached SDK is checked against the locks. Used by ci.yml (linux-x86-64),
 # windows-cross.yml and packages.yml (TST-02, TST-64). Run after
-# actions/checkout with the submodules; the SDK is in <workspace>/sdk and
+# actions/checkout with the submodules (osmo-tetra); the SDK is in <workspace>/sdk and
 # YANTRA_SDK_DIR is set for the later steps.
 
 name: Linux build tools and cross SDK
@@ -38,7 +38,7 @@ runs:
       uses: actions/cache@v4
       with:
         path: sdk
-        key: yantra-sdk-${{ hashFiles('third_party/yantra-radios/tools/sdk/*.lock', 'third_party/yantra-radios/tools/sdk/yantra_sdk.py') }}-${{ inputs.windows == 'true' && hashFiles('tools/windows/msys2.lock') || 'linux' }}-${{ runner.os }}-${{ runner.arch }}
+        key: yantra-sdk-${{ hashFiles('radios/tools/sdk/*.lock', 'radios/tools/sdk/yantra_sdk.py') }}-${{ inputs.windows == 'true' && hashFiles('tools/windows/msys2.lock') || 'linux' }}-${{ runner.os }}-${{ runner.arch }}
     - name: Cross SDK (made from the lock files, else checked)
       shell: bash
       env:
@@ -47,5 +47,5 @@ runs:
         echo "YANTRA_SDK_DIR=$GITHUB_WORKSPACE/sdk" >> "$GITHUB_ENV"
         lock=()
         if [ "$WINDOWS" = true ]; then lock=(--msys2-lock tools/windows/msys2.lock); fi
-        python3 third_party/yantra-radios/tools/sdk/yantra_sdk.py check --sdk-dir "$GITHUB_WORKSPACE/sdk" "${lock[@]}" ||
-          python3 third_party/yantra-radios/tools/sdk/yantra_sdk.py make --sdk-dir "$GITHUB_WORKSPACE/sdk" "${lock[@]}"
+        python3 radios/tools/sdk/yantra_sdk.py check --sdk-dir "$GITHUB_WORKSPACE/sdk" "${lock[@]}" ||
+          python3 radios/tools/sdk/yantra_sdk.py make --sdk-dir "$GITHUB_WORKSPACE/sdk" "${lock[@]}"

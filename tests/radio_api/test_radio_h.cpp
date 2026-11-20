@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 The Yantra contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// The radio API header of the pinned yantra-radios submodule (PLG-26,
+// The radio API header in radios/ (PLG-29,
 // OA-01) is available to Yantra's build: it compiles as C++20 (here) and
 // C11 (radio_h_c.c), its version is 1.x (the major version Yantra's radio
 // host is written for, RAD-11), and both languages agree on it.

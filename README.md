@@ -60,8 +60,10 @@ A sample report of the demo project, as Yantra writes it:
 
 ## Supported radios
 
-Radios are plugins from the separate yantra-radios project, included as a
-git submodule in `third_party/yantra-radios`. The shipped radio plugins:
+Radios are plugins. The radio parts (the radio API, the radio plugins,
+their receiver and TETRA decoder, the test-signal generator; formerly the
+separate yantra-radios project) are in the `radios/` folder of this
+repository (PLG-29). The shipped radio plugins:
 
 - **Simulator**: a simulated TETRA network and devices, no hardware
   needed; it drives the demo and the tour.
@@ -73,7 +75,7 @@ git submodule in `third_party/yantra-radios`. The shipped radio plugins:
 
 Hardware status: none of these radios has been measured with Yantra on
 real hardware yet; they are tested with simulated and fake devices. The
-hardware tested so far is listed in yantra-radios' `DEVICES.md`.
+hardware tested so far is listed in `radios/DEVICES.md`.
 
 Yantra's own plugins: the TETRA technology plugin and the probe plugin
 (the remote API of the headless probe).
@@ -82,9 +84,8 @@ Yantra's own plugins: the TETRA technology plugin and the probe plugin
 
 **Linux**: build from source; `ninja -C build deb` then makes a .deb
 package of the build ([BUILD.md](BUILD.md#linux-package-nfr-09)). The radio plugins
-come from the yantra-radios repository as a git submodule; its URL in
-`.gitmodules` is the absolute clone URL
-`https://github.com/peterdewitte/yantra-radio-plugins.git` (PLG-26):
+are built from `radios/` (PLG-29); its osmo-tetra decoder library is a git
+submodule:
 
     git clone https://github.com/peterdewitte/yantra.git yantra
     cd yantra
@@ -200,3 +201,6 @@ https://curtat.be. Maintainer: Curtat BV <info@curtat.be>.
 - 2026-11-17: specification v0.4, not yet released: a simpler indoor
   workflow (Walk and Map tabs, the IDW coverage map, fixed demo scenes;
   walls, antennas and the ray tracer removed).
+- 2026-11-20: yantra-radios merged into this repository with its
+  history (radios/, its releases tagged radios-v0.1.0 .. radios-v0.4.0;
+  specification v0.6, PLG-29).

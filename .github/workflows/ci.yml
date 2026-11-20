@@ -3,8 +3,8 @@
 #
 # CI on every push and pull request (TST-02, OA-02): lint (shell, YAML and
 # Python syntax, the workflow files parsed with PyYAML, reuse lint), the
-# Linux x86-64 build with clang from the cross SDK of the yantra-radios
-# submodule (RAD-139; cached by its lock files) and a second job with the
+# Linux x86-64 build with clang from the cross SDK in radios/tools/sdk
+# (RAD-139; cached by its lock files) and a second job with the
 # system's gcc, both with warnings as errors, then the fast tests (ctest
 # -LE slow, timeout 600 s) with the timing-sensitive tests retried once.
 # Windows x64 (OA-02, NFR-09): windows-cross.yml builds the Windows tree
@@ -14,8 +14,9 @@
 # SDK steps are the composite action .github/actions/linux-sdk. The native
 # MSYS2 UCRT64 check is windows.yml; the packages workflow packages.yml. Written and YAML-linted, never
 # run (no remote).
-# The yantra-radios submodule (third_party/yantra-radios, PLG-26) is
-# checked out with the repository.
+# The radio parts are in radios/ (PLG-29); their osmo-tetra submodule is
+# checked out with the repository. The ctest run includes the radio parts'
+# own suite (YANTRA_RADIOS_TESTS, RAD-141).
 # Adapted from yantra-radios fb194f5: .github/workflows/ci.yml.
 
 name: ci
@@ -33,7 +34,7 @@ permissions:
   contents: read
 
 env:
-  SDK_KEY: yantra-sdk-${{ hashFiles('third_party/yantra-radios/tools/sdk/*.lock', 'third_party/yantra-radios/tools/sdk/yantra_sdk.py') }}
+  SDK_KEY: yantra-sdk-${{ hashFiles('radios/tools/sdk/*.lock', 'radios/tools/sdk/yantra_sdk.py') }}
 
 jobs:
   lint:
@@ -63,10 +64,10 @@ jobs:
           submodules: recursive
       - name: Build tools and the cross SDK (OA-02, RAD-139)
         uses: ./.github/actions/linux-sdk
-      - name: Submodule commit
+      - name: Radio parts' bundled-library inputs (PLG-29)
         id: radios
-        run: echo "commit=$(git rev-parse HEAD:third_party/yantra-radios)" >> "$GITHUB_OUTPUT"
-      - name: Cache the radio plugin dependency builds (PLG-26)
+        run: echo "commit=$(git rev-parse HEAD:radios/tools/deps)" >> "$GITHUB_OUTPUT"
+      - name: Cache the radio plugin dependency builds (PLG-29)
         uses: actions/cache@v4
         with:
           path: build/radios-cache
@@ -119,10 +120,10 @@ jobs:
             cmake ninja-build g++ python3 python3-yaml binutils pipx libsqlite3-dev libzstd-dev libhpdf-dev pkg-config \
             libglfw3-dev libgl-dev libcurl4-openssl-dev cargo rustc doxygen curl
           pipx install reuse
-      - name: Submodule commit
+      - name: Radio parts' bundled-library inputs (PLG-29)
         id: radios
-        run: echo "commit=$(git rev-parse HEAD:third_party/yantra-radios)" >> "$GITHUB_OUTPUT"
-      - name: Cache the radio plugin dependency builds (PLG-26)
+        run: echo "commit=$(git rev-parse HEAD:radios/tools/deps)" >> "$GITHUB_OUTPUT"
+      - name: Cache the radio plugin dependency builds (PLG-29)
         uses: actions/cache@v4
         with:
           path: build-gcc/radios-cache

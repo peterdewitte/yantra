@@ -21,36 +21,35 @@ package names (other distributions differ):
 | build | `cmake` (3.20+), `ninja-build`, `pkg-config`, `python3`, `binutils`; the compiler is clang from the cross SDK (below); `g++` (C++20; gcc 13+) for the second tree (`gcc`) |
 | core | `libsqlite3-dev` (SQLite 3.37+, the project file, IND-01), `libzstd-dev` (zstd 1.4+, compressed recordings, REC-03), `libhpdf-dev` (libharu 2.3+, PDF reports, EXP-05) |
 | desktop app (`YANTRA_BUILD_APP`, ON) | `libglfw3-dev` (GLFW 3.3+), `libgl-dev` (OpenGL 3), `libcurl4-openssl-dev` (libcurl 7.85+: MAK sheet download DEMO-12, sharing EXP-07) |
-| radio plugins (yantra-radios) | its protocol crate is built with the SDK's `cargo`/`rustc` (the gcc tree: the system's `cargo` and `rustc`); its bundled libraries (SoapySDR, osmo-tetra, libusb, ...) are built from source, no package needed |
+| radio plugins (`radios/`) | their protocol crate is built with the SDK's `cargo`/`rustc` (the gcc tree: the system's `cargo` and `rustc`); their bundled libraries (SoapySDR, osmo-tetra, libusb, ...) are built from source, no package needed |
 | tests | `python3-yaml` (YAML lint), `reuse` (`pipx install reuse`), `xvfb` and `libgl1-mesa-dri` (app launch and UI tests on software OpenGL; skipped without Xvfb) |
 | docs and screenshots | `doxygen` (plugin API reference), `pandoc` and `weasyprint` (`ninja docs`: HTML and PDF, DOC-20), `curl` (API examples, DOC-21), `oxipng` (`cargo install oxipng`, screenshot size), `ffmpeg` (program only: the animated captures, SCR-06) |
 | packaging | `dpkg-deb` (package `dpkg`, the .deb, NFR-09) |
 
 Vendored in `third_party/` (no package): Dear ImGui, stb, nlohmann/json,
-CivetWeb, miniaudio, doctest and the yantra-radios submodule
-(THIRD_PARTY.md). PDFium is fetched at configure time (below).
+CivetWeb, miniaudio and doctest (THIRD_PARTY.md); the radio parts in
+`radios/` vendor their own libraries in `radios/third_party/`. PDFium is fetched at configure time (below).
 `-DYANTRA_BUILD_APP=OFF` builds the core, tools and plugins without any
 GUI library or libcurl.
 
 ## Compiler: clang from the cross SDK (OA-02)
 
 Every tree except `gcc` is built with clang from ONE pinned LLVM release,
-the cross SDK of yantra-radios (RAD-139), used through the submodule: the
+the cross SDK in `radios/tools/sdk` (RAD-139): the
 presets set `CMAKE_TOOLCHAIN_FILE` to
-`third_party/yantra-radios/tools/sdk/toolchain-x86_64-linux-gnu-clang.cmake`
+`radios/tools/sdk/toolchain-x86_64-linux-gnu-clang.cmake`
 (clang, lld, llvm-ar; the system's glibc and libstdc++; the SDK's rustc
 and cargo for the radio plugins' crate). The SDK is downloaded and
-checked from the submodule's lock files into a git-ignored folder; nothing
+checked from its lock files into a git-ignored folder; nothing
 is installed in the system:
 
-    python3 third_party/yantra-radios/tools/sdk/yantra_sdk.py make     # or: check
-    # it lands in third_party/yantra-radios/sdk; one SDK can serve several
-    # checkouts (e.g. that of yantra-radios itself):
+    python3 radios/tools/sdk/yantra_sdk.py make     # or: check
+    # it lands in radios/sdk; one SDK can serve several checkouts:
     export YANTRA_SDK_DIR=<folder of the SDK>
 
 The toolchain file finds the SDK in `-DYANTRA_SDK_DIR`, then
 `$YANTRA_SDK_DIR` (the presets pass it on and keep it in the cache), then
-`third_party/yantra-radios/sdk`, and refuses an SDK made from other lock
+`radios/sdk`, and refuses an SDK made from other lock
 files. The radio plugins and their bundled libraries are built with the
 same toolchain. gcc stays as a second Linux tree (preset `gcc`, below).
 Every tree builds without warnings.
@@ -80,38 +79,43 @@ without PDF support and says so when a PDF plan is opened; the PDF tests
 then check that message instead. Linux x86-64 only (other platforms:
 DEFERRED).
 
-### Radio plugins (PLG-26)
+### Radio plugins (PLG-29)
 
-Yantra itself has no radio code: the radio plugins come from the
-yantra-radios submodule (`third_party/yantra-radios`, pinned at a tagged
-release). `cmake/YantraRadiosBuild.cmake` builds the submodule as a build
-of its own (`build/radios/build`, without its tests, with the tree's
+The application has no radio code: the radio plugins come from the radio
+parts in `radios/` (RAD-141; yantra-radios, merged with its history, its
+releases tagged `radios-v*`). `cmake/YantraRadiosBuild.cmake` builds
+`radios/` as a build of its own (`build/radios/build`, with its own test
+suite when `YANTRA_RADIOS_TESTS` is on, with the tree's
 compiler (toolchain file or compilers), build type, `YANTRA_SIMD` and `YANTRA_SANITIZER`) and copies the
 shipped plugins (hackrf, simulator, soapysdr, pei) into the build tree's
 radio plugin folder `build/lib/yantra/plugins/radios/`. The radio API
 example plugin (beacon) and the fake-SDR test plugin go to
 `build/tests/radio-plugins/` for the tests only; they are never installed.
-Yantra compiles no source of the submodule; only its `radio.h` header.
+The application compiles no source of `radios/`; only its `radio.h` header.
+With `YANTRA_RADIOS_TESTS` the tree's ctest also runs the radio parts'
+own suite (their tests keep their names and labels; a few names, such as
+`repo_lint` or `doc_links`, exist in both suites).
 
 The first build also builds the radio plugins' bundled libraries
-(yantra-radios `tools/deps/build_deps.sh`) once into
-`build/radios-cache/deps-<submodule commit>-<compiler>-<version>`. That folder survives
-reconfigures; a moved pin (another submodule commit checked out)
-reconfigures by itself and builds a new cache entry. Sanitizer trees build
+(`radios/tools/deps/build_deps.sh`) once into
+`build/radios-cache/deps-<manifest hash>-<compiler>-<version>`, the hash
+that of `radios/tools/deps/manifest.tsv`. That folder survives
+reconfigures; changed libraries give a new cache entry. Sanitizer trees build
 those libraries in their own radios build instead, instrumented.
 
 | Option | Default | Meaning |
 |---|---|---|
 | `YANTRA_BUILD_RADIOS` | `ON` | `OFF`: no radio plugins; the tests that need them skip. |
-| `YANTRA_RADIOS_PREBUILT` | empty | Use a prebuilt yantra-radios package instead of building the submodule: an install tree, a release package (`.tar.gz`) or a release folder holding one. No beacon or soapysdr_fake test plugin then (their tests skip). |
+| `YANTRA_RADIOS_PREBUILT` | empty | Use a prebuilt yantra-radios package instead of building `radios/`: an install tree, a release package (`.tar.gz`) or a release folder holding one. No beacon or soapysdr_fake test plugin then (their tests skip). |
 | `YANTRA_RADIOS_CACHE_DIR` | `build/radios-cache` | Where the bundled libraries are cached; point several build trees at one folder to share it. |
-| `YANTRA_RADIOS_FAKE_SDR` | `ON` | Also build yantra-radios' test plugin `soapysdr_fake` (about half a minute) for the unplug/replug test (NFR-04); never installed. |
+| `YANTRA_RADIOS_FAKE_SDR` | `ON` | Also build the radios' test plugin `soapysdr_fake` (about half a minute) for the unplug/replug test (NFR-04); never installed. |
+| `YANTRA_RADIOS_TESTS` | `ON` (native trees with tests) | Build the radio parts' own test suite in the radios build and run it with this tree's ctest (RAD-141); `OFF` in a cross-compiled tree. |
 | `YANTRA_RADIOS_PEI` | `ON` | `OFF`: the TETRA terminal plugin pei is not shipped (RAD-80). |
 
-Example with a yantra-radios release built next to yantra:
+Example with a yantra-radios release (radios-v0.4.0 or earlier) built elsewhere:
 
     cmake -S . -B build -G Ninja \
-      -DYANTRA_RADIOS_PREBUILT=../yantra-radios/build/release/v0.4.0
+      -DYANTRA_RADIOS_PREBUILT=<radios build>/release/v0.4.0
 
 ### Other options
 
@@ -352,7 +356,7 @@ build tools and the cross SDK (made from the lock files, cached by them)
 are one composite action, `.github/actions/linux-sdk`.
 
 `packages.yml` (TST-64; on a tag `v*`, by hand, and on pull requests that
-touch `packaging/`, `tools/windows/`, the presets, the submodule pin or
+touch `packaging/`, `tools/windows/`, the presets, `radios/` or
 these workflows): the Linux x86-64 tree with clang from the SDK, its fast
 and timing tests, `ninja deb` and the `package_deb` test (artifact
 `linux-x86_64-packages`: the .deb and the PDF manual), and
@@ -377,19 +381,19 @@ never run (no remote).
 ## Windows (OA-02, HW-06)
 
 Windows x64 (UCRT) is cross-compiled on Linux with clang from the cross
-SDK of the yantra-radios submodule (RAD-139) and Yantra's own lock of
+SDK in `radios/tools/sdk` (RAD-139) and Yantra's own lock of
 MSYS2 UCRT64 packages, `tools/windows/msys2.lock` (GLFW, SQLite, zstd,
 libcurl with Windows' own TLS, libharu and what they need; Mesa for the
 tests only). Make the SDK with both locks once (downloads checked by
 SHA-256 and signature, nothing installed in the system):
 
     export YANTRA_SDK_DIR=~/yantra-sdk
-    python3 third_party/yantra-radios/tools/sdk/yantra_sdk.py make --msys2-lock tools/windows/msys2.lock
+    python3 radios/tools/sdk/yantra_sdk.py make --msys2-lock tools/windows/msys2.lock
 
 To check an SDK made that way, give the same lock (it checks the
 radios' locks and Yantra's packages):
 
-    python3 third_party/yantra-radios/tools/sdk/yantra_sdk.py check --msys2-lock tools/windows/msys2.lock
+    python3 radios/tools/sdk/yantra_sdk.py check --msys2-lock tools/windows/msys2.lock
 
 (`python3 tools/windows/update_msys2_lock.py` pins today's packages; then
 make the SDK again.) PDFium comes from its pinned Windows release
@@ -410,7 +414,7 @@ Mesa and use the system's OpenGL. `yantra.exe` carries the Yantra icon
 from the PNGs of `data/logo/png` as supplied, BRD-06) and version
 information (`packaging/windows/version.rc.in`, llvm-rc); it is a
 windowed program (no console window) that prints to the console it was
-started from. The radio plugins are the submodule's
+started from. The radio plugins are the radio parts'
 self-contained `.dll` in `lib/yantra/plugins/radios`. User folders on
 Windows: `%APPDATA%/Yantra` (settings, data, calibration table, plugins in
 `%APPDATA%/Yantra/plugins`), `%LOCALAPPDATA%/Yantra` (caches).

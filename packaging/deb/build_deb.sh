@@ -12,7 +12,7 @@
 #
 # Package contents: the install layout of BUILD.md "Install" below /usr:
 # yantra, yantra-probe, yantra-plugin-test, the TETRA and probe plugins,
-# the shipped radio plugins from the yantra-radios submodule (PLG-26,
+# the shipped radio plugins built from radios/ (PLG-29,
 # self-contained, RAD-132) with their licence bundle, udev rules and
 # RTL-SDR DVB-T blacklist (/usr/lib/udev/rules.d, /usr/lib/modprobe.d),
 # PDFium, the desktop entry and hicolor icons 16..512 (BRD-06), logo,

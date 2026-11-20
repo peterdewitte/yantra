@@ -20,7 +20,7 @@ permissions:
   contents: read
 
 env:
-  SDK_KEY: yantra-sdk-${{ hashFiles('third_party/yantra-radios/tools/sdk/*.lock', 'third_party/yantra-radios/tools/sdk/yantra_sdk.py') }}
+  SDK_KEY: yantra-sdk-${{ hashFiles('radios/tools/sdk/*.lock', 'radios/tools/sdk/yantra_sdk.py') }}
 
 jobs:
   # Windows x64 (OA-02, TST-02, NFR-09): cross-compiled on Linux with
@@ -40,10 +40,10 @@ jobs:
         with:
           packages: pandoc weasyprint nsis
           windows: "true"
-      - name: Submodule commit
+      - name: Radio parts' bundled-library inputs (PLG-29)
         id: radios
-        run: echo "commit=$(git rev-parse HEAD:third_party/yantra-radios)" >> "$GITHUB_OUTPUT"
-      - name: Cache the radio plugin dependency builds (PLG-26)
+        run: echo "commit=$(git rev-parse HEAD:radios/tools/deps)" >> "$GITHUB_OUTPUT"
+      - name: Cache the radio plugin dependency builds (PLG-29)
         uses: actions/cache@v4
         with:
           path: |

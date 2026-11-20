@@ -4,8 +4,8 @@
 # Yantra top-level build (OA-01, OA-02). Layout: core/ (library without UI),
 # app/ (desktop application), tools/ (command-line tools), plugins/,
 # tests/ (ctest, TST-01) and the public plugin header include/yantra/.
-# Radio plugins and their header come from the yantra-radios submodule in
-# third_party/yantra-radios (PLG-26).
+# Radio plugins and their header come from the radio parts in radios/
+# (PLG-29, RAD-141), built as a build of their own.
 # Copied from yantra-v2 68ea20a (9540c71): CMakeLists.txt, adapted.
 
 cmake_minimum_required(VERSION 3.20)
@@ -132,7 +132,7 @@ add_library(yantra::plugin_api ALIAS yantra_plugin_api)
 target_include_directories(yantra_plugin_api INTERFACE
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
 
-# Radio API header from the yantra-radios submodule (PLG-26).
+# Radio API header from radios/ (PLG-29).
 # nlohmann/json 3.12.0, vendored header-only (spec 16.2).
 add_library(yantra_json INTERFACE)
 add_library(yantra::json ALIAS yantra_json)
@@ -140,7 +140,7 @@ target_include_directories(yantra_json SYSTEM INTERFACE
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/third_party/nlohmann_json/include>)
 
 include(YantraRadios)
-# The radio plugins Yantra ships, built from the submodule (or a prebuilt
+# The radio plugins Yantra ships, built from radios/ (or a prebuilt
 # yantra-radios package) into <build>/lib/yantra/plugins/radios (PLG-26).
 include(YantraRadiosBuild)
 

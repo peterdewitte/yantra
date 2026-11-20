@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Record files of the radios' scenarios for the TST-10 tests, written in
-# the build tree by the submodule's own tools (no IQ code in Yantra):
+# the build tree by the radios' own tools (no IQ code in Yantra):
 #   <id>.records.jsonl/.cells.csv/.truth.csv   yantra-gen ground truth
 #       (dBm, SELF_CALIBRATED) with what each cell broadcasts and the true
 #       level per 0.1 s, for every "<id>:<seconds>" of SCENARIOS

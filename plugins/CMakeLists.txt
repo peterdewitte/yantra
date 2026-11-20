@@ -5,8 +5,8 @@
 # technology plugin (PLG-15) and the feature plugins (e.g. the probe,
 # PLG-24), one sub-folder each with its own CMakeLists.txt, picked up
 # automatically. Plugins build against the public header
-# include/yantra/plugin.h only. Radio plugins are not here: they come from
-# the yantra-radios submodule (PLG-26).
+# include/yantra/plugin.h only. Radio plugins are not here: they are in
+# radios/ (PLG-29).
 # Copied from yantra-v2 68ea20a (9540c71): plugins/CMakeLists.txt, adapted.
 
 file(GLOB _yantra_plugin_dirs LIST_DIRECTORIES true CONFIGURE_DEPENDS

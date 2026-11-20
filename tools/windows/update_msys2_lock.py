@@ -6,10 +6,10 @@
 # repository: the 'asked' packages and every package they need, except
 # the 'skip' ones, each pinned by version and SHA-256. It uses the cross
 # SDK script of the radio parts, radios/tools/sdk (RAD-139) and leaves that
-# submodule's own lock file alone. Then remake the SDK:
+# radios' own lock file alone. Then remake the SDK:
 #   python3 radios/tools/sdk/yantra_sdk.py make --msys2-lock tools/windows/msys2.lock
 # Options: --lock FILE (default: msys2.lock next to this script),
-#          --cache DIR (default $YANTRA_SDK_CACHE, else the submodule's sdk-cache).
+#          --cache DIR (default $YANTRA_SDK_CACHE, else radios/sdk-cache).
 import argparse
 import os
 import pathlib
@@ -20,7 +20,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 SDK_TOOLS = REPO / "radios" / "tools" / "sdk"
 sys.path.insert(0, str(SDK_TOOLS))
-import yantra_sdk  # noqa: E402  (the submodule's script)
+import yantra_sdk  # noqa: E402  (the radios' SDK script)
 
 
 def main():

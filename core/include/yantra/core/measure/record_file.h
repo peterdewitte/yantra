@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Reader of yantra-radios record files (RAD-65, format
-// "yantra-radio-records" version 1, documented in the submodule's
+// "yantra-radio-records" version 1, documented in radios/
 // docs/RECORD_FILES.md): what a radio plugin delivered, recorded by
 // yantra-radio-host or written by yantra-gen. Yantra's tests, the plugin
 // test kit (PLG-13) and the golden recorded measurement files of a

@@ -33,7 +33,7 @@ found at configure time and linked dynamically.
 
 | Component | Version | Licence | Source | Used for |
 |---|---|---|---|---|
-| yantra-radios | v0.4.0 (commit 2526090), git submodule `third_party/yantra-radios` | GPL-3.0-or-later; its plugins contain AGPL-3.0 parts (osmo-tetra) and the libraries of its own THIRD_PARTY.md | The yantra-radios project (its README names the public source) | Radio API header `yantra/radio.h` and the radio plugins with their SDR processing and TETRA decoder (PLG-26); its components and licence bundle are listed in its own THIRD_PARTY.md |
+| radio parts (formerly yantra-radios) | `radios/` of this repository (merged at a35ad3d, its releases tagged `radios-v0.1.0` .. `radios-v0.4.0`; PLG-29) | GPL-3.0-or-later; its plugins contain AGPL-3.0 parts (osmo-tetra) and the libraries of radios/THIRD_PARTY.md | this repository | Radio API header `yantra/radio.h` and the radio plugins with their SDR processing and TETRA decoder (RAD-141); their components and licence bundle are listed in radios/THIRD_PARTY.md |
 | nlohmann/json | 3.12.0 (single header, vendored unchanged in `third_party/nlohmann_json/`, SHA-256 in its README) | MIT | https://github.com/nlohmann/json | All of Yantra's JSON: the building model and scene export (`yantra-building`, RAD-36), record files of yantra-radios (RAD-65, TST-10), recordings in JSON Lines (REC-03), the calibration table, settings, configuration profiles, plugin state, acceptance profiles, demo descriptions, the remote API and its WebSocket messages (API-01/02), the plugin test kit's reports and golden files (PLG-13); header-only, compiled into Yantra |
 | CivetWeb | 1.16 (release tarball `v1.16.tar.gz`, sha256 `f0e471c1bf4e7804a6cfb41ea9d13e7d623b2bcc7bc1e2a4dd54951a24d60285`; only `civetweb.c`, `civetweb.h`, the `.inl` files it includes and its `LICENSE.md`, vendored in `third_party/civetweb/`, unchanged but for one marked line in `STOP_FLAG_ASSIGN` that reads the stop flag atomically) | MIT; its `md5.inl` Zlib, its `sha1.inl` public domain | https://github.com/civetweb/civetweb (tag `v1.16`) | HTTP + WebSocket server of the remote API (API-02, spec 16.2) in the probe feature plugin `probe.so` (PLG-24), built with `NO_CGI`, `NO_FILES`, `NO_CACHING`, `USE_WEBSOCKET`, `USE_IPV6`, `STOP_FLAG_NEEDS_LOCK` and `NO_SSL` (no Lua, Duktape, HTTP/2, zlib, file serving or TLS; HTTPS through a reverse proxy, docs/API.md) |
 | SQLite | 3.37 or newer, system library (`libsqlite3-dev`; tested with 3.46.1), linked into the core | Public domain (blessing) | https://sqlite.org | The indoor project file `*.yantra` (IND-01, IND-03, IND-04; docs/formats/PROJECT.md), which also holds the cell database (DB-01), the walk tests and measured points, stored interpolation maps and acceptance profiles |
@@ -48,16 +48,16 @@ found at configure time and linked dynamically.
 | OpenGL 3 | system library (e.g. Mesa `libgl1`, `libgl1-mesa-dri`); no separate loader library (Dear ImGui's bundled loader) | - (API) | https://www.khronos.org/opengl/ | Rendering of the desktop app; Mesa llvmpipe software rendering in the launch tests (TST-04) |
 | PDFium (prebuilt by pdfium-binaries) | 158.0.8125.0, release `chromium/8125` of https://github.com/bblanchon/pdfium-binaries, asset `pdfium-linux-x64.tgz`, SHA-256 `e1c3ce6e270cb5e0c20816b379ad9f2c1309972697c505f508de92bf5e7d6659`; built without V8 and XFA. Not in git: configure fetches the pinned archive into `<build>/_deps/` and checks the hash (`cmake/YantraPdfium.cmake`; offline: `-DYANTRA_PDFIUM_ARCHIVE=<file>`) | PDFium BSD-3-Clause (`licenses/pdfium.txt` in the archive); the pdfium-binaries build scripts MIT; bundled in `libpdfium.so` under their own licences, all in the archive's `licenses/`: FreeType (FTL), libjpeg-turbo (IJG, BSD-3-Clause, zlib), libpng, zlib, lcms (MIT), OpenJPEG (BSD-2-Clause), AGG 2.3, abseil (Apache-2.0), ICU (Unicode), HarfBuzz (MIT), Highway (Apache-2.0), fast_float (MIT), simdutf (MIT), dragonbox (Apache-2.0 with LLVM exception, or BSL-1.0), LLVM libc++ and libc (Apache-2.0 with LLVM exception). All are compatible with GPL-3.0-or-later; `install` puts the library in `lib/yantra/` and the archive's `licenses/` in `share/licenses/pdfium/`. | https://pdfium.googlesource.com/pdfium (prebuilt: https://github.com/bblanchon/pdfium-binaries) | PDF floor plans (IND-02): page list, page sizes, thumbnails and rendering of any page or part of a page at a chosen resolution (`core/src/plan/pdf_source.cpp`). Linked as a shared library after the C++ runtime (it exports its own `operator new`); every PDFium call holds one process-wide lock (PDFium is not thread-safe). On Windows the asset `pdfium-win-x64.tgz` of the same release (`pdfium.dll` next to the programs, OA-02). |
 | OpenSSL | not used | (Apache-2.0) | https://www.openssl.org | Optional in spec 16.2 for HTTPS/wss of the remote API; not linked: the probe plugin's CivetWeb is built with `NO_SSL` (HTTPS through a reverse proxy, docs/API.md). Only the system libcurl may use it internally for its own TLS. |
-| Rust standard library | the toolchain's (through yantra-radios) | MIT OR Apache-2.0 | https://www.rust-lang.org | Linked statically into the TETRA radio plugins of yantra-radios (its protocol crate `yantra-proto`); nothing of Rust is linked into Yantra's own binaries |
+| Rust standard library | the toolchain's (through the radio parts) | MIT OR Apache-2.0 | https://www.rust-lang.org | Linked statically into the TETRA radio plugins (their protocol crate `yantra-proto` in `radios/`); nothing of Rust is linked into the application's binaries |
 
-### Inside the shipped radio plugins (yantra-radios v0.4.0)
+### Inside the shipped radio plugins (radios/)
 
-The radio plugins Yantra ships (`lib/yantra/plugins/radios/*.so`, PLG-26)
-are self-contained: yantra-radios builds these libraries into them
+The radio plugins Yantra ships (`lib/yantra/plugins/radios/*.so`, PLG-29)
+are self-contained: the radios build puts these libraries into them
 statically from pinned, vendored sources (RAD-132, RAD-136). Yantra's own
 code never links them; the details, the corresponding source and the licence
 bundle (installed in `share/licenses/yantra-radios/`, RAD-137) are in
-yantra-radios' `THIRD_PARTY.md` and `tools/deps/manifest.tsv`.
+`radios/THIRD_PARTY.md` and `radios/tools/deps/manifest.tsv`.
 
 | Component | Version | Licence | Used for (in the plugins) |
 |---|---|---|---|
@@ -78,7 +78,7 @@ yantra-radios' `THIRD_PARTY.md` and `tools/deps/manifest.tsv`.
 
 On Windows the app links the libraries above as the DLLs of pinned MSYS2
 UCRT64 binary packages (`tools/windows/msys2.lock`; the GCC runtime from
-yantra-radios' `tools/sdk/msys2.lock`, OA-02). The Windows zip and setup
+`radios/tools/sdk/msys2.lock`, OA-02). The Windows zip and setup
 .exe ship exactly the DLLs the programs and plugins import, next to the
 programs in `bin\`, with each package's licence texts in
 `share\licenses\msys2\<package>\` and the list in
@@ -112,7 +112,7 @@ These tools are never linked into Yantra and do not affect its licence.
 |---|---|---|
 | CMake, Ninja | BSD-3-Clause, Apache-2.0 | build |
 | gcc / clang | GPL-3.0-or-later WITH GCC-exception-3.1 / Apache-2.0 WITH LLVM-exception | C++20 and C11 compilers; clang's libFuzzer for the fuzz targets (`-DYANTRA_FUZZ=ON`, TST-12) |
-| cargo / rustc | MIT OR Apache-2.0 | the Rust crate of the yantra-radios build (ExternalProject) |
+| cargo / rustc | MIT OR Apache-2.0 | the Rust crate of the radios build (ExternalProject, `radios/`) |
 | Python 3 (standard library) | PSF-2.0 | check, test and screenshot scripts (`tools/ci`, `tools/screenshots`, `tests/`) |
 | Doxygen | GPL-2.0-only | plugin API reference from `include/yantra/plugin.h` (DOC-17; target `docs-plugin-api`, ctest `plugin_api_doxygen`) |
 | pandoc | GPL-2.0-or-later | manual, quick starts and notes from Markdown to HTML (DOC-02, DOC-20) |
@@ -122,7 +122,7 @@ These tools are never linked into Yantra and do not affect its licence.
 | binutils (readelf, objdump), `strings` | GPL-3.0-or-later | completeness and build-folder checks of the installed binaries and plugins (RAD-133, NFR-09) |
 | dpkg | GPL-2.0-or-later | the Linux package (NFR-09) |
 | NSIS (makensis) | Zlib; its LZMA decompressor in the setup .exe CPL-1.0 with the special exception for NSIS installers | the Windows setup .exe, made on Linux (NFR-09; `packaging/windows/yantra.nsi`) |
-| the cross SDK of yantra-radios (LLVM clang, lld, llvm-rc, llvm-strip; MSYS2 UCRT64 packages) | Apache-2.0 WITH LLVM-exception; the packages' own | the Windows cross build, the icon and version resources and the stripped programs of the packages (OA-02, RAD-139) |
+| the cross SDK in `radios/tools/sdk` (LLVM clang, lld, llvm-rc, llvm-strip; MSYS2 UCRT64 packages) | Apache-2.0 WITH LLVM-exception; the packages' own | the Windows cross build, the icon and version resources and the stripped programs of the packages (OA-02, RAD-139) |
 | reuse | Apache-2.0, CC0-1.0, CC-BY-SA-4.0, GPL-3.0-or-later | REUSE compliance check (NFR-01) |
 | PyYAML | MIT | YAML syntax check of the CI workflows in `tools/ci/lint.sh` (TST-02); CI only, as in yantra-radios |
 | Xvfb (X.Org) | MIT/X11 | Private off-screen X display of the app launch tests and screenshots (NFR-10, TST-04, SCR-01); `tests/app/with_xvfb.sh` |

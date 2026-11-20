@@ -56,8 +56,8 @@ if(YANTRA_RADIOS_KIND STREQUAL "build" OR
   set(_outputs ${_out}/fraunces.yantra ${_out}/recordings/first-floor_walk_0000.yrec
                ${_out}/recordings/second-floor_walk_0000.yrec)
   file(GLOB _scenarios CONFIGURE_DEPENDS ${YANTRA_RADIOS_DIR}/data/scenarios/*.json)
-  # yantra-gen's records depend on the radios release: made again when the
-  # pin moves (or the prebuilt generator changes).
+  # yantra-gen's records depend on the radio parts: made again when they
+  # change (or the prebuilt generator changes).
   if(YANTRA_RADIOS_KIND STREQUAL "build")
     list(APPEND _scenarios ${YANTRA_RADIOS_COMMIT_STAMP})
   else()
