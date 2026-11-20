@@ -19,7 +19,12 @@ TEST_CASE("build_info reports a consistent version") {
     const std::string expected = std::to_string(info.version.major) + "." +
                                  std::to_string(info.version.minor) + "." +
                                  std::to_string(info.version.patch);
-    CHECK(info.version_string == expected);
+    // The product version (file VERSION, PLG-29): the numbers, then a
+    // pre-release suffix such as "-dev" or nothing.
+    const std::string version(info.version_string);
+    CHECK(version.rfind(expected, 0) == 0);
+    const std::string suffix = version.substr(expected.size() < version.size() ? expected.size() : version.size());
+    CHECK((suffix.empty() || (suffix.size() > 1 && suffix[0] == '-')));
 }
 
 TEST_CASE("build_info reports the SIMD option and plugin API of this build") {
