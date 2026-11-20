@@ -10,14 +10,14 @@
 #     simulator  simulated radio with built-in scenarios
 #     example    the beacon example of the radio API tutorial (beacon.so,
 #                never shipped)
-#   Yantra plugins (plugin API, include/yantra/plugin.h; PLG-01..PLG-27):
+#   Yantra plugins (plugin API, plugin-api/; PLG-01..PLG-27):
 #     tetra      the TETRA technology plugin (PLG-02)
 #     probe      the probe feature plugin: remote API and fixed probe
 #                (PLG-24; YANTRA_PLUGIN_PROBE)
 #     beacon     the example technology plugin of the plugin tutorial
 #                (PLG-15, example_beacon, never shipped)
 # Radio plugins are self-contained modules that only use radio-api/ and
-# radio-common/; Yantra's plugins only use include/yantra/plugin.h
+# radio-common/; Yantra's plugins only use plugin-api/
 # (PLG-30). Every test of a plugin carries the label plugin:<folder>.
 # Copied from yantra-v2 68ea20a (9540c71): plugins/CMakeLists.txt, adapted.
 

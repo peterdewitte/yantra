@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Documentation targets and checks (DOC-17). docs-plugin-api builds the
-# plugin API reference with Doxygen from include/yantra/plugin.h and
+# plugin API reference with Doxygen from plugin-api/include/yantra/plugin.h and
 # plugin.hpp into <build>/docs/plugin-api/html; the plugin_api_doxygen test
 # fails on any Doxygen warning, so every function, struct, field, macro
 # and callback of the headers stays documented. Without Doxygen the test
@@ -10,7 +10,7 @@
 # Copied from yantra-radios fb194f5: docs/CMakeLists.txt, adapted for
 # DOC-17.
 set(YANTRA_PLUGIN_API_VERSION "")
-file(STRINGS ${PROJECT_SOURCE_DIR}/include/yantra/plugin.h _api_lines
+file(STRINGS ${PROJECT_SOURCE_DIR}/plugin-api/include/yantra/plugin.h _api_lines
      REGEX "#define YANTRA_PLUGIN_API_VERSION_(MAJOR|MINOR) ")
 foreach(_line IN LISTS _api_lines)
   string(REGEX MATCH "#define YANTRA_PLUGIN_API_VERSION_[A-Z]+ ([0-9]+)u" _ ${_line})
@@ -27,8 +27,8 @@ if(DOXYGEN_FOUND)
   configure_file(api/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile.plugin-api @ONLY)
   add_custom_target(docs-plugin-api
     COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile.plugin-api
-    DEPENDS ${PROJECT_SOURCE_DIR}/include/yantra/plugin.h
-            ${PROJECT_SOURCE_DIR}/include/yantra/plugin.hpp
+    DEPENDS ${PROJECT_SOURCE_DIR}/plugin-api/include/yantra/plugin.h
+            ${PROJECT_SOURCE_DIR}/plugin-api/include/yantra/plugin.hpp
     COMMENT "Plugin API reference (Doxygen) in ${DOXYGEN_OUTPUT}/html"
     VERBATIM)
   # The test writes to its own folder, so it never races with the target.

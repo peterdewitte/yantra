@@ -169,7 +169,7 @@ is written but not run (DEFERRED (Windows)).
 - A change that users see updates the manual (`docs/manual/`), the
   in-app help texts (DOC-07) and `CHANGELOG.md` (DOC-16).
 - A change of the plugin API updates `docs/PLUGIN_API_CHANGELOG.md`
-  (DOC-18) and the Doxygen comments of `include/yantra/plugin.h`.
+  (DOC-18) and the Doxygen comments of `plugin-api/include/yantra/plugin.h`.
 - A change of a stored file format updates its page in `docs/formats/`
   (NFR-05) and its version number.
 - A complete example in the format or API docs gets the line
@@ -283,7 +283,7 @@ is written but not run (DEFERRED (Windows)).
 - Headers start with a comment saying what the file is for and which
   requirement IDs it implements; `#pragma once` (C headers: include
   guards).
-- The plugin API (`include/yantra/plugin.h`) is plain C. So is the radio
+- The plugin API (`plugin-api/include/yantra/plugin.h`) is plain C. So is the radio
   API (`radio-api/include/yantra/radio.h`): versioned structs that start
   with `struct_size`, `uint32_t` constants instead of enums, no
   exceptions or panics across the boundary (RAD-10).

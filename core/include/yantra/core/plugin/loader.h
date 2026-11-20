@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Plugin loader (PLG-07, PLG-09, PLG-10) for plugins of the plugin API
-// (include/yantra/plugin.h): finds the plugin files (folders.h), opens
+// (plugin-api/include/yantra/plugin.h): finds the plugin files (folders.h), opens
 // them with dlopen (RTLD_LOCAL, platform/dynlib.h), calls the entry point
 // with the host table, checks the descriptor (version first, PLG-04; then
 // parse_descriptor with the licence check, PLG-10), keeps the enabled

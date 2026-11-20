@@ -143,7 +143,7 @@ These tools are never linked into Yantra and do not affect its licence.
 | cargo / rustc | MIT OR Apache-2.0 | the Rust protocol crate of the radio plugins (RAD-101, `radio-common/receiver/rust`); rustc from the cross SDK below |
 | cargo-deny, cargo-fuzz (optional) | MIT OR Apache-2.0 | licence check and fuzzing of the Rust crate |
 | Python 3 (standard library) | PSF-2.0 | check, test and screenshot scripts (`tools/ci`, `tools/screenshots`, `tests/`) |
-| Doxygen | GPL-2.0-only | plugin API reference from `include/yantra/plugin.h` (DOC-17; target `docs-plugin-api`, ctest `plugin_api_doxygen`) and the radio API reference from `radio-api/include/yantra/radio.h` (RAD-97; target `docs-radio-api`, ctest `radio_api_doxygen`) |
+| Doxygen | GPL-2.0-only | plugin API reference from `plugin-api/include/yantra/plugin.h` (DOC-17; target `docs-plugin-api`, ctest `plugin_api_doxygen`) and the radio API reference from `radio-api/include/yantra/radio.h` (RAD-97; target `docs-radio-api`, ctest `radio_api_doxygen`) |
 | pandoc | GPL-2.0-or-later | manual, quick starts and notes from Markdown to HTML (DOC-02, DOC-20) |
 | WeasyPrint | BSD-3-Clause | HTML to PDF for the manual (DOC-20) and the PDF user manual `yantra-manual-<version>.pdf` (DOC-02a, `tools/docs/build_manual.py`, through its Python API), run on pandoc's HTML; the radio plugins manual (RAD-97, `tools/docs/build_radio_manual.py`) |
 | DejaVu fonts (system package, optional) | Bitstream Vera Fonts licence and public domain (DejaVu changes) | the fonts of the radio plugins manual: WeasyPrint embeds subsets of DejaVu Sans and DejaVu Sans Mono in the PDF, which their licence allows |

@@ -8,8 +8,8 @@ PROJECT_NAME           = "Yantra plugin API"
 PROJECT_NUMBER         = "@YANTRA_PLUGIN_API_VERSION@"
 PROJECT_BRIEF          = "Stable C ABI between Yantra and its plugins"
 OUTPUT_DIRECTORY       = @DOXYGEN_OUTPUT@
-INPUT                  = @PROJECT_SOURCE_DIR@/include/yantra/plugin.h \
-                         @PROJECT_SOURCE_DIR@/include/yantra/plugin.hpp
+INPUT                  = @PROJECT_SOURCE_DIR@/plugin-api/include/yantra/plugin.h \
+                         @PROJECT_SOURCE_DIR@/plugin-api/include/yantra/plugin.hpp
 STRIP_FROM_PATH        = @PROJECT_SOURCE_DIR@/include
 FULL_PATH_NAMES        = YES
 OPTIMIZE_OUTPUT_FOR_C  = YES

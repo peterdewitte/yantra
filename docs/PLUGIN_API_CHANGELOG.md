@@ -5,7 +5,7 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Plugin API changelog
 
-Every change of the plugin API (`include/yantra/plugin.h`) per version
+Every change of the plugin API (`plugin-api/include/yantra/plugin.h`) per version
 (DOC-18), marked **compatible** (minor version: plugins built for an
 earlier minor version keep loading) or **breaking** (major version:
 plugins must be rebuilt), with deprecations and a migration note. The
@@ -95,7 +95,7 @@ supported; rebuild them against 1.0.
 ## Reference documentation per version
 
 The reference of each API version is generated from the comments of
-`include/yantra/plugin.h` and `plugin.hpp` by Doxygen (build target
+`plugin-api/include/yantra/plugin.h` and `plugin.hpp` by Doxygen (build target
 `docs-plugin-api`, output `<build>/docs/plugin-api/html`; the ctest
 `plugin_api_doxygen` fails on any undocumented item). Every release
 publishes that output with its documentation, so the reference of 1.0,

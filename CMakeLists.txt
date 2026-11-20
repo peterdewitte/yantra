@@ -11,7 +11,7 @@
 #                  decoder, SoapySDR and TETRA glue, Rust protocol crate)
 #   gen/           TETRA test-signal generator (RAD-70)
 #   core/, app/    Yantra's measurement core and the desktop application
-#   include/       the plugin API header yantra/plugin.h (PLG-03)
+#   plugin-api/    Yantra's plugin API header yantra/plugin.h (PLG-03)
 #   tools/, docs/, tests/ (tests/radio: the radio parts' tests), data/,
 #   udev/, packaging/, third_party/
 # YANTRA_RADIO_PARTS_ONLY builds the radio parts alone (RAD-141);
@@ -173,13 +173,6 @@ if(NOT YANTRA_RADIO_PARTS_ONLY)
   include(YantraWindowsResources)
 endif()
 
-# Public plugin API headers: plugin.h (C ABI, PLG-03) and plugin.hpp (C++
-# helpers).
-add_library(yantra_plugin_api INTERFACE)
-add_library(yantra::plugin_api ALIAS yantra_plugin_api)
-target_include_directories(yantra_plugin_api INTERFACE
-  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>)
-
 # nlohmann/json 3.12.0, vendored header-only (spec 16.2, RAD-04).
 add_library(yantra_json INTERFACE)
 add_library(yantra::json ALIAS yantra_json)
@@ -238,8 +231,10 @@ else()
 endif()
 
 find_package(Threads REQUIRED)
-# The radio API (radio-api/), used by both sides.
+# The radio API (radio-api/), used by both sides, and Yantra's plugin API
+# (plugin-api/, the application and its own plugins).
 yantra_add_area_subdirectory(radio-api radio-api)
+add_subdirectory(plugin-api)
 # The radio parts (RAD-141): shared setup, then radio-common/ and gen/;
 # their plugins and tools follow in plugins/ and tools/.
 if(YANTRA_BUILD_RADIOS)

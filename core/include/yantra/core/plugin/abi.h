@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 The Yantra contributors
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
-// Host-side helpers for the plugin C ABI (include/yantra/plugin.h): the
+// Host-side helpers for the plugin C ABI (plugin-api/include/yantra/plugin.h): the
 // API version check with a clear message (PLG-04) and safe reading of
 // versioned structs filled by plugins built for an older or newer minor
 // version (struct_size, PLG-03). No app or UI dependency.

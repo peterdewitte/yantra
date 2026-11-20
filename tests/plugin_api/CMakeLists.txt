@@ -11,7 +11,7 @@
 yantra_add_test_dir(plugin_api LIBS yantra::plugin_api)
 if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(test_plugin_api PRIVATE -Wall -Wextra -Werror)
-  set(_inc ${PROJECT_SOURCE_DIR}/include)
+  set(_inc ${PROJECT_SOURCE_DIR}/plugin-api/include)
   set(_radio_inc ${PROJECT_SOURCE_DIR}/radio-api/include)
   set(_dir ${CMAKE_CURRENT_SOURCE_DIR}/syntax)
   add_test(NAME plugin_api_header_c99

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
 # Test areas (PLG-29): every ctest carries the label of the part of the
-# tree it tests, so `ctest -L <area>` runs one part: app, core,
+# tree it tests, so `ctest -L <area>` runs one part: app, core, plugin-api,
 # radio-api, plugin:<name>, radio-common, gen, docs, lint, packaging.
 #
 # yantra_add_area_subdirectory(<dir> <area>) adds a folder whose tests
@@ -21,7 +21,7 @@ macro(yantra_add_area_subdirectory _yaa_dir _yaa_area)
   set(YANTRA_TEST_AREA "${_yaa_saved}")
 endmacro()
 
-set(YANTRA_TEST_AREA_NAMES app core radio-api radio-common gen docs lint packaging)
+set(YANTRA_TEST_AREA_NAMES app core radio-api plugin-api radio-common gen docs lint packaging)
 
 function(_yantra_has_area labels var)
   set(_has FALSE)

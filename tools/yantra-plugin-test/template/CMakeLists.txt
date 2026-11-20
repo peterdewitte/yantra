@@ -29,11 +29,15 @@ set(PLUGIN_NAME ${_folder} CACHE STRING "File name of the plugin library (withou
 string(MAKE_C_IDENTIFIER "${PLUGIN_NAME}" _project)
 project(yantra_plugin_${_project} LANGUAGES C)
 
-set(YANTRA_SDK_DIR "" CACHE PATH "Yantra source folder or install prefix (include/yantra/plugin.h)")
+set(YANTRA_SDK_DIR "" CACHE PATH "Yantra source folder (plugin-api/include/yantra/plugin.h) or install prefix (include/yantra/plugin.h)")
 set(YANTRA_PLUGIN_TEST "" CACHE FILEPATH "The yantra-plugin-test program")
-if(NOT EXISTS "${YANTRA_SDK_DIR}/include/yantra/plugin.h")
+if(EXISTS "${YANTRA_SDK_DIR}/plugin-api/include/yantra/plugin.h")
+  set(_yantra_include ${YANTRA_SDK_DIR}/plugin-api/include)
+elseif(EXISTS "${YANTRA_SDK_DIR}/include/yantra/plugin.h")
+  set(_yantra_include ${YANTRA_SDK_DIR}/include)
+else()
   message(FATAL_ERROR "Set YANTRA_SDK_DIR to the Yantra source folder or install prefix "
-                      "(include/yantra/plugin.h not found in '${YANTRA_SDK_DIR}')")
+                      "(yantra/plugin.h not found in '${YANTRA_SDK_DIR}')")
 endif()
 
 set(CMAKE_C_STANDARD 11)
@@ -46,7 +50,7 @@ endif()
 
 # A plugin is a shared library that exports only yantra_plugin_entry.
 add_library(${PLUGIN_NAME} MODULE ${PLUGIN_SOURCES})
-target_include_directories(${PLUGIN_NAME} PRIVATE ${YANTRA_SDK_DIR}/include)
+target_include_directories(${PLUGIN_NAME} PRIVATE ${_yantra_include})
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
   target_compile_options(${PLUGIN_NAME} PRIVATE -Wall -Wextra -Wpedantic)
 endif()

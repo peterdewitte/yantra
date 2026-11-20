@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // Plugin test kit (PLG-13): loads a plugin of the plugin API
-// (include/yantra/plugin.h) through Yantra's own PluginLoader and checks
+// (plugin-api/include/yantra/plugin.h) through Yantra's own PluginLoader and checks
 // it the way Yantra will use it:
 //   - load, API version, descriptor and licence (PLG-03, PLG-04, PLG-10);
 //   - its schemas and band plan, and that its technology schemas describe

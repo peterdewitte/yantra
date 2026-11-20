@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  *
  * A small exporter plugin written against the public C ABI only
- * (include/yantra/plugin.h, PLG-02, PLG-03), for the export tests
+ * (plugin-api/include/yantra/plugin.h, PLG-02, PLG-03), for the export tests
  * (EXP-04): its format "rows_text" (offered in batch export) writes each
  * table it gets as text - the provenance, the field names with their
  * types and units, then one line per record with the values ("-" when

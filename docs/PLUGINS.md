@@ -13,7 +13,7 @@ complete technology plugin, the example beacon plugin in
 (PLG-13).
 
 - The reference of every type, function and field is the header
-  [`include/yantra/plugin.h`](../include/yantra/plugin.h), described in
+  [`plugin-api/include/yantra/plugin.h`](../plugin-api/include/yantra/plugin.h), described in
   [PLUGIN_API.md](PLUGIN_API.md) (DOC-17).
 - Changes between API versions are in
   [PLUGIN_API_CHANGELOG.md](PLUGIN_API_CHANGELOG.md) (DOC-18).

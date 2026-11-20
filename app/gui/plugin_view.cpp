@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 // The plugins' own UI (PLG-06): their menu entries and windows, and
-// Yantra's drawing table (yantra_ui_api, include/yantra/plugin.h) on Dear
+// Yantra's drawing table (yantra_ui_api, plugin-api/include/yantra/plugin.h) on Dear
 // ImGui. The plugin describes a window's content each frame through the
 // table; Yantra draws every control itself, with the app's theme, sizes
 // and help rules (DOC-07: tooltips, "(?)" markers, disabled reasons) and

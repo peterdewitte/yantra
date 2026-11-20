@@ -21,6 +21,6 @@ include(GNUInstallDirs)
 install(TARGETS yantra-plugin-test RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 install(DIRECTORY template/ DESTINATION ${CMAKE_INSTALL_DATADIR}/yantra/plugin-template)
 # The plugin SDK: the public plugin headers, for the template's YANTRA_SDK_DIR.
-install(FILES ${PROJECT_SOURCE_DIR}/include/yantra/plugin.h
-              ${PROJECT_SOURCE_DIR}/include/yantra/plugin.hpp
+install(FILES ${PROJECT_SOURCE_DIR}/plugin-api/include/yantra/plugin.h
+              ${PROJECT_SOURCE_DIR}/plugin-api/include/yantra/plugin.hpp
         DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/yantra)

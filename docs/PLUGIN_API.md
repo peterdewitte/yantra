@@ -6,8 +6,8 @@ SPDX-License-Identifier: GPL-3.0-or-later
 # Yantra plugin API 1.2
 
 This page describes the C interface between Yantra and its plugins
-(DOC-17), declared in [`include/yantra/plugin.h`](../include/yantra/plugin.h)
-with C++ helpers in [`include/yantra/plugin.hpp`](../include/yantra/plugin.hpp).
+(DOC-17), declared in [`plugin-api/include/yantra/plugin.h`](../plugin-api/include/yantra/plugin.h)
+with C++ helpers in [`plugin-api/include/yantra/plugin.hpp`](../plugin-api/include/yantra/plugin.hpp).
 The header is the reference: every function, struct, field and callback is
 documented there, with units, ownership and the thread that calls it.
 `ninja -C build docs-plugin-api` turns it into HTML in

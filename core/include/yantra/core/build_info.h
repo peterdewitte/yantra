@@ -19,7 +19,7 @@ struct BuildInfo {
     Version version;
     std::string_view version_string;  // "major.minor.patch"
     bool simd = false;                // built with YANTRA_SIMD=ON
-    unsigned plugin_api_major = 0;    // include/yantra/plugin.h
+    unsigned plugin_api_major = 0;    // plugin-api/include/yantra/plugin.h
     unsigned plugin_api_minor = 0;
     std::string_view source_url;      // YANTRA_SOURCE_URL: the AGPL source link (NFR-01)
 };

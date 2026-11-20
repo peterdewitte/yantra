@@ -50,7 +50,7 @@ set(_yantra_test_areas
   about=app app=app headless=app
   api=plugin:probe tetra=plugin:tetra
   doc_examples=docs lint=lint install=packaging plugins_off=packaging
-  radio_kit=radio-api radio_api=radio-api)
+  radio_kit=radio-api radio_api=radio-api plugin_api=plugin-api)
 function(_yantra_test_area module var)
   set(_area core)
   foreach(_m IN LISTS _yantra_test_areas)

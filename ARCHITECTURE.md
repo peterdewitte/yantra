@@ -68,7 +68,7 @@ API from a feature plugin.
 
 ## Layers
 
-### Plugins (`plugin/`, `include/yantra/plugin.h`)
+### Plugins (`plugin/`, `plugin-api/include/yantra/plugin.h`)
 
 `plugin.h` is Yantra's own C plugin API (PLG-03, version 1.2; reference
 by Doxygen, guide [docs/PLUGINS.md](docs/PLUGINS.md), summary
