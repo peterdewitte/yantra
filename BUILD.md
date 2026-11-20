@@ -887,10 +887,11 @@ commit's date.
 
 ### Release of the radio parts alone
 
-The version is `YANTRA_RADIOS_VERSION` in `cmake/YantraRadioParts.cmake`
-until the radio parts share the product's version; the tag
+The version is the product version in the file `VERSION` (PLG-29), the
+same for the application, the plugins and the packages; the tag
 `v<version>` (annotated), the notes the CHANGELOG.md section of the
-version (RAD-98). Before tagging: the full set of CONTRIBUTING.md (default
+version, for a pre-release such as `0.3.0-dev` the Unreleased section
+(RAD-98, `tools/ci/release_notes.py`). Before tagging: the full set of CONTRIBUTING.md (default
 and scalar trees, opt-in suites, both sanitizer trees, reuse lint,
 `verify_sources.py`), then
 
@@ -913,9 +914,11 @@ written. The application's packages (.deb, setup .exe) are made by
 
 ## Making a release
 
-A release is an annotated tag `v<version>` on a commit whose
-`project(Yantra VERSION ...)` and CHANGELOG entry carry that version and
-date, with the release check passing (`YANTRA_RELEASE_CHECK=1`: the TST-52
+A release is an annotated tag `v<version>` on a commit whose `VERSION`
+file (the one product version, PLG-29: application, plugins, packages and
+the radio-parts release; a development state has a pre-release suffix
+such as `0.3.0-dev`, the .deb writes it `0.3.0~dev`) and CHANGELOG entry
+carry that version and date, with the release check passing (`YANTRA_RELEASE_CHECK=1`: the TST-52
 exceptions list must be empty). The artefacts are made from that commit:
 
     cmake --preset default && ninja -C build && ctest --test-dir build -j"$(nproc)"

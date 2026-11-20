@@ -18,7 +18,7 @@ target_link_libraries(yantra_hackrf_app
   PUBLIC yantra::capture_iq yantra::radio_host
   PRIVATE yantra::json yantra_warnings)
 target_compile_definitions(yantra_hackrf_app PRIVATE
-  YANTRA_HACKRF_VERSION="${YANTRA_RADIOS_VERSION}"
+  YANTRA_HACKRF_VERSION="${YANTRA_VERSION}"
   YANTRA_HACKRF_PLUGIN_FILE="$<TARGET_FILE_NAME:hackrf>"
   YANTRA_HACKRF_LIBDIR="${CMAKE_INSTALL_LIBDIR}")
 

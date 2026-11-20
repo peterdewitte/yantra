@@ -24,12 +24,12 @@ BEGIN
     BEGIN
       VALUE "CompanyName", "Curtat BV"
       VALUE "FileDescription", "@_description@"
-      VALUE "FileVersion", "@PROJECT_VERSION@"
+      VALUE "FileVersion", "@YANTRA_VERSION@"
       VALUE "InternalName", "@_name@"
       VALUE "LegalCopyright", "The Yantra contributors, GPL-3.0-or-later"
       VALUE "OriginalFilename", "@_name@.exe"
       VALUE "ProductName", "Yantra"
-      VALUE "ProductVersion", "@PROJECT_VERSION@"
+      VALUE "ProductVersion", "@YANTRA_VERSION@"
       VALUE "Comments", "https://curtat.be, source: @YANTRA_SOURCE_URL@"
     END
   END

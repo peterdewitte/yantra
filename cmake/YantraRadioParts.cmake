@@ -27,9 +27,6 @@
 # Results for the rest of the build:
 # (YANTRA_RADIO_PLUGIN_DIR, YANTRA_RADIO_TEST_PLUGIN_DIR and
 # YANTRA_RADIO_PLUGIN_SUFFIX are set by the top-level CMakeLists.txt.)
-#   YANTRA_RADIOS_VERSION         version of the radio parts (their tools
-#                                 and manual; the product version follows
-#                                 in 16.3)
 #   YANTRA_RADIO_PLUGIN_DIR       <build>/lib/yantra/plugins/radios: the
 #                                 shipped radio plugins, where the
 #                                 application finds them (PLG-09, PLG-25)
@@ -44,7 +41,6 @@
 #   YANTRA_RADIOS_PEI_SCENARIO    test fixtures for the application's tests
 #   target yantra_radio_plugins   every radio plugin (shipped and test builds)
 
-set(YANTRA_RADIOS_VERSION 0.4.0)
 set(YANTRA_RADIOS_SOURCE_URL "https://github.com/peterdewitte/yantra-radio-plugins"
   CACHE STRING "Public source repository of the radio parts (RAD-12 descriptor, RAD-137)")
 
@@ -169,10 +165,10 @@ if(YANTRA_RADIO_PARTS_ONLY)
   endif()
   add_custom_target(release
     COMMAND ${CMAKE_COMMAND} -E env bash ${PROJECT_SOURCE_DIR}/tools/ci/make_release.sh
-            ${PROJECT_BINARY_DIR} ${PROJECT_BINARY_DIR}/release/v${YANTRA_RADIOS_VERSION} v${YANTRA_RADIOS_VERSION}
+            ${PROJECT_BINARY_DIR} ${PROJECT_BINARY_DIR}/release/v${YANTRA_VERSION} v${YANTRA_VERSION}
             ${_release_platform}
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-    COMMENT "Release v${YANTRA_RADIOS_VERSION} in ${PROJECT_BINARY_DIR}/release/v${YANTRA_RADIOS_VERSION}"
+    COMMENT "Release v${YANTRA_VERSION} in ${PROJECT_BINARY_DIR}/release/v${YANTRA_VERSION}"
     VERBATIM USES_TERMINAL)
   add_dependencies(release licence_bundle ${YANTRA_RADIO_PLUGINS} yantra-radio-host yantra-gen yantra-hackrf)
   cmake_language(DEFER CALL _yantra_release_manual)

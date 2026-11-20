@@ -15,7 +15,7 @@ target_link_libraries(yantra_gen_app
   PUBLIC yantra::gen yantra::radios_common yantra::json
   PRIVATE yantra_warnings)
 target_compile_definitions(yantra_gen_app PRIVATE
-  YANTRA_GEN_VERSION="${YANTRA_RADIOS_VERSION}")
+  YANTRA_GEN_VERSION="${YANTRA_VERSION}")
 
 add_executable(yantra-gen main.cpp)
 target_link_libraries(yantra-gen PRIVATE yantra_gen_app yantra_warnings)

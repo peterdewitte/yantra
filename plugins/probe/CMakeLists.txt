@@ -41,7 +41,7 @@ set_target_properties(yantra_probe_api PROPERTIES POSITION_INDEPENDENT_CODE ON C
 
 add_library(yantra_probe MODULE probe_plugin.cpp)
 target_link_libraries(yantra_probe PRIVATE yantra_probe_api yantra::warnings)
-target_compile_definitions(yantra_probe PRIVATE YANTRA_PROBE_PLUGIN_VERSION="${PROJECT_VERSION}"
+target_compile_definitions(yantra_probe PRIVATE YANTRA_PROBE_PLUGIN_VERSION="${YANTRA_VERSION}"
                            YANTRA_SOURCE_URL="${YANTRA_SOURCE_URL}")
 set_target_properties(yantra_probe PROPERTIES
   PREFIX ""

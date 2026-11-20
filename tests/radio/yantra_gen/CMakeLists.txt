@@ -38,7 +38,7 @@ set_tests_properties(yantra_gen_help PROPERTIES LABELS fast
   PASS_REGULAR_EXPRESSION "usage: yantra-gen")
 add_test(NAME yantra_gen_version COMMAND yantra-gen --version)
 set_tests_properties(yantra_gen_version PROPERTIES LABELS fast
-  PASS_REGULAR_EXPRESSION "^yantra-gen ${YANTRA_RADIOS_VERSION}\n$")
+  PASS_REGULAR_EXPRESSION "^yantra-gen ${YANTRA_VERSION}\n$")
 add_test(NAME yantra_gen_usage_error COMMAND yantra-gen --format cs4 --out x)
 set_tests_properties(yantra_gen_usage_error PROPERTIES LABELS fast WILL_FAIL TRUE)
 # The build tree finds its scenarios next to the binary (share/...).

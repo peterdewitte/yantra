@@ -9,8 +9,8 @@
 # Windows runner with the cross-built tree), and the packages as workflow
 # artifacts: the .deb (`ninja deb`, packaging/deb) with the PDF manual, and
 # the NSIS setup .exe with the portable zip (`ninja package-windows`,
-# packaging/windows). On a version tag v<version> (matching project()'s
-# VERSION) they become the assets of a GitHub release with SHA256SUMS and
+# packaging/windows). On a version tag v<version> (matching the product
+# version in the file VERSION, PLG-29) they become the assets of a GitHub release with SHA256SUMS and
 # the notes of that CHANGELOG.md section. Runs on a tag, by hand, and on
 # pull requests that touch the packaging. Written and YAML-linted, never
 # run (no remote).
@@ -60,7 +60,7 @@ jobs:
       - name: The tag names the project's version
         if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          version=$(sed -n 's/^ *VERSION \([0-9][0-9.]*\)$/\1/p' CMakeLists.txt | head -n 1)
+          version=$(head -n 1 VERSION | tr -d '[:space:]')
           test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME, project version $version"; exit 1; }
       - name: Build tools and the cross SDK (OA-02, RAD-139)
         uses: ./.github/actions/linux-sdk

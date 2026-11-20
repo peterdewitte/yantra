@@ -42,7 +42,7 @@ namespace yantra::radio_host {
 
 using radios::Value;
 
-/** Version text of this host ("0.1.0"). */
+/** Version text of this host: the product version (file VERSION, PLG-29). */
 const char* host_version();
 
 /** A point on the shown floor, plan metres. */

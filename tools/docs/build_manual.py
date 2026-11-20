@@ -64,10 +64,11 @@ class Problems:
 
 
 def version_of(source):
-    with open(os.path.join(source, "CMakeLists.txt"), encoding="utf-8") as f:
-        m = re.search(r"project\(Yantra\s+VERSION ([0-9.]+)", f.read())
+    # The product version (file VERSION, PLG-29), pre-release suffix included.
+    with open(os.path.join(source, "VERSION"), encoding="utf-8") as f:
+        m = re.match(r"([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.]+)?)\s*$", f.readline())
     if not m:
-        raise SystemExit("build_manual: no project version in CMakeLists.txt")
+        raise SystemExit("build_manual: no version in VERSION")
     return m.group(1)
 
 

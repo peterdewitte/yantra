@@ -20,8 +20,21 @@
 
 cmake_minimum_required(VERSION 3.20)
 
+# The product version (PLG-29), in one place: the file VERSION. The
+# application, the shipped plugins (Yantra's and the radio plugins), the
+# packages, the manuals and the radio-parts-only release all carry it;
+# a pre-release has a suffix ("0.3.0-dev"). The radio API keeps its own
+# ABI version (radio-api/, YR_API_VERSION_MAJOR/MINOR), and so does the
+# plugin API (plugin-api/).
+file(STRINGS ${CMAKE_CURRENT_SOURCE_DIR}/VERSION YANTRA_VERSION LIMIT_COUNT 1)
+if(NOT YANTRA_VERSION MATCHES "^([0-9]+\\.[0-9]+\\.[0-9]+)(-[0-9A-Za-z.]+)?$")
+  message(FATAL_ERROR "VERSION: '${YANTRA_VERSION}' is not <major>.<minor>.<patch>[-<pre-release>]")
+endif()
+set(_yantra_version_number ${CMAKE_MATCH_1})
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/VERSION)
+
 project(Yantra
-  VERSION 0.2.0
+  VERSION ${_yantra_version_number}
   DESCRIPTION "Indoor TETRA coverage measurement on a software-defined radio"
   HOMEPAGE_URL "https://curtat.be"
   LANGUAGES C CXX)
@@ -343,7 +356,7 @@ if(WIN32 AND CMAKE_CROSSCOMPILING AND NOT YANTRA_RADIO_PARTS_ONLY)
     endif()")
 endif()
 
-message(STATUS "Yantra ${PROJECT_VERSION}: SIMD=${YANTRA_SIMD} "
+message(STATUS "Yantra ${YANTRA_VERSION}: SIMD=${YANTRA_SIMD} "
                "APP=${YANTRA_BUILD_APP} TESTS=${YANTRA_BUILD_TESTS} "
                "SANITIZER='${YANTRA_SANITIZER}' "
                "RADIO_API=${YANTRA_RADIO_API_VERSION_MAJOR}.${YANTRA_RADIO_API_VERSION_MINOR} "

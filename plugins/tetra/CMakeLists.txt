@@ -15,7 +15,7 @@ set_target_properties(yantra_tetra_rules PROPERTIES POSITION_INDEPENDENT_CODE ON
 
 add_library(yantra_tetra MODULE tetra_technology.cpp tetra_calculator.cpp)
 target_link_libraries(yantra_tetra PRIVATE yantra::plugin_api yantra::tetra_rules yantra::warnings)
-target_compile_definitions(yantra_tetra PRIVATE YANTRA_TETRA_PLUGIN_VERSION="${PROJECT_VERSION}")
+target_compile_definitions(yantra_tetra PRIVATE YANTRA_TETRA_PLUGIN_VERSION="${YANTRA_VERSION}")
 set_target_properties(yantra_tetra PROPERTIES
   PREFIX ""
   OUTPUT_NAME tetra

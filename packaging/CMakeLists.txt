@@ -31,11 +31,11 @@ endif()
 if(WIN32 AND CMAKE_CROSSCOMPILING AND YANTRA_BUILD_APP AND YANTRA_SANITIZER STREQUAL ""
    AND YANTRA_BUILD_RADIOS AND YANTRA_PLUGIN_PROBE AND YANTRA_RADIOS_PEI)
   find_program(YANTRA_MAKENSIS makensis)
-  set(_win_package ${PROJECT_BINARY_DIR}/package/yantra-${PROJECT_VERSION}-windows-x86_64)
+  set(_win_package ${PROJECT_BINARY_DIR}/package/yantra-${YANTRA_VERSION}-windows-x86_64)
   add_custom_target(package-windows
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/windows/package_windows.py
             --build ${PROJECT_BINARY_DIR} --out ${PROJECT_BINARY_DIR}/package --source ${PROJECT_SOURCE_DIR}
-            --version ${PROJECT_VERSION} --source-url "${YANTRA_SOURCE_URL}" --sysroot ${CMAKE_SYSROOT}
+            --version ${YANTRA_VERSION} --source-url "${YANTRA_SOURCE_URL}" --sysroot ${CMAKE_SYSROOT}
             --strip ${CMAKE_STRIP} --cmake ${CMAKE_COMMAND} --makensis ${YANTRA_MAKENSIS} --ico ${YANTRA_ICO}
             --pdfium-version "${YANTRA_PDFIUM_VERSION}"
             --msys2-lock ${PROJECT_SOURCE_DIR}/tools/windows/msys2.lock
@@ -59,7 +59,7 @@ if(WIN32 AND CMAKE_CROSSCOMPILING AND YANTRA_BUILD_APP AND YANTRA_SANITIZER STRE
     # to the unpacked app for the off-screen screenshot only: the test
     # VM has no OpenGL 3 driver; the package itself has none).
     set(_smoke ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/windows/smoke_test.py
-               --version ${PROJECT_VERSION} --mesa-from ${PROJECT_BINARY_DIR}/bin)
+               --version ${YANTRA_VERSION} --mesa-from ${PROJECT_BINARY_DIR}/bin)
     add_test(NAME package_windows_zip
              COMMAND ${_smoke} --zip ${_win_package}.zip --scratch ${CMAKE_CURRENT_BINARY_DIR}/scratch/zip)
     add_test(NAME package_windows_setup

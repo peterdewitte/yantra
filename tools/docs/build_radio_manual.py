@@ -63,11 +63,11 @@ class Problems:
 
 
 def version_of(source):
-    # The radio parts' version (cmake/YantraRadioParts.cmake, PLG-29).
-    with open(os.path.join(source, "cmake", "YantraRadioParts.cmake"), encoding="utf-8") as f:
-        m = re.search(r"set\(YANTRA_RADIOS_VERSION ([0-9.]+)", f.read())
+    # The product version, one for the whole repository (file VERSION, PLG-29).
+    with open(os.path.join(source, "VERSION"), encoding="utf-8") as f:
+        m = re.match(r"([0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.]+)?)\s*$", f.readline())
     if not m:
-        raise SystemExit("build_manual: no YANTRA_RADIOS_VERSION in cmake/YantraRadioParts.cmake")
+        raise SystemExit("build_manual: no version in VERSION")
     return m.group(1)
 
 

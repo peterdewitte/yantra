@@ -106,5 +106,5 @@ if(TARGET yantra)
   add_test(NAME app_version COMMAND yantra --version)
   set_tests_properties(app_version PROPERTIES
     LABELS "fast;app"
-    PASS_REGULAR_EXPRESSION "^yantra ${PROJECT_VERSION}\n$")
+    PASS_REGULAR_EXPRESSION "^yantra ${YANTRA_VERSION}\n$")
 endif()

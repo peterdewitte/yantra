@@ -115,11 +115,11 @@ endif()
 # where Help > User manual (PDF) finds it (UI-14). docs_manual_faults: the
 # checker finds a chapter's faults. Skipped without pandoc or WeasyPrint.
 find_package(Python3 COMPONENTS Interpreter QUIET)
-set(YANTRA_MANUAL_PDF ${CMAKE_CURRENT_BINARY_DIR}/manual/yantra-manual-${PROJECT_VERSION}.pdf
+set(YANTRA_MANUAL_PDF ${CMAKE_CURRENT_BINARY_DIR}/manual/yantra-manual-${YANTRA_VERSION}.pdf
     CACHE INTERNAL "The PDF user manual (ninja docs-manual)")
 add_custom_target(docs-manual
   COMMAND ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/docs/build_manual.py
-          --source ${PROJECT_SOURCE_DIR} --out ${CMAKE_CURRENT_BINARY_DIR}/manual --version ${PROJECT_VERSION}
+          --source ${PROJECT_SOURCE_DIR} --out ${CMAKE_CURRENT_BINARY_DIR}/manual --version ${YANTRA_VERSION}
   COMMENT "PDF user manual in ${YANTRA_MANUAL_PDF} (DOC-02a)"
   VERBATIM)
 if(YANTRA_BUILD_TESTS)
@@ -203,18 +203,18 @@ if(YANTRA_BUILD_RADIOS)
   elseif(WIN32 AND YANTRA_RADIOS_BUILD_TESTS)
     yantra_skip_test(plugin_docs REASON "the checker drives the Linux tree's .so plugins and programs; the pages are checked in the Linux trees, the plugins are the same code")
   endif()
-  set(YANTRA_RADIOS_MANUAL ${CMAKE_CURRENT_BINARY_DIR}/radios-manual/yantra-radios-manual-${YANTRA_RADIOS_VERSION}.pdf
+  set(YANTRA_RADIOS_MANUAL ${CMAKE_CURRENT_BINARY_DIR}/radios-manual/yantra-radios-manual-${YANTRA_VERSION}.pdf
       CACHE INTERNAL "The radio plugins' PDF manual (ninja docs-radios-manual)")
   add_custom_target(docs-radios-manual
     COMMAND ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/docs/build_radio_manual.py
-            --source ${PROJECT_SOURCE_DIR} --out ${CMAKE_CURRENT_BINARY_DIR}/radios-manual --version ${YANTRA_RADIOS_VERSION}
+            --source ${PROJECT_SOURCE_DIR} --out ${CMAKE_CURRENT_BINARY_DIR}/radios-manual --version ${YANTRA_VERSION}
     COMMENT "PDF manual of the radio plugins in ${YANTRA_RADIOS_MANUAL}"
     VERBATIM)
   if(YANTRA_RADIOS_BUILD_TESTS)
     add_test(NAME radios_manual
              COMMAND ${YANTRA_BUILD_HOST_TEST} ${Python3_EXECUTABLE} -B ${PROJECT_SOURCE_DIR}/tools/docs/build_radio_manual.py
                      --source ${PROJECT_SOURCE_DIR} --out ${CMAKE_CURRENT_BINARY_DIR}/radios-manual-check
-                     --version ${YANTRA_RADIOS_VERSION})
+                     --version ${YANTRA_VERSION})
     add_test(NAME radios_manual_faults
              COMMAND ${YANTRA_BUILD_HOST_TEST} ${Python3_EXECUTABLE} -B
                      ${PROJECT_SOURCE_DIR}/tests/radio/docs/check_manual_faults.py ${PROJECT_SOURCE_DIR}

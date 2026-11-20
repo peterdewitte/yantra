@@ -11,6 +11,7 @@ target_link_libraries(yantra_radio_host_lib
   PUBLIC yantra::radio_api yantra::radios_common Threads::Threads ${CMAKE_DL_LIBS}
   PRIVATE yantra::json yantra_warnings)
 add_library(yantra::radio_host ALIAS yantra_radio_host_lib)
+target_compile_definitions(yantra_radio_host_lib PRIVATE YANTRA_VERSION="${YANTRA_VERSION}")
 
 add_executable(yantra-radio-host main.cpp)
 target_link_libraries(yantra-radio-host PRIVATE yantra::radio_host yantra_warnings)

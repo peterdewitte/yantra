@@ -83,7 +83,7 @@ extern "C" YR_EXPORT const yr_descriptor* yantra_radio_entry(void)
     static const Options options = {
         YANTRA_HACKRF_PLUGIN_NAME,
         "HackRF One",
-        "0.2.0",
+        YANTRA_VERSION,
         "TETRA levels, cell information and band scans with a HackRF One (RAD-60)",
         YANTRA_RADIOS_SOURCE_URL,
         YANTRA_SOAPY_MODULE_TABLE,

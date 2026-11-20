@@ -64,7 +64,7 @@ done
 for s in 16 24 32 48 64 128 256 512; do want+=("./usr/share/icons/hicolor/${s}x${s}/apps/yantra.png"); done
 for w in "${want[@]}"; do grep -qx -- "$w" <<<"$list" || bad "missing $w"; done
 # DOC-02a: the PDF manual of the package's version.
-version=$(field Version | sed 's/-[^-]*$//')
+version=$(field Version | sed 's/-[^-]*$//; s/~/-/')  # 0.3.0~dev-1 -> 0.3.0-dev
 grep -qx -- "./usr/share/doc/yantra/yantra-manual-${version}.pdf" <<<"$list" || bad "missing the PDF manual (DOC-02a)"
 # RAD-71: yantra-gen with its scenario files beside it.
 grep -qx -- './usr/bin/yantra-gen' <<<"$list" || bad "missing ./usr/bin/yantra-gen"

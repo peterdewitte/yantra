@@ -9,7 +9,9 @@ without the leading "v" (e.g. "## [1.2.0] - 2026-11-03" or "## v1.2.0"),
 and ends at the next level-2 heading. Without one, a level-3 heading
 counts (the radio parts' releases before the merge, "### [0.4.0]" in the
 section "Radio parts before the merge", PLG-29), ending at the next
-heading of level 3 or less. Exit code 1 if there is none.
+heading of level 3 or less. A pre-release of the product version (file
+VERSION, PLG-29; e.g. "v0.3.0-dev") without a section of its own takes
+the "## [Unreleased]" section. Exit code 1 if there is none.
 """
 import re
 import sys
@@ -30,7 +32,12 @@ def notes(text: str, tag: str, level: int = 2) -> str | None:
             out.append(line)
     if inside:
         return "\n".join(out).strip() + "\n"
-    return notes(text, tag, 3) if level == 2 else None
+    if level == 2:
+        found = notes(text, tag, 3)
+        if found is None and "-" in version:
+            found = notes(text, "Unreleased")
+        return found
+    return None
 
 
 def main() -> int:

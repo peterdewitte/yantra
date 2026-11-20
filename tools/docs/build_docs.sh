@@ -69,7 +69,7 @@ if [ -n "$api" ]; then
 fi
 style=$out/.style.html
 { echo "<style>"; cat "$here/docs.css"; echo "</style>"; } >"$style"
-version=$(sed -n '/^project(Yantra/,/)/s/.*VERSION \([0-9.]*\).*/\1/p' "$root/CMakeLists.txt" | head -1)
+version=$(head -n1 "$root/VERSION" | tr -d '[:space:]')  # the product version (PLG-29)
 # Reproducible output: no build date in the pages or PDFs. The PDF manual
 # names its build date: the caller's SOURCE_DATE_EPOCH, else the date of
 # the last commit (build_manual.py).

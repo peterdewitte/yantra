@@ -54,9 +54,12 @@ site=${site:-$build/docs/site}
 
 command -v dpkg-deb >/dev/null || { echo "build_deb: dpkg-deb not found (apt install dpkg)"; exit 77; }
 cache() { sed -n "s/^$1:[A-Z]*=\(.*\)$/\1/p" "$build/CMakeCache.txt"; }
-version=$(sed -n '/^project(Yantra/,/)/s/.*VERSION \([0-9.]*\).*/\1/p' "$src/CMakeLists.txt" | head -1)
+# The product version (file VERSION, PLG-29); a pre-release "0.3.0-dev" is
+# the Debian upstream version "0.3.0~dev", which sorts before 0.3.0.
+version=$(head -n1 "$src/VERSION" | tr -d '[:space:]')
+deb_version=$(printf '%s' "$version" | tr '-' '~')
 source_url=$(cache YANTRA_SOURCE_URL)
-[ -n "$version" ] || { echo "build_deb: no version in CMakeLists.txt" >&2; exit 1; }
+[ -n "$version" ] || { echo "build_deb: no version in VERSION" >&2; exit 1; }
 [ -n "$source_url" ] || { echo "build_deb: YANTRA_SOURCE_URL is empty (NFR-09 release check)" >&2; exit 1; }
 [ -z "$(cache YANTRA_SANITIZER)" ] || { echo "build_deb: a sanitizer tree is never packaged" >&2; exit 1; }
 [ -x "$build/bin/yantra" ] || { echo "build_deb: $build has no app (YANTRA_BUILD_APP=OFF)" >&2; exit 1; }
@@ -84,7 +87,7 @@ mkdir -p "$doc/LICENSES"
 cp "$src"/LICENSES/*.txt "$doc/LICENSES/"
 date_r=$(date -R -u -d "@${SOURCE_DATE_EPOCH:-$(date +%s)}")
 {
-  echo "yantra ($version-$rev) unstable; urgency=medium"
+  echo "yantra ($deb_version-$rev) unstable; urgency=medium"
   echo
   echo "  * Package built by packaging/deb/build_deb.sh; the changes are in"
   echo "    /usr/share/doc/yantra/CHANGELOG.md."
@@ -111,7 +114,7 @@ fi
 size=$(du -sk --exclude=DEBIAN "$stage" | cut -f1)
 cat >"$stage/DEBIAN/control" <<EOF
 Package: yantra
-Version: $version-$rev
+Version: $deb_version-$rev
 Architecture: $arch
 Maintainer: Curtat BV <info@curtat.be>
 Installed-Size: $size
@@ -141,7 +144,7 @@ install -m 0755 "$here/postrm" "$stage/DEBIAN/postrm"
 # Explicit modes, independent of a setgid parent folder or the umask.
 bash "$here/stage_perms.sh" "$stage"
 
-deb=$outdir/yantra_${version}-${rev}_${arch}.deb
+deb=$outdir/yantra_${deb_version}-${rev}_${arch}.deb
 case $compress in
   xz) dpkg-deb --root-owner-group -Zxz --build "$stage" "$deb" >/dev/null ;;
   gzip) dpkg-deb --root-owner-group -Zgzip -z1 --build "$stage" "$deb" >/dev/null ;;
