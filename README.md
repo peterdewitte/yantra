@@ -10,10 +10,66 @@ SPDX-License-Identifier: GPL-3.0-or-later
 An open-source tool for measuring and reporting TETRA coverage inside
 buildings, floor by floor, with a software-defined radio (SDR).
 
-Yantra is made by [curtat.be](https://curtat.be) as a reference on building
-new programs with Claude, Anthropic's AI assistant.
+## Architecture
+
+Yantra is built around plugins. The application and its core know two
+small C interfaces, and everything that touches a radio lives in a
+plugin (an arrow means "uses"; [ARCHITECTURE.md](ARCHITECTURE.md) has
+the details):
+
+```
+  app/ --> core/ --> radio-api/  <-- plugins/ radio plugins  --> radio-common/
+                |    (radio.h)        hackrf soapy pei             gen/
+                |                     simulator example
+                |
+                +--> plugin-api/ <-- plugins/ Yantra plugins
+                     (plugin.h)       tetra probe beacon
+```
+
+A radio plugin owns its device, processes its own IQ samples (with the
+receiver and TETRA decoder of `radio-common/`) and hands the core
+measurement records only. The core and the app never include or link
+a plugin or `radio-common/`, and the radio parts never use the app or
+the core: the ctest `boundary_lint` checks this both ways (PLG-30).
+
+| Folder | What it holds |
+|---|---|
+| [`app/`](app/README.md) | the desktop application `yantra` (windows, tour, help) |
+| [`core/`](core/README.md) | the measurement core: radio host, pipeline, survey, map, reports, project files; no DSP |
+| [`radio-api/`](radio-api/README.md) | the radio API `yantra/radio.h` (C ABI, version 1.2), the only interface to the radio plugins |
+| [`plugin-api/`](plugin-api/README.md) | Yantra's plugin API `yantra/plugin.h` for technology, feature and exporter plugins |
+| [`plugins/`](plugins/README.md) | one folder per plugin, radio plugins and Yantra plugins side by side (table below) |
+| [`radio-common/`](radio-common/README.md) | code shared by the radio plugins only: receiver, TETRA decoder, SoapySDR and TETRA glue |
+| [`gen/`](gen/README.md) | the TETRA test-signal generator library (yantra-gen) |
+| [`tools/`](tools/README.md) | programs (yantra-demo, yantra-probe, yantra-plugin-test, yantra-radio-host, yantra-gen, yantra-hackrf) and scripts (CI, docs, SDK, dependencies, Windows) |
+| `data/` | demo projects, scenarios, translations, fonts, logos |
+| `docs/` | user manual, quick starts, developer and format documentation |
+| `tests/` | the one ctest suite (`tests/radio`: the radio parts' tests), labelled per area |
+| `packaging/` | the .deb and the Windows zip and setup |
+| `udev/` | USB permissions for the SDRs, RTL-SDR driver blacklist |
+| `cmake/`, `third_party/` | build helpers; pinned third-party sources (osmo-tetra 59fb603 without `crypto/`) |
+
+The plugins:
+
+| Plugin | Kind | Device or purpose | Capabilities | Status |
+|---|---|---|---|---|
+| [`hackrf`](plugins/hackrf/README.md) | radio | HackRF One | levels, cell information, band scan, spectrum, hot-plug | shipped; tested with a fake device |
+| [`soapy`](plugins/soapy/README.md) (`soapysdr`) | radio | RTL-SDR, Airspy and network radios through SoapySDR | levels, cell information, spectrum, hot-plug | shipped; tested with fake devices |
+| [`pei`](plugins/pei/README.md) | radio | a TETRA terminal over its PEI serial port | the terminal's own measurements in dBm, hot-plug | shipped; tested with a simulated terminal |
+| [`simulator`](plugins/simulator/README.md) | radio | a simulated TETRA network, decoded by the real receiver | simulated, floor-plan scene, spectrum | shipped; drives the demo and the tour |
+| [`example`](plugins/example/README.md) (`beacon`) | radio | the radio plugin tutorial's made-up beacon | simulated | example, not shipped |
+| [`tetra`](plugins/tetra/README.md) | technology | TETRA schemas, C1, reselection, cell database columns | technology rules | shipped |
+| [`probe`](plugins/probe/README.md) | feature | remote API (REST, WebSocket) and the fixed probe | feature, records feed | shipped |
+| [`beacon`](plugins/beacon/README.md) | technology | the plugin tutorial's technology for the beacon | technology rules | example, not shipped |
+
+None of the radio plugins has been measured on real hardware yet
+([docs/DEVICES.md](docs/DEVICES.md)). How to add a plugin:
+[docs/PLUGINS.md](docs/PLUGINS.md#add-a-plugin).
 
 ## What Yantra is
+
+Yantra is made by [curtat.be](https://curtat.be) as a reference on building
+new programs with Claude, Anthropic's AI assistant.
 
 Yantra is an indoor tool, for example for DAS and indoor-coverage
 projects:
@@ -60,11 +116,8 @@ A sample report of the demo project, as Yantra writes it:
 
 ## Supported radios
 
-Radios are plugins. The radio parts (the radio API, the radio plugins,
-their receiver and TETRA decoder, the test-signal generator; formerly the
-separate yantra-radios project) are part of this repository (PLG-29):
-`radio-api/`, `plugins/`, `radio-common/`, `gen/`. The shipped radio
-plugins:
+Radios are plugins (see [Architecture](#architecture)). The shipped
+radio plugins:
 
 - **Simulator**: a simulated TETRA network and devices, no hardware
   needed; it drives the demo and the tour.
@@ -95,8 +148,8 @@ library is a git submodule:
     ninja -C build
     ctest --test-dir build -j"$(nproc)"
 
-[BUILD.md](BUILD.md) has the dependencies, the build options, the radio
-plugin build (or a prebuilt yantra-radios package), the USB permissions
+[BUILD.md](BUILD.md) has the dependencies, the build options (the
+radio parts alone: `cmake --preset radio-parts`), the USB permissions
 for the radios and the plugin folders.
 
 **Windows** (10 or 11, x64): two packages of the same files, made from
@@ -110,7 +163,7 @@ the cross build on Linux ([BUILD.md](BUILD.md#windows-packages-nfr-09)):
   uninstaller (Settings > Apps); silent: `setup.exe /S`.
 
 Both hold the app, `yantra-probe`, the plugin test kit, the plugins with
-the self-contained radio plugins of yantra-radios and its radio tools
+the self-contained radio plugins and the radio tools
 (`yantra-hackrf`, `yantra-radio-host`, the test-signal generator
 `yantra-gen` with its scenarios), every DLL they need, the demo project,
 the PDF user manual and the licence texts (`SOURCE.txt` names the source).

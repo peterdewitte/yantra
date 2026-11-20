@@ -22,9 +22,49 @@ the measured points only, and the demo uses fixed scenes. Then
 specification 0.5: an About building tab, notes on the plan, a Report
 ready window, one Plan and properties button, a failing demo report that
 names its weak area, Tools > Spectrum (radio API 1.2) and the packages
-workflow. The version stays 0.2.0 until the next release. Not run for
-this state: the sanitizer trees and the Windows tests (the Windows tree
-is cross-built and packaged).
+workflow. Then specification 0.6: one repository with the radio parts
+(below). The product version is 0.3.0-dev until the next release. Not
+run for this state: the sanitizer trees and the Windows tests (the
+Windows tree is cross-built and packaged).
+
+### One repository (specification 0.6)
+
+- The radio parts, formerly the separate project yantra-radios (and a
+  submodule of this repository), are merged into it with their history:
+  a normal merge commit, nothing rewritten, their releases tagged
+  `radios-v0.1.0` .. `radios-v0.4.0` (PLG-29, RAD-141).
+- A plugin-first tree that shows the plugin architecture at the top
+  level: `radio-api/` (the radio API, `yantra/radio.h`), `plugin-api/`
+  (Yantra's plugin API, `yantra/plugin.h`, formerly the top-level
+  `include/`), `plugins/` (every plugin in its own folder: the radio
+  plugins hackrf, soapy, pei, simulator and example; Yantra's plugins
+  tetra, probe and beacon), `radio-common/` (receiver, TETRA decoder,
+  SoapySDR and TETRA glue), `gen/`, `core/`, `app/`. README.md and
+  ARCHITECTURE.md open with the diagram and the plugin table;
+  docs/PLUGINS.md tells how to add a plugin.
+- One CMake project, one ctest suite with an area label on every test
+  (`ctest -L plugin:hackrf`), one CHANGELOG. `cmake --preset radio-parts`
+  (`YANTRA_RADIO_PARTS_ONLY`) builds and tests the radio parts alone,
+  with their own install layout and release.
+- One product version, 0.3.0-dev, in the file `VERSION`: the app, every
+  shipped plugin, the tools, the manuals, the packages (the .deb writes
+  `0.3.0~dev`) and the radio-parts release carry it. The radio API keeps
+  its own version (1.2), the plugin API its own; record, scene, project
+  and recording formats are unchanged. The radio plugins' descriptors
+  and licence bundle name this repository as their source.
+- The radio boundary is checked inside the one build (PLG-30): the ctest
+  `boundary_lint` fails when `app/` or `core/` include or link a plugin
+  or `radio-common/`, or the radio parts use `app/`, `core/` or the
+  plugin API; `boundary_lint_selftest` proves it finds such violations.
+- The radio plugins' texts (descriptions, setting and sensor help, the
+  radio API's validation messages, the radio tools' output) no longer
+  show requirement IDs; `ui_lint` now checks every plugin and the radio
+  parts.
+- Some radio test names changed so every name is unique
+  (`fuzz_radio_seeds`, `fuzz_radio_record_file`, `doc_snippets_radio`,
+  `test_radio_api_header`, `test_radio_host_kit`); the conformance kit
+  runs once per radio plugin (`conformance_<plugin>`; the duplicate
+  `radio_kit_*` runs are gone).
 
 ### Added
 
@@ -214,15 +254,6 @@ is cross-built and packaged).
   unchanged. The sample report names yantra-gen 0.3.2 and was regenerated
   (DEMO-06): its floor maps no longer draw the walls and antennas
   removed above.
-- The radio parts are part of this repository (PLG-29, RAD-141): merged
-  with their history, then laid out plugin-first (`radio-api/`,
-  `plugins/`, `radio-common/`, `gen/`) and built by the same CMake
-  project as the application (one configure, one build, one ctest, tests
-  labelled by area); `-DYANTRA_RADIO_PARTS_ONLY=ON` (preset
-  `radio-parts`) builds the radio parts alone. Some radio test names
-  changed so every name is unique (`fuzz_radio_seeds`,
-  `fuzz_radio_record_file`, `doc_snippets_radio`, `test_radio_api_header`,
-  `test_radio_host_kit`).
 
 ## [0.2.0] - 2026-11-12
 

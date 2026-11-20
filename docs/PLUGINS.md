@@ -20,12 +20,66 @@ complete technology plugin, the example beacon plugin in
 - The TETRA technology plugin Yantra ships, a full-size example of the
   same interface: [plugins/TETRA.md](plugins/TETRA.md).
 - **Radio plugins** (a receiver that measures and delivers records) are a
-  different interface, the radio API of the radio parts. They are described
+  different interface, the radio API in `radio-api/`. They are described
   in [RADIO_PLUGINS.md](RADIO_PLUGINS.md)
-  and tested with that repository's radio test kit.
+  and tested with its conformance kit (`yantra-radio-host conformance`).
 
 Every code block below is copied from the compiled sources: the ctest
 `doc_snippets` fails when the guide and the code drift apart.
+
+## Add a plugin
+
+Every plugin, radio plugin or Yantra plugin, is one folder of
+`plugins/` with its own `CMakeLists.txt`, `README.md` and tests
+([ARCHITECTURE.md](../ARCHITECTURE.md#plugin-architecture) shows where
+they sit). The steps for a new plugin `myradio` in this repository:
+
+1. **Choose the kind.** A receiver that measures and delivers records is
+   a *radio plugin* (radio API, `radio-api/include/yantra/radio.h`).
+   Technology rules, a feature on the live records or an export format is
+   a *Yantra plugin* (plugin API, `plugin-api/include/yantra/plugin.h`):
+   technology, feature or exporter kind (`YANTRA_KIND_*`).
+2. **Copy the example.** `cp -r plugins/example plugins/myradio` for a
+   radio plugin (the beacon radio of [RADIO_PLUGINS.md](RADIO_PLUGINS.md),
+   built step by step there), `cp -r plugins/beacon plugins/myplugin` for
+   a Yantra plugin (the tutorial below). Rename the plugin id, name and
+   description in the descriptor; the version is the product version
+   (`YANTRA_VERSION`, file `VERSION`), the source URL `YANTRA_SOURCE_URL`.
+3. **CMake.** In the folder's `CMakeLists.txt` a radio plugin is
+   `yantra_add_radio_plugin(myradio SOURCES ... LIBS ...)`
+   (`cmake/YantraRadioPlugin.cmake`: a self-contained module, only the
+   entry point exported); link `radio-common/` libraries such as
+   `yantra::radios_common` or the SoapySDR layer if it needs them. A
+   Yantra plugin is an `add_library(... MODULE ...)` that links only
+   `yantra::plugin_api`. Add the folder to the list in
+   `plugins/CMakeLists.txt` (radio plugins under `YANTRA_BUILD_RADIOS`);
+   its tests then carry the area label `plugin:myradio`.
+4. **Capabilities.** A radio plugin states what it can do in its
+   descriptor: `YR_CAP_SCAN` (band scans), `YR_CAP_SPECTRUM` (spectra,
+   API 1.2), `YR_CAP_HOTPLUG`, `YR_CAP_SELF_CALIBRATED` (levels in dBm),
+   `YR_CAP_SIMULATED`, `YR_CAP_SCENE` (floor-plan context); the host and
+   the conformance kit hold it to them. A Yantra plugin states its kinds
+   and the plugin API version it needs.
+5. **Boundary.** Include only the API header of your kind (and, for a
+   radio plugin, `radio-common/`), never a header of `app/` or `core/`;
+   the ctest `boundary_lint` fails otherwise (PLG-30). Texts users see
+   (descriptions, setting and field help, messages) carry no requirement
+   IDs (ctest `ui_lint`).
+6. **Tests.** `yantra_add_radio_plugin` gives a radio plugin two ctests,
+   `completeness_myradio` (exported symbols, allowed libraries) and
+   `conformance_myradio`, the conformance kit (`yantra-radio-host
+   conformance --plugin <file>`, [RADIO_PLUGINS.md](RADIO_PLUGINS.md#the-conformance-kit)).
+   Put unit tests in `tests/radio/myradio/` (doctest, see the other
+   folders there); a device you do not have is tested with a fake
+   SoapySDR module or a simulator, as `hackrf`, `soapy` and `pei` are.
+   A Yantra plugin is checked with the plugin test kit
+   (`yantra-plugin-test check`, [below](#testing-with-the-plugin-test-kit))
+   against record files and a golden file.
+7. **Docs.** A `README.md` in the folder, a page in `docs/plugins/`, and a
+   row in the plugin table of the [README](../README.md#architecture).
+
+Then build and run the fast suite:
+`ninja -C build && ctest --test-dir build -L plugin:myradio`.
 
 ## What a plugin is
 

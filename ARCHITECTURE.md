@@ -5,18 +5,121 @@ SPDX-License-Identifier: GPL-3.0-or-later
 
 # Yantra architecture
 
-This page describes how the code is put together (DOC-10): the layers,
-the threads and queues, the data flow from a radio record to a stored
-point, recording or report, the folder layout and the dependency on
-the radio parts (`radio-api/`, `plugins/`, `radio-common/`, `gen/`). The topic documents in `docs/` hold the details; this page
-links them instead of repeating them. Requirement IDs refer to Yantra's
-requirements specification.
+This page describes how the code is put together (DOC-10): the plugin
+architecture and its boundary, the layers, the threads and queues, the
+data flow from a radio record to a stored point, recording or report,
+the folder layout and the build options. The topic documents in `docs/`
+hold the details; this page links them instead of repeating them.
+Requirement IDs refer to Yantra's requirements specification.
 
-## Overview
+## Plugin architecture
+
+One repository, one CMake project, one ctest suite (PLG-29). An arrow
+means "uses" (includes headers of, links):
 
 ```
-                 radio parts (formerly yantra-radios, PLG-29)
-                 radio plugins *.so: SDR processing, TETRA decoder, simulator
+  app/ --> core/ --> radio-api/  <-- plugins/ radio plugins  --> radio-common/
+                |    (radio.h)        hackrf soapy pei             gen/
+                |                     simulator example
+                |
+                +--> plugin-api/ <-- plugins/ Yantra plugins
+                     (plugin.h)       tetra probe beacon
+```
+
+- `radio-api/` is the radio API (`yantra/radio.h`, plain C ABI, its own
+  version 1.2; RAD-10): the only interface between Yantra and a radio
+  plugin. `plugin-api/` is Yantra's plugin API (`yantra/plugin.h`, its own
+  version; PLG-03) for technology, feature and exporter plugins. Neither
+  header includes the other.
+- `plugins/` holds every plugin in its own folder: the radio plugins
+  (`hackrf`, `soapy`, `pei`, `simulator`, the tutorial's `example`) and
+  Yantra's plugins (`tetra`, `probe`, the tutorial's `beacon`). The table
+  of all plugins with their devices and capabilities is in the
+  [README](README.md#architecture); [docs/PLUGINS.md](docs/PLUGINS.md#add-a-plugin)
+  tells how to add one.
+- `radio-common/` is code that only radio plugins use: the receiver (DSP,
+  carrier search, level and quality meters), the TETRA decoder (osmo-tetra
+  lower layers and the Rust protocol crate), the SoapySDR layer and the
+  TETRA plugin glue. `gen/` is the TETRA test-signal generator.
+- `core/` is the measurement core (records in, no DSP), `app/` the GUI.
+
+The radio parts (radio API, radio plugins, radio-common, gen, the radio
+tools and `tests/radio`) were a separate project until 2026-11-20; their
+history is kept (tags `radios-v0.1.0` .. `radios-v0.4.0`, CHANGELOG).
+
+### Data flow
+
+```
+ device (SDR over USB, terminal on a serial port, or the simulator)
+   |  IQ samples (never leave the plugin)
+   v
+ radio plugin: receiver and TETRA decoder from radio-common/
+   |  measurement records: level, cell identity, quality, C1, broadcast
+   |  parameters, neighbours; a spectrum of power per bin (API 1.2)
+   v
+ radio API (radio.h): push_record / push_spectrum, events, settings
+   v
+ core: RadioHost -> MeasurementPipeline -> walk test, points, recording,
+       coverage map, reports
+   v
+ app: radio windows, live values, Walk and Map tabs, report
+```
+
+What crosses the radio API (RAD-20..26) is measurement records only,
+plus device events, settings and sensors as data; no IQ samples, PDUs or
+slots reach the core or the app. In the other direction the host gives
+the plugins a context (floor, positions and the fixed demo scene of a
+bundled example floor; PLG-27, DEMO-05, `context/`), which the simulator
+uses to compute levels. The radio plugins themselves, their decoder and
+generator are described in
+[docs/RADIO_ARCHITECTURE.md](docs/RADIO_ARCHITECTURE.md) and
+[docs/RADIO_PLUGINS.md](docs/RADIO_PLUGINS.md).
+
+### The boundary rule and how it is checked (PLG-30)
+
+- `app/` and `core/` include only their own headers, `radio-api/` and
+  `plugin-api/`, and never link a plugin, `radio-common/` or `gen/`
+  target. The application compiles no source of the radio parts; it
+  loads the radio plugins at run time from the radio plugin folder.
+- The radio plugins, `radio-common/`, `gen/`, the radio tools and
+  `tests/radio` use the radio API and each other, never `app/`, `core/` or
+  `plugin-api/`. Yantra's plugins use the two APIs, never `app/`, `core/`
+  or `radio-common/`.
+- The CMake targets express it: `yantra_core` links `yantra::radio_api`
+  and `yantra::plugin_api`; a radio plugin (`yantra_add_radio_plugin`,
+  `cmake/YantraRadioPlugin.cmake`) links `yantra::radio_api` and its
+  radio-common libraries; no folder sets include paths for the whole tree.
+- The ctest `boundary_lint` (`tools/ci/lint_boundary.py`, labels `lint`,
+  `fast`) checks both directions: every `#include` of each area must
+  resolve to an allowed area, and no target may reach a target of a
+  forbidden area, directly or through other targets (the configure step
+  writes the link graph to `<build>/boundary/targets.tsv`,
+  `cmake/YantraBoundary.cmake`). `boundary_lint_selftest` runs the lint
+  on `tests/lint/boundary_fixture`, a tree with deliberate violations,
+  and fails unless it finds exactly those.
+- Builds that prove it: the radio parts build and test alone
+  (`YANTRA_RADIO_PARTS_ONLY`), and the application builds without any
+  radio part (`YANTRA_BUILD_RADIOS=OFF`, without the tests).
+
+### Build options
+
+| Build | How | What |
+|---|---|---|
+| default | `cmake --preset default` | app, core, every plugin, the radio parts, tools and the whole test suite (clang from the cross SDK) |
+| plugins off | `cmake --preset plugins-off` | without the optional plugins (probe, pei): the core, indoor and app tests still pass (PLG-01) |
+| no radio parts | `-DYANTRA_BUILD_RADIOS=OFF -DYANTRA_BUILD_TESTS=OFF` | the application, core and Yantra's plugins without any radio plugin, `radio-common/` or `gen/` (the tests load the radio plugins) |
+| radio parts only | `cmake --preset radio-parts` (`YANTRA_RADIO_PARTS_ONLY`) | radio API, radio plugins, radio-common, gen, the radio tools and `tests/radio`, without the application; its own install layout and `release` target (RAD-141) |
+| Windows cross | `cmake --preset windows` | the same tree for Windows x64, cross-compiled with the SDK's clang; tests on Windows (BUILD.md "Windows") |
+
+Other trees (scalar, gcc, asan-ubsan, tsan, fuzz) are listed in
+[BUILD.md](BUILD.md#build-trees). One product version for all of it is
+in the file `VERSION` (PLG-29); the radio API and the plugin API keep
+their own ABI versions.
+
+## Overview of the core
+
+```
+                 radio plugins *.so (plugins/, with radio-common/)
                                         |
                        radio.h C ABI: measurement records only (RAD-20..26)
                                         v
@@ -40,31 +143,6 @@ Every arrow points from the user of a layer to the layer it uses. The
 core knows no window, no TETRA and no radio hardware (PLG-01): technology
 rules come from technology plugins, radios from radio plugins, the remote
 API from a feature plugin.
-
-## The radio boundary and the radio parts
-
-- **One repository (PLG-29, RAD-141).** The radio plugins, their receiver
-  DSP, the TETRA decoder and the test-signal generator are folders of
-  this repository (`plugins/`, `radio-common/`, `gen/`; yantra-radios,
-  merged with its history; its releases are tagged
-  `radios-v0.1.0` .. `radios-v0.4.0`; radio API 1.2). The application
-  depends on the radio API, never the reverse (PLG-30).
-- **What is compiled in.** Only the radio API header (`radio.h`, CMake
-  target `yantra::radio_api`, `radio-api/`) is compiled into Yantra. The
-  radio parts are built by the same CMake project (BUILD.md "Radio
-  plugins"); their shipped plugins (hackrf, simulator, soapysdr, pei)
-  land in the radio plugin folder and are loaded at run time.
-- **What crosses it (RAD-20..26).** Measurement records only: levels,
-  cell identity, optional quality, C1, broadcast parameters and
-  neighbours, plus device events, settings and sensors. No IQ samples,
-  PDUs or slots reach Yantra; `~/yantra` has no DSP, decoder or SoapySDR
-  code. In the other direction the host gives the plugins a context
-  (floor, positions and the fixed demo scene of a bundled example floor;
-  PLG-27, DEMO-05, `context/`), which the simulator uses to compute
-  levels.
-- The radio plugins themselves, their decoder and generator are
-  described in [docs/RADIO_ARCHITECTURE.md](docs/RADIO_ARCHITECTURE.md) and
-  [docs/RADIO_PLUGINS.md](docs/RADIO_PLUGINS.md).
 
 ## Layers
 
@@ -118,8 +196,8 @@ late ones, and closes a measurement cycle per period (1 s by default,
 at least 1 Hz) with one sample per carrier. Observers get every accepted
 record and every cycle. Details:
 [docs/MEASUREMENT_PIPELINE.md](docs/MEASUREMENT_PIPELINE.md),
-[docs/CALIBRATION.md](docs/CALIBRATION.md). Record files of
-yantra-radios (RAD-65) are read by `record_file.cpp` and fed through the
+[docs/CALIBRATION.md](docs/CALIBRATION.md). Radio record files
+(RAD-65) are read by `record_file.cpp` and fed through the
 same pipeline.
 
 ### Recording (`recording/`)
@@ -301,7 +379,7 @@ memory without limit:
 | Folder | Content |
 |---|---|
 | `core/` | `yantra_core`: `include/yantra/core/<module>/` headers, `src/<module>/` sources (modules above) |
-| `include/yantra/` | public plugin API: `plugin.h` (C ABI) and `plugin.hpp` (C++ helpers) |
+| `plugin-api/` | Yantra's plugin API: `include/yantra/plugin.h` (C ABI) and `plugin.hpp` (C++ helpers) |
 | `app/` | desktop application: `model/`, `gui/`, `audio/`, `net/`, `src/main.cpp` |
 | `radio-api/` | the radio API (RAD-10): `include/yantra/radio.h`, `radio.hpp` and the conformance-kit headers, its Doxygen reference |
 | `plugins/` | every plugin in its own folder: Yantra's plugin.h plugins `tetra`, `probe`, `beacon`; the radio plugins `hackrf`, `soapy`, `pei`, `simulator` and the radio API example `example` |
@@ -313,7 +391,7 @@ memory without limit:
 | `udev/` | udev rules and the RTL-SDR blacklist of the radio plugins |
 | `data/` | logo, branding, fonts, translations, demo descriptions, desktop entry |
 | `docs/` | topic documents, file formats (`docs/formats/`), manual, quick starts, images, sample report |
-| `cmake/` | build modules: warnings, sanitizers, tests, PDFium, the radio parts (`YantraRadioParts.cmake`, plugins, osmo-tetra, Rust, SoapySDR) |
+| `cmake/` | build modules: warnings, sanitizers, tests and their area labels, the boundary (`YantraBoundary.cmake`), PDFium, the radio parts (`YantraRadioParts.cmake`, plugins, osmo-tetra, Rust, SoapySDR) |
 
 ## Build targets
 
@@ -321,7 +399,8 @@ memory without limit:
 nlohmann/json, SQLite, zstd, libharu, stb and, when found, PDFium. The app
 libraries (`yantra_app_model` -> `yantra_app_gui`, `yantra_audio`,
 `yantra_app_net`) use the core; the executable `yantra` links all of them
-with GLFW and OpenGL. Plugins link only the plugin API header (and
-CivetWeb for the probe), never the core: they talk to Yantra through
-`plugin.h` alone. The tests link what they test. BUILD.md lists the
+with GLFW and OpenGL. Yantra's plugins link only the plugin API header
+(and CivetWeb for the probe), never the core: they talk to Yantra through
+`plugin.h` alone; the radio plugins link the radio API header and their
+radio-common libraries (PLG-30, see above). The tests link what they test. BUILD.md lists the
 build trees and options.

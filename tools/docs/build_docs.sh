@@ -106,7 +106,7 @@ while IFS= read -r f; do build_page "$f"; done < <(find "$root/docs" -name '*.md
 # plugin, of the radio API and of the radio parts' common code, tools,
 # data; PLG-29), without third_party/ and Rust build output.
 if [ -f "$root/data/demo/fraunces/README.md" ]; then build_page "$root/data/demo/fraunces/README.md"; fi
-for d in radio-api plugin-api plugins radio-common gen tools udev tests/radio; do
+for d in app core radio-api plugin-api plugins radio-common gen tools udev tests/radio; do
   [ -d "$root/$d" ] || continue
   while IFS= read -r f; do build_page "$f"; done < <(find "$root/$d" -name target -prune -o -name '*.md' -print | sort)
 done

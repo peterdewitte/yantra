@@ -108,7 +108,7 @@ sanitizer trees instrument them too.
 
 | Option | Default | Meaning |
 |---|---|---|
-| `YANTRA_BUILD_RADIOS` | `ON` | `OFF`: no radio parts; the tests that need them skip. |
+| `YANTRA_BUILD_RADIOS` | `ON` | `OFF`: no radio parts: the application, core and Yantra's plugins alone (PLG-30). Needs `YANTRA_BUILD_TESTS=OFF`: the core and app tests load the radio plugins. |
 | `YANTRA_RADIO_PARTS_ONLY` | `OFF` | `ON`: the radio parts alone, without the application and its libraries (RAD-141; preset `radio-parts`), with their own install layout and `release` target. |
 | `YANTRA_RADIOS_TESTS` | `ON` | The radio parts' tests (with `YANTRA_BUILD_TESTS`). |
 | `YANTRA_RADIOS_PEI` | `ON` | `OFF`: the TETRA terminal plugin pei is not built (RAD-80). |
