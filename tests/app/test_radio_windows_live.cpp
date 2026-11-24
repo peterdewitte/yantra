@@ -109,9 +109,27 @@ double number(const Value& v) {
     return NAN;
 }
 
-/// Connects the chosen radio and waits for its settings.
-void connect(RadioWindows& rw) {
+/// The device key names the port: its last path part ("pei0" of a
+/// pseudo-terminal link, the pipe's name of \\.\pipe\NAME).
+bool names_port(const std::string& key, const std::string& port) {
+    const std::string name = port.substr(port.find_last_of("/\\") + 1);
+    return !name.empty() && key.size() >= name.size() && key.compare(key.size() - name.size(), name.size(), name) == 0;
+}
+
+/// Finds the radios and connects the chosen one, or the device on `port`
+/// (a machine can have serial ports of its own, listed before the
+/// simulated terminal), and waits for its settings.
+void connect(RadioWindows& rw, const std::string& port = {}) {
     REQUIRE(rw.find_radios().ok);
+    if (!port.empty()) {
+        bool found = false;
+        for (const RadioRow& r : rw.list_view().radios)
+            if (names_port(r.device_key, port)) {
+                REQUIRE(rw.choose(r.index).ok);
+                found = true;
+            }
+        REQUIRE_MESSAGE(found, port);
+    }
     const Result c = rw.connect();
     REQUIRE_MESSAGE(c.ok, c.message);
     REQUIRE(rw.wait_idle(kIdleMs));
@@ -139,8 +157,8 @@ struct FakeSoapy {
 };
 
 /// Settings, debug and info of a radio with no hardware (the fakes, PEI).
-void generic_windows(RadioWindows& rw, LiveSurvey& live) {
-    connect(rw);
+void generic_windows(RadioWindows& rw, LiveSurvey& live, const std::string& port = {}) {
+    connect(rw, port);
     const SettingsView s = rw.settings_view();
     CHECK(s.header.connected);
     std::size_t rows = 0;
@@ -174,7 +192,7 @@ void generic_windows(RadioWindows& rw, LiveSurvey& live) {
     if (!measured) {  // what the debug window shows, for a failure on another machine
         const DebugView d = rw.debug_view();
         MESSAGE("state " << d.state << ", " << d.records.size() << " records, stats "
-                         << (d.stats_valid ? "valid" : "not read"));
+                         << std::string(d.stats_valid ? "valid" : "not read"));
         for (const std::string& e : d.events) MESSAGE("event: " << e);
         for (const auto& l : d.log) MESSAGE("log " << l.level << ": " << l.message);
     }
@@ -717,5 +735,5 @@ TEST_CASE("PLG-16: the PEI plugin's windows against the simulated terminal") {
     }
     LiveSurvey live(r.project, r.paths);
     RadioWindows rw(live);
-    generic_windows(rw, live);
+    generic_windows(rw, live, ports);
 }

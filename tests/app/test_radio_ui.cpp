@@ -124,8 +124,17 @@ struct App {
 
 fs::path test_plugin(const char* name) { return fs::path(YANTRA_TEST_RADIO_TEST_PLUGIN_DIR) / name; }
 
-/// The Radio menu, the Radios window, then each radio window by clicking.
-void walk_windows(App& a) {
+/// The device key names the port: its last path part ("pei0" of a
+/// pseudo-terminal link, the pipe's name of \\.\pipe\NAME).
+bool names_port(const std::string& key, const std::string& port) {
+    const std::string name = port.substr(port.find_last_of("/\\") + 1);
+    return !name.empty() && key.size() >= name.size() && key.compare(key.size() - name.size(), name.size(), name) == 0;
+}
+
+/// The Radio menu, the Radios window, then each radio window by clicking;
+/// `port` chooses the device on that port (a machine can have serial ports of its
+/// own, listed before the simulated terminal), else the first is taken.
+void walk_windows(App& a, const std::string& port = {}) {
     REQUIRE(a.state->open_project(a.dir / "demo.yantra").ok);
     REQUIRE(a.ui.frames(3));
     REQUIRE(a.ui.has("menu.radio"));
@@ -134,6 +143,23 @@ void walk_windows(App& a) {
     REQUIRE(a.ui.wait_window("win.radio.list"));
     REQUIRE(a.ui.click("radio.list.find"));
     REQUIRE_MESSAGE(a.shows("radio.row.0"), a.ui.dump());
+    std::size_t chosen = a.rw().list_view().radios.front().index;
+    if (!port.empty()) {
+        bool found = false;
+        for (const RadioRow& r : a.rw().list_view().radios)
+            if (names_port(r.device_key, port)) {
+                chosen = r.index;
+                found = true;
+            }
+        REQUIRE_MESSAGE(found, port);
+        const std::string row = "radio.row." + std::to_string(chosen);
+        REQUIRE(a.ui.click(row.c_str()));
+        REQUIRE(a.until([&] {
+            for (const RadioRow& r : a.rw().list_view().radios)
+                if (r.index == chosen) return r.chosen;
+            return false;
+        }));
+    }
     REQUIRE(a.ui.click("radio.list.connect"));
     REQUIRE(a.until([&] { return a.state->live()->connected(); }));
     CHECK(a.until([&] { return !a.ui.find("radio.list.disconnect")->disabled; }));
@@ -143,10 +169,12 @@ void walk_windows(App& a) {
         REQUIRE(a.ui.click("menu.radio"));
         REQUIRE(a.until([&] { return a.ui.has(plugin); }));
         REQUIRE(a.ui.click(plugin));
-        REQUIRE(a.until([&] { return a.ui.has("radio.d.0"); }));
-        REQUIRE(a.ui.click("radio.d.0"));
-        REQUIRE(a.until([&] { return a.ui.has("radio.d.0.info"); }));
-        REQUIRE(a.ui.click("radio.d.0.info"));
+        const std::string device = "radio.d." + std::to_string(chosen);
+        const std::string info = device + ".info";
+        REQUIRE(a.until([&] { return a.ui.has(device.c_str()); }));
+        REQUIRE(a.ui.click(device.c_str()));
+        REQUIRE(a.until([&] { return a.ui.has(info.c_str()); }));
+        REQUIRE(a.ui.click(info.c_str()));
         REQUIRE(a.ui.wait_window("win.radio.info"));
         a.rw().close(RadioWindow::Info);
         REQUIRE(a.ui.wait_window_closed("win.radio.info"));
@@ -447,5 +475,5 @@ TEST_CASE("PLG-16 in the app: the PEI plugin's windows against the simulated ter
         MESSAGE("not under yantra-pei-sim (ctest test_app_live_pei runs it): skipped");
         return;
     }
-    walk_windows(a);
+    walk_windows(a, ports);
 }
