@@ -14,7 +14,7 @@ listed here, and their history before the merge, with how the radio
 API is versioned (RAD-11), in the section
 [Radio parts before the merge (yantra-radios 0.1.0-0.4.0)](#radio-parts-before-the-merge-yantra-radios-010-040).
 
-## [Unreleased]
+## [0.3.0] - 2026-11-24
 
 A simpler indoor workflow (specification 0.4 and 0.4.1): the project
 window has a Walk and a Map tab, the coverage map is interpolated from
@@ -23,9 +23,9 @@ specification 0.5: an About building tab, notes on the plan, a Report
 ready window, one Plan and properties button, a failing demo report that
 names its weak area, Tools > Spectrum (radio API 1.2) and the packages
 workflow. Then specification 0.6: one repository with the radio parts
-(below). The product version is 0.3.0-dev until the next release. Not
-run for this state: the sanitizer trees and the Windows tests (the
-Windows tree is cross-built and packaged).
+(below) and one product version, 0.3.0, for the application, every
+shipped plugin, the tools, the manuals, the packages and the radio-parts
+release. The radio API is 1.2.
 
 ### One repository (specification 0.6)
 
@@ -46,9 +46,10 @@ Windows tree is cross-built and packaged).
   (`ctest -L plugin:hackrf`), one CHANGELOG. `cmake --preset radio-parts`
   (`YANTRA_RADIO_PARTS_ONLY`) builds and tests the radio parts alone,
   with their own install layout and release.
-- One product version, 0.3.0-dev, in the file `VERSION`: the app, every
-  shipped plugin, the tools, the manuals, the packages (the .deb writes
-  `0.3.0~dev`) and the radio-parts release carry it. The radio API keeps
+- One product version in the file `VERSION` (0.3.0): the app, every
+  shipped plugin, the tools, the manuals, the packages and the
+  radio-parts release carry it; a development state has a suffix
+  (`0.3.0-dev`, which the .deb writes `0.3.0~dev`). The radio API keeps
   its own version (1.2), the plugin API its own; record, scene, project
   and recording formats are unchanged. The radio plugins' descriptors
   and licence bundle name this repository as their source.

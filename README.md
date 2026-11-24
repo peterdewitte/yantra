@@ -252,10 +252,12 @@ https://curtat.be. Maintainer: Curtat BV <info@curtat.be>.
 - 2026-11-09: release 0.1.0 (specification v0.2).
 - 2026-11-12: release 0.2.0 (specification v0.3): Windows x64, clang,
   the PDF user manual.
-- 2026-11-17: specification v0.4, not yet released: a simpler indoor
-  workflow (Walk and Map tabs, the IDW coverage map, fixed demo scenes;
-  walls, antennas and the ray tracer removed).
+- 2026-11-17: specification v0.4: a simpler indoor workflow (Walk and
+  Map tabs, the IDW coverage map, fixed demo scenes; walls, antennas and
+  the ray tracer removed); specification v0.5 on 2026-11-18.
 - 2026-11-20: yantra-radios merged into this repository with its
   history (its releases tagged radios-v0.1.0 .. radios-v0.4.0;
   specification v0.6, PLG-29), then one plugin-first tree and one build
   (`radio-api/`, `plugins/`, `radio-common/`, `gen/`).
+- 2026-11-24: release 0.3.0 (specifications v0.4-v0.6): one version for
+  the application, the plugins and the radio parts; radio API 1.2.
