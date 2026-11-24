@@ -14,6 +14,25 @@ listed here, and their history before the merge, with how the radio
 API is versioned (RAD-11), in the section
 [Radio parts before the merge (yantra-radios 0.1.0-0.4.0)](#radio-parts-before-the-merge-yantra-radios-010-040).
 
+## [0.3.1] - 2026-11-24
+
+CI on GitHub and GitHub releases; no functional change.
+
+- CI on GitHub's hosted runners: on every push the Linux tree (in an
+  Ubuntu 26.04 container, clang from the cross SDK) with its functional
+  tests, the radio plugins' completeness checks and conformance kit, the
+  Windows tree cross-built from it with the setup .exe, and the Windows
+  tree's functional tests on a Windows runner. Slow, timing and
+  sanitizer runs stay on the build server or are started by hand.
+- A version tag publishes a GitHub release with the .deb, the Windows
+  setup .exe, the PDF user manual and their SHA-256 sums; the notes are
+  this file's section of the version.
+- Fixes found by the new CI: `cargo test` runs the doctests with the
+  SDK's rustdoc; the boundary lint no longer takes a folder of a library
+  path for a target; the PDF manual builds when SOURCE_DATE_EPOCH is
+  empty; the plugin API reference in the packages no longer names the
+  build machine's folders.
+
 ## [0.3.0] - 2026-11-24
 
 A simpler indoor workflow (specification 0.4 and 0.4.1): the project
