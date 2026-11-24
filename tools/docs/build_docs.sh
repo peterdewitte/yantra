@@ -137,9 +137,14 @@ if [ $pdf = 1 ]; then
   }
   # The manual: one PDF with title page, contents, bookmarks, index and
   # its DOC-20 checks (DOC-02a).
-  SOURCE_DATE_EPOCH=$manual_epoch python3 -B "$here/build_manual.py" --source "$root" --out "$out/.manual-pdf" \
+  # Without the caller's SOURCE_DATE_EPOCH the variable is unset, not
+  # empty: fontTools (WeasyPrint's font subsetting) fails on an empty one.
+  manual_env=(env -u SOURCE_DATE_EPOCH)
+  [ -n "$manual_epoch" ] && manual_env=(env "SOURCE_DATE_EPOCH=$manual_epoch")
+  "${manual_env[@]}" python3 -B "$here/build_manual.py" --source "$root" --out "$out/.manual-pdf" \
       --version "$version" >>"$log" 2>&1 \
-    || { echo "build_docs: the PDF manual failed its build or checks:" >&2; grep '^build_manual' "$log" >&2; exit 1; }
+    || { echo "build_docs: the PDF manual failed its build or checks:" >&2
+         grep '^build_manual' "$log" >&2 || tail -n 20 "$log" >&2; exit 1; }
   mv "$out/.manual-pdf/yantra-manual-$version.pdf" "$out/docs/manual/"
   rm -rf "$out/.manual-pdf"
   pdfs=$((pdfs + 1))

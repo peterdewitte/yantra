@@ -75,6 +75,8 @@ def version_of(source):
 def build_date(source):
     epoch = os.environ.get("SOURCE_DATE_EPOCH")
     if not epoch:
+        # An empty variable counts as unset; fontTools fails on it.
+        os.environ.pop("SOURCE_DATE_EPOCH", None)
         try:
             epoch = subprocess.run(["git", "-C", source, "log", "-1", "--format=%ct"], capture_output=True,
                                    text=True, check=True).stdout.strip()
