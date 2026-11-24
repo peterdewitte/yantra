@@ -66,6 +66,11 @@ jobs:
           find /host-rm -mindepth 2 -maxdepth 2 -exec rm -rf {} + || true
           apt-get update
           apt-get install -y --no-install-recommends git ca-certificates
+          # The workspace belongs to the runner's user, the container runs
+          # as root: without this git refuses the checkout ("dubious
+          # ownership") after actions/checkout, and reuse lint, the
+          # manual's build date and the release tools lose it.
+          git config --system --add safe.directory '*'
           df -h "$GITHUB_WORKSPACE"
           nproc
       - uses: actions/checkout@v4
@@ -181,6 +186,10 @@ jobs:
     runs-on: windows-2022
     timeout-minutes: 120
     steps:
+      # The files as committed (LF): the tests compare text files byte for
+      # byte; the Windows runner's git converts to CRLF by default.
+      - name: No line-ending conversion
+        run: git config --global core.autocrlf false
       - uses: actions/checkout@v4
         with:
           submodules: recursive
