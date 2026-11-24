@@ -14,7 +14,7 @@ listed here, and their history before the merge, with how the radio
 API is versioned (RAD-11), in the section
 [Radio parts before the merge (yantra-radios 0.1.0-0.4.0)](#radio-parts-before-the-merge-yantra-radios-010-040).
 
-## [0.3.1] - 2026-11-24
+## [0.3.1] - 2026-11-25
 
 CI on GitHub and GitHub releases; no functional change.
 
@@ -31,7 +31,8 @@ CI on GitHub and GitHub releases; no functional change.
   SDK's rustdoc; the boundary lint no longer takes a folder of a library
   path for a target; the PDF manual builds when SOURCE_DATE_EPOCH is
   empty; the plugin API reference in the packages no longer names the
-  build machine's folders.
+  build machine's folders; the PEI tests choose the simulated terminal
+  on a machine with serial ports of its own.
 
 ## [0.3.0] - 2026-11-24
 

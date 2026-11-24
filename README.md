@@ -261,5 +261,5 @@ https://curtat.be. Maintainer: Curtat BV <info@curtat.be>.
   (`radio-api/`, `plugins/`, `radio-common/`, `gen/`).
 - 2026-11-24: release 0.3.0 (specifications v0.4-v0.6): one version for
   the application, the plugins and the radio parts; radio API 1.2.
-- 2026-11-24: release 0.3.1: CI on GitHub's hosted runners and GitHub
+- 2026-11-25: release 0.3.1: CI on GitHub's hosted runners and GitHub
   releases (.deb, Windows setup .exe, PDF manual); no functional change.
