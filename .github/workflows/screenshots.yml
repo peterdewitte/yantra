@@ -9,19 +9,13 @@
 # pixels, a new or a missing one fails the job; expected changes are
 # accepted by committing the new pictures, also published as an artifact).
 # The app renders under Xvfb with Mesa software OpenGL (TST-04).
+# By hand only (workflow_dispatch): the set is regenerated and reviewed on
+# the build server (tools/screenshots); on a hosted runner it would cost
+# a full build per pull request.
 
 name: screenshots
 
 on:
-  push:
-    branches: ["release/**"]
-  pull_request:
-    paths:
-      - "app/**"
-      - "data/i18n/**"
-      - "data/demo/**"
-      - "tools/screenshots/**"
-      - "docs/img/**"
   workflow_dispatch:
 
 concurrency:

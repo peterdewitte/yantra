@@ -339,39 +339,34 @@ installs the kit, the plugin headers and the out-of-tree plugin template
 
 ## CI
 
-`.github/workflows/`: `ci.yml` (every push: lint, `reuse lint` and the
-workflow files parsed with PyYAML; the Linux x86-64 build with clang from
-the cross SDK (cached by its lock files, with the radio plugins' bundled
-libraries) and warnings as errors, fast tests, sample report, timing tests
-retried once; a second job with gcc (`ci-gcc`); the docs job builds `ninja
-docs` and keeps the site as an artifact, DOC-20), `nightly.yml` (default,
-scalar, plugins-off, asan and tsan trees with clang from the SDK, the gcc
-tree, and arm64 with gcc (the SDK is x86-64), with all tests including slow
-and opt-in), `screenshots.yml` (the screenshot set as an artifact, SCR-04),
-`windows.yml` (native MSYS2 UCRT64 with gcc, the second Windows check;
-written but not run), `sens-quick.yml` (the radio parts' sensitivity
-sweep, on demand), the radio plugins' completeness checks and
-conformance kit in the Linux job and again in a bare container
-(`completeness-clean`, RAD-133), the radio parts alone (`radio-parts`,
-RAD-141, `tools/ci/run_linux.sh`), and the Windows jobs of `ci.yml` in the reusable
-`windows-cross.yml`: `windows-cross` (the Linux tree for the build-time
-data, the Windows tree with clang from the SDK and Yantra's MSYS2 lock,
-warnings as errors, the `build_host` tests, `ninja package-windows`; the
-packages and the tree as artifacts) and `windows-x64-tests` on a Windows
-runner (the tree's ctest natively, with the package tests). The runner's
-build tools and the cross SDK (made from the lock files, cached by them)
-are one composite action, `.github/actions/linux-sdk`.
+`.github/workflows/` (GitHub's hosted runners; a private repository's
+runner has 2 CPUs, so only the functional tests run there, never the
+slow, timing or bench tests or the sanitizer trees): `ci.yml` (every push
+to a branch and every pull request: lint, `reuse lint`, the workflow files
+parsed with PyYAML, the vendored sources; `build.yml`; the radio plugins'
+completeness checks and conformance kit again in a bare container,
+`completeness-clean`, RAD-133; by hand only: the gcc tree `ci-gcc`, the
+radio parts alone `radio-parts`, RAD-141, and the docs site, DOC-20).
+`build.yml` (reusable) builds in an `ubuntu:26.04` container, with clang
+from the cross SDK (made from its lock files and cached by them, the
+composite action `.github/actions/linux-sdk`), the Linux tree (`ci`,
+warnings as errors) and runs `ctest -LE 'slow|timing'`, the completeness
+checks and the conformance kit, then the Windows tree (`ci-windows`) from
+it, `ninja package-windows` and the `build_host` tests; a second job runs
+the Windows tree's `ctest -LE 'slow|timing'` natively on a Windows runner
+(with the package tests). `nightly.yml` (by hand only: default, scalar,
+plugins-off, asan and tsan trees, gcc and arm64 with all tests),
+`screenshots.yml` (by hand: the screenshot set, SCR-04), `windows.yml` (by
+hand: native MSYS2 UCRT64 with gcc), `sens-quick.yml` (by hand: the
+sensitivity sweep).
 
-`packages.yml` (TST-64; on a tag `v*`, by hand, and on pull requests that
-touch `packaging/`, `tools/windows/`, the presets, the radio parts or
-these workflows): the Linux x86-64 tree with clang from the SDK, its fast
-and timing tests, `ninja deb` and the `package_deb` test (artifact
-`linux-x86_64-packages`: the .deb and the PDF manual), and
-`windows-cross.yml` (artifact `windows-x86_64-packages`: the setup .exe,
-the portable zip, SHA256SUMS; the Windows tests on a Windows runner). On a
-tag that names the project's version it publishes a GitHub release with
-these files, SHA256SUMS over all of them and the CHANGELOG section of that
-version as notes. The same packages locally:
+`packages.yml` (TST-64; on a tag `v*` and by hand): `build.yml` with the
+packages, i.e. also `ninja deb` (with the PDF manual) and the `package_deb`
+test. On a tag that names the project's version it publishes a GitHub
+release with the .deb, the setup .exe and the PDF manual, SHA256SUMS over
+them and the CHANGELOG section of that version as notes
+(`tools/ci/release_notes.py`); the portable zip stays a workflow artifact.
+The same packages locally:
 
     cmake --preset default && ninja -C build && ctest --test-dir build -LE 'slow|timing'
     ninja -C build deb                          # build/package/yantra_<version>-1_amd64.deb
@@ -382,8 +377,7 @@ version as notes. The same packages locally:
 (`cmake -B <dir>` with a preset puts a tree elsewhere; a Windows tree
 whose Linux tree is not `build` names it with
 `-DYANTRA_HOST_BUILD_DIR=<dir>`.) The workflows are YAML-linted locally
-(`tools/ci/lint.sh`, ctest `repo_lint`); they have
-never run (no remote).
+(`tools/ci/lint.sh`, ctest `repo_lint`).
 
 ## Windows (OA-02, HW-06)
 

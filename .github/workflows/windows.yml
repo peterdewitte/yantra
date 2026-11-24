@@ -3,16 +3,15 @@
 #
 # Windows x64 build with MSYS2 UCRT64 and its gcc (OA-02, TST-02): the
 # native second Windows check (the cross build with clang from the SDK, its
-# packages and its tests on a Windows runner are in windows-cross.yml,
-# called by ci.yml and packages.yml). Nightly (TST-02, TST-03) and when started by hand; it
-# has never run (no remote).
+# packages and its tests on a Windows runner are in build.yml,
+# called by ci.yml and packages.yml). By hand only (workflow_dispatch), no
+# schedule: a second full native build per night costs too many Actions
+# minutes (Windows minutes count double) for a private repository.
 # Adapted from yantra-v2 68ea20a: .github/workflows/windows.yml.
 
 name: windows
 
 on:
-  schedule:
-    - cron: "30 2 * * *"
   workflow_dispatch:
 
 permissions:

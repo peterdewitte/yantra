@@ -159,10 +159,12 @@ tree (PLG-01).
 
 ### CI
 
-GitHub Actions (`.github/workflows/`, BUILD.md "CI") runs the lint and a
-Linux build with warnings as errors and the fast tests on every push and
-pull request, and all trees with all tests nightly. The Windows workflow
-is written but not run (DEFERRED (Windows)).
+GitHub Actions (`.github/workflows/`, BUILD.md "CI") runs the lint, the
+Linux and Windows builds with warnings as errors and their functional
+tests (`-LE 'slow|timing'`) on every push and pull request, and on a
+version tag the packages and the GitHub release. The slow and timing
+tests, the other trees and the sanitizers run on the build server (or
+`nightly.yml`, by hand).
 
 ### Documentation
 

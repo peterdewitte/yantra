@@ -1,32 +1,31 @@
 # SPDX-FileCopyrightText: 2026 The Yantra contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# CI on every push and pull request (TST-02, OA-02, RAD-134): lint (shell,
-# YAML and Python syntax, FFI widths, cargo-deny, the workflow files parsed
-# with PyYAML, reuse lint, the vendored sources against their release
-# archives), the Linux x86-64 build with clang from the cross SDK in tools/sdk
-# (RAD-139; cached by its lock files) and a second job with the
-# system's gcc, both with warnings as errors, then the fast tests (ctest
-# -LE slow, timeout 600 s) with the timing-sensitive tests retried once.
-# Windows x64 (OA-02, NFR-09): windows-cross.yml builds the Windows tree
-# on Linux with the SDK's clang and Yantra's MSYS2 lock, runs the
-# build-machine checks and makes the zip and setup .exe, then runs the
-# tree's ctest natively on a Windows runner, with the packages' tests. The
-# SDK steps are the composite action .github/actions/linux-sdk. The native
-# MSYS2 UCRT64 check is windows.yml; the packages workflow packages.yml. Written and YAML-linted, never
-# run (no remote).
-# One build (PLG-29): the radio parts (radio-api/, plugins/, radio-common/,
-# gen/; osmo-tetra submodule checked out with the repository) are built
-# and tested with the application. The radio plugins' completeness checks
-# (RAD-133) run in the Linux job and again in a bare container
-# (completeness-clean); the radio-parts job builds the radio parts alone
-# (RAD-141). Locally: tools/ci/run_linux.sh (radio parts alone).
+# CI on every push to a branch and on pull requests (TST-02, OA-02,
+# RAD-134, NFR-09), on GitHub's hosted runners: lint (shell, YAML and
+# Python syntax, FFI widths, cargo-deny, the workflow files parsed with
+# PyYAML, reuse lint, the vendored sources against their release
+# archives); build.yml: in an ubuntu:26.04 container the Linux x86-64 tree
+# with clang from the cross SDK in tools/sdk (RAD-139; cached by its lock
+# files), warnings as errors, its functional tests (ctest -LE
+# "slow|timing"), the radio plugins' completeness checks and conformance
+# kit, then the Windows x64 tree cross-compiled from it with the zip and
+# setup .exe and the build-machine checks, and the Windows tree's
+# functional tests natively on a Windows runner; completeness-clean
+# repeats the radio plugins' checks in a bare container (RAD-133).
+# No slow, timing or bench tests and no sanitizer trees on hosted runners
+# (2 CPUs, Actions minutes of a private repository): nightly.yml, by hand,
+# and the build server run them. The gcc tree, the radio parts alone
+# (RAD-141) and the documentation site (DOC-20) are jobs here that run only
+# when the workflow is started by hand (workflow_dispatch). Tags are built
+# by packages.yml, not here.
 # Merged from yantra-radios fb194f5 and a35ad3d: .github/workflows/ci.yml.
 
 name: ci
 
 on:
   push:
+    branches: ["**"]
   pull_request:
   workflow_dispatch:
 
@@ -36,9 +35,6 @@ concurrency:
 
 permissions:
   contents: read
-
-env:
-  SDK_KEY: yantra-sdk-${{ hashFiles('tools/sdk/*.lock', 'tools/sdk/yantra_sdk.py') }}
 
 jobs:
   lint:
@@ -69,69 +65,9 @@ jobs:
       - name: Vendored sources match their release archives (RAD-136)
         run: python3 tools/deps/verify_sources.py build/deps-cache
 
-  linux-x86-64:
-    runs-on: ubuntu-24.04
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: Build tools and the cross SDK (OA-02, RAD-139)
-        uses: ./.github/actions/linux-sdk
-      - name: Configure (warnings are errors)
-        run: cmake --preset ci
-      - name: Build
-        run: cmake --build --preset ci -j "$(nproc)"
-      - name: Fast tests
-        run: ctest --test-dir build -LE 'slow|timing' --timeout 600 --output-on-failure -j "$(nproc)"
-      - name: Documentation checks and examples (DOC-17, DOC-21, SCR-07)
-        # Links, images, quoted code, the plugin API reference without a
-        # Doxygen warning, the marked examples of the file-format and API
-        # docs read back by their readers (doc_examples) and the API's
-        # shell examples run against yantra-probe --demo (doc_api_examples).
-        run: ctest --test-dir build -L docs --timeout 600 --output-on-failure
-      - name: Plugin API reference (DOC-17)
-        run: cmake --build build --target docs-plugin-api
-      - name: Keep the plugin API reference
-        uses: actions/upload-artifact@v4
-        with:
-          name: plugin-api-reference
-          path: build/docs/plugin-api/html
-      - name: Sample report (DEMO-06)
-        # The Fraunces demo's report made again and compared with the
-        # committed docs/samples within the set tolerance; an intended
-        # change commits the new sample (ninja -C build sample_report).
-        run: ctest --test-dir build -R '^sample_report_compare$' --timeout 900 --output-on-failure
-      - name: Keep the regenerated sample report when it differs
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: sample-report
-          path: build/tests/report/scratch/sample_report/*_report.*
-          if-no-files-found: ignore
-      - name: Timing-sensitive tests (retried once)
-        run: ctest --test-dir build -L timing -LE slow --timeout 600 --output-on-failure --repeat until-pass:2
-      - name: Completeness checks of the radio plugins (RAD-133)
-        run: python3 tools/ci/check_completeness.py build/lib/yantra/plugins/radios
-      - name: Conformance kit on every radio plugin (RAD-91)
-        run: |
-          for p in build/lib/yantra/plugins/radios/*.so; do
-            build/bin/yantra-radio-host conformance --plugin "$p" \
-              --report "build/conformance/$(basename "$p" .so).json"
-          done
-      # The radio plugins and the test host (with the kit) for the clean run.
-      - uses: actions/upload-artifact@v4
-        with:
-          name: linux-x86-64-radio-plugins
-          path: |
-            build/lib/yantra/plugins/radios/
-            build/tests/radio-plugins/
-            build/bin/yantra-radio-host
-          if-no-files-found: error
-      - uses: actions/upload-artifact@v4
-        with:
-          name: linux-x86-64-conformance
-          path: build/conformance/
-          if-no-files-found: ignore
+  # The Linux and Windows trees and their functional tests (build.yml).
+  build:
+    uses: ./.github/workflows/build.yml
 
   # RAD-133: the radio plugins in a clean environment, without SoapySDR or
   # vendor packages: a bare container that only gets the built plugins,
@@ -140,9 +76,9 @@ jobs:
   # plugin where no build dependency is installed. Locally the same script
   # runs in a bubblewrap sandbox (ctest clean_env_conformance).
   completeness-clean:
-    needs: linux-x86-64
+    needs: build
     runs-on: ubuntu-24.04
-    container: ubuntu:24.04
+    container: ubuntu:26.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
@@ -169,6 +105,8 @@ jobs:
   # RAD-141: the radio parts alone (radio API, radio plugins, generator,
   # tools and their tests), without the application or its libraries.
   radio-parts:
+    # By hand only (Actions minutes); the build job builds the radio parts.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -180,7 +118,8 @@ jobs:
         run: tools/ci/run_linux.sh build-radios
 
   linux-x86-64-gcc:
-    # OA-02: gcc as the second Linux tree.
+    # OA-02: gcc as the second Linux tree; by hand only (Actions minutes).
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -199,20 +138,13 @@ jobs:
         run: cmake --build --preset ci-gcc -j "$(nproc)"
       - name: Fast tests
         run: ctest --test-dir build-gcc -LE 'slow|timing' --timeout 600 --output-on-failure -j "$(nproc)"
-      - name: Timing-sensitive tests (retried once)
-        run: ctest --test-dir build-gcc -L timing -LE slow --timeout 600 --output-on-failure --repeat until-pass:2
-
-  # Windows x64 (OA-02, TST-02, NFR-09): the cross build on Linux, its
-  # packages and its tests on a Windows runner (windows-cross.yml, also
-  # used by packages.yml).
-  windows:
-    uses: ./.github/workflows/windows-cross.yml
 
   docs:
-    # DOC-20: the documentation built from Markdown to HTML and PDF
+    # By hand only (Actions minutes). DOC-20: the documentation built from Markdown to HTML and PDF
     # (pandoc, WeasyPrint), every relative link and picture checked
     # offline (external links are listed, never fetched), with the plugin
     # API reference (DOC-17); the site is kept as an artifact.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

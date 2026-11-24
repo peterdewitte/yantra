@@ -1,40 +1,24 @@
 # SPDX-FileCopyrightText: 2026 The Yantra contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# Packages workflow (TST-64, NFR-09, OA-02): everything built with clang
-# from the cross SDK in tools/sdk (RAD-139; made from the
-# lock files and cached, .github/actions/linux-sdk) for Linux x86-64 and
-# Windows x64 (cross-compiled on Linux, windows-cross.yml, the same jobs as
-# ci.yml), the fast tests (Linux on the runner, Windows natively on a
-# Windows runner with the cross-built tree), and the packages as workflow
-# artifacts: the .deb (`ninja deb`, packaging/deb) with the PDF manual, and
-# the NSIS setup .exe with the portable zip (`ninja package-windows`,
-# packaging/windows). On a version tag v<version> (matching the product
-# version in the file VERSION, PLG-29) they become the assets of a GitHub release with SHA256SUMS and
-# the notes of that CHANGELOG.md section. Runs on a tag, by hand, and on
-# pull requests that touch the packaging. Written and YAML-linted, never
-# run (no remote).
+# Packages workflow (TST-64, NFR-09, OA-02): build.yml with packages
+# (in an ubuntu:26.04 container, clang from the cross SDK in tools/sdk,
+# RAD-139, cached by its lock files): the Linux x86-64 tree and its
+# functional tests, the .deb (`ninja deb`, packaging/deb) with the PDF
+# manual and its package test, the Windows x64 tree cross-compiled from it
+# with the NSIS setup .exe and the portable zip (`ninja package-windows`,
+# packaging/windows), and the Windows tree's functional tests natively on a
+# Windows runner. On a version tag v<version> (matching the product
+# version in the file VERSION, PLG-29) the .deb, the setup .exe and the
+# PDF manual become the assets of a GitHub release with SHA256SUMS and the
+# notes of that CHANGELOG.md section (tools/ci/release_notes.py). Runs on
+# a tag and by hand (the zip stays a workflow artifact).
 
 name: packages
 
 on:
   push:
     tags: ["v*"]
-  pull_request:
-    paths:
-      - "packaging/**"
-      - "tools/windows/**"
-      - "CMakePresets.json"
-      - "radio-api/**"
-      - "radio-common/**"
-      - "plugins/**"
-      - "gen/**"
-      - "tools/deps/**"
-      - "tools/sdk/**"
-      - "third_party/**"
-      - ".github/actions/linux-sdk/**"
-      - ".github/workflows/packages.yml"
-      - ".github/workflows/windows-cross.yml"
   workflow_dispatch:
 
 concurrency:
@@ -44,63 +28,22 @@ concurrency:
 permissions:
   contents: read
 
-env:
-  SDK_KEY: yantra-sdk-${{ hashFiles('tools/sdk/*.lock', 'tools/sdk/yantra_sdk.py') }}
-
 jobs:
-  linux-x86-64:
-    runs-on: ubuntu-24.04
-    env:
-      # A release needs the TST-52 exceptions list empty.
-      YANTRA_RELEASE_CHECK: ${{ startsWith(github.ref, 'refs/tags/v') && '1' || '0' }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: The tag names the project's version
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: |
-          version=$(head -n 1 VERSION | tr -d '[:space:]')
-          test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME, project version $version"; exit 1; }
-      - name: Build tools and the cross SDK (OA-02, RAD-139)
-        uses: ./.github/actions/linux-sdk
-        with:
-          packages: pandoc weasyprint dpkg-dev
-      - name: Configure (warnings are errors)
-        run: cmake --preset ci
-      - name: Build
-        run: cmake --build --preset ci -j "$(nproc)"
-      - name: Fast tests
-        run: ctest --test-dir build -LE 'slow|timing' --timeout 600 --output-on-failure -j "$(nproc)"
-      - name: Timing-sensitive tests (retried once)
-        run: ctest --test-dir build -L timing -LE slow --timeout 600 --output-on-failure --repeat until-pass:2
-      - name: Linux package (.deb, NFR-09; it builds the docs with the PDF manual, DOC-02a)
-        run: cmake --build build --target deb
-      - name: Package test (contents, install into a scratch root, the packaged programs)
-        run: ctest --test-dir build -R '^package_deb$' --timeout 900 --output-on-failure
-      - uses: actions/upload-artifact@v4
-        with:
-          name: linux-x86_64-packages
-          path: |
-            build/package/*.deb
-            build/docs/site/docs/manual/yantra-manual-*.pdf
-          if-no-files-found: error
-
-  # The Windows tree, its zip and setup .exe (artifact
-  # windows-x86_64-packages) and its tests on a Windows runner.
-  windows:
-    uses: ./.github/workflows/windows-cross.yml
+  # The trees, their functional tests and the packages (artifacts
+  # linux-x86_64-packages and windows-x86_64-packages).
+  build:
+    uses: ./.github/workflows/build.yml
+    with:
+      packages: true
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [linux-x86-64, windows]
+    needs: build
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v4
-        with:
-          submodules: recursive
       - uses: actions/download-artifact@v4
         with:
           name: linux-x86_64-packages
@@ -113,6 +56,8 @@ jobs:
         run: |
           find dist -mindepth 2 -type f -exec mv -t dist {} +
           find dist -mindepth 1 -type d -delete
+          # The release assets: the .deb, the setup .exe and the PDF manual.
+          rm -f dist/*.zip
           cd dist
           rm -f SHA256SUMS
           sha256sum -- * > SHA256SUMS

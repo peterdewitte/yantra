@@ -1,14 +1,16 @@
 # SPDX-FileCopyrightText: 2026 The Yantra contributors
 # SPDX-License-Identifier: GPL-3.0-or-later
 #
-# The Linux runner's build tools and the cross SDK in tools/sdk
-# (OA-02, RAD-139): clang and lld of one pinned LLVM release
-# with the Linux and Windows sysroots, made from its lock
-# files (and, for Windows, Yantra's MSYS2 lock) and cached by them; a
-# cached SDK is checked against the locks. Used by ci.yml (linux-x86-64),
-# windows-cross.yml and packages.yml (TST-02, TST-64). Run after
-# actions/checkout with the submodules (osmo-tetra); the SDK is in <workspace>/sdk and
-# YANTRA_SDK_DIR is set for the later steps.
+# The Linux build tools and the cross SDK in tools/sdk (OA-02, RAD-139):
+# clang and lld of one pinned LLVM release with the Linux and Windows
+# sysroots, made from its lock files (and, for Windows, Yantra's MSYS2
+# lock) and cached by them; a cached SDK is checked against the locks.
+# Used by build.yml (TST-02, TST-64) and the manual workflows. Runs on the
+# runner itself (sudo) or in the ubuntu:26.04 container of build.yml (root,
+# no sudo; git is installed there before actions/checkout so that the
+# osmo-tetra submodule is cloned). The SDK is in <workspace>/sdk and
+# YANTRA_SDK_DIR is set for the later steps; the download cache is removed
+# once the SDK is made (runner disk space).
 
 name: Linux build tools and cross SDK
 description: apt build tools, reuse, and the cross SDK made from the lock files (cached)
@@ -28,12 +30,17 @@ runs:
   steps:
     - name: Install build tools
       shell: bash
+      env:
+        DEBIAN_FRONTEND: noninteractive
       run: |
-        sudo apt-get update
-        sudo apt-get install -y --no-install-recommends \
-          cmake ninja-build python3 python3-yaml binutils pipx gpg zstd libsqlite3-dev libzstd-dev libhpdf-dev pkg-config \
-          libglfw3-dev libgl-dev libcurl4-openssl-dev doxygen curl ${{ inputs.packages }}
+        sudo=; [ "$(id -u)" = 0 ] || sudo=sudo
+        $sudo apt-get update
+        $sudo apt-get install -y --no-install-recommends \
+          cmake ninja-build g++ python3 python3-yaml binutils file pipx gpg gpgv zstd xz-utils curl \
+          ca-certificates libsqlite3-dev libzstd-dev libhpdf-dev pkg-config libglfw3-dev libgl-dev \
+          libcurl4-openssl-dev doxygen xvfb xauth libgl1-mesa-dri ${{ inputs.packages }}
         pipx install reuse
+        echo "$HOME/.local/bin" >> "$GITHUB_PATH"
     - name: Cache the cross SDK (OA-02, RAD-139)
       uses: actions/cache@v4
       with:
@@ -48,4 +55,6 @@ runs:
         lock=()
         if [ "$WINDOWS" = true ]; then lock=(--msys2-lock tools/windows/msys2.lock); fi
         python3 tools/sdk/yantra_sdk.py check --sdk-dir "$GITHUB_WORKSPACE/sdk" "${lock[@]}" ||
-          python3 tools/sdk/yantra_sdk.py make --sdk-dir "$GITHUB_WORKSPACE/sdk" "${lock[@]}"
+          python3 tools/sdk/yantra_sdk.py make --sdk-dir "$GITHUB_WORKSPACE/sdk" \
+            --cache "$GITHUB_WORKSPACE/sdk-cache" "${lock[@]}"
+        rm -rf "$GITHUB_WORKSPACE/sdk-cache"

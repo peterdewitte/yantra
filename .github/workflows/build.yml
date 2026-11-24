@@ -1,0 +1,205 @@
+# SPDX-FileCopyrightText: 2026 The Yantra contributors
+# SPDX-License-Identifier: GPL-3.0-or-later
+#
+# The build and the functional tests on GitHub's hosted runners (OA-02,
+# TST-02, TST-64, RAD-134, NFR-09), called by ci.yml (every push to a
+# branch) and packages.yml (a version tag). Replaces windows-cross.yml.
+#
+# build: one job in an ubuntu:26.04 container (the project's Linux target)
+# builds, with clang from the cross SDK in tools/sdk (RAD-139, cached by
+# its lock files, .github/actions/linux-sdk), the Linux tree (warnings are
+# errors) and runs its functional tests (ctest -LE "slow|timing": no slow,
+# timing or bench tests on hosted runners, no sanitizer trees; those run in
+# nightly.yml by hand or on the build server), the radio plugins'
+# completeness checks and the conformance kit (RAD-91, RAD-133); then the
+# Windows tree from the same Linux tree (its build-time data) with Yantra's
+# MSYS2 lock, the zip and setup .exe (package-windows) and the
+# build-machine checks (label build_host). With "packages" also the .deb
+# with the PDF manual and its package test. One job instead of two: the
+# Linux tree is built once (a hosted runner of a private repository has 2
+# CPUs; Actions minutes). The runner's unused preinstalled SDKs are removed
+# first (the two trees and the SDK need about 20 GB).
+#
+# windows-x64-tests: the cross-built tree's functional tests and the
+# packages' tests natively on a Windows runner, without MSYS2 or build
+# tools on PATH. The test files hold the container's Linux paths
+# (/__w/<repo>/<repo>/..., /usr/bin/cmake, /usr/bin/python3); Windows reads
+# a rooted path on the current drive, so those paths are linked or copied
+# there.
+
+name: build
+
+on:
+  workflow_call:
+    inputs:
+      packages:
+        description: also make the .deb with the PDF manual (TST-64)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+    container:
+      image: ubuntu:26.04
+      # The runner's preinstalled SDKs, mounted to be removed (disk space).
+      options: >-
+        -v /usr/share/dotnet:/host-rm/dotnet
+        -v /usr/local/lib/android:/host-rm/android
+        -v /opt/ghc:/host-rm/ghc
+        -v /usr/local/.ghcup:/host-rm/ghcup
+        -v /usr/share/swift:/host-rm/swift
+    outputs:
+      workspace: ${{ steps.ws.outputs.workspace }}
+    env:
+      # A release needs the TST-52 exceptions list empty.
+      YANTRA_RELEASE_CHECK: ${{ startsWith(github.ref, 'refs/tags/v') && '1' || '0' }}
+    steps:
+      - name: Free disk space, git for the checkout
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          find /host-rm -mindepth 2 -maxdepth 2 -exec rm -rf {} + || true
+          apt-get update
+          apt-get install -y --no-install-recommends git ca-certificates
+          df -h "$GITHUB_WORKSPACE"
+          nproc
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - id: ws
+        name: The container's workspace path (the Windows test job links it)
+        run: echo "workspace=$GITHUB_WORKSPACE" >> "$GITHUB_OUTPUT"
+      - name: The tag names the project's version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version=$(head -n 1 VERSION | tr -d '[:space:]')
+          test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME, project version $version"; exit 1; }
+      - name: Build tools and the cross SDK with Yantra's MSYS2 packages (OA-02, RAD-139)
+        uses: ./.github/actions/linux-sdk
+        with:
+          packages: nsis pandoc weasyprint dpkg-dev
+          windows: "true"
+
+      # Linux x86-64
+      - name: Configure the Linux tree (warnings are errors)
+        run: cmake --preset ci
+      - name: Build the Linux tree
+        run: cmake --build --preset ci
+      - name: Linux functional tests
+        run: ctest --test-dir build -LE 'slow|timing' --timeout 600 --output-on-failure -j "$(nproc)"
+      - name: Completeness checks of the radio plugins (RAD-133)
+        if: ${{ !cancelled() }}
+        run: python3 tools/ci/check_completeness.py build/lib/yantra/plugins/radios
+      - name: Conformance kit on every radio plugin (RAD-91)
+        if: ${{ !cancelled() }}
+        run: |
+          for p in build/lib/yantra/plugins/radios/*.so; do
+            build/bin/yantra-radio-host conformance --plugin "$p" \
+              --report "build/conformance/$(basename "$p" .so).json"
+          done
+      # The radio plugins and the test host (with the kit) for ci.yml's
+      # clean-container run.
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: linux-x86-64-radio-plugins
+          retention-days: 3
+          path: |
+            build/lib/yantra/plugins/radios/
+            build/tests/radio-plugins/
+            build/bin/yantra-radio-host
+          if-no-files-found: error
+      - name: Linux package (.deb, NFR-09; it builds the docs with the PDF manual, DOC-02a)
+        if: ${{ inputs.packages && !cancelled() }}
+        run: cmake --build build --target deb
+      - name: Package test (contents, install into a scratch root, the packaged programs)
+        if: ${{ inputs.packages && !cancelled() }}
+        run: ctest --test-dir build -R '^package_deb$' --timeout 900 --output-on-failure
+      - uses: actions/upload-artifact@v4
+        if: ${{ inputs.packages && !cancelled() }}
+        with:
+          name: linux-x86_64-packages
+          path: |
+            build/package/*.deb
+            build/docs/site/docs/manual/yantra-manual-*.pdf
+          if-no-files-found: error
+
+      # Windows x64, cross-compiled from the same checkout
+      - name: Configure the Windows tree (warnings are errors)
+        if: ${{ !cancelled() }}
+        run: cmake --preset ci-windows
+      - name: Build the Windows tree
+        if: ${{ !cancelled() }}
+        run: cmake --build build-win
+      - name: Windows zip and setup .exe (NFR-09)
+        if: ${{ !cancelled() }}
+        run: cmake --build build-win --target package-windows
+      - name: Build-machine checks (DLL import check of the packages, lints, docs)
+        if: ${{ !cancelled() }}
+        run: ctest --test-dir build-win -L build_host --timeout 600 --output-on-failure
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: windows-x86_64-packages
+          path: |
+            build-win/package/*.zip
+            build-win/package/*-setup.exe
+            build-win/package/SHA256SUMS
+          if-no-files-found: error
+      # The tree without objects and archives: the programs, plugins, DLLs,
+      # test data made by the build, the packages and the ctest files.
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: windows-x86_64-tree
+          retention-days: 1
+          compression-level: 1
+          path: |
+            build-win/
+            !build-win/**/*.obj
+            !build-win/**/*.o
+            !build-win/**/*.a
+            !build-win/**/CMakeFiles/
+            !build-win/_deps/*.tgz
+          if-no-files-found: error
+      - name: Disk use
+        if: always()
+        run: df -h "$GITHUB_WORKSPACE"; du -sh build build-win sdk 2>/dev/null || true
+
+  windows-x64-tests:
+    needs: build
+    runs-on: windows-2022
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-x86_64-tree
+          path: build-win
+      - name: Link the build job's paths to the checkout, CMake and Python
+        shell: pwsh
+        env:
+          LINUX_WORKSPACE: ${{ needs.build.outputs.workspace }}
+        run: |
+          $linux = $env:LINUX_WORKSPACE -replace '/', '\'
+          $drive = (Get-Location).Drive.Name + ':'
+          New-Item -ItemType Directory -Force -Path (Split-Path "$drive$linux") | Out-Null
+          New-Item -ItemType Junction -Path "$drive$linux" -Target "${{ github.workspace }}" | Out-Null
+          $usr = "$drive\usr"
+          New-Item -ItemType Directory -Force -Path "$usr\bin" | Out-Null
+          Copy-Item -Recurse -Force "$env:ProgramFiles\CMake\*" $usr
+          Copy-Item -Recurse -Force "$(Split-Path (Get-Command python).Source)\*" "$usr\bin"
+          Copy-Item "$usr\bin\python.exe" "$usr\bin\python3.exe"
+          "YANTRA_LINUX_PATH=$drive$linux" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - name: Windows functional tests and the packages' tests
+        shell: pwsh
+        run: |
+          Set-Location $env:YANTRA_LINUX_PATH
+          ctest --test-dir build-win -LE 'slow|timing' --timeout 600 --output-on-failure -j 4

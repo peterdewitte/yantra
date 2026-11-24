@@ -7,13 +7,15 @@
 # timing: the sanitizer trees run far slower than real time), all with
 # clang from the cross SDK in tools/sdk (OA-02,
 # RAD-139), the gcc tree, and Linux arm64 with gcc (the SDK is x86-64).
+# By hand only (workflow_dispatch), not on a schedule: the sanitizer
+# trees (TSan GUI tests about 4 GB each), the slow and timing tests and
+# seven trees do not fit GitHub's hosted runners of a private repository
+# (2 CPUs, 7 GB, Actions minutes); the build server runs them (CONTRIBUTING.md).
 # Adapted from yantra-radios fb194f5: .github/workflows/ci-full.yml.
 
 name: nightly
 
 on:
-  schedule:
-    - cron: "37 2 * * *"
   workflow_dispatch:
   workflow_call:
 
