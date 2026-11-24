@@ -167,10 +167,18 @@ void generic_windows(RadioWindows& rw, LiveSurvey& live) {
     REQUIRE(rw.open(RadioWindow::Debug).ok);
     const Result st = live.start_radio();
     REQUIRE_MESSAGE(st.ok, st.message);
-    CHECK(pump(rw, [&] {
+    const bool measured = pump(rw, [&] {
         const DebugView d = rw.debug_view();
         return !d.records.empty() && !d.records.front().fields.empty() && d.stats_valid;
-    }));
+    });
+    if (!measured) {  // what the debug window shows, for a failure on another machine
+        const DebugView d = rw.debug_view();
+        MESSAGE("state " << d.state << ", " << d.records.size() << " records, stats "
+                         << (d.stats_valid ? "valid" : "not read"));
+        for (const std::string& e : d.events) MESSAGE("event: " << e);
+        for (const auto& l : d.log) MESSAGE("log " << l.level << ": " << l.message);
+    }
+    CHECK(measured);
     CHECK(rw.info_view().self_test_reason.find("Stop the radio") == 0);
     REQUIRE(live.stop_radio().ok);
     CHECK(rw.disconnect().ok);
