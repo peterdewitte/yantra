@@ -80,6 +80,7 @@ jobs:
           version=$(head -n 1 VERSION | tr -d '[:space:]')
           test "v$version" = "$GITHUB_REF_NAME" || { echo "tag $GITHUB_REF_NAME, project version $version"; exit 1; }
       - name: Build tools and the cross SDK with Yantra's MSYS2 packages (OA-02, RAD-139)
+        id: sdk
         uses: ./.github/actions/linux-sdk
         with:
           packages: nsis pandoc weasyprint dpkg-dev
@@ -89,14 +90,15 @@ jobs:
       - name: Configure the Linux tree (warnings are errors)
         run: cmake --preset ci
       - name: Build the Linux tree
+        id: linux
         run: cmake --build --preset ci
       - name: Linux functional tests
         run: ctest --test-dir build -LE 'slow|timing' --timeout 600 --output-on-failure -j "$(nproc)"
       - name: Completeness checks of the radio plugins (RAD-133)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.linux.outcome == 'success' }}
         run: python3 tools/ci/check_completeness.py build/lib/yantra/plugins/radios
       - name: Conformance kit on every radio plugin (RAD-91)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.linux.outcome == 'success' }}
         run: |
           for p in build/lib/yantra/plugins/radios/*.so; do
             build/bin/yantra-radio-host conformance --plugin "$p" \
@@ -105,7 +107,7 @@ jobs:
       # The radio plugins and the test host (with the kit) for ci.yml's
       # clean-container run.
       - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.linux.outcome == 'success' }}
         with:
           name: linux-x86-64-radio-plugins
           retention-days: 3
@@ -115,13 +117,14 @@ jobs:
             build/bin/yantra-radio-host
           if-no-files-found: error
       - name: Linux package (.deb, NFR-09; it builds the docs with the PDF manual, DOC-02a)
-        if: ${{ inputs.packages && !cancelled() }}
+        id: deb
+        if: ${{ inputs.packages && !cancelled() && steps.linux.outcome == 'success' }}
         run: cmake --build build --target deb
       - name: Package test (contents, install into a scratch root, the packaged programs)
-        if: ${{ inputs.packages && !cancelled() }}
+        if: ${{ !cancelled() && steps.deb.outcome == 'success' }}
         run: ctest --test-dir build -R '^package_deb$' --timeout 900 --output-on-failure
       - uses: actions/upload-artifact@v4
-        if: ${{ inputs.packages && !cancelled() }}
+        if: ${{ !cancelled() && steps.deb.outcome == 'success' }}
         with:
           name: linux-x86_64-packages
           path: |
@@ -131,19 +134,21 @@ jobs:
 
       # Windows x64, cross-compiled from the same checkout
       - name: Configure the Windows tree (warnings are errors)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.linux.outcome == 'success' }}
         run: cmake --preset ci-windows
       - name: Build the Windows tree
-        if: ${{ !cancelled() }}
+        id: windows
+        if: ${{ !cancelled() && steps.linux.outcome == 'success' }}
         run: cmake --build build-win
       - name: Windows zip and setup .exe (NFR-09)
-        if: ${{ !cancelled() }}
+        id: winpkg
+        if: ${{ !cancelled() && steps.windows.outcome == 'success' }}
         run: cmake --build build-win --target package-windows
       - name: Build-machine checks (DLL import check of the packages, lints, docs)
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.winpkg.outcome == 'success' }}
         run: ctest --test-dir build-win -L build_host --timeout 600 --output-on-failure
       - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.winpkg.outcome == 'success' }}
         with:
           name: windows-x86_64-packages
           path: |
@@ -154,7 +159,7 @@ jobs:
       # The tree without objects and archives: the programs, plugins, DLLs,
       # test data made by the build, the packages and the ctest files.
       - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.winpkg.outcome == 'success' }}
         with:
           name: windows-x86_64-tree
           retention-days: 1
