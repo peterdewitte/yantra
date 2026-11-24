@@ -68,10 +68,14 @@ function(yantra_boundary_write)
       list(APPEND _items ${_ilink})
     endif()
     # Names inside generator expressions ($<LINK_ONLY:x>, $<$<BOOL:..>:x>)
-    # count too: every word that names a target.
+    # count too: every word that names a target. A file path (a library in
+    # the SDK's sysroot) is one word and never a target, else a folder of
+    # its path that is also a target's name ("/__w/yantra/yantra/sdk/...",
+    # the app "yantra") would count as a link.
     set(_deps)
     foreach(_item IN LISTS _items)
-      string(REGEX MATCHALL "[A-Za-z0-9_.+:-]+" _words "${_item}")
+      string(REGEX MATCHALL "[A-Za-z0-9_.+:/-]+" _words "${_item}")
+      list(FILTER _words EXCLUDE REGEX "/")
       foreach(_w IN LISTS _words)
         _yantra_boundary_resolve("${_w}" _r)
         if(_r AND NOT _r STREQUAL _t)
