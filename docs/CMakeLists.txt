@@ -25,7 +25,10 @@ find_package(Doxygen QUIET)
 if(DOXYGEN_FOUND)
   set(DOXYGEN_OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/plugin-api)
   configure_file(api/Doxyfile.in ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile.plugin-api @ONLY)
+  # Doxygen never removes pages it no longer writes: the html folder is
+  # made afresh (a stale page could still name the build machine's folders).
   add_custom_target(docs-plugin-api
+    COMMAND ${CMAKE_COMMAND} -E rm -rf ${DOXYGEN_OUTPUT}/html
     COMMAND ${DOXYGEN_EXECUTABLE} ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile.plugin-api
     DEPENDS ${PROJECT_SOURCE_DIR}/plugin-api/include/yantra/plugin.h
             ${PROJECT_SOURCE_DIR}/plugin-api/include/yantra/plugin.hpp
