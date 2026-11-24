@@ -25,10 +25,16 @@ find_package(Threads REQUIRED)
 # and YANTRA_CARGO_EXECUTABLE: the SDK's cargo then builds with the SDK's
 # rustc for every target and test, so the library, the tests and the lint
 # share one compiler (and the folder <build>/cargo stays valid). Without
-# them cargo and rustc come from PATH.
+# them cargo and rustc come from PATH. The SDK's rustdoc (next to its
+# rustc) runs the doctests of `cargo test`: cargo looks for rustdoc on
+# PATH only, where a machine without a system Rust (CI) has none.
 set(YANTRA_CARGO_ENV "")
 if(YANTRA_RUSTC)
   set(YANTRA_CARGO_ENV "RUSTC=${YANTRA_RUSTC}")
+  get_filename_component(_rust_bin "${YANTRA_RUSTC}" DIRECTORY)
+  if(EXISTS "${_rust_bin}/rustdoc${CMAKE_HOST_EXECUTABLE_SUFFIX}")
+    list(APPEND YANTRA_CARGO_ENV "RUSTDOC=${_rust_bin}/rustdoc${CMAKE_HOST_EXECUTABLE_SUFFIX}")
+  endif()
 endif()
 
 set(YANTRA_PROTO_DIR ${PROJECT_SOURCE_DIR}/radio-common/receiver/rust)
