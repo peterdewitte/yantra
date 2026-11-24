@@ -161,6 +161,12 @@ jobs:
             build-win/package/*-setup.exe
             build-win/package/SHA256SUMS
           if-no-files-found: error
+      # An artifact keeps no empty folders; the tests write into folders
+      # made at configure time (conformance/, tests/plugin_kit/out, ...),
+      # so the tree's folders are listed and made again on Windows.
+      - name: The Windows tree's folders
+        if: ${{ !cancelled() && steps.winpkg.outcome == 'success' }}
+        run: find build-win -type d -not -path '*/CMakeFiles*' > build-win/folders.txt
       # The tree without objects and archives: the programs, plugins, DLLs,
       # test data made by the build, the packages and the ctest files.
       - uses: actions/upload-artifact@v4
@@ -197,6 +203,9 @@ jobs:
         with:
           name: windows-x86_64-tree
           path: build-win
+      - name: The tree's empty folders (not kept by the artifact)
+        shell: pwsh
+        run: Get-Content build-win/folders.txt | ForEach-Object { New-Item -ItemType Directory -Force -Path $_ | Out-Null }
       - name: Link the build job's paths to the checkout, CMake and Python
         shell: pwsh
         env:
@@ -216,4 +225,8 @@ jobs:
         shell: pwsh
         run: |
           Set-Location $env:YANTRA_LINUX_PATH
-          ctest --test-dir build-win -LE 'slow|timing' --timeout 600 --output-on-failure -j 4
+          # One test per CPU (a hosted runner of a private repository has
+          # 2): more starve the tests with deadlines (stop within 1 s,
+          # RAD-15; records within 20 s).
+          ctest --test-dir build-win -LE 'slow|timing' --timeout 600 --output-on-failure `
+            -j $env:NUMBER_OF_PROCESSORS
