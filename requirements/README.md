@@ -24,6 +24,7 @@ with the [README](../README.md) and [ARCHITECTURE.md](../ARCHITECTURE.md).
 | [BUILD_PROMPT.md](BUILD_PROMPT.md) | The build prompt used for builds: the orchestrator (never writes code, one fresh subagent per step, step briefs, checks, fix-up runs, reporting) and the build log (Status block and Current state as the resume point, step entries, token log, final report). |
 | [RESTART_PROMPT.md](RESTART_PROMPT.md) | How a stopped build is resumed from the build log. |
 | [TOKENS.md](TOKENS.md) | Tokens, tool uses and time of the build, per phase and in total. |
+| [software_cost.md](software_cost.md) | COCOMO II estimate of what a conventional team project would cost, for the whole product and split into radio parts and application. |
 
 BUILD_PROMPT.md is the method a build follows. It contains no rules of a
 particular machine: build and test commands, job limits, build-tree
