@@ -21,9 +21,15 @@ with the [README](../README.md) and [ARCHITECTURE.md](../ARCHITECTURE.md).
 |---|---|
 | [requirements_yantra.md](requirements_yantra.md) | The application: indoor projects, walk tests, interpolation, calibration, UI, exports and reports, plugin hosting, tests, docs, branding (spec 0.6). |
 | [requirements_radios.md](requirements_radios.md) | The radio parts: radio API, radio plugins, receiver and TETRA decoder, test-signal generator, test host, their tests and packaging (spec 0.4). |
-| [BUILD_PROMPT.md](BUILD_PROMPT.md) | The build method, short version: an orchestrator that never writes code, one fresh subagent per step, a check after every step, the rules and the phases. |
+| [BUILD_PROMPT.md](BUILD_PROMPT.md) | The build prompt used for builds: the orchestrator (never writes code, one fresh subagent per step, step briefs, checks, fix-up runs, reporting) and the build log (Status block and Current state as the resume point, step entries, token log, final report). |
 | [RESTART_PROMPT.md](RESTART_PROMPT.md) | How a stopped build is resumed from the build log. |
 | [TOKENS.md](TOKENS.md) | Tokens, tool uses and time of the build, per phase and in total. |
+
+BUILD_PROMPT.md is the method a build follows. It contains no rules of a
+particular machine: build and test commands, job limits, build-tree
+locations, the Windows test machine and the SDK location are kept in the
+requirements project (the manager folder, not published), in
+`BUILD_MACHINE.md`, which a build reads first.
 
 Both specifications are Markdown conversions of the original text files,
 with every requirement, note, table and version history kept. Folder
